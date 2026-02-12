@@ -1,0 +1,37 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build
+      run: npm run build
+      env:
+        # Add your environment variables here for CI builds
+        NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+        DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+    
+    # Uncomment below to auto-deploy to Vercel
+    # - name: Deploy to Vercel
+    #   uses: vercel/action-deploy@v1
+    #   with:
+    #     vercel-token: ${{ secrets.VERCEL_TOKEN }}
+    #     vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+    #     vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
