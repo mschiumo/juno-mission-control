@@ -1,6 +1,6 @@
+import { createClient } from 'redis';
 import { NextResponse } from 'next/server';
 
-// In-memory storage for cron job results (in production, use a database)
 interface CronResult {
   id: string;
   jobName: string;
@@ -9,114 +9,85 @@ interface CronResult {
   type: 'market' | 'motivational' | 'check-in' | 'review';
 }
 
-// Sample data for today's runs
-const cronResults: CronResult[] = [
-  {
-    id: '1',
-    jobName: 'Morning Market Briefing',
-    timestamp: '2026-02-13T13:00:00Z',
-    type: 'market',
-    content: `📊 **Morning Market Briefing — Feb 13, 2026**
+const STORAGE_KEY = 'cron_results';
 
-**US Index Futures**
-• S&P 500: 6,125 (+0.8%)
-• Nasdaq: 21,890 (+1.2%)
-• Dow: 44,150 (+0.6%)
+// Lazy Redis client initialization
+let redisClient: ReturnType<typeof createClient> | null = null;
 
-**Crypto**
-• BTC: $68,829 (+4.8%) 🚀
-• ETH: $2,054 (+6.9%) 🚀
-• SOL: $83.97 (+8.7%) 🚀
-
-**Key News:**
-• CPI came in cooler than expected (2.4% vs 2.5%)
-• Fed rate cut expectations ticking up
-• Risk-on rally in crypto
-
-**Gap Scanner:**
-📈 BULLISH: NVDA +3%, PLTR +5%, TSLA +2%
-📉 BEARISH: AAPL -2%, META -1%
-
-Ready to crush today! 💪`
-  },
-  {
-    id: '2',
-    jobName: 'Daily Motivational',
-    timestamp: '2026-02-13T12:00:00Z',
-    type: 'motivational',
-    content: `Good morning! ☀️
-
-"The future belongs to those who believe in the beauty of their dreams." — Eleanor Roosevelt
-
-Here's to chasing yours today. 🚀`
-  },
-  {
-    id: '3',
-    jobName: 'Mid-Day Trading Check',
-    timestamp: '2026-02-13T17:30:00Z',
-    type: 'check-in',
-    content: `Hey MJ — mid-day discipline check 🪐
-
-Quick questions:
-• Are you trading your plan or your emotions?
-• Did you set stops BEFORE entering?
-• Are you chasing or waiting for your setups?
-
-Remember: HALT — Hungry, Angry, Lonely, Tired? If yes, step away.
-
-You're a disciplined trader. Trust the process.`
-  },
-  {
-    id: '4',
-    jobName: 'Market Close Report',
-    timestamp: '2026-02-13T21:30:00Z',
-    type: 'market',
-    content: `📊 **Market Close — Feb 13, 2026**
-
-**Weekly wrap:**
-- S&P 500: **-1.5%** for the week (flat today)
-- Tech under pressure — most Mag 7 down
-- **Applied Materials +8.1%** (earnings beat) led gainers
-- **Crypto:** BTC ~$66.9k, ETH ~$1,990 (slightly lower)
-
-**Key theme:** Softer CPI data gave hope for rate cuts, but AI/datacenter spending concerns kept tech muted.`
+async function getRedisClient() {
+  if (redisClient) {
+    return redisClient;
   }
-];
+  
+  try {
+    const client = createClient({
+      url: process.env.REDIS_URL || undefined
+    });
+    
+    client.on('error', (err) => {
+      console.error('Redis Client Error:', err);
+    });
+    
+    await client.connect();
+    redisClient = client;
+    return client;
+  } catch (error) {
+    console.error('Failed to connect to Redis:', error);
+    return null;
+  }
+}
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const jobName = searchParams.get('jobName');
-
-  if (jobName) {
-    // Get latest result for specific job
-    const result = cronResults
-      .filter(r => r.jobName === jobName)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+  try {
+    const { searchParams } = new URL(request.url);
+    const jobName = searchParams.get('jobName');
     
-    if (!result) {
-      return NextResponse.json({
-        success: false,
-        error: 'No results found for this job'
-      }, { status: 404 });
+    const redis = await getRedisClient();
+    
+    // Get all results from Redis (or use empty array if Redis unavailable)
+    let results: CronResult[] = [];
+    if (redis) {
+      const data = await redis.get(STORAGE_KEY);
+      results = data ? JSON.parse(data) : [];
     }
+
+    if (jobName) {
+      // Get latest result for specific job
+      const result = results
+        .filter(r => r.jobName === jobName)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+      
+      if (!result) {
+        return NextResponse.json({
+          success: false,
+          error: 'No results found for this job'
+        }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: result
+      });
+    }
+
+    // Get all results for today
+    const today = new Date().toDateString();
+    const todayResults = results.filter(r => 
+      new Date(r.timestamp).toDateString() === today
+    );
 
     return NextResponse.json({
       success: true,
-      data: result
+      data: todayResults,
+      count: todayResults.length
     });
+  } catch (error) {
+    console.error('Redis GET error:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch results'
+    }, { status: 500 });
   }
-
-  // Get all results for today
-  const today = new Date().toDateString();
-  const todayResults = cronResults.filter(r => 
-    new Date(r.timestamp).toDateString() === today
-  );
-
-  return NextResponse.json({
-    success: true,
-    data: todayResults,
-    count: todayResults.length
-  });
 }
 
 export async function POST(request: Request) {
@@ -131,6 +102,20 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
+    const redis = await getRedisClient();
+    
+    if (!redis) {
+      return NextResponse.json({
+        success: false,
+        error: 'Redis unavailable'
+      }, { status: 503 });
+    }
+
+    // Get existing results
+    const data = await redis.get(STORAGE_KEY);
+    const results: CronResult[] = data ? JSON.parse(data) : [];
+
+    // Create new result
     const newResult: CronResult = {
       id: Date.now().toString(),
       jobName,
@@ -139,13 +124,21 @@ export async function POST(request: Request) {
       type: type || 'check-in'
     };
 
-    cronResults.push(newResult);
+    // Add to results (keep last 100 to prevent unbounded growth)
+    results.push(newResult);
+    if (results.length > 100) {
+      results.shift(); // Remove oldest
+    }
+
+    // Save back to Redis
+    await redis.set(STORAGE_KEY, JSON.stringify(results));
 
     return NextResponse.json({
       success: true,
       data: newResult
     });
   } catch (error) {
+    console.error('Redis POST error:', error);
     return NextResponse.json({
       success: false,
       error: 'Failed to store result'
