@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, CheckCircle, AlertCircle, FileText, X, Eye } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, FileText, X, Eye, RefreshCw } from 'lucide-react';
 
 interface CronJob {
   id: string;
@@ -180,6 +180,15 @@ export default function DailyReportsCard() {
               </p>
             </div>
           </div>
+          
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+            title="Refresh reports"
+          >
+            <RefreshCw className={`w-5 h-5 text-[#8b949e] hover:text-[#ff6b35] ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         <div className="space-y-2 max-h-[400px] overflow-y-auto">
