@@ -3,6 +3,7 @@ import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
 import MarketCard from "@/components/MarketCard";
 import ProjectsCard from "@/components/ProjectsCard";
+import ActivityLogCard from "@/components/ActivityLogCard";
 import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
@@ -47,6 +48,9 @@ export default function Home() {
 
           {/* Calendar */}
           <CalendarCard />
+
+          {/* Activity Log */}
+          <ActivityLogCard />
 
           {/* Habit Tracking */}
           <HabitCard />

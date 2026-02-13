@@ -156,7 +156,7 @@ export default function DailyReportsCard() {
   // Sort jobs: those with reports first, then by schedule time
   // Exclude Daily Motivational (shown in banner instead)
   const sortedJobs = [...jobs]
-    .filter(job => job.name !== 'Daily Motivational Message')
+    .filter(job => job.name !== 'Daily Motivational' && job.name !== 'Daily Motivational Message')
     .sort((a, b) => {
       const aHasReport = hasReport(a.name);
       const bHasReport = hasReport(b.name);
