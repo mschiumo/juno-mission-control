@@ -130,7 +130,12 @@ export default function MarketCard() {
 
       {data?.lastUpdated && (
         <div className="mt-3 text-xs text-[#8b949e] text-center">
-          Last updated: {new Date(data.lastUpdated).toLocaleTimeString()}
+          Last updated: {new Date(data.lastUpdated).toLocaleTimeString('en-US', {
+            timeZone: 'America/New_York',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          })} (EST)
         </div>
       )}
     </div>

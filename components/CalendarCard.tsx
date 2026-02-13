@@ -66,7 +66,12 @@ export default function CalendarCard() {
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('en-US', { 
+      timeZone: 'America/New_York',
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -75,9 +80,20 @@ export default function CalendarCard() {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
-    return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    const options: Intl.DateTimeFormatOptions = {
+      timeZone: 'America/New_York',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    };
+
+    const dateInEST = new Date(date.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const todayInEST = new Date(today.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const tomorrowInEST = new Date(tomorrow.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+
+    if (dateInEST.toDateString() === todayInEST.toDateString()) return 'Today';
+    if (dateInEST.toDateString() === tomorrowInEST.toDateString()) return 'Tomorrow';
+    return date.toLocaleDateString('en-US', options);
   };
 
   // Group events by date

@@ -83,13 +83,23 @@ export default function CronJobCard() {
   const formatLastRun = (date: string) => {
     const d = new Date(date);
     const now = new Date();
-    const diff = now.getTime() - d.getTime();
+    
+    // Convert both to EST for comparison
+    const dEST = new Date(d.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const nowEST = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    
+    const diff = nowEST.getTime() - dEST.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
     
     if (hours < 1) return 'Just now';
     if (hours === 1) return '1 hour ago';
     if (hours < 24) return `${hours} hours ago`;
-    return d.toLocaleDateString();
+    return d.toLocaleDateString('en-US', {
+      timeZone: 'America/New_York',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   return (

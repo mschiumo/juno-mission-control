@@ -17,9 +17,7 @@ export default function JunoWidget() {
   });
 
   useEffect(() => {
-    // Simulate processing states based on API activity
     const checkActivity = () => {
-      // In a real implementation, this would check if APIs are being called
       setStatus(prev => ({
         ...prev,
         isActive: true,
@@ -30,10 +28,6 @@ export default function JunoWidget() {
     const interval = setInterval(checkActivity, 5000);
     return () => clearInterval(interval);
   }, []);
-
-  const openTelegram = () => {
-    window.open('https://t.me/8080305413', '_blank');
-  };
 
   return (
     <div className="flex items-center gap-3">
@@ -70,15 +64,8 @@ export default function JunoWidget() {
         </span>
       </div>
 
-      {/* Telegram Chat Button */}
-      <button
-        onClick={openTelegram}
-        className="flex items-center gap-2 px-3 py-1.5 bg-[#0088cc] hover:bg-[#0099dd] text-white rounded-full transition-colors text-sm font-medium"
-        title="Chat with Juno on Telegram"
-      >
-        <MessageCircle className="w-4 h-4" />
-        <span className="hidden sm:inline">Chat</span>
-      </button>
+      {/* Intergram chat opens via the widget in layout.tsx */}
+      {/* No button needed - Intergram provides the floating button */}
     </div>
   );
 }

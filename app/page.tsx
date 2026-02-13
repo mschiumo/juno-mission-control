@@ -7,6 +7,26 @@ import QuickActions from "@/components/QuickActions";
 import JunoWidget from "@/components/JunoWidget";
 
 export default function Home() {
+  // Force EST timezone for all displays
+  const timeOptions: Intl.DateTimeFormatOptions = {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  };
+
+  const dateOptions: Intl.DateTimeFormatOptions = {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  };
+
+  const estTime = new Date().toLocaleTimeString('en-US', timeOptions);
+  const estDate = new Date().toLocaleDateString('en-US', dateOptions);
+
   return (
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
       {/* Header */}
@@ -24,20 +44,15 @@ export default function Home() {
             </div>
             
             <div className="flex items-center gap-4">
-              {/* Juno Widget - Active Status + Chat Button */}
+              {/* Juno Widget - Active Status */}
               <JunoWidget />
               
               <div className="text-right">
-                <div id="clock" className="text-lg font-mono text-[#ff6b35]">
-                  {new Date().toLocaleTimeString()}
+                <div className="text-lg font-mono text-[#ff6b35]">
+                  {estTime}
                 </div>
                 <div className="text-xs text-[#8b949e]">
-                  {new Date().toLocaleDateString(undefined, { 
-                    weekday: 'short', 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
-                  })}
+                  {estDate} (EST)
                 </div>
               </div>
             </div>
