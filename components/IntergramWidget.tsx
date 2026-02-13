@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import Script from 'next/script';
 
 interface IntergramWidgetProps {
@@ -8,43 +7,36 @@ interface IntergramWidgetProps {
 }
 
 export default function IntergramWidget({ chatId }: IntergramWidgetProps) {
-  useEffect(() => {
-    // Configure Intergram when script loads
-    if (typeof window !== 'undefined') {
-      (window as any).intergramId = chatId || '8080305413';
-      (window as any).intergramCustomizations = {
-        titleClosed: 'Chat with Juno',
-        titleOpen: 'Juno - Mission Control',
-        introMessage: 'Hey MJ! I\'m Juno, your AI assistant. How can I help you today? 🪐',
-        autoResponse: 'I\'ll get back to you shortly...',
-        autoNoResponse: 'I\'m processing your request. One moment please.',
-        mainColor: '#ff6b35',
-        alwaysUseFloatingButton: true
-      };
-    }
-  }, [chatId]);
+  const chatIdToUse = chatId || '8080305413';
+  
+  // Configuration script that must run BEFORE the widget script
+  const configScript = `
+    window.intergramId = "${chatIdToUse}";
+    window.intergramCustomizations = {
+      titleClosed: 'Chat with Juno',
+      titleOpen: 'Juno - Mission Control',
+      introMessage: 'Hey MJ! I'm Juno, your AI assistant. How can I help you today? 🪐',
+      autoResponse: 'I\'ll get back to you shortly...',
+      autoNoResponse: 'I\'m processing your request. One moment please.',
+      mainColor: '#ff6b35',
+      alwaysUseFloatingButton: true
+    };
+  `;
 
   return (
-    <Script
-      src="https://www.intergram.xyz/js/widget.js"
-      strategy="lazyOnload"
-      id="intergram-widget"
-    />
+    <>
+      {/* Configuration must load FIRST */}
+      <Script
+        id="intergram-config"
+        strategy="beforeInteractive"
+        dangerouslySetInnerHTML={{ __html: configScript }}
+      />
+      {/* Widget script loads after config */}
+      <Script
+        src="https://www.intergram.xyz/js/widget.js"
+        strategy="afterInteractive"
+        id="intergram-widget"
+      />
+    </>
   );
-}
-
-// Declare window type for TypeScript
-declare global {
-  interface Window {
-    intergramId?: string;
-    intergramCustomizations?: {
-      titleClosed: string;
-      titleOpen: string;
-      introMessage: string;
-      autoResponse: string;
-      autoNoResponse: string;
-      mainColor: string;
-      alwaysUseFloatingButton: boolean;
-    };
-  }
 }
