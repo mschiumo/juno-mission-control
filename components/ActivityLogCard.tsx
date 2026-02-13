@@ -14,6 +14,7 @@ interface ActivityItem {
 export default function ActivityLogCard() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
     fetchActivities();
@@ -23,12 +24,14 @@ export default function ActivityLogCard() {
   }, []);
 
   const fetchActivities = async () => {
+    setLoading(true);
     try {
       const response = await fetch('/api/activity-log');
       const data = await response.json();
       if (data.success) {
         setActivities(data.data);
       }
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Failed to fetch activities:', error);
     } finally {
@@ -45,6 +48,16 @@ export default function ActivityLogCard() {
       minute: '2-digit',
       second: '2-digit'
     });
+  };
+
+  const formatLastUpdated = () => {
+    if (!lastUpdated) return '';
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - lastUpdated.getTime()) / 1000);
+    if (diff < 5) return 'just now';
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    return `${Math.floor(diff / 3600)}h ago`;
   };
 
   const getTypeIcon = (type: string) => {
@@ -81,9 +94,16 @@ export default function ActivityLogCard() {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">Activity Log</h2>
-            <p className="text-xs text-[#8b949e]">
-              {activities.length} activity{activities.length !== 1 ? 'ies' : 'y'} today
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-[#8b949e]">
+                {activities.length} activity{activities.length !== 1 ? 'ies' : 'y'} today
+              </p>
+              {lastUpdated && !loading && (
+                <span className="text-[10px] text-[#238636]">
+                  updated {formatLastUpdated()}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         
@@ -97,11 +117,17 @@ export default function ActivityLogCard() {
         </button>
       </div>
 
-      <div className="space-y-2 max-h-[400px] overflow-y-auto">
-        {loading ? (
-          <div className="text-center py-4 text-[#8b949e]">Loading...</div>
+      <div className="space-y-2 max-h-[500px] overflow-y-auto">
+        {loading && activities.length === 0 ? (
+          <div className="text-center py-8 text-[#8b949e]">
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
+            Loading activities...
+          </div>
         ) : activities.length === 0 ? (
-          <div className="text-center py-4 text-[#8b949e]">No activities today</div>
+          <div className="text-center py-8 text-[#8b949e]">
+            <p>No activities today</p>
+            <p className="text-xs mt-1">Activities will appear here when cron jobs run or actions are logged</p>
+          </div>
         ) : (
           activities.map((activity) => (
             <div
