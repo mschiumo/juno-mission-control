@@ -24,6 +24,7 @@ export default function DailyReportsCard() {
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [reports, setReports] = useState<CronResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedReport, setSelectedReport] = useState<CronResult | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -35,6 +36,7 @@ export default function DailyReportsCard() {
   }, []);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
       // Fetch cron jobs and reports in parallel
       const [jobsRes, reportsRes] = await Promise.all([
@@ -51,6 +53,7 @@ export default function DailyReportsCard() {
       if (reportsData.success) {
         setReports(reportsData.data);
       }
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -153,6 +156,16 @@ export default function DailyReportsCard() {
     });
   };
 
+  const formatLastUpdated = () => {
+    if (!lastUpdated) return '';
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - lastUpdated.getTime()) / 1000);
+    if (diff < 5) return 'just now';
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    return `${Math.floor(diff / 3600)}h ago`;
+  };
+
   // Sort jobs: those with reports first, then by schedule time
   // Exclude Daily Motivational (shown in banner instead)
   const sortedJobs = [...jobs]
@@ -175,9 +188,16 @@ export default function DailyReportsCard() {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">Daily Reports</h2>
-              <p className="text-xs text-[#8b949e]">
-                {reports.length} report{reports.length !== 1 ? 's' : ''} today
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-[#8b949e]">
+                  {reports.length} report{reports.length !== 1 ? 's' : ''} today
+                </p>
+                {lastUpdated && !loading && (
+                  <span className="text-[10px] text-[#238636]">
+                    updated {formatLastUpdated()}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           
@@ -192,7 +212,7 @@ export default function DailyReportsCard() {
         </div>
 
         <div className="space-y-2 max-h-[400px] overflow-y-auto">
-          {loading ? (
+          {loading && reports.length === 0 ? (
             <div className="text-center py-4 text-[#8b949e]">Loading...</div>
           ) : (
             sortedJobs.map((job) => {

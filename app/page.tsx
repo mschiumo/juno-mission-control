@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import DailyReportsCard from "@/components/DailyReportsCard";
 import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
@@ -7,8 +10,11 @@ import ActivityLogCard from "@/components/ActivityLogCard";
 import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
+import { LayoutDashboard, Activity } from 'lucide-react';
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'activity'>('dashboard');
+
   return (
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
       {/* Header */}
@@ -26,6 +32,32 @@ export default function Home() {
             </div>
             
             <div className="flex items-center gap-4">
+              {/* Tab Navigation */}
+              <div className="flex items-center gap-1 bg-[#0d1117] rounded-lg p-1 border border-[#30363d]">
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                    activeTab === 'dashboard'
+                      ? 'bg-[#ff6b35] text-white'
+                      : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span className="text-sm font-medium">Dashboard</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('activity')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                    activeTab === 'activity'
+                      ? 'bg-[#ff6b35] text-white'
+                      : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
+                  }`}
+                >
+                  <Activity className="w-4 h-4" />
+                  <span className="text-sm font-medium">Activity Log</span>
+                </button>
+              </div>
+              
               {/* Juno Widget - Active Status */}
               <JunoWidget />
               
@@ -41,26 +73,30 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Daily Reports */}
-          <DailyReportsCard />
+        {activeTab === 'dashboard' ? (
+          /* Dashboard Grid */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Daily Reports */}
+            <DailyReportsCard />
 
-          {/* Calendar */}
-          <CalendarCard />
+            {/* Calendar */}
+            <CalendarCard />
 
-          {/* Activity Log */}
-          <ActivityLogCard />
+            {/* Habit Tracking */}
+            <HabitCard />
 
-          {/* Habit Tracking */}
-          <HabitCard />
+            {/* Market Overview */}
+            <MarketCard />
 
-          {/* Market Overview */}
-          <MarketCard />
-
-          {/* Active Projects */}
-          <ProjectsCard />
-        </div>
+            {/* Active Projects */}
+            <ProjectsCard />
+          </div>
+        ) : (
+          /* Activity Log View */
+          <div className="max-w-4xl mx-auto">
+            <ActivityLogCard />
+          </div>
+        )}
       </main>
 
       {/* Footer */}
