@@ -11,7 +11,7 @@ export default function IntergramWidget({ chatId }: IntergramWidgetProps) {
   useEffect(() => {
     // Configure Intergram when script loads
     if (typeof window !== 'undefined') {
-      (window as any).intergramId = chatId || process.env.NEXT_PUBLIC_INTERGRAM_CHAT_ID;
+      (window as any).intergramId = chatId || '8080305413';
       (window as any).intergramCustomizations = {
         titleClosed: 'Chat with Juno',
         titleOpen: 'Juno - Mission Control',
