@@ -1,5 +1,7 @@
+import { createClient } from 'redis';
 import { NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
+
+const redis = await createClient().connect();
 
 interface CronResult {
   id: string;
@@ -16,8 +18,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const jobName = searchParams.get('jobName');
 
-    // Get all results from KV
-    const results: CronResult[] = (await kv.get(STORAGE_KEY)) || [];
+    // Get all results from Redis
+    const data = await redis.get(STORAGE_KEY);
+    const results: CronResult[] = data ? JSON.parse(data) : [];
 
     if (jobName) {
       // Get latest result for specific job
@@ -50,7 +53,7 @@ export async function GET(request: Request) {
       count: todayResults.length
     });
   } catch (error) {
-    console.error('KV GET error:', error);
+    console.error('Redis GET error:', error);
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch results'
@@ -71,7 +74,8 @@ export async function POST(request: Request) {
     }
 
     // Get existing results
-    const results: CronResult[] = (await kv.get(STORAGE_KEY)) || [];
+    const data = await redis.get(STORAGE_KEY);
+    const results: CronResult[] = data ? JSON.parse(data) : [];
 
     // Create new result
     const newResult: CronResult = {
@@ -88,15 +92,15 @@ export async function POST(request: Request) {
       results.shift(); // Remove oldest
     }
 
-    // Save back to KV
-    await kv.set(STORAGE_KEY, results);
+    // Save back to Redis
+    await redis.set(STORAGE_KEY, JSON.stringify(results));
 
     return NextResponse.json({
       success: true,
       data: newResult
     });
   } catch (error) {
-    console.error('KV POST error:', error);
+    console.error('Redis POST error:', error);
     return NextResponse.json({
       success: false,
       error: 'Failed to store result'
