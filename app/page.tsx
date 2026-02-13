@@ -4,6 +4,7 @@ import HabitCard from "@/components/HabitCard";
 import MarketCard from "@/components/MarketCard";
 import ProjectsCard from "@/components/ProjectsCard";
 import QuickActions from "@/components/QuickActions";
+import JunoWidget from "@/components/JunoWidget";
 
 export default function Home() {
   return (
@@ -21,11 +22,11 @@ export default function Home() {
                 <p className="text-sm text-[#8b949e]">Your personal command center</p>
               </div>
             </div>
+            
             <div className="flex items-center gap-4">
-              <div className="hidden sm:flex items-center gap-2 text-sm text-[#8b949e]">
-                <span className="w-2 h-2 rounded-full bg-[#238636]"></span>
-                <span>System Online</span>
-              </div>
+              {/* Juno Widget - Active Status + Chat Button */}
+              <JunoWidget />
+              
               <div className="text-right">
                 <div id="clock" className="text-lg font-mono text-[#ff6b35]">
                   {new Date().toLocaleTimeString()}
