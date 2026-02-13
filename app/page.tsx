@@ -3,7 +3,6 @@ import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
 import MarketCard from "@/components/MarketCard";
 import ProjectsCard from "@/components/ProjectsCard";
-import QuickActions from "@/components/QuickActions";
 import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
 
@@ -37,11 +36,6 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Actions */}
-        <section className="mb-8">
-          <QuickActions />
-        </section>
-
         {/* Dashboard Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Cron Jobs */}
