@@ -1,4 +1,4 @@
-import CronJobCard from "@/components/CronJobCard";
+import DailyReportsCard from "@/components/DailyReportsCard";
 import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
 import MarketCard from "@/components/MarketCard";
@@ -38,8 +38,8 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Dashboard Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Cron Jobs */}
-          <CronJobCard />
+          {/* Daily Reports */}
+          <DailyReportsCard />
 
           {/* Calendar */}
           <CalendarCard />
