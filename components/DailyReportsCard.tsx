@@ -167,9 +167,12 @@ export default function DailyReportsCard() {
   };
 
   // Sort jobs: those with reports first, then by schedule time
-  // Exclude Daily Motivational (shown in banner instead)
+  // Exclude Daily Motivational (shown in banner), Mid-Day Trading Check, and Post-Market Review (Telegram only)
   const sortedJobs = [...jobs]
-    .filter(job => job.name !== 'Daily Motivational' && job.name !== 'Daily Motivational Message')
+    .filter(job => job.name !== 'Daily Motivational' 
+      && job.name !== 'Daily Motivational Message'
+      && job.name !== 'Mid-Day Trading Check'
+      && job.name !== 'Post-Market Review')
     .sort((a, b) => {
       const aHasReport = hasReport(a.name);
       const bHasReport = hasReport(b.name);
