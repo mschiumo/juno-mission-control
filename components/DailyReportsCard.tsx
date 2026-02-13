@@ -154,13 +154,16 @@ export default function DailyReportsCard() {
   };
 
   // Sort jobs: those with reports first, then by schedule time
-  const sortedJobs = [...jobs].sort((a, b) => {
-    const aHasReport = hasReport(a.name);
-    const bHasReport = hasReport(b.name);
-    if (aHasReport && !bHasReport) return -1;
-    if (!aHasReport && bHasReport) return 1;
-    return 0;
-  });
+  // Exclude Daily Motivational (shown in banner instead)
+  const sortedJobs = [...jobs]
+    .filter(job => job.name !== 'Daily Motivational Message')
+    .sort((a, b) => {
+      const aHasReport = hasReport(a.name);
+      const bHasReport = hasReport(b.name);
+      if (aHasReport && !bHasReport) return -1;
+      if (!aHasReport && bHasReport) return 1;
+      return 0;
+    });
 
   return (
     <>
