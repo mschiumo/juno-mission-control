@@ -1,4 +1,4 @@
-import { createClient, RedisClientType } from 'redis';
+import { createClient } from 'redis';
 import { NextResponse } from 'next/server';
 
 interface CronResult {
@@ -12,9 +12,9 @@ interface CronResult {
 const STORAGE_KEY = 'cron_results';
 
 // Lazy Redis client initialization
-let redisClient: RedisClientType | null = null;
+let redisClient: ReturnType<typeof createClient> | null = null;
 
-async function getRedisClient(): Promise<RedisClientType | null> {
+async function getRedisClient() {
   if (redisClient) {
     return redisClient;
   }
