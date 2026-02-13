@@ -1,7 +1,5 @@
-import { createClient } from 'redis';
+import { createClient, RedisClientType } from 'redis';
 import { NextResponse } from 'next/server';
-
-const redis = await createClient().connect();
 
 interface CronResult {
   id: string;
@@ -13,14 +11,45 @@ interface CronResult {
 
 const STORAGE_KEY = 'cron_results';
 
+// Lazy Redis client initialization
+let redisClient: RedisClientType | null = null;
+
+async function getRedisClient(): Promise<RedisClientType | null> {
+  if (redisClient) {
+    return redisClient;
+  }
+  
+  try {
+    const client = createClient({
+      url: process.env.REDIS_URL || undefined
+    });
+    
+    client.on('error', (err) => {
+      console.error('Redis Client Error:', err);
+    });
+    
+    await client.connect();
+    redisClient = client;
+    return client;
+  } catch (error) {
+    console.error('Failed to connect to Redis:', error);
+    return null;
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const jobName = searchParams.get('jobName');
-
-    // Get all results from Redis
-    const data = await redis.get(STORAGE_KEY);
-    const results: CronResult[] = data ? JSON.parse(data) : [];
+    
+    const redis = await getRedisClient();
+    
+    // Get all results from Redis (or use empty array if Redis unavailable)
+    let results: CronResult[] = [];
+    if (redis) {
+      const data = await redis.get(STORAGE_KEY);
+      results = data ? JSON.parse(data) : [];
+    }
 
     if (jobName) {
       // Get latest result for specific job
@@ -71,6 +100,15 @@ export async function POST(request: Request) {
         success: false,
         error: 'jobName and content are required'
       }, { status: 400 });
+    }
+
+    const redis = await getRedisClient();
+    
+    if (!redis) {
+      return NextResponse.json({
+        success: false,
+        error: 'Redis unavailable'
+      }, { status: 503 });
     }
 
     // Get existing results
