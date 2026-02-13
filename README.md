@@ -2,7 +2,7 @@
 
 A production-ready Next.js personal dashboard for managing cron jobs, calendar events, habits, market data, and projects.
 
-![Dashboard Preview](https://via.placeholder.com/800x400/0d1117/ff6b35?text=Juno+Mission+Control)
+Live at https://juno-mission-control.vercel.app/
 
 ## Features
 
