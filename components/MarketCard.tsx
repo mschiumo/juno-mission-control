@@ -22,6 +22,7 @@ interface MarketData {
 export default function MarketCard() {
   const [data, setData] = useState<MarketData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<'indices' | 'stocks' | 'crypto'>('indices');
 
   useEffect(() => {
@@ -32,11 +33,13 @@ export default function MarketCard() {
   }, []);
 
   const fetchMarketData = async () => {
+    setLoading(true);
     try {
       const response = await fetch('/api/market-data');
       const result = await response.json();
       if (result.success) {
         setData(result.data);
+        setLastUpdated(new Date());
       }
     } catch (error) {
       console.error('Failed to fetch market data:', error);
@@ -59,6 +62,16 @@ export default function MarketCard() {
     return `${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)`;
   };
 
+  const formatLastUpdated = () => {
+    if (!lastUpdated) return '';
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - lastUpdated.getTime()) / 1000);
+    if (diff < 5) return 'just now';
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    return `${Math.floor(diff / 3600)}h ago`;
+  };
+
   const currentData = data?.[activeTab] || [];
 
   return (
@@ -68,13 +81,24 @@ export default function MarketCard() {
           <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
             <DollarSign className="w-5 h-5 text-[#ff6b35]" />
           </div>
-          <h2 className="text-lg font-semibold text-white">Market</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-white">Market</h2>
+            <div className="flex items-center gap-2">
+              {lastUpdated && !loading && (
+                <span className="text-[10px] text-[#238636]">
+                  updated {formatLastUpdated()}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
         <button 
           onClick={fetchMarketData}
-          className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+          disabled={loading}
+          className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+          title="Refresh market data"
         >
-          <RefreshCw className={`w-4 h-4 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#ff6b35] ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -98,7 +122,10 @@ export default function MarketCard() {
       {/* Market Data */}
       <div className="space-y-2">
         {loading ? (
-          <div className="text-center py-4 text-[#8b949e]">Loading...</div>
+          <div className="text-center py-4 text-[#8b949e]">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#ff6b35]" />
+            Loading...
+          </div>
         ) : (
           currentData.map((item) => (
             <div 
