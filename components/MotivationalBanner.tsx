@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Quote, RefreshCw } from 'lucide-react';
+import { Quote } from 'lucide-react';
 
 interface MotivationalData {
   quote: string;
@@ -57,7 +57,7 @@ export default function MotivationalBanner() {
     return (
       <div className="bg-gradient-to-r from-[#ff6b35]/10 via-[#ff8c5a]/10 to-[#ff6b35]/10 border-y border-[#ff6b35]/20 py-6">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-center gap-3">
-          <RefreshCw className="w-5 h-5 text-[#ff6b35] animate-spin" />
+          <div className="w-5 h-5 border-2 border-[#ff6b35] border-t-transparent rounded-full animate-spin" />
           <span className="text-[#8b949e]">Loading today's inspiration...</span>
         </div>
       </div>
@@ -87,14 +87,6 @@ export default function MotivationalBanner() {
               })}
             </p>
           </div>
-          
-          <button
-            onClick={fetchMotivational}
-            className="p-2 hover:bg-[#ff6b35]/20 rounded-lg transition-colors flex-shrink-0"
-            title="Refresh"
-          >
-            <RefreshCw className="w-5 h-5 text-[#8b949e] hover:text-[#ff6b35]" />
-          </button>
         </div>
       </div>
     </div>
