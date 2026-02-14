@@ -9,7 +9,7 @@ interface MarketItem {
   status: 'up' | 'down';
 }
 
-// Stock/ETF name mappings
+// Stock/ETF/Commodity name mappings
 const stockNames: Record<string, string> = {
   'SPY': 'S&P 500 ETF',
   'QQQ': 'NASDAQ ETF', 
@@ -19,11 +19,14 @@ const stockNames: Record<string, string> = {
   'NVDA': 'NVIDIA',
   'GOOGL': 'Alphabet Inc.',
   'AMZN': 'Amazon.com',
-  'PLTR': 'Palantir'
+  'PLTR': 'Palantir',
+  'GC=F': 'Gold Futures',
+  'SI=F': 'Silver Futures',
+  'HG=F': 'Copper Futures'
 };
 
 /**
- * Fetches stock data from Finnhub API
+ * Fetches stock/commodity data from Finnhub API
  * Requires FINNHUB_API_KEY environment variable
  * Free tier: 60 calls/minute
  */
@@ -71,7 +74,7 @@ async function fetchFinnhubQuote(symbol: string): Promise<MarketItem | null> {
 }
 
 /**
- * Fetches multiple stocks from Finnhub
+ * Fetches multiple stocks/commodities from Finnhub
  */
 async function fetchFinnhubStocks(symbols: string[]): Promise<MarketItem[]> {
   const results = await Promise.all(
@@ -140,11 +143,13 @@ async function fetchYahooFinance(symbols: string[]): Promise<MarketItem[]> {
 
 /**
  * Fetches cryptocurrency prices from CoinGecko API
+ * Includes HYPE (Hyperliquid token)
  */
 async function fetchCryptoPrices(): Promise<MarketItem[]> {
   try {
+    // Fetch major cryptos from CoinGecko
     const response = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true',
+      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,hyperliquid&vs_currencies=usd&include_24hr_change=true',
       { 
         headers: { 'Accept': 'application/json' },
         next: { revalidate: 60 }
@@ -195,6 +200,19 @@ async function fetchCryptoPrices(): Promise<MarketItem[]> {
       });
     }
     
+    // Add HYPE (Hyperliquid)
+    if (data.hyperliquid?.usd) {
+      const change = data.hyperliquid.usd_24h_change || 0;
+      cryptos.push({
+        symbol: 'HYPE',
+        name: 'Hyperliquid',
+        price: data.hyperliquid.usd,
+        change: Number((data.hyperliquid.usd * (change / 100)).toFixed(2)),
+        changePercent: Number(change.toFixed(2)),
+        status: change >= 0 ? 'up' : 'down'
+      });
+    }
+    
     return cryptos;
   } catch (error) {
     console.error('CoinGecko error:', error);
@@ -205,7 +223,7 @@ async function fetchCryptoPrices(): Promise<MarketItem[]> {
 /**
  * Fallback mock data when all APIs fail
  */
-function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; crypto: MarketItem[] } {
+function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commodities: MarketItem[]; crypto: MarketItem[] } {
   return {
     indices: [
       { symbol: 'SPY', name: 'S&P 500 ETF', price: 595.32, change: 2.15, changePercent: 0.36, status: 'up' },
@@ -220,10 +238,16 @@ function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; crypt
       { symbol: 'AMZN', name: 'Amazon.com', price: 228.68, change: 0.15, changePercent: 0.07, status: 'up' },
       { symbol: 'PLTR', name: 'Palantir', price: 84.48, change: -1.20, changePercent: -1.40, status: 'down' }
     ],
+    commodities: [
+      { symbol: 'GC=F', name: 'Gold Futures', price: 2800.50, change: 15.30, changePercent: 0.55, status: 'up' },
+      { symbol: 'SI=F', name: 'Silver Futures', price: 32.45, change: 0.25, changePercent: 0.78, status: 'up' },
+      { symbol: 'HG=F', name: 'Copper Futures', price: 4.35, change: -0.05, changePercent: -1.14, status: 'down' }
+    ],
     crypto: [
       { symbol: 'BTC', name: 'Bitcoin', price: 68229.47, change: 3125.80, changePercent: 4.79, status: 'up' },
       { symbol: 'ETH', name: 'Ethereum', price: 2054.38, change: 132.80, changePercent: 6.92, status: 'up' },
-      { symbol: 'SOL', name: 'Solana', price: 83.97, change: 6.72, changePercent: 8.72, status: 'up' }
+      { symbol: 'SOL', name: 'Solana', price: 83.97, change: 6.72, changePercent: 8.72, status: 'up' },
+      { symbol: 'HYPE', name: 'Hyperliquid', price: 15.42, change: 0.85, changePercent: 5.83, status: 'up' }
     ]
   };
 }
@@ -235,13 +259,15 @@ export async function GET() {
   try {
     let indices: MarketItem[] = [];
     let stocks: MarketItem[] = [];
+    let commodities: MarketItem[] = [];
     
     // Try Finnhub first if API key is available
     if (hasFinnhubKey) {
       console.log('Using Finnhub API for market data');
-      [indices, stocks] = await Promise.all([
+      [indices, stocks, commodities] = await Promise.all([
         fetchFinnhubStocks(['SPY', 'QQQ', 'DIA']),
-        fetchFinnhubStocks(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR'])
+        fetchFinnhubStocks(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR']),
+        fetchFinnhubStocks(['GC=F', 'SI=F', 'HG=F']) // Gold, Silver, Copper futures
       ]);
     }
     
@@ -262,23 +288,25 @@ export async function GET() {
     // Use live data if available, otherwise fallback
     const hasRealIndices = indices.length > 0;
     const hasRealStocks = stocks.length > 0;
+    const hasRealCommodities = commodities.length > 0;
     const hasRealCrypto = crypto.length > 0;
     
     const marketData = {
       indices: hasRealIndices ? indices : fallback.indices,
       stocks: hasRealStocks ? stocks : fallback.stocks,
+      commodities: hasRealCommodities ? commodities : fallback.commodities,
       crypto: hasRealCrypto ? crypto : fallback.crypto,
       lastUpdated: timestamp
     };
     
     // Determine data source
-    const realCount = [hasRealIndices, hasRealStocks, hasRealCrypto].filter(Boolean).length;
+    const realCount = [hasRealIndices, hasRealStocks, hasRealCommodities, hasRealCrypto].filter(Boolean).length;
     let source: 'live' | 'partial' | 'fallback';
-    if (realCount === 3) source = 'live';
+    if (realCount === 4) source = 'live';
     else if (realCount > 0) source = 'partial';
     else source = 'fallback';
     
-    console.log(`Market data: source=${source}, provider=${hasFinnhubKey ? 'finnhub' : 'yahoo'}, indices=${indices.length}, stocks=${stocks.length}, crypto=${crypto.length}`);
+    console.log(`Market data: source=${source}, provider=${hasFinnhubKey ? 'finnhub' : 'yahoo'}, indices=${indices.length}, stocks=${stocks.length}, commodities=${commodities.length}, crypto=${crypto.length}`);
     
     return NextResponse.json({ 
       success: true, 
@@ -297,6 +325,7 @@ export async function GET() {
       data: {
         indices: fallback.indices,
         stocks: fallback.stocks,
+        commodities: fallback.commodities,
         crypto: fallback.crypto,
         lastUpdated: timestamp
       },

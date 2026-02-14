@@ -15,6 +15,7 @@ interface MarketItem {
 interface MarketData {
   indices: MarketItem[];
   stocks: MarketItem[];
+  commodities: MarketItem[];
   crypto: MarketItem[];
   lastUpdated: string;
 }
@@ -25,7 +26,7 @@ export default function MarketCard() {
   const [data, setData] = useState<MarketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<'indices' | 'stocks' | 'crypto'>('indices');
+  const [activeTab, setActiveTab] = useState<'indices' | 'stocks' | 'commodities' | 'crypto'>('indices');
   const [dataSource, setDataSource] = useState<DataSource>('fallback');
 
   useEffect(() => {
@@ -119,7 +120,7 @@ export default function MarketCard() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4 bg-[#0d1117] rounded-lg p-1">
-        {(['indices', 'stocks', 'crypto'] as const).map((tab) => (
+        {(['indices', 'stocks', 'commodities', 'crypto'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
