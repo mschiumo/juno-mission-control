@@ -59,8 +59,9 @@ async function fetchYahooFinance(symbols: string[]): Promise<MarketItem[]> {
       
       const meta = result.meta;
       const symbol = meta.symbol || meta.shortName || 'UNKNOWN';
-      const price = meta.regularMarketPrice || meta.previousClose || 0;
-      const prevClose = meta.previousClose || meta.regularMarketPrice || price;
+      const price = meta.regularMarketPrice || meta.previousClose || meta.chartPreviousClose || 0;
+      // Use chartPreviousClose as fallback for previous close (it's the previous day's close)
+      const prevClose = meta.previousClose || meta.chartPreviousClose || price;
       const change = price - prevClose;
       const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
       
