@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FolderGit2, GitBranch, Clock, MoreHorizontal, Calendar, AlertCircle, Flag } from 'lucide-react';
+import { FolderGit2, GitBranch, Clock, MoreHorizontal, Calendar, AlertCircle, Flag, X, Edit2, Save, ExternalLink, Plus } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -14,10 +14,10 @@ interface Project {
   dueDate?: string;
   repo?: string;
   tasks: { total: number; completed: number };
-  timeTracked?: number; // hours
+  timeTracked?: number;
 }
 
-const projects: Project[] = [
+const initialProjects: Project[] = [
   {
     id: '1',
     name: 'Juno Dashboard',
@@ -68,7 +68,10 @@ const projects: Project[] = [
 ];
 
 export default function ProjectsCard() {
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -135,13 +138,65 @@ export default function ProjectsCard() {
     return 'text-[#238636]';
   };
 
+  const openEditModal = (project: Project) => {
+    setEditingProject({ ...project });
+    setIsModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setEditingProject(null);
+    setIsModalOpen(false);
+  };
+
+  const handleSave = () => {
+    if (!editingProject) return;
+    
+    const isNew = !projects.some(p => p.id === editingProject.id);
+    
+    if (isNew) {
+      // Create new project
+      setProjects(prev => [...prev, { ...editingProject, lastUpdated: new Date().toISOString() }]);
+    } else {
+      // Update existing project
+      setProjects(prev => prev.map(p => 
+        p.id === editingProject.id 
+          ? { ...editingProject, lastUpdated: new Date().toISOString() }
+          : p
+      ));
+    }
+    closeEditModal();
+  };
+
+  const openCreateModal = () => {
+    const newProject: Project = {
+      id: Date.now().toString(),
+      name: '',
+      description: '',
+      status: 'planning',
+      priority: 'medium',
+      progress: 0,
+      lastUpdated: new Date().toISOString(),
+      tasks: { total: 0, completed: 0 }
+    };
+    setEditingProject(newProject);
+    setIsModalOpen(true);
+  };
+
+  const isNewProject = () => {
+    return editingProject ? !projects.some(p => p.id === editingProject.id) : false;
+  };
+
+  const handleChange = (field: keyof Project, value: string | number) => {
+    if (!editingProject) return;
+    setEditingProject({ ...editingProject, [field]: value });
+  };
+
   // Sort by priority (high → medium → low) then by due date
   const sortedProjects = [...projects].sort((a, b) => {
     const priorityOrder = { high: 0, medium: 1, low: 2 };
     if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
       return priorityOrder[a.priority] - priorityOrder[b.priority];
     }
-    // If same priority, sort by due date (earlier first)
     if (a.dueDate && b.dueDate) {
       return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
     }
@@ -149,123 +204,278 @@ export default function ProjectsCard() {
   });
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
-            <FolderGit2 className="w-5 h-5 text-[#ff6b35]" />
+    <>
+      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
+              <FolderGit2 className="w-5 h-5 text-[#ff6b35]" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Projects</h2>
+              <p className="text-xs text-[#8b949e]">Sorted by priority & due date</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">Projects</h2>
-            <p className="text-xs text-[#8b949e]">Sorted by priority & due date</p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-[#8b949e]">{projects.filter(p => p.status === 'active').length} active</span>
+            <button
+              onClick={openCreateModal}
+              className="p-1.5 bg-[#ff6b35] hover:bg-[#ff8c5a] text-white rounded-lg transition-colors"
+              title="Add new project"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
         </div>
-        <span className="text-sm text-[#8b949e]">{projects.filter(p => p.status === 'active').length} active</span>
-      </div>
 
-      <div className="space-y-3">
-        {sortedProjects.map((project) => {
-          const daysUntilDue = getDaysUntilDue(project.dueDate);
-          return (
-            <div 
-              key={project.id}
-              className="bg-[#0d1117] rounded-lg border border-[#30363d] overflow-hidden"
-            >
+        <div className="space-y-3">
+          {sortedProjects.map((project) => {
+            const daysUntilDue = getDaysUntilDue(project.dueDate);
+            return (
               <div 
-                className="p-3 cursor-pointer hover:bg-[#21262d] transition-colors"
-                onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}
+                key={project.id}
+                className="bg-[#0d1117] rounded-lg border border-[#30363d] overflow-hidden"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`w-2 h-2 rounded-full ${getStatusColor(project.status).split(' ')[0]}`}></span>
-                      <span className="font-medium text-white truncate">{project.name}</span>
-                      {/* Priority Badge */}
-                      <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(project.priority)}`}>
-                        {getPriorityIcon(project.priority)}
-                        {project.priority.charAt(0).toUpperCase() + project.priority.slice(1)}
-                      </span>
-                    </div>
-                    <div className="text-xs text-[#8b949e] mt-1">{project.description}</div>
-                    
-                    {/* Due Date Countdown */}
-                    {daysUntilDue !== null && (
-                      <div className={`text-xs mt-1 font-medium ${getCountdownColor(daysUntilDue)}`}>
-                        {daysUntilDue < 0 
-                          ? `⚠️ Overdue by ${Math.abs(daysUntilDue)} days`
-                          : daysUntilDue === 0 
-                            ? '📅 Due today!'
-                            : daysUntilDue === 1
-                              ? '📅 Due tomorrow'
-                              : `📅 ${daysUntilDue} days until due`
-                        }
+                <div 
+                  className="p-3 hover:bg-[#21262d] transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`w-2 h-2 rounded-full ${getStatusColor(project.status).split(' ')[0]}`}></span>
+                        <span className="font-medium text-white truncate">{project.name}</span>
+                        <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(project.priority)}`}>
+                          {getPriorityIcon(project.priority)}
+                          {project.priority.charAt(0).toUpperCase() + project.priority.slice(1)}
+                        </span>
                       </div>
-                    )}
+                      <div className="text-xs text-[#8b949e] mt-1">{project.description}</div>
+                      
+                      {daysUntilDue !== null && (
+                        <div className={`text-xs mt-1 font-medium ${getCountdownColor(daysUntilDue)}`}>
+                          {daysUntilDue < 0 
+                            ? `⚠️ Overdue by ${Math.abs(daysUntilDue)} days`
+                            : daysUntilDue === 0 
+                              ? '📅 Due today!'
+                              : daysUntilDue === 1
+                                ? '📅 Due tomorrow'
+                                : `📅 ${daysUntilDue} days until due`
+                          }
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openEditModal(project)}
+                        className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors"
+                        title="Edit project"
+                      >
+                        <Edit2 className="w-4 h-4 text-[#8b949e] hover:text-[#ff6b35]" />
+                      </button>
+                      <span className={`text-xs font-medium uppercase ${getStatusColor(project.status).split(' ')[1]}`}>
+                        {project.status}
+                      </span>
+                      <MoreHorizontal className="w-4 h-4 text-[#8b949e]" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-medium uppercase ${getStatusColor(project.status).split(' ')[1]}`}>
-                      {project.status}
-                    </span>
-                    <MoreHorizontal className="w-4 h-4 text-[#8b949e]" />
+
+                  <div className="mt-3 cursor-pointer" onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}>
+                    <div className="flex items-center justify-between text-xs text-[#8b949e] mb-1">
+                      <span>Progress</span>
+                      <span>{project.progress}%</span>
+                    </div>
+                    <div className="h-1.5 bg-[#30363d] rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-[#ff6b35] to-[#ff8c5a] rounded-full transition-all duration-500"
+                        style={{ width: `${project.progress}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Progress Bar */}
-                <div className="mt-3">
-                  <div className="flex items-center justify-between text-xs text-[#8b949e] mb-1">
-                    <span>Progress</span>
-                    <span>{project.progress}%</span>
+                {expandedProject === project.id && (
+                  <div className="px-3 pb-3 border-t border-[#30363d] pt-3">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-2 text-[#8b949e]">
+                        <GitBranch className="w-4 h-4" />
+                        <span>{project.tasks.completed}/{project.tasks.total} tasks</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[#8b949e]">
+                        <Clock className="w-4 h-4" />
+                        <span>Updated {formatLastUpdated(project.lastUpdated)}</span>
+                      </div>
+                      {project.dueDate && (
+                        <div className="flex items-center gap-2 text-[#8b949e]">
+                          <Calendar className="w-4 h-4" />
+                          <span>Due: {new Date(project.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        </div>
+                      )}
+                      {project.timeTracked && (
+                        <div className="flex items-center gap-2 text-[#8b949e]">
+                          <Clock className="w-4 h-4" />
+                          <span>{project.timeTracked}h tracked</span>
+                        </div>
+                      )}
+                    </div>
+                    {project.repo && (
+                      <a 
+                        href={`https://${project.repo}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 text-xs text-[#ff6b35] hover:underline flex items-center gap-1"
+                      >
+                        {project.repo}
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
                   </div>
-                  <div className="h-1.5 bg-[#30363d] rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-[#ff6b35] to-[#ff8c5a] rounded-full transition-all duration-500"
-                      style={{ width: `${project.progress}%` }}
-                    />
-                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Edit Modal */}
+      {isModalOpen && editingProject && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-[#30363d]">
+              <h3 className="text-lg font-semibold text-white">
+                {isNewProject() ? 'Create Project' : 'Edit Project'}
+              </h3>
+              <button
+                onClick={closeEditModal}
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-[#8b949e]" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 space-y-4">
+              {/* Title */}
+              <div>
+                <label className="block text-sm font-medium text-[#8b949e] mb-1">Title</label>
+                <input
+                  type="text"
+                  value={editingProject.name}
+                  onChange={(e) => handleChange('name', e.target.value)}
+                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#ff6b35]"
+                  placeholder="Project name"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-[#8b949e] mb-1">Description</label>
+                <textarea
+                  value={editingProject.description}
+                  onChange={(e) => handleChange('description', e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#ff6b35] resize-none"
+                  placeholder="Brief description"
+                />
+              </div>
+
+              {/* Status & Priority Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#8b949e] mb-1">Status</label>
+                  <select
+                    value={editingProject.status}
+                    onChange={(e) => handleChange('status', e.target.value)}
+                    className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#ff6b35]"
+                  >
+                    <option value="active">Active</option>
+                    <option value="planning">Planning</option>
+                    <option value="paused">Paused</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#8b949e] mb-1">Priority</label>
+                  <select
+                    value={editingProject.priority}
+                    onChange={(e) => handleChange('priority', e.target.value)}
+                    className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#ff6b35]"
+                  >
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
                 </div>
               </div>
 
-              {/* Expanded Details */}
-              {expandedProject === project.id && (
-                <div className="px-3 pb-3 border-t border-[#30363d] pt-3">
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="flex items-center gap-2 text-[#8b949e]">
-                      <GitBranch className="w-4 h-4" />
-                      <span>{project.tasks.completed}/{project.tasks.total} tasks</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[#8b949e]">
-                      <Clock className="w-4 h-4" />
-                      <span>Updated {formatLastUpdated(project.lastUpdated)}</span>
-                    </div>
-                    {project.dueDate && (
-                      <div className="flex items-center gap-2 text-[#8b949e]">
-                        <Calendar className="w-4 h-4" />
-                        <span>Due: {new Date(project.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                      </div>
-                    )}
-                    {project.timeTracked && (
-                      <div className="flex items-center gap-2 text-[#8b949e]">
-                        <Clock className="w-4 h-4" />
-                        <span>{project.timeTracked}h tracked</span>
-                      </div>
-                    )}
-                  </div>
-                  {project.repo && (
-                    <a 
-                      href={`https://${project.repo}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 text-xs text-[#ff6b35] hover:underline block"
-                    >
-                      {project.repo}
-                    </a>
-                  )}
+              {/* Due Date */}
+              <div>
+                <label className="block text-sm font-medium text-[#8b949e] mb-1">Due Date</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={editingProject.dueDate || ''}
+                    onChange={(e) => handleChange('dueDate', e.target.value)}
+                    className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#ff6b35] [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b949e] pointer-events-none" />
                 </div>
-              )}
+              </div>
+
+              {/* Progress */}
+              <div>
+                <label className="block text-sm font-medium text-[#8b949e] mb-1">
+                  Progress: {editingProject.progress}%
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={editingProject.progress}
+                  onChange={(e) => handleChange('progress', parseInt(e.target.value))}
+                  className="w-full h-2 bg-[#30363d] rounded-lg appearance-none cursor-pointer accent-[#ff6b35]"
+                />
+                <div className="h-1.5 bg-[#30363d] rounded-full overflow-hidden mt-2">
+                  <div 
+                    className="h-full bg-gradient-to-r from-[#ff6b35] to-[#ff8c5a] rounded-full transition-all duration-300"
+                    style={{ width: `${editingProject.progress}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Repository */}
+              <div>
+                <label className="block text-sm font-medium text-[#8b949e] mb-1">Repository (optional)</label>
+                <input
+                  type="text"
+                  value={editingProject.repo || ''}
+                  onChange={(e) => handleChange('repo', e.target.value)}
+                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#ff6b35]"
+                  placeholder="github.com/username/repo"
+                />
+              </div>
             </div>
-          );
-        })}
-      </div>
-    </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-[#30363d]">
+              <button
+                onClick={closeEditModal}
+                className="px-4 py-2 text-sm text-[#8b949e] hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-2 px-4 py-2 bg-[#ff6b35] hover:bg-[#ff8c5a] text-white rounded-lg transition-colors"
+              >
+                <Save className="w-4 h-4" />
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
