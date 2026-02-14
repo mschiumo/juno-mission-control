@@ -2,13 +2,23 @@ import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
 
 const STORAGE_KEY = 'goals_data';
+type Category = 'yearly' | 'weekly' | 'daily';
 
-// Valid categories as const array for type checking
-const VALID_CATEGORIES = ['yearly', 'weekly', 'daily'] as const;
-type ValidCategory = typeof VALID_CATEGORIES[number];
+interface Goal {
+  id: string;
+  title: string;
+  phase: 'not-started' | 'in-progress' | 'achieved';
+  category: Category;
+}
+
+interface GoalsData {
+  yearly: Goal[];
+  weekly: Goal[];
+  daily: Goal[];
+}
 
 // Default goals structure
-const DEFAULT_GOALS: Record<ValidCategory, Array<{id: string; title: string; phase: string; category: string}>> = {
+const DEFAULT_GOALS: GoalsData = {
   yearly: [
     { id: 'y1', title: 'Generate steady self-generated income', phase: 'in-progress', category: 'yearly' },
     { id: 'y2', title: 'Master physical health & fitness', phase: 'in-progress', category: 'yearly' },
@@ -28,6 +38,10 @@ const DEFAULT_GOALS: Record<ValidCategory, Array<{id: string; title: string; pha
     { id: 'd4', title: 'Exercise/Lift', phase: 'not-started', category: 'daily' }
   ]
 };
+
+function isValidCategory(cat: string): cat is Category {
+  return cat === 'yearly' || cat === 'weekly' || cat === 'daily';
+}
 
 // Lazy Redis client initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
@@ -80,15 +94,21 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { goalId, newPhase, category } = body;
     
-    // Inline category validation
-    if (!goalId || !newPhase || !category || !VALID_CATEGORIES.includes(category as ValidCategory)) {
+    if (!goalId || !newPhase || !category || !isValidCategory(category)) {
       return NextResponse.json({
         success: false,
         error: 'Missing required fields or invalid category'
       }, { status: 400 });
     }
 
-    const cat = category as ValidCategory;
+    // Validate category
+    if (!isValidCategory(category)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid category'
+      }, { status: 400 });
+    }
+
     const redis = await getRedisClient();
     
     // Get current goals
@@ -101,7 +121,7 @@ export async function POST(request: Request) {
     }
     
     // Update the goal
-    const goalIndex = goals[cat].findIndex((g: { id: string }) => g.id === goalId);
+    const goalIndex = goals[category].findIndex((g: Goal) => g.id === goalId);
     if (goalIndex === -1) {
       return NextResponse.json({
         success: false,
@@ -109,7 +129,7 @@ export async function POST(request: Request) {
       }, { status: 404 });
     }
     
-    goals[cat][goalIndex].phase = newPhase;
+    goals[category][goalIndex].phase = newPhase;
     
     // Save to Redis
     if (redis) {
@@ -135,15 +155,21 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { title, category } = body;
     
-    // Inline category validation
-    if (!title || !category || !VALID_CATEGORIES.includes(category as ValidCategory)) {
+    if (!title || !category || !isValidCategory(category)) {
       return NextResponse.json({
         success: false,
         error: 'Missing required fields or invalid category'
       }, { status: 400 });
     }
 
-    const cat = category as ValidCategory;
+    // Validate category
+    if (!isValidCategory(category)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid category'
+      }, { status: 400 });
+    }
+
     const redis = await getRedisClient();
     
     // Get current goals
@@ -156,14 +182,14 @@ export async function PUT(request: Request) {
     }
     
     // Add new goal
-    const newGoal = {
-      id: `${cat[0]}${Date.now()}`,
+    const newGoal: Goal = {
+      id: `${category[0]}${Date.now()}`,
       title,
       phase: 'not-started',
-      category: cat
+      category
     };
     
-    goals[cat].push(newGoal);
+    goals[category].push(newGoal);
     
     // Save to Redis
     if (redis) {
@@ -190,15 +216,21 @@ export async function DELETE(request: Request) {
     const goalId = searchParams.get('goalId');
     const category = searchParams.get('category');
     
-    // Inline category validation
-    if (!goalId || !category || !VALID_CATEGORIES.includes(category as ValidCategory)) {
+    if (!goalId || !category || !isValidCategory(category)) {
       return NextResponse.json({
         success: false,
         error: 'Missing required fields or invalid category'
       }, { status: 400 });
     }
 
-    const cat = category as ValidCategory;
+    // Validate category
+    if (!isValidCategory(category)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid category'
+      }, { status: 400 });
+    }
+
     const redis = await getRedisClient();
     
     // Get current goals
@@ -211,7 +243,7 @@ export async function DELETE(request: Request) {
     }
     
     // Remove goal
-    goals[cat] = goals[cat].filter((g: { id: string }) => g.id !== goalId);
+    goals[category] = goals[category].filter((g: Goal) => g.id !== goalId);
     
     // Save to Redis
     if (redis) {
