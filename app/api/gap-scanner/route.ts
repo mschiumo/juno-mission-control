@@ -86,6 +86,54 @@ function isWeekend(): boolean {
   return day === 0 || day === 6; // Sunday or Saturday
 }
 
+// Check if currently in pre-market hours (4:00 AM - 9:30 AM EST)
+function isPreMarketHours(): boolean {
+  const now = new Date();
+  // Convert to EST (UTC-5, or UTC-4 during DST)
+  const estOptions: Intl.DateTimeFormatOptions = { 
+    timeZone: 'America/New_York', 
+    hour: 'numeric', 
+    minute: 'numeric',
+    hour12: false 
+  };
+  const estTimeStr = now.toLocaleTimeString('en-US', estOptions);
+  const [hours, minutes] = estTimeStr.split(':').map(Number);
+  const timeInMinutes = hours * 60 + minutes;
+  
+  // Pre-market: 4:00 AM = 240 min, 9:30 AM = 570 min
+  return timeInMinutes >= 240 && timeInMinutes < 570;
+}
+
+// Get market session status
+function getMarketSession(): 'pre-market' | 'market-open' | 'post-market' | 'closed' {
+  const now = new Date();
+  const estOptions: Intl.DateTimeFormatOptions = { 
+    timeZone: 'America/New_York', 
+    hour: 'numeric', 
+    minute: 'numeric',
+    hour12: false 
+  };
+  const estTimeStr = now.toLocaleTimeString('en-US', estOptions);
+  const [hours, minutes] = estTimeStr.split(':').map(Number);
+  const timeInMinutes = hours * 60 + minutes;
+  const day = now.getDay();
+  
+  // Weekend
+  if (day === 0 || day === 6) return 'closed';
+  
+  // Pre-market: 4:00 AM - 9:30 AM
+  if (timeInMinutes >= 240 && timeInMinutes < 570) return 'pre-market';
+  
+  // Market hours: 9:30 AM - 4:00 PM
+  if (timeInMinutes >= 570 && timeInMinutes < 960) return 'market-open';
+  
+  // Post-market: 4:00 PM - 8:00 PM
+  if (timeInMinutes >= 960 && timeInMinutes < 1200) return 'post-market';
+  
+  // Overnight
+  return 'closed';
+}
+
 // Format date as YYYY-MM-DD
 function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
@@ -327,6 +375,8 @@ export async function GET() {
 
     console.log(`Market cap filter: ${marketCapFiltered} stocks below $250M removed`);
 
+    const marketSession = getMarketSession();
+    
     return NextResponse.json({
       success: true,
       data: { gainers: filteredGainers, losers: filteredLosers },
@@ -337,8 +387,11 @@ export async function GET() {
       isWeekend: weekendFlag,
       tradingDate,
       previousDate,
-      marketStatus: weekendFlag ? 'closed' : 'open',
-      nextMarketOpen: weekendFlag ? 'Monday 4:00 AM EST' : null,
+      marketSession,
+      marketStatus: marketSession === 'closed' ? 'closed' : 'open',
+      isPreMarket: marketSession === 'pre-market',
+      nextMarketOpen: weekendFlag ? 'Monday 4:00 AM EST' : 
+                      marketSession === 'post-market' ? 'Tomorrow 4:00 AM EST' : null,
       enriched: true,
       filters: {
         minGapPercent: 5,
@@ -353,6 +406,8 @@ export async function GET() {
   } catch (error) {
     console.error('Gap scanner API error:', error);
     
+    const marketSession = getMarketSession();
+    
     // Return mock data on error
     const mockData = getMockGapData();
     return NextResponse.json({
@@ -366,7 +421,9 @@ export async function GET() {
       scanned: 0,
       found: 0,
       isWeekend: isWeekend(),
-      marketStatus: isWeekend() ? 'closed' : 'unknown',
+      marketSession,
+      marketStatus: marketSession === 'closed' ? 'closed' : 'unknown',
+      isPreMarket: marketSession === 'pre-market',
       nextMarketOpen: isWeekend() ? 'Monday 4:00 AM EST' : null,
       enriched: false,
       error: 'Failed to fetch live data',

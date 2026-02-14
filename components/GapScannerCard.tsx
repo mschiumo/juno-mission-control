@@ -28,7 +28,9 @@ interface GapResponse {
   isWeekend?: boolean;
   tradingDate?: string;
   previousDate?: string;
+  marketSession?: 'pre-market' | 'market-open' | 'post-market' | 'closed';
   marketStatus?: 'open' | 'closed';
+  isPreMarket?: boolean;
   nextMarketOpen?: string | null;
   timestamp: string;
 }
@@ -237,6 +239,47 @@ export default function GapScannerCard() {
           <p className="text-xs text-[#8b949e] mt-1">
             Weekend mode — showing data from {response?.tradingDate}. 
             Next gap scan: Monday 4:00 AM EST
+          </p>
+        </div>
+      )}
+
+      {/* Pre-Market Banner */}
+      {response?.marketSession === 'pre-market' && (
+        <div className="mb-4 p-3 bg-[#58a6ff]/10 border border-[#58a6ff]/30 rounded-lg">
+          <div className="flex items-center gap-2 text-[#58a6ff]">
+            <Clock className="w-4 h-4" />
+            <span className="text-sm font-medium">Pre-Market Active</span>
+          </div>
+          <p className="text-xs text-[#8b949e] mt-1">
+            Showing overnight gaps from {response?.previousDate} close → {response?.tradingDate} open.
+            Market opens at 9:30 AM EST.
+          </p>
+        </div>
+      )}
+
+      {/* Market Open Banner */}
+      {response?.marketSession === 'market-open' && (
+        <div className="mb-4 p-3 bg-[#238636]/10 border border-[#238636]/30 rounded-lg">
+          <div className="flex items-center gap-2 text-[#238636]">
+            <Clock className="w-4 h-4" />
+            <span className="text-sm font-medium">Market Open</span>
+          </div>
+          <p className="text-xs text-[#8b949e] mt-1">
+            Live gap data from {response?.tradingDate}. Market closes at 4:00 PM EST.
+          </p>
+        </div>
+      )}
+
+      {/* Post-Market Banner */}
+      {response?.marketSession === 'post-market' && (
+        <div className="mb-4 p-3 bg-[#8b949e]/10 border border-[#8b949e]/30 rounded-lg">
+          <div className="flex items-center gap-2 text-[#8b949e]">
+            <Clock className="w-4 h-4" />
+            <span className="text-sm font-medium">After Hours</span>
+          </div>
+          <p className="text-xs text-[#8b949e] mt-1">
+            Post-market session. Showing final gaps from {response?.tradingDate}.
+            Pre-market resumes at 4:00 AM EST.
           </p>
         </div>
       )}
