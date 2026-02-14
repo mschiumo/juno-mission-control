@@ -14,6 +14,8 @@ const stockNames: Record<string, string> = {
   'SPY': 'S&P 500 ETF',
   'QQQ': 'NASDAQ ETF', 
   'DIA': 'Dow Jones ETF',
+  'VXX': 'iPath VIX Short-Term Futures',
+  'UUP': 'US Dollar Index Bullish',
   'TSLA': 'Tesla Inc.',
   'META': 'Meta Platforms',
   'NVDA': 'NVIDIA',
@@ -21,11 +23,11 @@ const stockNames: Record<string, string> = {
   'AMZN': 'Amazon.com',
   'PLTR': 'Palantir',
   'AMAT': 'Applied Materials',
-  'GC=F': 'Gold Futures',
-  'SI=F': 'Silver Futures',
-  'HG=F': 'Copper Futures',
-  'PL=F': 'Platinum Futures',
-  'PA=F': 'Palladium Futures'
+  'GLD': 'SPDR Gold Shares',
+  'SLV': 'iShares Silver Trust',
+  'CPER': 'United States Copper Index',
+  'PLTM': 'GraniteShares Platinum Trust',
+  'PALL': 'Aberdeen Physical Palladium'
 };
 
 /**
@@ -231,7 +233,9 @@ function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commo
     indices: [
       { symbol: 'SPY', name: 'S&P 500 ETF', price: 595.32, change: 2.15, changePercent: 0.36, status: 'up' },
       { symbol: 'QQQ', name: 'NASDAQ ETF', price: 518.47, change: 3.21, changePercent: 0.62, status: 'up' },
-      { symbol: 'DIA', name: 'Dow Jones ETF', price: 448.92, change: 1.87, changePercent: 0.42, status: 'up' }
+      { symbol: 'DIA', name: 'Dow Jones ETF', price: 448.92, change: 1.87, changePercent: 0.42, status: 'up' },
+      { symbol: 'VXX', name: 'iPath VIX Short-Term Futures', price: 52.35, change: -1.25, changePercent: -2.33, status: 'down' },
+      { symbol: 'UUP', name: 'US Dollar Index Bullish', price: 28.45, change: 0.15, changePercent: 0.53, status: 'up' }
     ],
     stocks: [
       { symbol: 'TSLA', name: 'Tesla Inc.', price: 355.84, change: 8.50, changePercent: 2.45, status: 'up' },
@@ -243,11 +247,11 @@ function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commo
       { symbol: 'AMAT', name: 'Applied Materials', price: 92.45, change: 1.25, changePercent: 1.37, status: 'up' }
     ],
     commodities: [
-      { symbol: 'GC=F', name: 'Gold Futures', price: 2800.50, change: 15.30, changePercent: 0.55, status: 'up' },
-      { symbol: 'SI=F', name: 'Silver Futures', price: 32.45, change: 0.25, changePercent: 0.78, status: 'up' },
-      { symbol: 'HG=F', name: 'Copper Futures', price: 4.35, change: -0.05, changePercent: -1.14, status: 'down' },
-      { symbol: 'PL=F', name: 'Platinum Futures', price: 985.40, change: 8.20, changePercent: 0.84, status: 'up' },
-      { symbol: 'PA=F', name: 'Palladium Futures', price: 1025.80, change: -12.50, changePercent: -1.20, status: 'down' }
+      { symbol: 'GLD', name: 'SPDR Gold Shares', price: 258.42, change: 1.35, changePercent: 0.53, status: 'up' },
+      { symbol: 'SLV', name: 'iShares Silver Trust', price: 29.85, change: 0.22, changePercent: 0.74, status: 'up' },
+      { symbol: 'CPER', name: 'United States Copper Index', price: 28.45, change: -0.35, changePercent: -1.21, status: 'down' },
+      { symbol: 'PLTM', name: 'GraniteShares Platinum Trust', price: 9.85, change: 0.08, changePercent: 0.82, status: 'up' },
+      { symbol: 'PALL', name: 'Aberdeen Physical Palladium', price: 95.40, change: -1.20, changePercent: -1.24, status: 'down' }
     ],
     crypto: [
       { symbol: 'BTC', name: 'Bitcoin', price: 68229.47, change: 3125.80, changePercent: 4.79, status: 'up' },
@@ -271,9 +275,9 @@ export async function GET() {
     if (hasFinnhubKey) {
       console.log('Using Finnhub API for market data');
       [indices, stocks, commodities] = await Promise.all([
-        fetchFinnhubStocks(['SPY', 'QQQ', 'DIA']),
+        fetchFinnhubStocks(['SPY', 'QQQ', 'DIA', 'VXX', 'UUP']),
         fetchFinnhubStocks(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR', 'AMAT']),
-        fetchFinnhubStocks(['GC=F', 'SI=F', 'HG=F', 'PL=F', 'PA=F']) // Gold, Silver, Copper, Platinum, Palladium futures
+        fetchFinnhubStocks(['GLD', 'SLV', 'CPER', 'PLTM', 'PALL']) // Gold, Silver, Copper, Platinum, Palladium ETFs
       ]);
     }
     
@@ -281,7 +285,7 @@ export async function GET() {
     if (indices.length === 0) {
       console.log('Falling back to Yahoo Finance');
       [indices, stocks] = await Promise.all([
-        fetchYahooFinance(['SPY', 'QQQ', 'DIA']),
+        fetchYahooFinance(['SPY', 'QQQ', 'DIA', 'VXX', 'UUP']),
         fetchYahooFinance(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR'])
       ]);
     }

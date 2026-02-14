@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Activity, Clock, RefreshCw } from 'lucide-react';
 
 interface ActivityItem {
@@ -9,6 +9,46 @@ interface ActivityItem {
   action: string;
   details: string;
   type: 'cron' | 'api' | 'user' | 'system';
+  url?: string;
+}
+
+// Helper to render text with PR links
+function renderWithPRLinks(text: string, repoUrl: string = 'https://github.com/mschiumo/juno-mission-control') {
+  // Match PR #XXX patterns
+  const prPattern = /#(\d+)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = prPattern.exec(text)) !== null) {
+    const prNumber = match[1];
+    const beforeText = text.slice(lastIndex, match.index);
+    
+    if (beforeText) {
+      parts.push(beforeText);
+    }
+    
+    parts.push(
+      <a 
+        key={match.index}
+        href={`${repoUrl}/pull/${prNumber}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[#58a6ff] hover:underline hover:text-[#79c0ff]"
+      >
+        #{prNumber}
+      </a>
+    );
+    
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : text;
 }
 
 export default function ActivityLogCard() {
@@ -170,12 +210,23 @@ export default function ActivityLogCard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-white text-sm">{activity.action}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 bg-[#30363d] text-[#8b949e] rounded-full">
-                      {getTypeLabel(activity.type)}
-                    </span>
+                    <span className="font-medium text-white text-sm">{renderWithPRLinks(activity.action)}</span>
+                    {activity.url ? (
+                      <a 
+                        href={activity.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] px-1.5 py-0.5 bg-[#30363d] text-[#58a6ff] hover:bg-[#58a6ff]/20 rounded-full transition-colors"
+                      >
+                        Open →
+                      </a>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-[#30363d] text-[#8b949e] rounded-full">
+                        {getTypeLabel(activity.type)}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-[#8b949e] mt-1">{activity.details}</p>
+                  <p className="text-xs text-[#8b949e] mt-1">{renderWithPRLinks(activity.details)}</p>
                   <div className="flex items-center gap-1 text-[10px] text-[#8b949e] mt-1">
                     <Clock className="w-3 h-3" />
                     {formatTime(activity.timestamp)} EST
