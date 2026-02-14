@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, Suspense } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import DailyReportsCard from "@/components/DailyReportsCard";
 // import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
@@ -13,9 +14,35 @@ import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import { LayoutDashboard, Activity, Target, Menu, X } from 'lucide-react';
 
-export default function Home() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'activity' | 'goals'>('dashboard');
+type TabId = 'dashboard' | 'activity' | 'goals';
+
+// Inner component that uses searchParams
+function DashboardContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  
+  // Get tab from URL query param, default to 'dashboard'
+  const getTabFromUrl = useCallback((): TabId => {
+    const tab = searchParams.get('tab');
+    if (tab === 'goals' || tab === 'activity') return tab;
+    return 'dashboard';
+  }, [searchParams]);
+  
+  const [activeTab, setActiveTabState] = useState<TabId>(getTabFromUrl);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Update URL when tab changes
+  const setActiveTab = (tab: TabId) => {
+    setActiveTabState(tab);
+    const params = new URLSearchParams(searchParams);
+    if (tab === 'dashboard') {
+      params.delete('tab');
+    } else {
+      params.set('tab', tab);
+    }
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   const tabs = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
@@ -147,3 +174,11 @@ export default function Home() {
   );
 }
 
+// Main component with Suspense boundary
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0d1117] flex items-center justify-center"><div className="text-[#8b949e]">Loading...</div></div>}>
+      <DashboardContent />
+    </Suspense>
+  );
+}
