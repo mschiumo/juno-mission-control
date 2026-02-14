@@ -153,12 +153,6 @@ export default function MotivationalBanner({ compact = false }: { compact?: bool
       </div>
     );
   }
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Full-width version for Dashboard
   if (loading) {
