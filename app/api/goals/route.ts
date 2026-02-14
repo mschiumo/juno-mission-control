@@ -3,8 +3,12 @@ import { createClient } from 'redis';
 
 const STORAGE_KEY = 'goals_data';
 
+// Valid categories as const array for type checking
+const VALID_CATEGORIES = ['yearly', 'weekly', 'daily'] as const;
+type ValidCategory = typeof VALID_CATEGORIES[number];
+
 // Default goals structure
-const DEFAULT_GOALS = {
+const DEFAULT_GOALS: Record<ValidCategory, Array<{id: string; title: string; phase: string; category: string}>> = {
   yearly: [
     { id: 'y1', title: 'Generate steady self-generated income', phase: 'in-progress', category: 'yearly' },
     { id: 'y2', title: 'Master physical health & fitness', phase: 'in-progress', category: 'yearly' },
@@ -27,14 +31,6 @@ const DEFAULT_GOALS = {
 
 // Lazy Redis client initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
-
-// Category validation using const assertion for type safety
-const VALID_CATEGORIES = ['yearly', 'weekly', 'daily'] as const;
-type ValidCategory = typeof VALID_CATEGORIES[number];
-
-function isValidCategory(cat: string): cat is ValidCategory {
-  return (VALID_CATEGORIES as readonly string[]).includes(cat);
-}
 
 async function getRedisClient() {
   if (redisClient) return redisClient;
@@ -84,13 +80,15 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { goalId, newPhase, category } = body;
     
-    if (!goalId || !newPhase || !category || !isValidCategory(category)) {
+    // Inline category validation
+    if (!goalId || !newPhase || !category || !VALID_CATEGORIES.includes(category as ValidCategory)) {
       return NextResponse.json({
         success: false,
         error: 'Missing required fields or invalid category'
       }, { status: 400 });
     }
 
+    const cat = category as ValidCategory;
     const redis = await getRedisClient();
     
     // Get current goals
@@ -103,7 +101,7 @@ export async function POST(request: Request) {
     }
     
     // Update the goal
-    const goalIndex = goals[category].findIndex((g: { id: string }) => g.id === goalId);
+    const goalIndex = goals[cat].findIndex((g: { id: string }) => g.id === goalId);
     if (goalIndex === -1) {
       return NextResponse.json({
         success: false,
@@ -111,7 +109,7 @@ export async function POST(request: Request) {
       }, { status: 404 });
     }
     
-    goals[category][goalIndex].phase = newPhase;
+    goals[cat][goalIndex].phase = newPhase;
     
     // Save to Redis
     if (redis) {
@@ -137,13 +135,15 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { title, category } = body;
     
-    if (!title || !category || !isValidCategory(category)) {
+    // Inline category validation
+    if (!title || !category || !VALID_CATEGORIES.includes(category as ValidCategory)) {
       return NextResponse.json({
         success: false,
         error: 'Missing required fields or invalid category'
       }, { status: 400 });
     }
 
+    const cat = category as ValidCategory;
     const redis = await getRedisClient();
     
     // Get current goals
@@ -157,13 +157,13 @@ export async function PUT(request: Request) {
     
     // Add new goal
     const newGoal = {
-      id: `${category[0]}${Date.now()}`,
+      id: `${cat[0]}${Date.now()}`,
       title,
       phase: 'not-started',
-      category
+      category: cat
     };
     
-    goals[category].push(newGoal);
+    goals[cat].push(newGoal);
     
     // Save to Redis
     if (redis) {
@@ -190,13 +190,15 @@ export async function DELETE(request: Request) {
     const goalId = searchParams.get('goalId');
     const category = searchParams.get('category');
     
-    if (!goalId || !category || !isValidCategory(category)) {
+    // Inline category validation
+    if (!goalId || !category || !VALID_CATEGORIES.includes(category as ValidCategory)) {
       return NextResponse.json({
         success: false,
         error: 'Missing required fields or invalid category'
       }, { status: 400 });
     }
 
+    const cat = category as ValidCategory;
     const redis = await getRedisClient();
     
     // Get current goals
@@ -209,7 +211,7 @@ export async function DELETE(request: Request) {
     }
     
     // Remove goal
-    goals[category] = goals[category].filter((g: { id: string }) => g.id !== goalId);
+    goals[cat] = goals[cat].filter((g: { id: string }) => g.id !== goalId);
     
     // Save to Redis
     if (redis) {
