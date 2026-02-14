@@ -145,19 +145,9 @@ export default function MotivationalBanner({ compact = false }: { compact?: bool
             <p className="text-sm text-white line-clamp-3">
               &ldquo;{data?.quote}&rdquo;
             </p>
-            <div className="flex items-center justify-between mt-2">
-              <cite className="text-xs text-[#8b949e] not-italic">
-                — {data?.author}
-              </cite>
-              <button
-                onClick={fetchMotivational}
-                disabled={loading}
-                className="p-1 hover:bg-[#30363d] rounded transition-colors"
-                title="Refresh quote"
-              >
-                <RefreshCw className={`w-3 h-3 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
+            <cite className="text-xs text-[#8b949e] not-italic block mt-2">
+              — {data?.author}
+            </cite>
           </div>
         </div>
       </div>
