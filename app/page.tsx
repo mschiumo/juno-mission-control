@@ -144,7 +144,7 @@ function DashboardContent() {
         {activeTab === 'dashboard' ? (
           /* Dashboard Grid */
           <div className="space-y-4">
-            <MotivationalBanner />
+            <MotivationalBanner compact variant="orange" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               <DailyReportsCard />
               <HabitCard />
@@ -154,16 +154,16 @@ function DashboardContent() {
         ) : activeTab === 'trading' ? (
           /* Trading View - Sidebar Layout */
           <div className="max-w-7xl mx-auto">
-            {/* Two Column Layout: Sidebar (1/3) + Market (2/3) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-              {/* Left Sidebar: Gap Scanner + Market Hours */}
-              <div className="space-y-4">
-                <GapScannerCard />
+            {/* Two Column Layout: Sidebar (2/5) + Market (3/5) */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
+              {/* Left Sidebar: Market Hours + Gap Scanner (wider) */}
+              <div className="lg:col-span-2 space-y-4">
                 <MarketHoursBanner compact />
+                <GapScannerCard />
               </div>
               
-              {/* Right Column: Market Card (spans 2 columns) */}
-              <div className="lg:col-span-2">
+              {/* Right Column: Market Card (spans 3 columns) */}
+              <div className="lg:col-span-3">
                 <MarketCard />
               </div>
             </div>

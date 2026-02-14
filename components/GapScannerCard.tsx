@@ -83,16 +83,27 @@ export default function GapScannerCard() {
 
   const formatLastUpdated = () => {
     if (!lastUpdated) return '';
-    const now = new Date();
-    const diff = Math.floor((now.getTime() - lastUpdated.getTime()) / 1000);
-    if (diff < 5) return 'just now';
-    if (diff < 60) return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    return `${Math.floor(diff / 3600)}h ago`;
+    return lastUpdated.toLocaleString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).replace(',', ' @');
   };
 
   const renderStockList = (stocks: GapStock[], type: 'gainer' | 'loser') => {
     const isGainer = type === 'gainer';
+    
+    if (stocks.length === 0) {
+      return (
+        <div className="text-center py-6 text-[#8b949e] text-sm">
+          <p>No {isGainer ? 'gainers' : 'losers'} 5%+</p>
+          <p className="text-xs mt-1">Markets closed or low volatility</p>
+        </div>
+      );
+    }
     
     return (
       <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
@@ -152,7 +163,7 @@ export default function GapScannerCard() {
             <h2 className="text-lg font-semibold text-white">Gap Scanner</h2>
             <div className="flex items-center gap-2">
               <p className="text-xs text-[#8b949e]">
-                10%+ gaps | Min 100K vol | $100M+ cap
+                5%+ gaps | Min 100K vol | $100M+ cap
               </p>
               {lastUpdated && !loading && (
                 <span className="text-[10px] text-[#238636]">
@@ -191,19 +202,7 @@ export default function GapScannerCard() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-[#da3633] flex items-center gap-2">
-                <TrendingDown className="w-4 h-4" />
-                Biggest Losers
-              </h3>
-              <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded">
-                {data?.losers.length || 0}
-              </span>
-            </div>
-            {data?.losers && renderStockList(data.losers, 'loser')}
-          </div>
-          
+          {/* Gainers - Left Column */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-[#238636] flex items-center gap-2">
@@ -216,12 +215,26 @@ export default function GapScannerCard() {
             </div>
             {data?.gainers && renderStockList(data.gainers, 'gainer')}
           </div>
+          
+          {/* Losers - Right Column */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-[#da3633] flex items-center gap-2">
+                <TrendingDown className="w-4 h-4" />
+                Biggest Losers
+              </h3>
+              <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded">
+                {data?.losers.length || 0}
+              </span>
+            </div>
+            {data?.losers && renderStockList(data.losers, 'loser')}
+          </div>
         </div>
       )}
 
       <div className="mt-4 pt-3 border-t border-[#30363d]">
         <p className="text-[10px] text-[#8b949e] text-center">
-          Showing stocks with 10%+ overnight gaps, minimum 100K volume, $100M+ market cap
+          Showing stocks with 5%+ overnight gaps, minimum 100K volume, $100M+ market cap
         </p>
       </div>
     </div>
