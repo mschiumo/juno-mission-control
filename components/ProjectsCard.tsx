@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FolderGit2, GitBranch, Clock, MoreHorizontal, Calendar, AlertCircle, Flag, X, Edit2, Save, ExternalLink } from 'lucide-react';
+import { FolderGit2, GitBranch, Clock, MoreHorizontal, Calendar, AlertCircle, Flag, X, Edit2, Save, ExternalLink, Plus } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -151,12 +151,39 @@ export default function ProjectsCard() {
   const handleSave = () => {
     if (!editingProject) return;
     
-    setProjects(prev => prev.map(p => 
-      p.id === editingProject.id 
-        ? { ...editingProject, lastUpdated: new Date().toISOString() }
-        : p
-    ));
+    const isNew = !projects.some(p => p.id === editingProject.id);
+    
+    if (isNew) {
+      // Create new project
+      setProjects(prev => [...prev, { ...editingProject, lastUpdated: new Date().toISOString() }]);
+    } else {
+      // Update existing project
+      setProjects(prev => prev.map(p => 
+        p.id === editingProject.id 
+          ? { ...editingProject, lastUpdated: new Date().toISOString() }
+          : p
+      ));
+    }
     closeEditModal();
+  };
+
+  const openCreateModal = () => {
+    const newProject: Project = {
+      id: Date.now().toString(),
+      name: '',
+      description: '',
+      status: 'planning',
+      priority: 'medium',
+      progress: 0,
+      lastUpdated: new Date().toISOString(),
+      tasks: { total: 0, completed: 0 }
+    };
+    setEditingProject(newProject);
+    setIsModalOpen(true);
+  };
+
+  const isNewProject = () => {
+    return editingProject ? !projects.some(p => p.id === editingProject.id) : false;
   };
 
   const handleChange = (field: keyof Project, value: string | number) => {
@@ -189,7 +216,16 @@ export default function ProjectsCard() {
               <p className="text-xs text-[#8b949e]">Sorted by priority & due date</p>
             </div>
           </div>
-          <span className="text-sm text-[#8b949e]">{projects.filter(p => p.status === 'active').length} active</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-[#8b949e]">{projects.filter(p => p.status === 'active').length} active</span>
+            <button
+              onClick={openCreateModal}
+              className="p-1.5 bg-[#ff6b35] hover:bg-[#ff8c5a] text-white rounded-lg transition-colors"
+              title="Add new project"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -306,7 +342,9 @@ export default function ProjectsCard() {
           <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-[#30363d]">
-              <h3 className="text-lg font-semibold text-white">Edit Project</h3>
+              <h3 className="text-lg font-semibold text-white">
+                {isNewProject() ? 'Create Project' : 'Edit Project'}
+              </h3>
               <button
                 onClick={closeEditModal}
                 className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
