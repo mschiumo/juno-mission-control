@@ -9,17 +9,6 @@ interface MarketItem {
   status: 'up' | 'down';
 }
 
-interface FinnhubQuote {
-  c: number;  // Current price
-  d: number;  // Change
-  dp: number; // Percent change
-  h: number;  // High price of the day
-  l: number;  // Low price of the day
-  o: number;  // Open price of the day
-  pc: number; // Previous close price
-  t: number;  // Timestamp
-}
-
 // Stock/ETF name mappings
 const stockNames: Record<string, string> = {
   'SPY': 'S&P 500 ETF',
@@ -34,85 +23,84 @@ const stockNames: Record<string, string> = {
 };
 
 /**
- * Fetches real-time stock/ETF quotes from Finnhub API
- * Free tier: 60 calls/minute, real-time US market data
- * 
- * Why Finnhub?
- * - Free tier with 60 calls/min (sufficient for our needs)
- * - Real-time US stock data
- * - No CORS issues when called server-side
- * - Reliable API with good uptime
- * 
- * @param symbols - Array of stock symbols (e.g., ['SPY', 'TSLA'])
- * @returns Array of market items or empty array on failure
+ * Fetches stock data from Yahoo Finance (unofficial but widely used)
+ * Uses the public crumb/cookie-less endpoint
  */
-async function fetchFinnhubQuotes(symbols: string[]): Promise<MarketItem[]> {
-  const apiKey = process.env.FINNHUB_API_KEY;
-  
-  if (!apiKey) {
-    console.warn('FINNHUB_API_KEY not set. Falling back to mock data for stocks.');
-    return [];
-  }
-
+async function fetchYahooFinance(symbols: string[]): Promise<MarketItem[]> {
   try {
-    // Fetch quotes in parallel - Finnhub requires individual calls per symbol
-    const quotePromises = symbols.map(async (symbol) => {
-      try {
-        const response = await fetch(
-          `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`,
-          { 
-            headers: { 'Accept': 'application/json' },
-            next: { revalidate: 30 } // Cache for 30 seconds
-          }
-        );
-        
-        if (!response.ok) {
-          console.warn(`Finnhub API error for ${symbol}: ${response.status}`);
-          return null;
-        }
-        
-        const data: FinnhubQuote = await response.json();
-        
-        // Validate response data
-        if (!data || data.c === 0) {
-          console.warn(`Invalid data for ${symbol}`);
-          return null;
-        }
-        
-        return {
-          symbol: symbol,
-          name: stockNames[symbol] || symbol,
-          price: data.c,
-          change: data.d,
-          changePercent: data.dp,
-          status: data.d >= 0 ? 'up' as const : 'down' as const
-        };
-      } catch (error) {
-        console.error(`Error fetching ${symbol}:`, error);
-        return null;
+    const symbolsParam = symbols.join(',');
+    // Use the v8 chart endpoint which is more reliable
+    const response = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${symbolsParam}?interval=1d&range=1d`,
+      {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        next: { revalidate: 60 }
       }
-    });
+    );
     
-    const results = await Promise.all(quotePromises);
-    return results.filter((item): item is MarketItem => item !== null);
+    if (!response.ok) {
+      console.warn(`Yahoo Finance error: ${response.status}`);
+      return [];
+    }
     
+    const data = await response.json();
+    const results: MarketItem[] = [];
+    
+    // Handle single or multiple results
+    const resultArray = Array.isArray(data.chart?.result) 
+      ? data.chart.result 
+      : data.chart?.result ? [data.chart.result] : [];
+    
+    for (const result of resultArray) {
+      if (!result?.meta) continue;
+      
+      const meta = result.meta;
+      const symbol = meta.symbol || meta.shortName || 'UNKNOWN';
+      const price = meta.regularMarketPrice || meta.previousClose || 0;
+      const prevClose = meta.previousClose || meta.regularMarketPrice || price;
+      const change = price - prevClose;
+      const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+      
+      if (price > 0) {
+        results.push({
+          symbol: symbol,
+          name: stockNames[symbol] || meta.shortName || symbol,
+          price: Number(price.toFixed(2)),
+          change: Number(change.toFixed(2)),
+          changePercent: Number(changePercent.toFixed(2)),
+          status: change >= 0 ? 'up' : 'down'
+        });
+      }
+    }
+    
+    return results;
   } catch (error) {
-    console.error('Finnhub fetch error:', error);
+    console.error('Yahoo Finance error:', error);
     return [];
   }
 }
 
 /**
+ * Alternative: Use Twelve Data API (free tier: 8 calls/day, no key required for some endpoints)
+ * Or try other free sources
+ */
+async function fetchAlternativeStocks(symbols: string[]): Promise<MarketItem[]> {
+  // Try Yahoo Finance first
+  const yahooData = await fetchYahooFinance(symbols);
+  if (yahooData.length > 0) {
+    return yahooData;
+  }
+  
+  // If Yahoo fails, return empty to trigger fallback
+  return [];
+}
+
+/**
  * Fetches cryptocurrency prices from CoinGecko API
- * Free tier: 10-30 calls/minute (depending on load)
- * 
- * Why CoinGecko?
- * - Free tier available without API key (with limits)
- * - No authentication required for basic endpoints
- * - Good coverage of major cryptocurrencies
- * - Reliable for BTC, ETH, SOL
- * 
- * @returns Array of crypto market items or empty array on failure
+ * Free tier, no API key required
  */
 async function fetchCryptoPrices(): Promise<MarketItem[]> {
   try {
@@ -120,70 +108,65 @@ async function fetchCryptoPrices(): Promise<MarketItem[]> {
       'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true',
       { 
         headers: { 'Accept': 'application/json' },
-        next: { revalidate: 60 } // Cache for 60 seconds
+        next: { revalidate: 60 }
       }
     );
     
     if (!response.ok) {
-      if (response.status === 429) {
-        console.warn('CoinGecko rate limit hit');
-      } else {
-        console.warn(`CoinGecko API error: ${response.status}`);
-      }
+      console.warn(`CoinGecko error: ${response.status}`);
       return [];
     }
     
     const data = await response.json();
     const cryptos: MarketItem[] = [];
     
-    if (data.bitcoin) {
-      const changePercent = data.bitcoin.usd_24h_change || 0;
+    if (data.bitcoin?.usd) {
+      const change = data.bitcoin.usd_24h_change || 0;
       cryptos.push({
         symbol: 'BTC',
         name: 'Bitcoin',
         price: data.bitcoin.usd,
-        change: data.bitcoin.usd * (changePercent / 100),
-        changePercent: changePercent,
-        status: changePercent >= 0 ? 'up' : 'down'
+        change: Number((data.bitcoin.usd * (change / 100)).toFixed(2)),
+        changePercent: Number(change.toFixed(2)),
+        status: change >= 0 ? 'up' : 'down'
       });
     }
     
-    if (data.ethereum) {
-      const changePercent = data.ethereum.usd_24h_change || 0;
+    if (data.ethereum?.usd) {
+      const change = data.ethereum.usd_24h_change || 0;
       cryptos.push({
         symbol: 'ETH',
         name: 'Ethereum',
         price: data.ethereum.usd,
-        change: data.ethereum.usd * (changePercent / 100),
-        changePercent: changePercent,
-        status: changePercent >= 0 ? 'up' : 'down'
+        change: Number((data.ethereum.usd * (change / 100)).toFixed(2)),
+        changePercent: Number(change.toFixed(2)),
+        status: change >= 0 ? 'up' : 'down'
       });
     }
     
-    if (data.solana) {
-      const changePercent = data.solana.usd_24h_change || 0;
+    if (data.solana?.usd) {
+      const change = data.solana.usd_24h_change || 0;
       cryptos.push({
         symbol: 'SOL',
         name: 'Solana',
         price: data.solana.usd,
-        change: data.solana.usd * (changePercent / 100),
-        changePercent: changePercent,
-        status: changePercent >= 0 ? 'up' : 'down'
+        change: Number((data.solana.usd * (change / 100)).toFixed(2)),
+        changePercent: Number(change.toFixed(2)),
+        status: change >= 0 ? 'up' : 'down'
       });
     }
     
     return cryptos;
   } catch (error) {
-    console.error('CoinGecko fetch error:', error);
+    console.error('CoinGecko error:', error);
     return [];
   }
 }
 
 /**
- * Returns fallback mock data for stocks when APIs fail
- * These are realistic but static values - shown when no API key or API errors
+ * Fallback mock data when all APIs fail
  */
-function getFallbackStockData(): { indices: MarketItem[]; stocks: MarketItem[] } {
+function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; crypto: MarketItem[] } {
   return {
     indices: [
       { symbol: 'SPY', name: 'S&P 500 ETF', price: 595.32, change: 2.15, changePercent: 0.36, status: 'up' },
@@ -197,117 +180,68 @@ function getFallbackStockData(): { indices: MarketItem[]; stocks: MarketItem[] }
       { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 185.19, change: -0.82, changePercent: -0.44, status: 'down' },
       { symbol: 'AMZN', name: 'Amazon.com', price: 228.68, change: 0.15, changePercent: 0.07, status: 'up' },
       { symbol: 'PLTR', name: 'Palantir', price: 84.48, change: -1.20, changePercent: -1.40, status: 'down' }
+    ],
+    crypto: [
+      { symbol: 'BTC', name: 'Bitcoin', price: 68229.47, change: 3125.80, changePercent: 4.79, status: 'up' },
+      { symbol: 'ETH', name: 'Ethereum', price: 2054.38, change: 132.80, changePercent: 6.92, status: 'up' },
+      { symbol: 'SOL', name: 'Solana', price: 83.97, change: 6.72, changePercent: 8.72, status: 'up' }
     ]
   };
 }
 
-/**
- * Returns fallback mock data for crypto when APIs fail
- */
-function getFallbackCryptoData(): MarketItem[] {
-  return [
-    { symbol: 'BTC', name: 'Bitcoin', price: 68229.47, change: 3125.80, changePercent: 4.79, status: 'up' },
-    { symbol: 'ETH', name: 'Ethereum', price: 2054.38, change: 132.80, changePercent: 6.92, status: 'up' },
-    { symbol: 'SOL', name: 'Solana', price: 83.97, change: 6.72, changePercent: 8.72, status: 'up' }
-  ];
-}
-
-/**
- * Market Data API Route
- * 
- * This endpoint provides real-time market data for the Juno Mission Control dashboard.
- * It fetches data from multiple sources:
- * - Stocks/ETFs: Finnhub API (requires FINNHUB_API_KEY env var)
- * - Crypto: CoinGecko API (free, no key required)
- * 
- * If APIs fail or no API key is provided, falls back to mock data.
- * 
- * GET /api/market-data
- * 
- * Response: {
- *   success: boolean,
- *   data: {
- *     indices: MarketItem[],
- *     stocks: MarketItem[],
- *     crypto: MarketItem[],
- *     lastUpdated: string
- *   },
- *   timestamp: string,
- *   source: 'live' | 'cached' | 'fallback'
- * }
- */
 export async function GET() {
   const timestamp = new Date().toISOString();
   
   try {
-    // Fetch data from all sources in parallel
-    const [indexData, stockData, cryptoData] = await Promise.all([
-      fetchFinnhubQuotes(['SPY', 'QQQ', 'DIA']),
-      fetchFinnhubQuotes(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR']),
+    // Fetch all data in parallel
+    const [indices, stocks, crypto] = await Promise.all([
+      fetchAlternativeStocks(['SPY', 'QQQ', 'DIA']),
+      fetchAlternativeStocks(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR']),
       fetchCryptoPrices()
     ]);
     
-    const fallbackData = getFallbackStockData();
-    const fallbackCrypto = getFallbackCryptoData();
-    
-    // Determine if we're using live data or fallback
-    const hasLiveIndices = indexData.length > 0;
-    const hasLiveStocks = stockData.length > 0;
-    const hasLiveCrypto = cryptoData.length > 0;
+    const fallback = getFallbackData();
     
     // Use live data if available, otherwise fallback
+    const hasRealIndices = indices.length > 0;
+    const hasRealStocks = stocks.length > 0;
+    const hasRealCrypto = crypto.length > 0;
+    
     const marketData = {
-      indices: hasLiveIndices ? indexData : fallbackData.indices,
-      stocks: hasLiveStocks ? stockData : fallbackData.stocks,
-      crypto: hasLiveCrypto ? cryptoData : fallbackCrypto,
+      indices: hasRealIndices ? indices : fallback.indices,
+      stocks: hasRealStocks ? stocks : fallback.stocks,
+      crypto: hasRealCrypto ? crypto : fallback.crypto,
       lastUpdated: timestamp
     };
     
-    // Determine source for response
-    let source: 'live' | 'partial' | 'fallback' = 'live';
-    if (!hasLiveIndices && !hasLiveStocks && !hasLiveCrypto) {
-      source = 'fallback';
-    } else if (!hasLiveIndices || !hasLiveStocks || !hasLiveCrypto) {
-      source = 'partial';
-    }
+    // Determine data source
+    const realCount = [hasRealIndices, hasRealStocks, hasRealCrypto].filter(Boolean).length;
+    const source = realCount === 3 ? 'live' : realCount > 0 ? 'partial' : 'fallback';
     
-    // Log data source for debugging
-    console.log(`Market data fetched: source=${source}, indices=${marketData.indices.length}, stocks=${marketData.stocks.length}, crypto=${marketData.crypto.length}`);
+    console.log(`Market data: source=${source}, indices=${indices.length}, stocks=${stocks.length}, crypto=${crypto.length}`);
     
     return NextResponse.json({ 
       success: true, 
       data: marketData,
       timestamp,
       source
-    }, {
-      headers: {
-        // Add cache headers for client-side caching
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60'
-      }
     });
     
   } catch (error) {
-    console.error('Market data fetch error:', error);
-    
-    // Return fallback data on complete failure
-    const fallbackData = getFallbackStockData();
-    const fallbackCrypto = getFallbackCryptoData();
+    console.error('Market data error:', error);
+    const fallback = getFallbackData();
     
     return NextResponse.json({ 
       success: true, 
       data: {
-        indices: fallbackData.indices,
-        stocks: fallbackData.stocks,
-        crypto: fallbackCrypto,
+        indices: fallback.indices,
+        stocks: fallback.stocks,
+        crypto: fallback.crypto,
         lastUpdated: timestamp
       },
       timestamp,
       source: 'fallback',
       error: error instanceof Error ? error.message : 'Unknown error'
-    }, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60'
-      }
     });
   }
 }
