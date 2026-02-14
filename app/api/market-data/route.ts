@@ -21,11 +21,11 @@ const stockNames: Record<string, string> = {
   'AMZN': 'Amazon.com',
   'PLTR': 'Palantir',
   'AMAT': 'Applied Materials',
-  'GC=F': 'Gold Futures',
-  'SI=F': 'Silver Futures',
-  'HG=F': 'Copper Futures',
-  'PL=F': 'Platinum Futures',
-  'PA=F': 'Palladium Futures'
+  'GLD': 'SPDR Gold Shares',
+  'SLV': 'iShares Silver Trust',
+  'CPER': 'United States Copper Index',
+  'PLTM': 'GraniteShares Platinum Trust',
+  'PALL': 'Aberdeen Physical Palladium'
 };
 
 /**
@@ -243,11 +243,11 @@ function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commo
       { symbol: 'AMAT', name: 'Applied Materials', price: 92.45, change: 1.25, changePercent: 1.37, status: 'up' }
     ],
     commodities: [
-      { symbol: 'GC=F', name: 'Gold Futures', price: 2800.50, change: 15.30, changePercent: 0.55, status: 'up' },
-      { symbol: 'SI=F', name: 'Silver Futures', price: 32.45, change: 0.25, changePercent: 0.78, status: 'up' },
-      { symbol: 'HG=F', name: 'Copper Futures', price: 4.35, change: -0.05, changePercent: -1.14, status: 'down' },
-      { symbol: 'PL=F', name: 'Platinum Futures', price: 985.40, change: 8.20, changePercent: 0.84, status: 'up' },
-      { symbol: 'PA=F', name: 'Palladium Futures', price: 1025.80, change: -12.50, changePercent: -1.20, status: 'down' }
+      { symbol: 'GLD', name: 'SPDR Gold Shares', price: 258.42, change: 1.35, changePercent: 0.53, status: 'up' },
+      { symbol: 'SLV', name: 'iShares Silver Trust', price: 29.85, change: 0.22, changePercent: 0.74, status: 'up' },
+      { symbol: 'CPER', name: 'United States Copper Index', price: 28.45, change: -0.35, changePercent: -1.21, status: 'down' },
+      { symbol: 'PLTM', name: 'GraniteShares Platinum Trust', price: 9.85, change: 0.08, changePercent: 0.82, status: 'up' },
+      { symbol: 'PALL', name: 'Aberdeen Physical Palladium', price: 95.40, change: -1.20, changePercent: -1.24, status: 'down' }
     ],
     crypto: [
       { symbol: 'BTC', name: 'Bitcoin', price: 68229.47, change: 3125.80, changePercent: 4.79, status: 'up' },
@@ -273,7 +273,7 @@ export async function GET() {
       [indices, stocks, commodities] = await Promise.all([
         fetchFinnhubStocks(['SPY', 'QQQ', 'DIA']),
         fetchFinnhubStocks(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR', 'AMAT']),
-        fetchFinnhubStocks(['GC=F', 'SI=F', 'HG=F', 'PL=F', 'PA=F']) // Gold, Silver, Copper, Platinum, Palladium futures
+        fetchFinnhubStocks(['GLD', 'SLV', 'CPER', 'PLTM', 'PALL']) // Gold, Silver, Copper, Platinum, Palladium ETFs
       ]);
     }
     
