@@ -28,9 +28,7 @@ export default function MotivationalBanner() {
 
   useEffect(() => {
     fetchMotivational();
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchMotivational, 300000);
-    return () => clearInterval(interval);
+    // No auto-refresh - quote updates once per day from cron job
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
