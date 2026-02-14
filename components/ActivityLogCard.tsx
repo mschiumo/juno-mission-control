@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Activity, Clock, RefreshCw } from 'lucide-react';
 
 interface ActivityItem {
@@ -16,7 +16,7 @@ interface ActivityItem {
 function renderWithPRLinks(text: string, repoUrl: string = 'https://github.com/mschiumo/juno-mission-control') {
   // Match PR #XXX patterns
   const prPattern = /#(\d+)/g;
-  const parts: (string | JSX.Element)[] = [];
+  const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match;
 
