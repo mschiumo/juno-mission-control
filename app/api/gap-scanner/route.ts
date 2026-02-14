@@ -13,18 +13,92 @@ interface GapStock {
 
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || '';
 
+// Common ETF prefixes/suffixes and patterns to exclude
+const ETF_PATTERNS = [
+  // Major ETFs
+  'SPY', 'QQQ', 'IWM', 'VTI', 'VOO', 'IVV', 'VEA', 'VWO', 'BND', 'AGG',
+  'GLD', 'SLV', 'USO', 'UNG', 'TLT', 'IEF', 'SHY', 'LQD', 'HYG', 'EMB',
+  'VIX', 'UVXY', 'SVXY', 'SQQQ', 'TQQQ', 'UPRO', 'SPXU', 'FAZ', 'FAS',
+  // Leveraged/Inverse patterns
+  'TQQQ', 'SQQQ', 'UPRO', 'SPXU', 'UDOW', 'SDOW', 'TNA', 'TZA',
+  'FAS', 'FAZ', 'LABU', 'LABD', 'SOXL', 'SOXS', 'YINN', 'YANG',
+  // Sector ETFs common patterns
+  'XL', 'XRT', 'XBI', 'XHB', 'XME', 'XES', 'XOP', 'XLE', 'XLF', 'XLU', 
+  'XLI', 'XLB', 'XLK', 'XLP', 'XLY', 'XLC', 'XLRE',
+  // Other ETF patterns
+  'ARK', 'VT', 'VG', 'VB', 'VO', 'VV', 'VEU', 'VXUS',
+];
+
+// Warrant/Unit/Right suffixes
+const EXCLUDED_SUFFIXES = ['.WS', '.WSA', '.WSB', '.WT', '+', '^', '=', '/WS', '/WT', '.U', '.UN', '.R', '.RT'];
+
+// Check if symbol is an ETF or derivative
+function isETFOrDerivative(symbol: string): boolean {
+  const upperSymbol = symbol.toUpperCase();
+  
+  // Check ETF patterns
+  if (ETF_PATTERNS.includes(upperSymbol)) return true;
+  
+  // Check suffixes (warrants, units, rights)
+  for (const suffix of EXCLUDED_SUFFIXES) {
+    if (upperSymbol.endsWith(suffix)) return true;
+  }
+  
+  // Check for special characters common in non-common-stock tickers
+  if (/[\/\^\+\=]/.test(symbol)) return true;
+  
+  // Check for preferred stock patterns (usually ends with .PR or -P)
+  if (/\.PR[A-Z]?$/.test(upperSymbol) || /-P[ABCDEF]?$/.test(upperSymbol)) return true;
+  
+  // Check for Class B/C shares (BRK.B style, but keep BRK.B as it's liquid)
+  if (/\.[BC]$/.test(upperSymbol) && upperSymbol !== 'BRK.B') return true;
+  
+  return false;
+}
+
+// Get the last trading day (handles weekends and holidays simply)
+function getLastTradingDate(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 = Sunday, 6 = Saturday
+  
+  // If Saturday, go back to Friday
+  if (day === 6) {
+    d.setDate(d.getDate() - 1);
+  }
+  // If Sunday, go back to Friday
+  else if (day === 0) {
+    d.setDate(d.getDate() - 2);
+  }
+  
+  return d;
+}
+
+// Check if markets are currently closed (weekend)
+function isWeekend(): boolean {
+  const day = new Date().getDay();
+  return day === 0 || day === 6; // Sunday or Saturday
+}
+
+// Format date as YYYY-MM-DD
+function formatDate(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
 // Fetch all stocks from Polygon grouped daily endpoint
-async function fetchPolygonGappers(): Promise<GapStock[]> {
+async function fetchPolygonGappers(): Promise<{ stocks: GapStock[]; isWeekend: boolean; tradingDate: string; previousDate: string }> {
+  const now = new Date();
+  const isWeekendDay = isWeekend();
+  
+  // Get trading dates (handle weekends)
+  const todayTrading = getLastTradingDate(now);
+  const yesterday = new Date(todayTrading);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayTrading = getLastTradingDate(yesterday);
+  
+  const todayStr = formatDate(todayTrading);
+  const yesterdayStr = formatDate(yesterdayTrading);
+  
   try {
-    // Get yesterday's date for previous close data
-    const now = new Date();
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    // Format dates as YYYY-MM-DD
-    const todayStr = now.toISOString().split('T')[0];
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-    
     // Fetch today's data (or most recent trading day)
     const todayResponse = await fetch(
       `https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${todayStr}?adjusted=true&apiKey=${POLYGON_API_KEY}`,
@@ -39,15 +113,15 @@ async function fetchPolygonGappers(): Promise<GapStock[]> {
 
     if (!todayResponse.ok || !yesterdayResponse.ok) {
       console.error('Polygon API error:', todayResponse.status, yesterdayResponse.status);
-      return [];
+      return { stocks: [], isWeekend: isWeekendDay, tradingDate: todayStr, previousDate: yesterdayStr };
     }
 
     const todayData = await todayResponse.json();
     const yesterdayData = await yesterdayResponse.json();
     
     if (todayData.resultsCount === 0 || !todayData.results) {
-      console.log('No trading data for today, using previous day');
-      return [];
+      console.log('No trading data available');
+      return { stocks: [], isWeekend: isWeekendDay, tradingDate: todayStr, previousDate: yesterdayStr };
     }
 
     // Create map of yesterday's closes
@@ -59,6 +133,10 @@ async function fetchPolygonGappers(): Promise<GapStock[]> {
     }
 
     const results: GapStock[] = [];
+    let etfsFiltered = 0;
+    let lowVolumeFiltered = 0;
+    let lowGapFiltered = 0;
+    let priceFiltered = 0;
     
     // Process all stocks from today
     for (const result of todayData.results) {
@@ -66,6 +144,12 @@ async function fetchPolygonGappers(): Promise<GapStock[]> {
       const currentPrice = result.c; // Close price (or current if during market)
       const previousClose = yesterdayCloses[symbol];
       const volume = result.v;
+      
+      // Skip ETFs and derivatives
+      if (isETFOrDerivative(symbol)) {
+        etfsFiltered++;
+        continue;
+      }
       
       // Skip if no previous close data
       if (!previousClose || previousClose === 0) continue;
@@ -78,12 +162,18 @@ async function fetchPolygonGappers(): Promise<GapStock[]> {
       const displayPrice = currentPrice || openPrice;
       
       // Apply filters
-      if (Math.abs(gapPercent) < 5) continue; // Min 5% gap
-      if (volume < 100000) continue; // Min 100K volume
-      if (displayPrice > 500) continue; // Max $500 price
-      
-      // Polygon doesn't provide market cap, so we'll skip that filter or estimate
-      // Most stocks in Polygon are US equities with reasonable market caps
+      if (Math.abs(gapPercent) < 5) {
+        lowGapFiltered++;
+        continue; // Min 5% gap
+      }
+      if (volume < 100000) {
+        lowVolumeFiltered++;
+        continue; // Min 100K volume
+      }
+      if (displayPrice > 500) {
+        priceFiltered++;
+        continue; // Max $500 price
+      }
       
       results.push({
         symbol,
@@ -97,10 +187,17 @@ async function fetchPolygonGappers(): Promise<GapStock[]> {
       });
     }
 
-    return results;
+    console.log(`Gap Scan: ${todayData.resultsCount} total tickers, ${etfsFiltered} ETFs filtered, ${lowGapFiltered} low gap, ${lowVolumeFiltered} low volume, ${priceFiltered} high price, ${results.length} results`);
+
+    return { 
+      stocks: results, 
+      isWeekend: isWeekendDay, 
+      tradingDate: todayStr, 
+      previousDate: yesterdayStr 
+    };
   } catch (error) {
     console.error('Polygon gap scanner error:', error);
-    return [];
+    return { stocks: [], isWeekend: isWeekendDay, tradingDate: todayStr, previousDate: yesterdayStr };
   }
 }
 
@@ -124,7 +221,7 @@ export async function GET() {
   const timestamp = new Date().toISOString();
   
   try {
-    const stocks = await fetchPolygonGappers();
+    const { stocks, isWeekend: weekendFlag, tradingDate, previousDate } = await fetchPolygonGappers();
     
     // Sort and filter
     const gainers = stocks
@@ -144,10 +241,17 @@ export async function GET() {
       source: 'live',
       scanned: stocks.length,
       found: stocks.length,
+      isWeekend: weekendFlag,
+      tradingDate,
+      previousDate,
+      marketStatus: weekendFlag ? 'closed' : 'open',
+      nextMarketOpen: weekendFlag ? 'Monday 4:00 AM EST' : null,
       filters: {
         minGapPercent: 5,
         minVolume: 100000,
-        maxPrice: 500
+        maxPrice: 500,
+        excludeETFs: true,
+        excludeWarrants: true
       }
     });
 
@@ -166,11 +270,16 @@ export async function GET() {
       source: 'fallback',
       scanned: 0,
       found: 0,
+      isWeekend: isWeekend(),
+      marketStatus: isWeekend() ? 'closed' : 'unknown',
+      nextMarketOpen: isWeekend() ? 'Monday 4:00 AM EST' : null,
       error: 'Failed to fetch live data',
       filters: {
         minGapPercent: 5,
         minVolume: 100000,
-        maxPrice: 500
+        maxPrice: 500,
+        excludeETFs: true,
+        excludeWarrants: true
       }
     });
   }
