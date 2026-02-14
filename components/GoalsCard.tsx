@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Target, Plus, X, RefreshCw, FileText } from 'lucide-react';
+import { Target, Plus, X, RefreshCw, FileText, Bot, CheckCircle, Circle, Loader2 } from 'lucide-react';
+
+interface ActionItem {
+  id: string;
+  text: string;
+  status: 'pending' | 'in-progress' | 'completed';
+  createdAt: string;
+}
 
 interface Goal {
   id: string;
@@ -9,6 +16,8 @@ interface Goal {
   phase: 'not-started' | 'in-progress' | 'achieved';
   category: 'yearly' | 'weekly' | 'daily';
   notes?: string;
+  junoAssisted?: boolean;
+  actionItems?: ActionItem[];
 }
 
 interface GoalsData {
@@ -54,6 +63,12 @@ export default function GoalsCard() {
   // Notes modal state
   const [notesGoal, setNotesGoal] = useState<Goal | null>(null);
   const [notesContent, setNotesContent] = useState('');
+
+  // Juno-assisted state
+  const [showActionItemsModal, setShowActionItemsModal] = useState(false);
+  const [actionItemsGoal, setActionItemsGoal] = useState<Goal | null>(null);
+  const [newActionItem, setNewActionItem] = useState('');
+  const [showJunoOnly, setShowJunoOnly] = useState(false);
 
   useEffect(() => {
     fetchGoals();
@@ -203,6 +218,137 @@ export default function GoalsCard() {
     }
   };
 
+  // Juno-assisted functions
+  const toggleJunoAssisted = async (goal: Goal) => {
+    const newValue = !goal.junoAssisted;
+    
+    // Optimistic update
+    const updatedGoals = { ...goals };
+    const goalIndex = updatedGoals[goal.category].findIndex(g => g.id === goal.id);
+    if (goalIndex > -1) {
+      updatedGoals[goal.category][goalIndex].junoAssisted = newValue;
+      setGoals(updatedGoals);
+    }
+
+    try {
+      const response = await fetch('/api/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goalId: goal.id,
+          category: goal.category,
+          junoAssisted: newValue
+        })
+      });
+
+      if (!response.ok) {
+        // Revert on failure
+        fetchGoals();
+      }
+    } catch (error) {
+      console.error('Failed to toggle Juno-assisted:', error);
+      fetchGoals();
+    }
+  };
+
+  const openActionItems = (goal: Goal) => {
+    setActionItemsGoal(goal);
+  };
+
+  const closeActionItems = () => {
+    setActionItemsGoal(null);
+    setNewActionItem('');
+  };
+
+  const addActionItem = async () => {
+    if (!actionItemsGoal || !newActionItem.trim()) return;
+
+    const newItem: ActionItem = {
+      id: `ai-${Date.now()}`,
+      text: newActionItem.trim(),
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+
+    const currentItems = actionItemsGoal.actionItems || [];
+    const updatedItems = [...currentItems, newItem];
+
+    try {
+      const response = await fetch('/api/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goalId: actionItemsGoal.id,
+          category: actionItemsGoal.category,
+          actionItems: updatedItems
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGoals(data.data);
+        setActionItemsGoal({ ...actionItemsGoal, actionItems: updatedItems });
+        setNewActionItem('');
+      }
+    } catch (error) {
+      console.error('Failed to add action item:', error);
+    }
+  };
+
+  const updateActionItemStatus = async (itemId: string, newStatus: ActionItem['status']) => {
+    if (!actionItemsGoal) return;
+
+    const updatedItems = (actionItemsGoal.actionItems || []).map(item =>
+      item.id === itemId ? { ...item, status: newStatus } : item
+    );
+
+    try {
+      const response = await fetch('/api/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goalId: actionItemsGoal.id,
+          category: actionItemsGoal.category,
+          actionItems: updatedItems
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGoals(data.data);
+        setActionItemsGoal({ ...actionItemsGoal, actionItems: updatedItems });
+      }
+    } catch (error) {
+      console.error('Failed to update action item:', error);
+    }
+  };
+
+  const deleteActionItem = async (itemId: string) => {
+    if (!actionItemsGoal) return;
+
+    const updatedItems = (actionItemsGoal.actionItems || []).filter(item => item.id !== itemId);
+
+    try {
+      const response = await fetch('/api/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goalId: actionItemsGoal.id,
+          category: actionItemsGoal.category,
+          actionItems: updatedItems
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGoals(data.data);
+        setActionItemsGoal({ ...actionItemsGoal, actionItems: updatedItems });
+      }
+    } catch (error) {
+      console.error('Failed to delete action item:', error);
+    }
+  };
+
   const handleDragStart = (goal: Goal) => {
     setDraggedGoal(goal);
   };
@@ -220,7 +366,11 @@ export default function GoalsCard() {
   };
 
   const getGoalsByPhase = (category: Category, phase: Phase) => {
-    return goals[category]?.filter(g => g.phase === phase) || [];
+    let filtered = goals[category]?.filter(g => g.phase === phase) || [];
+    if (showJunoOnly) {
+      filtered = filtered.filter(g => g.junoAssisted);
+    }
+    return filtered;
   };
 
   const getProgressStats = (category: Category) => {
@@ -233,13 +383,36 @@ export default function GoalsCard() {
 
   const stats = getProgressStats(activeCategory);
 
-  // Render goal card with notes button
+  // Render goal card with notes button and Juno-assisted features
   const renderGoalCard = (goal: Goal, phase: Phase, isMobileView: boolean) => {
+    const pendingActions = (goal.actionItems || []).filter(item => item.status === 'pending').length;
+    const junoBorderClass = goal.junoAssisted ? 'ring-1 ring-purple-500/50' : '';
+    
     const cardContent = (
       <>
+        {/* Header with Juno badge */}
         <div className="flex items-start justify-between gap-2">
-          <p className="text-sm text-white flex-1">{goal.title}</p>
+          <div className="flex items-center gap-2 flex-1">
+            {goal.junoAssisted && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-purple-500/20 rounded text-[10px] text-purple-400">
+                <Bot className="w-3 h-3" />
+                <span>JUNO</span>
+              </div>
+            )}
+            <p className={`text-sm text-white flex-1 ${goal.junoAssisted ? '' : ''}`}>{goal.title}</p>
+          </div>
           <div className="flex items-center gap-1">
+            {/* Action items indicator */}
+            {pendingActions > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); openActionItems(goal); }}
+                className="flex items-center gap-1 px-1.5 py-0.5 bg-[#d29922]/20 rounded text-[10px] text-[#d29922] hover:bg-[#d29922]/30 transition-colors"
+                title={`${pendingActions} pending action items`}
+              >
+                <CheckCircle className="w-3 h-3" />
+                {pendingActions}
+              </button>
+            )}
             <button
               onClick={(e) => { e.stopPropagation(); openNotes(goal); }}
               className="text-[#8b949e] hover:text-[#ff6b35] transition-colors"
@@ -255,6 +428,29 @@ export default function GoalsCard() {
               <X className="w-4 h-4" />
             </button>
           </div>
+        </div>
+        
+        {/* Juno checkbox and action items button */}
+        <div className="flex items-center justify-between mt-2">
+          <label 
+            className="flex items-center gap-2 cursor-pointer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={goal.junoAssisted || false}
+              onChange={(e) => { e.stopPropagation(); toggleJunoAssisted(goal); }}
+              className="w-3.5 h-3.5 rounded border-[#30363d] bg-[#0d1117] text-purple-500 focus:ring-purple-500/20"
+            />
+            <span className="text-[10px] text-[#8b949e]">Juno-assisted</span>
+          </label>
+          
+          <button
+            onClick={(e) => { e.stopPropagation(); openActionItems(goal); }}
+            className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+          >
+            Action Items →
+          </button>
         </div>
         
         {goal.notes && (
@@ -303,7 +499,7 @@ export default function GoalsCard() {
       return (
         <div
           key={goal.id}
-          className={`p-3 rounded-lg border ${phaseColors[phase]} border-opacity-30`}
+          className={`p-3 rounded-lg border ${phaseColors[phase]} border-opacity-30 ${junoBorderClass}`}
         >
           {cardContent}
         </div>
@@ -316,7 +512,7 @@ export default function GoalsCard() {
         draggable
         onDragStart={() => handleDragStart(goal)}
         onClick={() => openNotes(goal)}
-        className={`group p-3 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${phaseColors[phase]} border-opacity-30`}
+        className={`group p-3 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${phaseColors[phase]} border-opacity-30 ${junoBorderClass}`}
       >
         {cardContent}
       </div>
@@ -497,6 +693,21 @@ export default function GoalsCard() {
             <Plus className="w-4 h-4" />
             Add Goal
           </button>
+          
+          {/* Juno Filter Toggle */}
+          <button
+            onClick={() => setShowJunoOnly(!showJunoOnly)}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              showJunoOnly
+                ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
+                : 'bg-[#0d1117] text-[#8b949e] hover:bg-[#30363d]'
+            }`}
+            title={showJunoOnly ? 'Show all goals' : 'Show Juno-assisted only'}
+          >
+            <Bot className="w-4 h-4" />
+            {showJunoOnly ? 'Juno Only' : 'All Goals'}
+          </button>
+          
           <button
             onClick={fetchGoals}
             disabled={loading}
@@ -646,6 +857,123 @@ export default function GoalsCard() {
                 className="flex-1 px-4 py-2 bg-[#ff6b35] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors"
               >
                 Save Notes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Items Modal */}
+      {actionItemsGoal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-2xl p-6 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-500/10 rounded-lg">
+                  <Bot className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Action Items</h3>
+                  <p className="text-sm text-[#8b949e]">{actionItemsGoal.title}</p>
+                </div>
+              </div>
+              <button
+                onClick={closeActionItems}
+                className="p-2 hover:bg-[#30363d] rounded-lg"
+              >
+                <X className="w-5 h-5 text-[#8b949e]" />
+              </button>
+            </div>
+
+            {/* Add new action item */}
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={newActionItem}
+                onChange={(e) => setNewActionItem(e.target.value)}
+                placeholder="Add a new action item for Juno..."
+                className="flex-1 px-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-purple-500"
+                onKeyPress={(e) => e.key === 'Enter' && addActionItem()}
+              />
+              <button
+                onClick={addActionItem}
+                disabled={!newActionItem.trim()}
+                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Action items list */}
+            <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+              {(actionItemsGoal.actionItems || []).length === 0 ? (
+                <div className="text-center py-8 text-[#8b949e]">
+                  <Bot className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>No action items yet.</p>
+                  <p className="text-sm mt-1">Add items for Juno to work on!</p>
+                </div>
+              ) : (
+                (actionItemsGoal.actionItems || []).map((item) => (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border ${
+                      item.status === 'completed'
+                        ? 'bg-[#238636]/10 border-[#238636]/30'
+                        : item.status === 'in-progress'
+                        ? 'bg-[#d29922]/10 border-[#d29922]/30'
+                        : 'bg-[#0d1117] border-[#30363d]'
+                    }`}
+                  >
+                    <button
+                      onClick={() => updateActionItemStatus(item.id, 
+                        item.status === 'completed' ? 'pending' : 
+                        item.status === 'in-progress' ? 'completed' : 'in-progress'
+                      )}
+                      className="flex-shrink-0"
+                    >
+                      {item.status === 'completed' ? (
+                        <CheckCircle className="w-5 h-5 text-[#238636]" />
+                      ) : item.status === 'in-progress' ? (
+                        <Loader2 className="w-5 h-5 text-[#d29922] animate-spin" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-[#8b949e]" />
+                      )}
+                    </button>
+                    
+                    <span className={`flex-1 ${item.status === 'completed' ? 'line-through text-[#8b949e]' : 'text-white'}`}>
+                      {item.text}
+                    </span>
+                    
+                    <button
+                      onClick={() => deleteActionItem(item.id)}
+                      className="text-[#8b949e] hover:text-[#da3633] transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Juno assistance indicator */}
+            {actionItemsGoal.junoAssisted && (
+              <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg mb-4">
+                <div className="flex items-center gap-2 text-purple-400">
+                  <Bot className="w-4 h-4" />
+                  <span className="text-sm font-medium">Juno is monitoring this goal</span>
+                </div>
+                <p className="text-xs text-[#8b949e] mt-1">
+                  Juno will ask before taking action on pending items
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={closeActionItems}
+                className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

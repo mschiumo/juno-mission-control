@@ -4,12 +4,21 @@ import { createClient } from 'redis';
 const STORAGE_KEY = 'goals_data';
 type Category = 'yearly' | 'weekly' | 'daily';
 
+interface ActionItem {
+  id: string;
+  text: string;
+  status: 'pending' | 'in-progress' | 'completed';
+  createdAt: string;
+}
+
 interface Goal {
   id: string;
   title: string;
   phase: 'not-started' | 'in-progress' | 'achieved';
   category: Category;
   notes?: string;
+  junoAssisted?: boolean;
+  actionItems?: ActionItem[];
 }
 
 interface GoalsData {
@@ -94,7 +103,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { goalId, newPhase, category, notes } = body;
+    const { goalId, newPhase, category, notes, junoAssisted, actionItems } = body;
     
     if (!goalId || !category) {
       return NextResponse.json({
@@ -139,6 +148,16 @@ export async function POST(request: Request) {
     // Update notes if provided
     if (notes !== undefined) {
       goals[category][goalIndex].notes = notes;
+    }
+
+    // Update junoAssisted if provided
+    if (junoAssisted !== undefined) {
+      goals[category][goalIndex].junoAssisted = junoAssisted;
+    }
+
+    // Update actionItems if provided
+    if (actionItems !== undefined) {
+      goals[category][goalIndex].actionItems = actionItems;
     }
     
     // Save to Redis
