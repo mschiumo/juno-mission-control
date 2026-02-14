@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock } from 'lucide-react';
 
 interface GapStock {
   symbol: string;
@@ -19,11 +19,25 @@ interface GapData {
   losers: GapStock[];
 }
 
+interface GapResponse {
+  success: boolean;
+  data: GapData;
+  source: 'live' | 'mock' | 'fallback';
+  scanned: number;
+  found: number;
+  isWeekend?: boolean;
+  tradingDate?: string;
+  previousDate?: string;
+  marketStatus?: 'open' | 'closed';
+  nextMarketOpen?: string | null;
+  timestamp: string;
+}
+
 export default function GapScannerCard() {
   const [data, setData] = useState<GapData | null>(null);
+  const [response, setResponse] = useState<GapResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [dataSource, setDataSource] = useState<'live' | 'mock' | 'fallback'>('mock');
 
   useEffect(() => {
     fetchGapData();
@@ -36,10 +50,10 @@ export default function GapScannerCard() {
     setLoading(true);
     try {
       const response = await fetch('/api/gap-scanner');
-      const result = await response.json();
+      const result: GapResponse = await response.json();
       if (result.success) {
         setData(result.data);
-        setDataSource(result.source);
+        setResponse(result);
         setLastUpdated(new Date());
       }
     } catch (error) {
@@ -95,12 +109,17 @@ export default function GapScannerCard() {
 
   const renderStockList = (stocks: GapStock[], type: 'gainer' | 'loser') => {
     const isGainer = type === 'gainer';
+    const isWeekend = response?.isWeekend;
     
     if (stocks.length === 0) {
       return (
         <div className="text-center py-6 text-[#8b949e] text-sm">
           <p>No {isGainer ? 'gainers' : 'losers'} 5%+</p>
-          <p className="text-xs mt-1">Markets closed or low volatility</p>
+          <p className="text-xs mt-1">
+            {isWeekend 
+              ? 'Market closed — gaps resume Monday 4 AM EST' 
+              : 'Low volatility or pre-market not started'}
+          </p>
         </div>
       );
     }
@@ -152,6 +171,11 @@ export default function GapScannerCard() {
     );
   };
 
+  const dataSource = response?.source || 'mock';
+  const isWeekend = response?.isWeekend;
+  const scannedCount = response?.scanned || 0;
+  const foundCount = response?.found || 0;
+
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
@@ -163,7 +187,7 @@ export default function GapScannerCard() {
             <h2 className="text-lg font-semibold text-white">Gap Scanner</h2>
             <div className="flex items-center gap-2">
               <p className="text-xs text-[#8b949e]">
-                5%+ gaps | Min 100K vol | $100M+ cap
+                5%+ gaps | Min 100K vol | No ETFs
               </p>
               {lastUpdated && !loading && (
                 <span className="text-[10px] text-[#238636]">
@@ -194,6 +218,28 @@ export default function GapScannerCard() {
           </button>
         </div>
       </div>
+
+      {/* Weekend/Market Status Banner */}
+      {isWeekend && (
+        <div className="mb-4 p-3 bg-[#d29922]/10 border border-[#d29922]/30 rounded-lg">
+          <div className="flex items-center gap-2 text-[#d29922]">
+            <Clock className="w-4 h-4" />
+            <span className="text-sm font-medium">Market Closed</span>
+          </div>
+          <p className="text-xs text-[#8b949e] mt-1">
+            Weekend mode — showing data from {response?.tradingDate}. 
+            Next gap scan: Monday 4:00 AM EST
+          </p>
+        </div>
+      )}
+
+      {/* Scan Stats */}
+      {response && dataSource === 'live' && !isWeekend && (
+        <div className="mb-4 flex items-center gap-4 text-xs text-[#8b949e]">
+          <span>Scanned: <span className="text-white">{scannedCount.toLocaleString()}+ stocks</span></span>
+          <span>Found: <span className="text-white">{foundCount} gaps</span></span>
+        </div>
+      )}
 
       {loading && !data ? (
         <div className="text-center py-8 text-[#8b949e]">
@@ -234,7 +280,7 @@ export default function GapScannerCard() {
 
       <div className="mt-4 pt-3 border-t border-[#30363d]">
         <p className="text-[10px] text-[#8b949e] text-center">
-          Showing stocks with 5%+ overnight gaps, minimum 100K volume, $100M+ market cap
+          Common stocks only — ETFs, warrants, preferred shares excluded • Min 5% gap • 100K+ volume
         </p>
       </div>
     </div>
