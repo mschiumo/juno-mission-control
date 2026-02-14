@@ -95,7 +95,7 @@ export default function GapScannerCard() {
     const isGainer = type === 'gainer';
     
     return (
-      <div className="space-y-2">
+      <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
         {stocks.map((stock) => (
           <div
             key={stock.symbol}

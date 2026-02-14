@@ -22,7 +22,7 @@ const fallbackQuotes = [
   { quote: "Everything you've ever wanted is on the other side of fear.", author: "George Addair" }
 ];
 
-export default function MotivationalBanner() {
+export default function MotivationalBanner({ compact = false }: { compact?: boolean }) {
   const [data, setData] = useState<MotivationalData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -124,6 +124,47 @@ export default function MotivationalBanner() {
     }
   };
 
+  // Compact version for Trading tab sidebar
+  if (compact) {
+    if (loading) {
+      return (
+        <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-[#ff6b35] border-t-transparent rounded-full animate-spin" />
+            <span className="text-[#8b949e] text-xs">Loading...</span>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+        <div className="flex items-start gap-2">
+          <Quote className="w-4 h-4 text-[#ff6b35] flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-white line-clamp-3">
+              &ldquo;{data?.quote}&rdquo;
+            </p>
+            <div className="flex items-center justify-between mt-2">
+              <cite className="text-xs text-[#8b949e] not-italic">
+                — {data?.author}
+              </cite>
+              <button
+                onClick={fetchMotivational}
+                disabled={loading}
+                className="p-1 hover:bg-[#30363d] rounded transition-colors"
+                title="Refresh quote"
+              >
+                <RefreshCw className={`w-3 h-3 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Full-width version for Dashboard
   if (loading) {
     return (
       <div className="bg-gradient-to-r from-[#ff6b35]/10 via-[#ff8c5a]/10 to-[#ff6b35]/10 border-y border-[#ff6b35]/20 py-4 md:py-6">

@@ -139,31 +139,35 @@ function DashboardContent() {
         </div>
       </header>
 
-      {/* Motivational Banner */}
-      <MotivationalBanner />
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
         {activeTab === 'dashboard' ? (
           /* Dashboard Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            <DailyReportsCard />
-            <HabitCard />
-            <ProjectsCard />
+          <div className="space-y-4">
+            <MotivationalBanner />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              <DailyReportsCard />
+              <HabitCard />
+              <ProjectsCard />
+            </div>
           </div>
         ) : activeTab === 'trading' ? (
-          /* Trading View */
-          <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
+          /* Trading View - Gap Scanner Left, Market Right */
+          <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
             {/* Market Hours Banner */}
             <MarketHoursBanner />
             
-            {/* Market Card + Gap Scanner */}
+            {/* Three Column Layout: Gap Scanner + Motivation | Market Card */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+              {/* Left Column: Gap Scanner + Motivational */}
+              <div className="space-y-4">
+                <GapScannerCard />
+                <MotivationalBanner compact />
+              </div>
+              
+              {/* Right Column: Market Card (spans 2 columns) */}
               <div className="lg:col-span-2">
                 <MarketCard />
-              </div>
-              <div>
-                <GapScannerCard />
               </div>
             </div>
           </div>
