@@ -257,7 +257,7 @@ export default function DailyReportsCard() {
     }).replace(',', ' @');
   };
 
-  // Sort jobs: those with reports first, then by schedule time
+  // Sort jobs: those with reports first (sorted by most recent report), then by schedule time
   // Exclude jobs that are shown elsewhere: Daily Motivational (banner), Mid-Day/Post-Market (Telegram only), GitHub PR Monitor (internal)
   const sortedJobs = [...jobs]
     .filter(job => job.name !== 'Daily Motivational' 
@@ -270,6 +270,15 @@ export default function DailyReportsCard() {
       const bHasReport = hasReport(b.name);
       if (aHasReport && !bHasReport) return -1;
       if (!aHasReport && bHasReport) return 1;
+      
+      // Both have reports - sort by most recent report timestamp
+      if (aHasReport && bHasReport) {
+        const aTime = getLatestReportTime(a.name);
+        const bTime = getLatestReportTime(b.name);
+        if (aTime && bTime) {
+          return new Date(bTime).getTime() - new Date(aTime).getTime();
+        }
+      }
       return 0;
     });
 
