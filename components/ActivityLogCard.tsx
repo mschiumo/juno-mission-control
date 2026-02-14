@@ -85,6 +85,31 @@ export default function ActivityLogCard() {
     }
   };
 
+  const pluralizeType = (type: string, count: number) => {
+    const label = getTypeLabel(type);
+    if (count === 1) return label;
+    // Pluralize
+    if (label === 'Cron Job') return 'Cron Jobs';
+    if (label === 'API Call') return 'API Calls';
+    if (label === 'User Action') return 'User Actions';
+    return label + 's';
+  };
+
+  const getTypeCounts = () => {
+    const counts: Record<string, number> = {};
+    activities.forEach(a => {
+      counts[a.type] = (counts[a.type] || 0) + 1;
+    });
+    return counts;
+  };
+
+  const typeCounts = getTypeCounts();
+
+  // Sort activities by timestamp descending (newest first)
+  const sortedActivities = [...activities].sort((a, b) => 
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
@@ -96,7 +121,12 @@ export default function ActivityLogCard() {
             <h2 className="text-lg font-semibold text-white">Activity Log</h2>
             <div className="flex items-center gap-2">
               <p className="text-xs text-[#8b949e]">
-                {activities.length} activity{activities.length !== 1 ? 'ies' : 'y'} today
+                {activities.length} activit{activities.length === 1 ? 'y' : 'ies'} today
+                {Object.keys(typeCounts).length > 0 && (
+                  <span className="ml-1">
+                    ({Object.entries(typeCounts).map(([type, count]) => `${count} ${pluralizeType(type, count)}`).join(', ')})
+                  </span>
+                )}
               </p>
               {lastUpdated && !loading && (
                 <span className="text-[10px] text-[#238636]">
@@ -129,7 +159,7 @@ export default function ActivityLogCard() {
             <p className="text-xs mt-1">Activities will appear here when cron jobs run or actions are logged</p>
           </div>
         ) : (
-          activities.map((activity) => (
+          sortedActivities.map((activity) => (
             <div
               key={activity.id}
               className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d]"

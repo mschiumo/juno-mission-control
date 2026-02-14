@@ -27,6 +27,7 @@ export default function DailyReportsCard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedReport, setSelectedReport] = useState<CronResult | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [hoveredJob, setHoveredJob] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -62,23 +63,13 @@ export default function DailyReportsCard() {
   };
 
   const openReport = async (jobName: string) => {
-    // Find the latest report for this job
+    // Only open if report exists
     const report = reports
       .filter(r => r.jobName === jobName)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
     
     if (report) {
       setSelectedReport(report);
-      setModalOpen(true);
-    } else {
-      // Show placeholder if no report available
-      setSelectedReport({
-        id: 'placeholder',
-        jobName: jobName,
-        timestamp: new Date().toISOString(),
-        content: `No report available yet for "${jobName}".\n\nReports appear here after the job runs.`,
-        type: 'info'
-      });
       setModalOpen(true);
     }
   };
@@ -110,6 +101,88 @@ export default function DailyReportsCard() {
       .filter(r => r.jobName === jobName)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
     return report ? report.timestamp : null;
+  };
+
+  const getNextScheduledTime = (schedule: string) => {
+    // Parse cron schedule and calculate next run
+    const now = new Date();
+    const estNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    
+    // Simple parsing for common schedules
+    if (schedule === '0 23 * * *') {
+      // Daily at 11 PM
+      const next = new Date(estNow);
+      next.setHours(23, 0, 0, 0);
+      if (estNow > next) next.setDate(next.getDate() + 1);
+      return next.toLocaleString('en-US', { 
+        timeZone: 'America/New_York',
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    }
+    if (schedule === '0 20 * * *') {
+      // Daily at 8 PM
+      const next = new Date(estNow);
+      next.setHours(20, 0, 0, 0);
+      if (estNow > next) next.setDate(next.getDate() + 1);
+      return next.toLocaleString('en-US', { 
+        timeZone: 'America/New_York',
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    }
+    if (schedule === '0 0 * * 0-4') {
+      // Weekdays at 12 AM
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const next = new Date(estNow);
+      next.setHours(0, 0, 0, 0);
+      if (estNow > next || next.getDay() > 4) {
+        // Find next weekday
+        do {
+          next.setDate(next.getDate() + 1);
+        } while (next.getDay() > 4);
+      }
+      return `${days[next.getDay()]} at 12:00 AM`;
+    }
+    if (schedule === '0 3 * * 0-4') {
+      // Weekdays at 3 AM
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const next = new Date(estNow);
+      next.setHours(3, 0, 0, 0);
+      if (estNow > next || next.getDay() > 4) {
+        do {
+          next.setDate(next.getDate() + 1);
+        } while (next.getDay() > 4);
+      }
+      return `${days[next.getDay()]} at 3:00 AM`;
+    }
+    if (schedule === '0 13 * * 0-4') {
+      // Weekdays at 1 PM UTC = 8 AM EST
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const next = new Date(estNow);
+      next.setHours(8, 0, 0, 0);
+      if (estNow > next || next.getDay() > 4 || next.getDay() === 0) {
+        do {
+          next.setDate(next.getDate() + 1);
+        } while (next.getDay() > 5 || next.getDay() === 0);
+      }
+      return `${days[next.getDay()]} at 8:00 AM`;
+    }
+    if (schedule === '30 21 * * 0-4') {
+      // Weekdays at 9:30 PM UTC = 4:30 PM EST
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const next = new Date(estNow);
+      next.setHours(16, 30, 0, 0);
+      if (estNow > next || next.getDay() > 4 || next.getDay() === 0) {
+        do {
+          next.setDate(next.getDate() + 1);
+        } while (next.getDay() > 5 || next.getDay() === 0);
+      }
+      return `${days[next.getDay()]} at 4:30 PM`;
+    }
+    return 'Scheduled';
   };
 
   const formatSchedule = (schedule: string) => {
@@ -193,7 +266,7 @@ export default function DailyReportsCard() {
               <h2 className="text-lg font-semibold text-white">Daily Reports</h2>
               <div className="flex items-center gap-2">
                 <p className="text-xs text-[#8b949e]">
-                  {reports.length} report{reports.length !== 1 ? 's' : ''} today
+                  {reports.filter(r => sortedJobs.some(j => j.name === r.jobName)).length} of {sortedJobs.length} available
                 </p>
                 {lastUpdated && !loading && (
                   <span className="text-[10px] text-[#238636]">
@@ -220,38 +293,58 @@ export default function DailyReportsCard() {
           ) : (
             sortedJobs.map((job) => {
               const jobHasReport = hasReport(job.name);
+              const nextScheduled = getNextScheduledTime(job.schedule);
               return (
-                <button
+                <div
                   key={job.id}
-                  onClick={() => openReport(job.name)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors text-left ${
-                    jobHasReport 
-                      ? 'bg-[#0d1117] border-[#ff6b35]/50 hover:border-[#ff6b35]' 
-                      : 'bg-[#0d1117]/50 border-[#30363d] hover:border-[#8b949e]'
-                  }`}
+                  className="relative"
+                  onMouseEnter={() => setHoveredJob(job.name)}
+                  onMouseLeave={() => setHoveredJob(null)}
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(job.status)}
-                      <span className={`font-medium truncate ${jobHasReport ? 'text-white' : 'text-[#8b949e]'}`}>
-                        {job.name}
-                      </span>
-                      {jobHasReport && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-[#238636]/20 text-[#238636] rounded-full">
-                          NEW
+                  <button
+                    onClick={() => jobHasReport && openReport(job.name)}
+                    disabled={!jobHasReport}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors text-left ${
+                      jobHasReport 
+                        ? 'bg-[#0d1117] border-[#ff6b35]/50 hover:border-[#ff6b35] cursor-pointer' 
+                        : 'bg-[#0d1117]/50 border-[#30363d] cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(job.status)}
+                        <span className={`font-medium truncate ${jobHasReport ? 'text-white' : 'text-[#8b949e]'}`}>
+                          {job.name}
                         </span>
-                      )}
+                        {jobHasReport && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-[#238636]/20 text-[#238636] rounded-full">
+                            NEW
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-[#8b949e] mt-1">
+                        {formatSchedule(job.schedule)} • {formatLastRun(job.lastRun, job.name)}
+                      </div>
                     </div>
-                    <div className="text-xs text-[#8b949e] mt-1">
-                      {formatSchedule(job.schedule)} • {formatLastRun(job.lastRun, job.name)}
+                    {jobHasReport ? (
+                      <Eye className="w-4 h-4 text-[#ff6b35] ml-3" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-[#8b949e]/50 ml-3" />
+                    )}
+                  </button>
+                  
+                  {/* Tooltip for unavailable reports */}
+                  {!jobHasReport && hoveredJob === job.name && (
+                    <div className="absolute z-10 left-0 right-0 top-full mt-1 p-2 bg-[#0d1117] border border-[#ff6b35] rounded-lg shadow-lg">
+                      <p className="text-xs text-[#8b949e]">
+                        <span className="text-[#ff6b35] font-medium">{job.name}</span> not currently available.
+                      </p>
+                      <p className="text-xs text-[#8b949e] mt-1">
+                        Next report at <span className="text-white">{nextScheduled}</span>
+                      </p>
                     </div>
-                  </div>
-                  {jobHasReport ? (
-                    <Eye className="w-4 h-4 text-[#ff6b35] ml-3" />
-                  ) : (
-                    <FileText className="w-4 h-4 text-[#8b949e]/50 ml-3" />
                   )}
-                </button>
+                </div>
               );
             })
           )}
