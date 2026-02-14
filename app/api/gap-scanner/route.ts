@@ -187,17 +187,13 @@ export async function GET() {
       .sort((a, b) => a.gapPercent - b.gapPercent)
       .slice(0, 5);
 
-    const hasRealData = stocks.length > 0;
-    const result = hasRealData ? { gainers, losers } : { 
-      gainers: getMockGapData().filter(s => s.status === 'gainer'),
-      losers: getMockGapData().filter(s => s.status === 'loser')
-    };
-
+    // Always return live data - even if empty (markets closed, no big gaps)
+    // This shows the last market close data instead of mock
     return NextResponse.json({
       success: true,
-      data: result,
+      data: { gainers, losers },
       timestamp,
-      source: hasRealData ? 'live' : 'mock',
+      source: 'live',
       scanned: SCAN_SYMBOLS.length,
       found: stocks.length,
       filters: {
@@ -211,7 +207,7 @@ export async function GET() {
   } catch (error) {
     console.error('Gap scanner API error:', error);
     
-    // Return mock data on error
+    // Only use mock data on actual API errors
     const mockData = getMockGapData();
     return NextResponse.json({
       success: true,
@@ -223,6 +219,7 @@ export async function GET() {
       source: 'fallback',
       scanned: SCAN_SYMBOLS.length,
       found: 0,
+      error: 'Failed to fetch live data',
       filters: {
         minGapPercent: 5,
         minVolume: 100000,

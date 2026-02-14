@@ -94,6 +94,15 @@ export default function GapScannerCard() {
   const renderStockList = (stocks: GapStock[], type: 'gainer' | 'loser') => {
     const isGainer = type === 'gainer';
     
+    if (stocks.length === 0) {
+      return (
+        <div className="text-center py-6 text-[#8b949e] text-sm">
+          <p>No {isGainer ? 'gainers' : 'losers'} 5%+</p>
+          <p className="text-xs mt-1">Markets closed or low volatility</p>
+        </div>
+      );
+    }
+    
     return (
       <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
         {stocks.map((stock) => (
