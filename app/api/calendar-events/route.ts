@@ -7,9 +7,9 @@ const CALENDAR_ID = 'mschiumo18@gmail.com';
 export async function GET() {
   try {
     // Get credentials from environment variable
-    const credentialsJson = process.env.GOOGLE_CALENDAR_CREDENTIALS;
+    const credentialsEnv = process.env.GOOGLE_CALENDAR_CREDENTIALS;
     
-    if (!credentialsJson) {
+    if (!credentialsEnv) {
       return NextResponse.json({
         success: false,
         error: 'GOOGLE_CALENDAR_CREDENTIALS not configured',
@@ -17,6 +17,20 @@ export async function GET() {
         count: 0,
         timestamp: new Date().toISOString()
       }, { status: 500 });
+    }
+
+    // Try to parse credentials
+    // Supports both base64 encoded and raw JSON
+    let credentialsJson: string;
+    try {
+      // Try base64 decode first
+      const decoded = Buffer.from(credentialsEnv, 'base64').toString('utf-8');
+      // Verify it's valid JSON
+      JSON.parse(decoded);
+      credentialsJson = decoded;
+    } catch {
+      // If base64 fails, use raw
+      credentialsJson = credentialsEnv;
     }
 
     const credentials = JSON.parse(credentialsJson);
