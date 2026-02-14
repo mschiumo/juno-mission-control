@@ -68,34 +68,17 @@ export async function GET() {
       timestamp: new Date().toISOString()
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Calendar fetch error:', error);
     
-    // Return mock data if calendar fetch fails
+    // Return error details for debugging
     return NextResponse.json({
-      success: true,
-      data: [
-        {
-          id: '1',
-          title: 'Trading Prep - Pre-Market Analysis',
-          start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          end: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(),
-          calendar: 'primary',
-          color: '#ff6b35',
-          description: 'Morning market preparation'
-        },
-        {
-          id: '2',
-          title: 'Lift: Lower B (Hip/Ham) - Lean Mass',
-          start: new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString(),
-          end: new Date(Date.now() + 27 * 60 * 60 * 1000).toISOString(),
-          calendar: 'primary',
-          color: '#238636',
-          description: 'Deadlift, Hip Thrust, Leg Curls, Abs'
-        }
-      ],
-      count: 2,
+      success: false,
+      error: error.message || 'Unknown error',
+      errorDetails: error.response?.data || null,
+      data: [],
+      count: 0,
       timestamp: new Date().toISOString()
-    });
+    }, { status: 500 });
   }
 }
