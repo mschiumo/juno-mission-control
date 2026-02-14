@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Target, Plus, X, RefreshCw } from 'lucide-react';
+import { Target, Plus, X, RefreshCw, FileText } from 'lucide-react';
 
 interface Goal {
   id: string;
   title: string;
   phase: 'not-started' | 'in-progress' | 'achieved';
   category: 'yearly' | 'weekly' | 'daily';
+  notes?: string;
 }
 
 interface GoalsData {
@@ -49,6 +50,10 @@ export default function GoalsCard() {
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [draggedGoal, setDraggedGoal] = useState<Goal | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Notes modal state
+  const [notesGoal, setNotesGoal] = useState<Goal | null>(null);
+  const [notesContent, setNotesContent] = useState('');
 
   useEffect(() => {
     fetchGoals();
@@ -99,7 +104,6 @@ export default function GoalsCard() {
   const moveCategory = async (goal: Goal, newCategory: Category) => {
     if (goal.category === newCategory) return;
     
-    // Optimistically update UI
     const updatedGoals = { ...goals };
     const goalIndex = updatedGoals[goal.category].findIndex(g => g.id === goal.id);
     if (goalIndex > -1) {
@@ -121,7 +125,6 @@ export default function GoalsCard() {
       });
     } catch (error) {
       console.error('Failed to move goal category:', error);
-      // Revert on error
       fetchGoals();
     }
   };
@@ -165,6 +168,41 @@ export default function GoalsCard() {
     }
   };
 
+  // Notes functions
+  const openNotes = (goal: Goal) => {
+    setNotesGoal(goal);
+    setNotesContent(goal.notes || '');
+  };
+
+  const closeNotes = () => {
+    setNotesGoal(null);
+    setNotesContent('');
+  };
+
+  const saveNotes = async () => {
+    if (!notesGoal) return;
+
+    try {
+      const response = await fetch('/api/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goalId: notesGoal.id,
+          category: notesGoal.category,
+          notes: notesContent
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGoals(data.data);
+        closeNotes();
+      }
+    } catch (error) {
+      console.error('Failed to save notes:', error);
+    }
+  };
+
   const handleDragStart = (goal: Goal) => {
     setDraggedGoal(goal);
   };
@@ -195,7 +233,97 @@ export default function GoalsCard() {
 
   const stats = getProgressStats(activeCategory);
 
-  // Mobile: Single column with swipeable phases
+  // Render goal card with notes button
+  const renderGoalCard = (goal: Goal, phase: Phase, isMobileView: boolean) => {
+    const cardContent = (
+      <>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm text-white flex-1">{goal.title}</p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); openNotes(goal); }}
+              className="text-[#8b949e] hover:text-[#ff6b35] transition-colors"
+              title="View/Edit Notes"
+            >
+              <FileText className={`w-4 h-4 ${goal.notes ? 'text-[#ff6b35]' : ''}`} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); deleteGoal(goal); }}
+              className="text-[#8b949e] hover:text-[#da3633] transition-colors"
+              title="Delete goal"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        
+        {goal.notes && (
+          <p className="text-xs text-[#8b949e] mt-2 line-clamp-2 italic">
+            {goal.notes}
+          </p>
+        )}
+        
+        <div className={`flex gap-2 mt-2 ${isMobileView ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+          {phase !== 'not-started' && (
+            <button
+              onClick={(e) => { e.stopPropagation(); moveGoal(goal, 'not-started'); }}
+              className="text-[10px] px-2 py-1 bg-[#30363d] rounded hover:bg-[#484f58] transition-colors"
+            >
+              ← Back
+            </button>
+          )}
+          {phase !== 'achieved' && (
+            <button
+              onClick={(e) => { e.stopPropagation(); moveGoal(goal, phase === 'not-started' ? 'in-progress' : 'achieved'); }}
+              className="text-[10px] px-2 py-1 bg-[#30363d] rounded hover:bg-[#484f58] transition-colors"
+            >
+              {phase === 'not-started' ? 'Start →' : 'Done →'}
+            </button>
+          )}
+        </div>
+        
+        {!isMobileView && (
+          <div className="flex gap-1 mt-2 pt-2 border-t border-[#30363d]/50 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="text-[10px] text-[#8b949e] mr-1">Move to:</span>
+            {(['daily', 'weekly', 'yearly'] as Category[]).filter(cat => cat !== goal.category).map((cat) => (
+              <button
+                key={cat}
+                onClick={(e) => { e.stopPropagation(); moveCategory(goal, cat); }}
+                className="text-[10px] px-2 py-1 bg-[#21262d] text-[#8b949e] rounded hover:bg-[#ff6b35]/20 hover:text-[#ff6b35] transition-colors"
+              >
+                {categoryLabels[cat]}
+              </button>
+            ))}
+          </div>
+        )}
+      </>
+    );
+
+    if (isMobileView) {
+      return (
+        <div
+          key={goal.id}
+          className={`p-3 rounded-lg border ${phaseColors[phase]} border-opacity-30`}
+        >
+          {cardContent}
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={goal.id}
+        draggable
+        onDragStart={() => handleDragStart(goal)}
+        onClick={() => openNotes(goal)}
+        className={`group p-3 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${phaseColors[phase]} border-opacity-30`}
+      >
+        {cardContent}
+      </div>
+    );
+  };
+
+  // Mobile view
   if (isMobile) {
     return (
       <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
@@ -258,53 +386,7 @@ export default function GoalsCard() {
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {phaseGoals.map((goal) => (
-                    <div
-                      key={goal.id}
-                      className={`p-3 rounded-lg border ${phaseColors[phase]} border-opacity-30`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm text-white flex-1">{goal.title}</p>
-                        <button
-                          onClick={() => deleteGoal(goal)}
-                          className="text-[#8b949e] hover:text-[#da3633]"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        {phase !== 'not-started' && (
-                          <button
-                            onClick={() => moveGoal(goal, 'not-started')}
-                            className="text-[10px] px-2 py-1 bg-[#30363d] rounded"
-                          >
-                            ← Back
-                          </button>
-                        )}
-                        {phase !== 'achieved' && (
-                          <button
-                            onClick={() => moveGoal(goal, phase === 'not-started' ? 'in-progress' : 'achieved')}
-                            className="text-[10px] px-2 py-1 bg-[#30363d] rounded"
-                          >
-                            {phase === 'not-started' ? 'Start →' : 'Done →'}
-                          </button>
-                        )}
-                      </div>
-                      {/* Mobile Category Move */}
-                      <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-[#30363d]/50">
-                        <span className="text-[10px] text-[#8b949e]">Move:</span>
-                        {(['daily', 'weekly', 'yearly'] as Category[]).filter(cat => cat !== goal.category).map((cat) => (
-                          <button
-                            key={cat}
-                            onClick={() => moveCategory(goal, cat)}
-                            className="text-[10px] px-2 py-1 bg-[#21262d] text-[#8b949e] rounded"
-                          >
-                            {categoryLabels[cat]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                  {phaseGoals.map((goal) => renderGoalCard(goal, phase, true))}
                   {phaseGoals.length === 0 && (
                     <div className="text-center py-4 text-[#8b949e] text-xs">
                       No goals
@@ -352,11 +434,46 @@ export default function GoalsCard() {
             </div>
           </div>
         )}
+
+        {/* Notes Modal */}
+        {notesGoal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-semibold text-white">Notes: {notesGoal.title}</h3>
+                <button onClick={closeNotes} className="p-1">
+                  <X className="w-4 h-4 text-[#8b949e]" />
+                </button>
+              </div>
+              <textarea
+                value={notesContent}
+                onChange={(e) => setNotesContent(e.target.value)}
+                placeholder="Add notes about this goal..."
+                rows={4}
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm mb-3 resize-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={closeNotes}
+                  className="flex-1 px-3 py-2 bg-[#30363d] text-white rounded-lg text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveNotes}
+                  className="flex-1 px-3 py-2 bg-[#ff6b35] text-white rounded-lg text-sm"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // Desktop: Full KanBan
+  // Desktop view
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
       {/* Header */}
@@ -439,58 +556,7 @@ export default function GoalsCard() {
             </div>
 
             <div className="space-y-2">
-              {getGoalsByPhase(activeCategory, phase).map((goal) => (
-                <div
-                  key={goal.id}
-                  draggable
-                  onDragStart={() => handleDragStart(goal)}
-                  className={`group p-3 rounded-lg border cursor-move transition-all hover:shadow-lg ${phaseColors[phase]} border-opacity-30`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm text-white flex-1">{goal.title}</p>
-                    <button
-                      onClick={() => deleteGoal(goal)}
-                      className="opacity-0 group-hover:opacity-100 text-[#8b949e] hover:text-[#da3633] transition-all"
-                      title="Delete goal"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                  
-                  <div className="flex gap-1 mt-2">
-                    {phase !== 'not-started' && (
-                      <button
-                        onClick={() => moveGoal(goal, 'not-started')}
-                        className="text-[10px] px-2 py-1 bg-[#30363d] rounded hover:bg-[#484f58] transition-colors"
-                      >
-                        ← Back
-                      </button>
-                    )}
-                    {phase !== 'achieved' && (
-                      <button
-                        onClick={() => moveGoal(goal, phase === 'not-started' ? 'in-progress' : 'achieved')}
-                        className="text-[10px] px-2 py-1 bg-[#30363d] rounded hover:bg-[#484f58] transition-colors"
-                      >
-                        {phase === 'not-started' ? 'Start →' : 'Complete →'}
-                      </button>
-                    )}
-                  </div>
-                  
-                  {/* Category Move Buttons */}
-                  <div className="flex gap-1 mt-2 pt-2 border-t border-[#30363d]/50">
-                    <span className="text-[10px] text-[#8b949e] mr-1">Move to:</span>
-                    {(['daily', 'weekly', 'yearly'] as Category[]).filter(cat => cat !== goal.category).map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={() => moveCategory(goal, cat)}
-                        className="text-[10px] px-2 py-1 bg-[#21262d] text-[#8b949e] rounded hover:bg-[#ff6b35]/20 hover:text-[#ff6b35] transition-colors"
-                      >
-                        {categoryLabels[cat]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+              {getGoalsByPhase(activeCategory, phase).map((goal) => renderGoalCard(goal, phase, false))}
               {getGoalsByPhase(activeCategory, phase).length === 0 && (
                 <div className="text-center py-8 text-[#8b949e] text-sm">
                   Drop goals here
@@ -537,6 +603,51 @@ export default function GoalsCard() {
                 className="flex-1 px-4 py-2 bg-[#ff6b35] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors disabled:opacity-50"
               >
                 Add Goal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notes Modal */}
+      {notesGoal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-[#ff6b35]" />
+                <h3 className="text-lg font-semibold text-white">Notes</h3>
+              </div>
+              <button
+                onClick={closeNotes}
+                className="p-2 hover:bg-[#30363d] rounded-lg"
+              >
+                <X className="w-5 h-5 text-[#8b949e]" />
+              </button>
+            </div>
+            
+            <p className="text-sm text-[#8b949e] mb-4">{notesGoal.title}</p>
+            
+            <textarea
+              value={notesContent}
+              onChange={(e) => setNotesContent(e.target.value)}
+              placeholder="Add notes, links, research, or any details about this goal..."
+              rows={6}
+              className="w-full px-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35] mb-4 resize-none"
+            />
+            
+            <div className="flex gap-2">
+              <button
+                onClick={closeNotes}
+                className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveNotes}
+                className="flex-1 px-4 py-2 bg-[#ff6b35] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors"
+              >
+                Save Notes
               </button>
             </div>
           </div>
