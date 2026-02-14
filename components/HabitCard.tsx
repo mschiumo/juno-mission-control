@@ -92,15 +92,43 @@ export default function HabitCard() {
   };
 
   const toggleHabit = async (habitId: string) => {
-    // Optimistic update
-    setHabits(habits.map(habit => 
-      habit.id === habitId 
-        ? { ...habit, completedToday: !habit.completedToday }
-        : habit
-    ));
+    // Find the habit being toggled
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return;
     
-    // In production, this would update the habit status in the database
-    // and refresh the data
+    const newCompletedState = !habit.completedToday;
+    
+    // Update habits
+    const updatedHabits = habits.map(h => 
+      h.id === habitId 
+        ? { ...h, completedToday: newCompletedState }
+        : h
+    );
+    setHabits(updatedHabits);
+    
+    // Recalculate stats
+    const completedToday = updatedHabits.filter(h => h.completedToday).length;
+    const totalHabits = updatedHabits.length;
+    const longestStreak = Math.max(...updatedHabits.map(h => h.streak), 0);
+    
+    // Calculate weekly completion
+    const totalPossibleCompletions = totalHabits * 7;
+    const actualCompletions = updatedHabits.reduce((acc, h) => 
+      acc + h.history.filter(Boolean).length, 0
+    );
+    const weeklyCompletion = totalPossibleCompletions > 0 
+      ? Math.round((actualCompletions / totalPossibleCompletions) * 100)
+      : 0;
+    
+    setStats({
+      totalHabits,
+      completedToday,
+      longestStreak,
+      weeklyCompletion
+    });
+    
+    // In production, this would also POST to the API
+    // fetch('/api/habit-status', { method: 'POST', body: JSON.stringify({ habitId, completed: newCompletedState }) })
   };
 
   const toggleCategory = (category: string) => {
