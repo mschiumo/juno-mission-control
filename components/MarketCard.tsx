@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, RefreshCw, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, DollarSign, Globe } from 'lucide-react';
 
 interface MarketItem {
   symbol: string;
@@ -15,24 +15,66 @@ interface MarketItem {
 interface MarketData {
   indices: MarketItem[];
   stocks: MarketItem[];
+  commodities: MarketItem[];
   crypto: MarketItem[];
   lastUpdated: string;
 }
 
 type DataSource = 'live' | 'partial' | 'fallback';
 
+interface MarketStatus {
+  name: string;
+  isOpen: boolean;
+  hours: string;
+}
+
+// Get market status based on current EST time
+function getMarketStatus(): MarketStatus[] {
+  const now = new Date();
+  // Convert to EST (UTC-5)
+  const estHour = (now.getUTCHours() - 5 + 24) % 24;
+  const estMinute = now.getUTCMinutes();
+  const estTime = estHour + estMinute / 60;
+  const day = now.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
+
+  const isWeekday = day >= 1 && day <= 5;
+
+  // Asia: 7 PM - 2 AM EST (Sunday evening - Friday)
+  const isAsiaOpen = isWeekday || (day === 0 && estTime >= 19);
+  
+  // London: 3 AM - 11:30 AM EST (Monday - Friday)
+  const isLondonOpen = isWeekday && estTime >= 3 && estTime < 11.5;
+  
+  // New York: 9:30 AM - 4 PM EST (Monday - Friday)
+  const isNYOpen = isWeekday && estTime >= 9.5 && estTime < 16;
+
+  return [
+    { name: 'Asia', isOpen: isAsiaOpen, hours: '7 PM - 2 AM EST' },
+    { name: 'London', isOpen: isLondonOpen, hours: '3 AM - 11:30 AM EST' },
+    { name: 'New York', isOpen: isNYOpen, hours: '9:30 AM - 4 PM EST' }
+  ];
+}
+
 export default function MarketCard() {
   const [data, setData] = useState<MarketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<'indices' | 'stocks' | 'crypto'>('indices');
+  const [activeTab, setActiveTab] = useState<'indices' | 'stocks' | 'commodities' | 'crypto'>('indices');
   const [dataSource, setDataSource] = useState<DataSource>('fallback');
+  const [marketStatus, setMarketStatus] = useState<MarketStatus[]>(getMarketStatus());
 
   useEffect(() => {
     fetchMarketData();
+    // Update market status every minute
+    const statusInterval = setInterval(() => {
+      setMarketStatus(getMarketStatus());
+    }, 60000);
     // Auto-refresh every 60 seconds
     const interval = setInterval(fetchMarketData, 60000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearInterval(statusInterval);
+    };
   }, []);
 
   const fetchMarketData = async () => {
@@ -119,7 +161,7 @@ export default function MarketCard() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4 bg-[#0d1117] rounded-lg p-1">
-        {(['indices', 'stocks', 'crypto'] as const).map((tab) => (
+        {(['indices', 'stocks', 'commodities', 'crypto'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -132,6 +174,25 @@ export default function MarketCard() {
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
+      </div>
+
+      {/* Market Hours */}
+      <div className="mb-4 bg-[#0d1117] rounded-lg p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <Globe className="w-4 h-4 text-[#8b949e]" />
+          <span className="text-sm font-medium text-white">Market Hours</span>
+        </div>
+        <div className="space-y-2">
+          {marketStatus.map((market) => (
+            <div key={market.name} className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${market.isOpen ? 'bg-[#238636] animate-pulse' : 'bg-[#8b949e]'}`} />
+                <span className="text-sm text-white">{market.name}</span>
+              </div>
+              <span className="text-xs text-[#8b949e]">{market.hours}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Market Data */}

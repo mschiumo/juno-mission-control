@@ -38,13 +38,27 @@ function getStorageKey(date: string) {
 }
 
 function getToday() {
-  return new Date().toISOString().split('T')[0];
+  // Use EST (America/New_York) for date
+  return new Date().toLocaleDateString('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).split('/').reverse().join('-'); // Convert MM/DD/YYYY to YYYY-MM-DD
 }
 
 function getPreviousDate(dateStr: string, daysBack: number) {
-  const date = new Date(dateStr);
+  // Parse the EST date string
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day); // Month is 0-indexed
   date.setDate(date.getDate() - daysBack);
-  return date.toISOString().split('T')[0];
+  
+  // Return in YYYY-MM-DD format
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).split('/').reverse().join('-');
 }
 
 interface HabitData {
