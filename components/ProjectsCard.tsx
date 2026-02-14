@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FolderGit2, GitBranch, Clock, MoreHorizontal, Calendar, AlertCircle, Flag, X, Edit2, Save, ExternalLink, Plus } from 'lucide-react';
+import { FolderGit2, GitBranch, Clock, MoreHorizontal, Calendar, AlertCircle, Flag, X, Edit2, Save, ExternalLink, Plus, Trash2 } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -72,6 +72,8 @@ export default function ProjectsCard() {
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   
   // Force re-render every minute to update overdue labels dynamically
   const [, setTick] = useState(0);
@@ -154,11 +156,43 @@ export default function ProjectsCard() {
 
   const closeEditModal = () => {
     setEditingProject(null);
+    setErrors({});
     setIsModalOpen(false);
+  };
+
+  const validateProject = (project: Project): {[key: string]: string} => {
+    const newErrors: {[key: string]: string} = {};
+    
+    if (!project.name || project.name.trim() === '') {
+      newErrors.name = 'Title is required';
+    } else if (project.name.trim().length < 2) {
+      newErrors.name = 'Title must be at least 2 characters';
+    } else if (project.name.trim().length > 100) {
+      newErrors.name = 'Title must be less than 100 characters';
+    }
+    
+    if (project.description && project.description.length > 500) {
+      newErrors.description = 'Description must be less than 500 characters';
+    }
+    
+    if (project.dueDate) {
+      const dueDate = new Date(project.dueDate);
+      if (isNaN(dueDate.getTime())) {
+        newErrors.dueDate = 'Invalid date';
+      }
+    }
+    
+    return newErrors;
   };
 
   const handleSave = () => {
     if (!editingProject) return;
+    
+    const validationErrors = validateProject(editingProject);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
     
     const isNew = !projects.some(p => p.id === editingProject.id);
     
@@ -174,6 +208,23 @@ export default function ProjectsCard() {
       ));
     }
     closeEditModal();
+  };
+
+  const handleDelete = (project: Project) => {
+    setProjectToDelete(project);
+  };
+
+  const confirmDelete = () => {
+    if (!projectToDelete) return;
+    setProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
+    setProjectToDelete(null);
+    if (expandedProject === projectToDelete.id) {
+      setExpandedProject(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setProjectToDelete(null);
   };
 
   const openCreateModal = () => {
@@ -281,6 +332,13 @@ export default function ProjectsCard() {
                       >
                         <Edit2 className="w-4 h-4 text-[#8b949e] hover:text-[#ff6b35]" />
                       </button>
+                      <button
+                        onClick={() => handleDelete(project)}
+                        className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors"
+                        title="Delete project"
+                      >
+                        <Trash2 className="w-4 h-4 text-[#8b949e] hover:text-[#da3633]" />
+                      </button>
                       <span className={`text-xs font-medium uppercase ${getStatusColor(project.status).split(' ')[1]}`}>
                         {project.status}
                       </span>
@@ -366,14 +424,26 @@ export default function ProjectsCard() {
             <div className="p-4 space-y-4">
               {/* Title */}
               <div>
-                <label className="block text-sm font-medium text-[#8b949e] mb-1">Title</label>
+                <label className="block text-sm font-medium text-[#8b949e] mb-1">
+                  Title <span className="text-[#da3633]">*</span>
+                </label>
                 <input
                   type="text"
                   value={editingProject.name}
-                  onChange={(e) => handleChange('name', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#ff6b35]"
+                  onChange={(e) => {
+                    handleChange('name', e.target.value);
+                    if (errors.name) {
+                      setErrors(prev => ({ ...prev, name: '' }));
+                    }
+                  }}
+                  className={`w-full px-3 py-2 bg-[#0d1117] border rounded-lg text-white focus:outline-none focus:border-[#ff6b35] ${
+                    errors.name ? 'border-[#da3633]' : 'border-[#30363d]'
+                  }`}
                   placeholder="Project name"
                 />
+                {errors.name && (
+                  <p className="mt-1 text-xs text-[#da3633]">{errors.name}</p>
+                )}
               </div>
 
               {/* Description */}
@@ -381,11 +451,21 @@ export default function ProjectsCard() {
                 <label className="block text-sm font-medium text-[#8b949e] mb-1">Description</label>
                 <textarea
                   value={editingProject.description}
-                  onChange={(e) => handleChange('description', e.target.value)}
+                  onChange={(e) => {
+                    handleChange('description', e.target.value);
+                    if (errors.description) {
+                      setErrors(prev => ({ ...prev, description: '' }));
+                    }
+                  }}
                   rows={2}
-                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#ff6b35] resize-none"
+                  className={`w-full px-3 py-2 bg-[#0d1117] border rounded-lg text-white focus:outline-none focus:border-[#ff6b35] resize-none ${
+                    errors.description ? 'border-[#da3633]' : 'border-[#30363d]'
+                  }`}
                   placeholder="Brief description"
                 />
+                {errors.description && (
+                  <p className="mt-1 text-xs text-[#da3633]">{errors.description}</p>
+                )}
               </div>
 
               {/* Status & Priority Row */}
@@ -480,6 +560,38 @@ export default function ProjectsCard() {
               >
                 <Save className="w-4 h-4" />
                 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {projectToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-md">
+            <div className="p-4 border-b border-[#30363d]">
+              <h3 className="text-lg font-semibold text-white">Delete Project</h3>
+            </div>
+            <div className="p-4">
+              <p className="text-sm text-[#8b949e]">
+                Are you sure you want to delete <span className="text-white font-medium">"{projectToDelete.name}"</span>?
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-[#30363d]">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-sm text-[#8b949e] hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex items-center gap-2 px-4 py-2 bg-[#da3633] hover:bg-[#f85149] text-white rounded-lg transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Project
               </button>
             </div>
           </div>
