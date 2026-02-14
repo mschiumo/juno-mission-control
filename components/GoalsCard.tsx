@@ -44,7 +44,7 @@ export default function GoalsCard() {
     daily: []
   });
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState<Category>('yearly');
+  const [activeCategory, setActiveCategory] = useState<Category>('daily');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [draggedGoal, setDraggedGoal] = useState<Goal | null>(null);
@@ -190,7 +190,7 @@ export default function GoalsCard() {
 
         {/* Mobile Category Tabs */}
         <div className="flex gap-1 mb-4">
-          {(['yearly', 'weekly', 'daily'] as Category[]).map((cat) => (
+          {(['daily', 'weekly', 'yearly'] as Category[]).map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -350,7 +350,7 @@ export default function GoalsCard() {
 
       {/* Category Tabs */}
       <div className="flex gap-2 mb-6">
-        {(['yearly', 'weekly', 'daily'] as Category[]).map((cat) => (
+        {(['daily', 'weekly', 'yearly'] as Category[]).map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
