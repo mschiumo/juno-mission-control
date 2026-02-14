@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, ExternalLink, FileText, Github, Activity, Target, TrendingUp, CheckSquare } from 'lucide-react';
+import { BookOpen, ExternalLink, FileText, Github } from 'lucide-react';
 
 const DOC_LINKS = [
   {
@@ -13,7 +13,7 @@ const DOC_LINKS = [
     title: 'Activity Logging Rules',
     description: 'When and how to log all work',
     url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/ACTIVITY_LOGGING.md',
-    icon: Activity
+    icon: FileText
   },
   {
     title: 'GitHub Repository',
@@ -23,27 +23,11 @@ const DOC_LINKS = [
   }
 ];
 
-const QUICK_LINKS = [
-  { label: 'Dashboard', tab: '', icon: TrendingUp },
-  { label: 'Tasks', tab: 'tasks', icon: CheckSquare },
-  { label: 'Trading', tab: 'trading', icon: TrendingUp },
-  { label: 'Goals', tab: 'goals', icon: Target },
-  { label: 'Activity', tab: 'activity', icon: Activity }
-];
-
 interface DocumentationCardProps {
   className?: string;
 }
 
 export default function DocumentationCard({ className }: DocumentationCardProps) {
-  const navigateToTab = (tab: string) => {
-    if (tab) {
-      window.location.href = `/?tab=${tab}`;
-    } else {
-      window.location.href = '/';
-    }
-  };
-
   return (
     <div className={`bg-[#161b22] border border-[#30363d] rounded-lg p-6 ${className || ''}`}>
       <div className="flex items-center gap-3 mb-5">
@@ -53,23 +37,6 @@ export default function DocumentationCard({ className }: DocumentationCardProps)
         <div>
           <h2 className="text-lg font-semibold text-white">Documentation</h2>
           <p className="text-xs text-[#8b949e]">Rules, systems, and reference</p>
-        </div>
-      </div>
-
-      {/* Quick Navigation */}
-      <div className="mb-5">
-        <h3 className="text-sm font-medium text-white mb-3">Quick Navigation</h3>
-        <div className="grid grid-cols-5 gap-2">
-          {QUICK_LINKS.map((link) => (
-            <button
-              key={link.label}
-              onClick={() => navigateToTab(link.tab)}
-              className="flex flex-col items-center gap-1 p-2 bg-[#0d1117] rounded-lg hover:bg-[#30363d] transition-colors"
-            >
-              <link.icon className="w-4 h-4 text-[#8b949e]" />
-              <span className="text-[10px] text-[#8b949e]">{link.label}</span>
-            </button>
-          ))}
         </div>
       </div>
 
