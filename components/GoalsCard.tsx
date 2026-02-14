@@ -244,6 +244,8 @@ export default function GoalsCard() {
       if (!response.ok) {
         // Revert on failure
         fetchGoals();
+      } else {
+        await fetchGoals(); // Refresh on success too
       }
     } catch (error) {
       console.error('Failed to toggle Juno-assisted:', error);
@@ -289,6 +291,7 @@ export default function GoalsCard() {
         setGoals(data.data);
         setActionItemsGoal({ ...actionItemsGoal, actionItems: updatedItems });
         setNewActionItem('');
+        await fetchGoals(); // Refresh all goals data
       }
     } catch (error) {
       console.error('Failed to add action item:', error);
@@ -317,6 +320,7 @@ export default function GoalsCard() {
         const data = await response.json();
         setGoals(data.data);
         setActionItemsGoal({ ...actionItemsGoal, actionItems: updatedItems });
+        await fetchGoals(); // Refresh all goals data
       }
     } catch (error) {
       console.error('Failed to update action item:', error);
@@ -343,6 +347,7 @@ export default function GoalsCard() {
         const data = await response.json();
         setGoals(data.data);
         setActionItemsGoal({ ...actionItemsGoal, actionItems: updatedItems });
+        await fetchGoals(); // Refresh all goals data
       }
     } catch (error) {
       console.error('Failed to delete action item:', error);

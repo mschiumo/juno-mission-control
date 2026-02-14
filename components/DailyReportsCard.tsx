@@ -52,7 +52,11 @@ export default function DailyReportsCard() {
         setJobs(jobsData.crons || []);
       }
       if (reportsData.success) {
-        setReports(reportsData.data);
+        // Sort reports by timestamp (newest first)
+        const sortedReports = (reportsData.data || []).sort((a: CronResult, b: CronResult) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        setReports(sortedReports);
       }
       setLastUpdated(new Date());
     } catch (error) {
@@ -63,9 +67,13 @@ export default function DailyReportsCard() {
   };
 
   const openReport = async (jobName: string) => {
+    // Handle name mismatches between cron-status and cron-results
+    const normalizedJobName = jobName === 'Nightly Task Approval' 
+      ? 'Nightly Task Approval Request' 
+      : jobName;
     // Only open if report exists
     const report = reports
-      .filter(r => r.jobName === jobName)
+      .filter(r => r.jobName === jobName || r.jobName === normalizedJobName)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
     
     if (report) {
@@ -93,12 +101,20 @@ export default function DailyReportsCard() {
   };
 
   const hasReport = (jobName: string) => {
-    return reports.some(r => r.jobName === jobName);
+    // Handle name mismatches between cron-status and cron-results
+    const normalizedJobName = jobName === 'Nightly Task Approval' 
+      ? 'Nightly Task Approval Request' 
+      : jobName;
+    return reports.some(r => r.jobName === jobName || r.jobName === normalizedJobName);
   };
 
   const getLatestReportTime = (jobName: string) => {
+    // Handle name mismatches between cron-status and cron-results
+    const normalizedJobName = jobName === 'Nightly Task Approval' 
+      ? 'Nightly Task Approval Request' 
+      : jobName;
     const report = reports
-      .filter(r => r.jobName === jobName)
+      .filter(r => r.jobName === jobName || r.jobName === normalizedJobName)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
     return report ? report.timestamp : null;
   };
@@ -242,12 +258,12 @@ export default function DailyReportsCard() {
   };
 
   // Sort jobs: those with reports first, then by schedule time
-  // Exclude Daily Motivational (shown in banner), Mid-Day Trading Check, Post-Market Review (Telegram only), GitHub PR Monitor
+  // Exclude jobs that are shown elsewhere: Daily Motivational (banner), Mid-Day/Post-Market (Telegram only), GitHub PR Monitor (internal)
   const sortedJobs = [...jobs]
     .filter(job => job.name !== 'Daily Motivational' 
       && job.name !== 'Daily Motivational Message'
-      && job.name !== 'Mid-Day Trading Check'
-      && job.name !== 'Post-Market Review'
+      && job.name !== 'Mid-Day Trading Check-in'
+      && job.name !== 'Post-Market Trading Review'
       && job.name !== 'GitHub PR Monitor')
     .sort((a, b) => {
       const aHasReport = hasReport(a.name);
@@ -290,7 +306,7 @@ export default function DailyReportsCard() {
           </button>
         </div>
 
-        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+        <div className="space-y-2">
           {loading && reports.length === 0 ? (
             <div className="text-center py-4 text-[#8b949e]">Loading...</div>
           ) : (
