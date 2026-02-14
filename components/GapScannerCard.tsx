@@ -152,7 +152,7 @@ export default function GapScannerCard() {
             <h2 className="text-lg font-semibold text-white">Gap Scanner</h2>
             <div className="flex items-center gap-2">
               <p className="text-xs text-[#8b949e]">
-                10%+ gaps | Min 100K vol | $100M+ cap
+                5%+ gaps | Min 100K vol | $100M+ cap
               </p>
               {lastUpdated && !loading && (
                 <span className="text-[10px] text-[#238636]">
@@ -221,7 +221,7 @@ export default function GapScannerCard() {
 
       <div className="mt-4 pt-3 border-t border-[#30363d]">
         <p className="text-[10px] text-[#8b949e] text-center">
-          Showing stocks with 10%+ overnight gaps, minimum 100K volume, $100M+ market cap
+          Showing stocks with 5%+ overnight gaps, minimum 100K volume, $100M+ market cap
         </p>
       </div>
     </div>

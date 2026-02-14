@@ -55,9 +55,9 @@ async function fetchFinnhubQuote(
 
     const gapPercent = ((currentPrice - previousClose) / previousClose) * 100;
     
-    // Only include stocks with 10%+ gaps
-    if (Math.abs(gapPercent) < 10) {
-      debug?.push({ symbol, gapPercent: Number(gapPercent.toFixed(2)), filtered: 'yes', reason: 'Gap < 10%' });
+    // Only include stocks with 5%+ gaps (lowered from 10% for weekend testing)
+    if (Math.abs(gapPercent) < 5) {
+      debug?.push({ symbol, gapPercent: Number(gapPercent.toFixed(2)), filtered: 'yes', reason: 'Gap < 5%' });
       return null;
     }
 
@@ -201,7 +201,7 @@ export async function GET() {
       scanned: SCAN_SYMBOLS.length,
       found: stocks.length,
       filters: {
-        minGapPercent: 10,
+        minGapPercent: 5,
         minVolume: 100000,
         minMarketCap: 100000000,
         maxPrice: 500
@@ -224,7 +224,7 @@ export async function GET() {
       scanned: SCAN_SYMBOLS.length,
       found: 0,
       filters: {
-        minGapPercent: 10,
+        minGapPercent: 5,
         minVolume: 100000,
         minMarketCap: 100000000,
         maxPrice: 500
