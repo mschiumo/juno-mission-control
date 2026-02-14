@@ -7,13 +7,14 @@ import HabitCard from "@/components/HabitCard";
 import MarketCard from "@/components/MarketCard";
 import ProjectsCard from "@/components/ProjectsCard";
 import ActivityLogCard from "@/components/ActivityLogCard";
+import GoalsCard from "@/components/GoalsCard";
 import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
-import { LayoutDashboard, Activity } from 'lucide-react';
+import { LayoutDashboard, Activity, Target } from 'lucide-react';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'activity'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'activity' | 'goals'>('dashboard');
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
@@ -44,6 +45,17 @@ export default function Home() {
                 >
                   <LayoutDashboard className="w-4 h-4" />
                   <span className="text-sm font-medium">Dashboard</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('goals')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                    activeTab === 'goals'
+                      ? 'bg-[#ff6b35] text-white'
+                      : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
+                  }`}
+                >
+                  <Target className="w-4 h-4" />
+                  <span className="text-sm font-medium">Goals</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('activity')}
@@ -90,6 +102,11 @@ export default function Home() {
 
             {/* Active Projects */}
             <ProjectsCard />
+          </div>
+        ) : activeTab === 'goals' ? (
+          /* Goals View */
+          <div className="max-w-6xl mx-auto">
+            <GoalsCard />
           </div>
         ) : (
           /* Activity Log View */
