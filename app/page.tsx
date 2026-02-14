@@ -17,6 +17,7 @@ import LiveClock from "@/components/LiveClock";
 import NotificationsBell from "@/components/NotificationsBell";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import DocumentationCard from "@/components/DocumentationCard";
+import StravaCard from "@/components/StravaCard";
 import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
 
 type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'activity';
@@ -154,6 +155,7 @@ function DashboardContent() {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <DailyReportsCard />
               <HabitCard />
+              <StravaCard />
             </div>
           </div>
         ) : activeTab === 'tasks' ? (
