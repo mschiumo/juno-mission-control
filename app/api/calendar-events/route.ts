@@ -153,16 +153,15 @@ export async function GET(request: Request) {
       timestamp: new Date().toISOString()
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Calendar fetch error:', error);
-    
-    // Return mock data on error so UI still works
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({
       success: true,
       data: MOCK_EVENTS,
       count: MOCK_EVENTS.length,
       mock: true,
-      message: 'Using mock data - API error: ' + error.message,
+      message: 'Using mock data - API error: ' + errorMessage,
       timestamp: new Date().toISOString()
     });
   }

@@ -58,7 +58,7 @@ export default function MotivationalBanner() {
       <div className="bg-gradient-to-r from-[#ff6b35]/10 via-[#ff8c5a]/10 to-[#ff6b35]/10 border-y border-[#ff6b35]/20 py-6">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-center gap-3">
           <div className="w-5 h-5 border-2 border-[#ff6b35] border-t-transparent rounded-full animate-spin" />
-          <span className="text-[#8b949e]">Loading today's inspiration...</span>
+          <span className="text-[#8b949e]">Loading today&apos;s inspiration...</span>
         </div>
       </div>
     );
@@ -74,7 +74,7 @@ export default function MotivationalBanner() {
           
           <div className="flex-1 min-w-0">
             <blockquote className="text-xl md:text-2xl font-medium text-white leading-relaxed">
-              "{data?.quote}"
+              &ldquo;{data?.quote}&rdquo;
             </blockquote>
             <cite className="block mt-2 text-[#ff8c5a] not-italic font-medium">
               — {data?.author}

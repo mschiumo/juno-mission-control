@@ -247,7 +247,7 @@ export default function HabitCard() {
             <Activity className="w-12 h-12 mx-auto mb-3 text-[#8b949e] opacity-50" />
             <p className="text-[#8b949e] mb-2">No habits configured</p>
             <p className="text-xs text-[#8b949e] mb-4 max-w-xs mx-auto">
-              Start building better routines by adding habits like "Morning Meditation", "Exercise", or "Read 30 Minutes"
+              Start building better routines by adding habits like &quot;Morning Meditation&quot;, &quot;Exercise&quot;, or &quot;Read 30 Minutes&quot;
             </p>
             <button 
               className="inline-flex items-center gap-2 px-4 py-2 bg-[#ff6b35]/10 text-[#ff6b35] rounded-lg text-sm hover:bg-[#ff6b35]/20 transition-colors"

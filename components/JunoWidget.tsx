@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MessageCircle, Bot, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 interface JunoStatus {
   isActive: boolean;

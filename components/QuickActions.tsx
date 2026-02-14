@@ -7,7 +7,6 @@ import {
   Calendar, 
   FileText, 
   Github, 
-  ExternalLink,
   MessageSquare,
   Music,
   Coffee
