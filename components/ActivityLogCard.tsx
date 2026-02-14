@@ -75,7 +75,15 @@ export default function ActivityLogCard() {
     }
   };
 
-  const getTypeLabel = (type: string) => {
+  const getTypeCounts = () => {
+    const counts: Record<string, number> = {};
+    activities.forEach(a => {
+      counts[a.type] = (counts[a.type] || 0) + 1;
+    });
+    return counts;
+  };
+
+  const typeCounts = getTypeCounts();
     switch (type) {
       case 'cron': return 'Cron Job';
       case 'api': return 'API Call';
@@ -96,7 +104,13 @@ export default function ActivityLogCard() {
             <h2 className="text-lg font-semibold text-white">Activity Log</h2>
             <div className="flex items-center gap-2">
               <p className="text-xs text-[#8b949e]">
-                {activities.length} activity{activities.length !== 1 ? 'ies' : 'y'} today
+                {activities.length} total today
+                {Object.keys(typeCounts).length > 0 && (
+                  <span className="ml-1">
+                    ({Object.entries(typeCounts).map(([type, count]) => `${count} ${type}`).join(', ')})
+                  </span>
+                )}
+              </p>
               </p>
               {lastUpdated && !loading && (
                 <span className="text-[10px] text-[#238636]">
