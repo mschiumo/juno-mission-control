@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Bot } from 'lucide-react';
 
 interface JunoStatus {
   isActive: boolean;
@@ -9,11 +9,20 @@ interface JunoStatus {
   lastActivity: string;
 }
 
+interface SubAgentStatus {
+  count: number;
+  hasSubAgents: boolean;
+}
+
 export default function JunoWidget() {
   const [status, setStatus] = useState<JunoStatus>({
     isActive: true,
     isProcessing: false,
     lastActivity: new Date().toISOString()
+  });
+  const [subAgents, setSubAgents] = useState<SubAgentStatus>({
+    count: 0,
+    hasSubAgents: false
   });
 
   useEffect(() => {
@@ -29,8 +38,44 @@ export default function JunoWidget() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch sub-agent status
+  useEffect(() => {
+    const fetchSubAgents = async () => {
+      try {
+        const response = await fetch('/api/subagent-status');
+        const data = await response.json();
+        if (data.success) {
+          setSubAgents({
+            count: data.count,
+            hasSubAgents: data.hasSubAgents
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch sub-agent status:', error);
+      }
+    };
+
+    fetchSubAgents();
+    // Refresh every 10 seconds
+    const interval = setInterval(fetchSubAgents, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
+      {/* Sub-agents Badge */}
+      <div 
+        className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border ${
+          subAgents.hasSubAgents 
+            ? 'bg-[#238636]/10 text-[#238636] border-[#238636]/30' 
+            : 'bg-[#da3633]/10 text-[#da3633] border-[#da3633]/30'
+        }`}
+        title={subAgents.hasSubAgents ? `${subAgents.count} sub-agent${subAgents.count !== 1 ? 's' : ''} active` : 'No sub-agents deployed'}
+      >
+        <Bot className="w-3 h-3" />
+        <span>{subAgents.count} Sub-agent{subAgents.count !== 1 ? 's' : ''}</span>
+      </div>
+
       {/* Juno Status Indicator */}
       <div className="flex items-center gap-2 px-3 py-1.5 bg-[#0d1117] rounded-full border border-[#30363d]">
         <div className="relative">
@@ -63,9 +108,6 @@ export default function JunoWidget() {
           )}
         </span>
       </div>
-
-      {/* Intergram chat opens via the widget in layout.tsx */}
-      {/* No button needed - Intergram provides the floating button */}
     </div>
   );
 }
