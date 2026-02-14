@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock, ExternalLink } from 'lucide-react';
 
 interface GapStock {
   symbol: string;
@@ -142,7 +142,15 @@ export default function GapScannerCard() {
                 ) : (
                   <TrendingDown className="w-4 h-4 text-[#da3633]" />
                 )}
-                <span className="font-bold text-white">{stock.symbol}</span>
+                <a
+                  href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-white hover:text-[#ff6b35] transition-colors flex items-center gap-1"
+                >
+                  {stock.symbol}
+                  <ExternalLink className="w-3 h-3 opacity-50" />
+                </a>
               </div>
               <span className={`font-bold ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
                 {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%

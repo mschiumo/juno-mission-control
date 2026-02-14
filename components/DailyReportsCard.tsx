@@ -49,7 +49,7 @@ export default function DailyReportsCard() {
       const reportsData = await reportsRes.json();
 
       if (jobsData.success) {
-        setJobs(jobsData.data);
+        setJobs(jobsData.crons || []);
       }
       if (reportsData.success) {
         setReports(reportsData.data);
