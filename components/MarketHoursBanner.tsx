@@ -50,19 +50,19 @@ export default function MarketHoursBanner({ compact = false }: { compact?: boole
   // Compact version for sidebar
   if (compact) {
     return (
-      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-3">
+      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-3">
+        <div className="flex items-center gap-2 mb-2">
           <Globe className="w-4 h-4 text-[#ff6b35]" />
           <span className="text-sm font-semibold text-white">Markets</span>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {marketStatus.map((market) => (
-            <div key={market.name} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div key={market.name} className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5">
                 <div className={`w-2 h-2 rounded-full ${market.isOpen ? 'bg-[#238636] animate-pulse' : 'bg-[#da3633]'}`} />
-                <span className="text-sm text-white">{market.name}</span>
+                <span className="text-white">{market.name}</span>
               </div>
-              <span className="text-xs text-[#8b949e]">{market.hours}</span>
+              <span className="text-[#8b949e]">{market.hours}</span>
             </div>
           ))}
         </div>
