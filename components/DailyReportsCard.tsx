@@ -52,7 +52,11 @@ export default function DailyReportsCard() {
         setJobs(jobsData.crons || []);
       }
       if (reportsData.success) {
-        setReports(reportsData.data);
+        // Sort reports by timestamp (newest first)
+        const sortedReports = (reportsData.data || []).sort((a: CronResult, b: CronResult) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        setReports(sortedReports);
       }
       setLastUpdated(new Date());
     } catch (error) {
@@ -290,7 +294,7 @@ export default function DailyReportsCard() {
           </button>
         </div>
 
-        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+        <div className="space-y-2">
           {loading && reports.length === 0 ? (
             <div className="text-center py-4 text-[#8b949e]">Loading...</div>
           ) : (
