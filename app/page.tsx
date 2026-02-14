@@ -142,13 +142,24 @@ function DashboardContent() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
         {activeTab === 'dashboard' ? (
-          /* Dashboard Grid */
+          /* Dashboard Grid - Habits left, Reports/Projects stacked right */
           <div className="space-y-4">
             <MotivationalBanner compact variant="orange" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              <DailyReportsCard />
-              <HabitCard />
-              <ProjectsCard />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+              {/* Left Column: Habits (full height) */}
+              <div className="h-full">
+                <HabitCard />
+              </div>
+              
+              {/* Right Column: Daily Reports + Projects (stacked, half height each) */}
+              <div className="grid grid-rows-2 gap-4 md:gap-6">
+                <div className="h-full max-h-[50%]">
+                  <DailyReportsCard />
+                </div>
+                <div className="h-full max-h-[50%]">
+                  <ProjectsCard />
+                </div>
+              </div>
             </div>
           </div>
         ) : activeTab === 'trading' ? (
