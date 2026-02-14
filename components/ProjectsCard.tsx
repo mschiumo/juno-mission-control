@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FolderGit2, GitBranch, Clock, MoreHorizontal, Calendar, AlertCircle, Flag, X, Edit2, Save, ExternalLink, Plus } from 'lucide-react';
 
 interface Project {
@@ -26,7 +26,7 @@ const initialProjects: Project[] = [
     priority: 'high',
     progress: 75,
     lastUpdated: '2024-01-15T10:30:00Z',
-    dueDate: '2024-02-28',
+    dueDate: '2026-02-13',
     repo: 'github.com/mschiumo/juno-mission-control',
     tasks: { total: 12, completed: 9 },
     timeTracked: 45
@@ -72,6 +72,15 @@ export default function ProjectsCard() {
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Force re-render every minute to update overdue labels dynamically
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
