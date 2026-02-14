@@ -6,6 +6,7 @@ import DailyReportsCard from "@/components/DailyReportsCard";
 // import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
 import MarketCard from "@/components/MarketCard";
+import MarketHoursBanner from "@/components/MarketHoursBanner";
 import GapScannerCard from "@/components/GapScannerCard";
 import ProjectsCard from "@/components/ProjectsCard";
 import ActivityLogCard from "@/components/ActivityLogCard";
@@ -153,6 +154,10 @@ function DashboardContent() {
         ) : activeTab === 'trading' ? (
           /* Trading View */
           <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
+            {/* Market Hours Banner */}
+            <MarketHoursBanner />
+            
+            {/* Market Card + Gap Scanner */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
               <div className="lg:col-span-2">
                 <MarketCard />
