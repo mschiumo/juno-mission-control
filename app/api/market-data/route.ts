@@ -20,9 +20,12 @@ const stockNames: Record<string, string> = {
   'GOOGL': 'Alphabet Inc.',
   'AMZN': 'Amazon.com',
   'PLTR': 'Palantir',
+  'AMAT': 'Applied Materials',
   'GC=F': 'Gold Futures',
   'SI=F': 'Silver Futures',
-  'HG=F': 'Copper Futures'
+  'HG=F': 'Copper Futures',
+  'PL=F': 'Platinum Futures',
+  'PA=F': 'Palladium Futures'
 };
 
 /**
@@ -236,12 +239,15 @@ function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commo
       { symbol: 'NVDA', name: 'NVIDIA', price: 138.25, change: -2.15, changePercent: -1.53, status: 'down' },
       { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 185.19, change: -0.82, changePercent: -0.44, status: 'down' },
       { symbol: 'AMZN', name: 'Amazon.com', price: 228.68, change: 0.15, changePercent: 0.07, status: 'up' },
-      { symbol: 'PLTR', name: 'Palantir', price: 84.48, change: -1.20, changePercent: -1.40, status: 'down' }
+      { symbol: 'PLTR', name: 'Palantir', price: 84.48, change: -1.20, changePercent: -1.40, status: 'down' },
+      { symbol: 'AMAT', name: 'Applied Materials', price: 92.45, change: 1.25, changePercent: 1.37, status: 'up' }
     ],
     commodities: [
       { symbol: 'GC=F', name: 'Gold Futures', price: 2800.50, change: 15.30, changePercent: 0.55, status: 'up' },
       { symbol: 'SI=F', name: 'Silver Futures', price: 32.45, change: 0.25, changePercent: 0.78, status: 'up' },
-      { symbol: 'HG=F', name: 'Copper Futures', price: 4.35, change: -0.05, changePercent: -1.14, status: 'down' }
+      { symbol: 'HG=F', name: 'Copper Futures', price: 4.35, change: -0.05, changePercent: -1.14, status: 'down' },
+      { symbol: 'PL=F', name: 'Platinum Futures', price: 985.40, change: 8.20, changePercent: 0.84, status: 'up' },
+      { symbol: 'PA=F', name: 'Palladium Futures', price: 1025.80, change: -12.50, changePercent: -1.20, status: 'down' }
     ],
     crypto: [
       { symbol: 'BTC', name: 'Bitcoin', price: 68229.47, change: 3125.80, changePercent: 4.79, status: 'up' },
@@ -266,8 +272,8 @@ export async function GET() {
       console.log('Using Finnhub API for market data');
       [indices, stocks, commodities] = await Promise.all([
         fetchFinnhubStocks(['SPY', 'QQQ', 'DIA']),
-        fetchFinnhubStocks(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR']),
-        fetchFinnhubStocks(['GC=F', 'SI=F', 'HG=F']) // Gold, Silver, Copper futures
+        fetchFinnhubStocks(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR', 'AMAT']),
+        fetchFinnhubStocks(['GC=F', 'SI=F', 'HG=F', 'PL=F', 'PA=F']) // Gold, Silver, Copper, Platinum, Palladium futures
       ]);
     }
     
