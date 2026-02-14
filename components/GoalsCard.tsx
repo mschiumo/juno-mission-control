@@ -438,7 +438,7 @@ export default function GoalsCard() {
         {/* Notes Modal */}
         {notesGoal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-sm p-4">
+            <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-lg p-4 max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold text-white">Notes: {notesGoal.title}</h3>
                 <button onClick={closeNotes} className="p-1">
@@ -449,8 +449,7 @@ export default function GoalsCard() {
                 value={notesContent}
                 onChange={(e) => setNotesContent(e.target.value)}
                 placeholder="Add notes about this goal..."
-                rows={4}
-                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm mb-3 resize-none"
+                className="flex-1 min-h-[300px] w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm mb-3 resize-none overflow-y-auto"
               />
               <div className="flex gap-2">
                 <button
@@ -612,7 +611,7 @@ export default function GoalsCard() {
       {/* Notes Modal */}
       {notesGoal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-lg p-6">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-3xl p-6 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-[#ff6b35]" />
@@ -632,8 +631,7 @@ export default function GoalsCard() {
               value={notesContent}
               onChange={(e) => setNotesContent(e.target.value)}
               placeholder="Add notes, links, research, or any details about this goal..."
-              rows={6}
-              className="w-full px-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35] mb-4 resize-none"
+              className="flex-1 min-h-[400px] w-full px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35] mb-4 resize-none overflow-y-auto"
             />
             
             <div className="flex gap-2">
