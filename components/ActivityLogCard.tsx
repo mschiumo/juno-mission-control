@@ -105,6 +105,11 @@ export default function ActivityLogCard() {
 
   const typeCounts = getTypeCounts();
 
+  // Sort activities by timestamp descending (newest first)
+  const sortedActivities = [...activities].sort((a, b) => 
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
@@ -154,7 +159,7 @@ export default function ActivityLogCard() {
             <p className="text-xs mt-1">Activities will appear here when cron jobs run or actions are logged</p>
           </div>
         ) : (
-          activities.map((activity) => (
+          sortedActivities.map((activity) => (
             <div
               key={activity.id}
               className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d]"
