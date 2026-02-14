@@ -9,6 +9,7 @@ interface Goal {
   title: string;
   phase: 'not-started' | 'in-progress' | 'achieved';
   category: Category;
+  notes?: string;
 }
 
 interface GoalsData {
@@ -93,9 +94,9 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { goalId, newPhase, category } = body;
+    const { goalId, newPhase, category, notes } = body;
     
-    if (!goalId || !newPhase || !category) {
+    if (!goalId || !category) {
       return NextResponse.json({
         success: false,
         error: 'Missing required fields'
@@ -130,7 +131,15 @@ export async function POST(request: Request) {
       }, { status: 404 });
     }
     
-    goals[category][goalIndex].phase = newPhase;
+    // Update phase if provided
+    if (newPhase) {
+      goals[category][goalIndex].phase = newPhase;
+    }
+    
+    // Update notes if provided
+    if (notes !== undefined) {
+      goals[category][goalIndex].notes = notes;
+    }
     
     // Save to Redis
     if (redis) {

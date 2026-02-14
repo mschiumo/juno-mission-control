@@ -144,6 +144,44 @@ export async function POST(request: Request) {
     // Save back to Redis
     await redis.set(STORAGE_KEY, JSON.stringify(results));
 
+    // Check for timeout or failure and create notification
+    const isTimeout = content.toLowerCase().includes('timeout') || 
+                      content.toLowerCase().includes('timed out');
+    const isError = type === 'error' || 
+                    content.includes('❌') || 
+                    content.includes('FAILED') ||
+                    content.toLowerCase().includes('error');
+
+    if (isTimeout || isError) {
+      try {
+        // Get existing notifications
+        const notificationsJson = await redis.get('juno:notifications');
+        const notifications = notificationsJson ? JSON.parse(notificationsJson) : [];
+        
+        // Add timeout/failure notification
+        const newNotification = {
+          id: `notif_${Date.now()}`,
+          type: 'blocker',
+          title: isTimeout ? '⏱️ Cron Job Timeout' : '❌ Cron Job Failed',
+          message: `${jobName}: ${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`,
+          action: 'Check dashboard for details',
+          priority: isTimeout ? 'high' : 'urgent',
+          read: false,
+          createdAt: new Date().toISOString(),
+        };
+        
+        notifications.unshift(newNotification);
+        
+        // Keep only last 50 notifications
+        const trimmed = notifications.slice(0, 50);
+        
+        await redis.set('juno:notifications', JSON.stringify(trimmed));
+      } catch (notifError) {
+        console.error('Failed to create notification:', notifError);
+        // Don't fail the cron result if notification creation fails
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: newResult
