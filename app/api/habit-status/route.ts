@@ -1,109 +1,29 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
 
-const STORAGE_KEY = 'habits_data';
+const STORAGE_KEY_PREFIX = 'habits_data';
 
-// MJ's specific habits
+// MJ's specific habits with rolling history
 const DEFAULT_HABITS = [
-  {
-    id: 'make-bed',
-    name: 'Make Bed',
-    icon: '🛏️',
-    streak: 0,
-    completedToday: false,
-    target: 'Daily',
-    category: 'productivity',
-    history: [false, false, false, false, false, false, false]
-  },
-  {
-    id: 'take-meds',
-    name: 'Take Meds (Morning)',
-    icon: '💊',
-    streak: 0,
-    completedToday: false,
-    target: 'Daily',
-    category: 'health',
-    history: [false, false, false, false, false, false, false]
-  },
-  {
-    id: 'market-brief',
-    name: 'Read Market Brief, Stock Screeners',
-    icon: '📈',
-    streak: 0,
-    completedToday: false,
-    target: 'Weekdays',
-    category: 'trading',
-    history: [false, false, false, false, false, false, false]
-  },
-  {
-    id: 'exercise',
-    name: 'Exercise / Lift',
-    icon: '💪',
-    streak: 0,
-    completedToday: false,
-    target: '4x/week',
-    category: 'fitness',
-    history: [false, false, false, false, false, false, false]
-  },
-  {
-    id: 'read',
-    name: 'Read',
-    icon: '📚',
-    streak: 0,
-    completedToday: false,
-    target: '30 min',
-    category: 'learning',
-    history: [false, false, false, false, false, false, false]
-  },
-  {
-    id: 'drink-water',
-    name: 'Drink Water',
-    icon: '💧',
-    streak: 0,
-    completedToday: false,
-    target: '2L daily',
-    category: 'health',
-    history: [false, false, false, false, false, false, false]
-  },
-  {
-    id: 'journal',
-    name: 'Journal',
-    icon: '📝',
-    streak: 0,
-    completedToday: false,
-    target: 'Daily',
-    category: 'mindfulness',
-    history: [false, false, false, false, false, false, false]
-  },
-  {
-    id: 'trade-journal',
-    name: 'Trade Journal',
-    icon: '📊',
-    streak: 0,
-    completedToday: false,
-    target: 'Trading days',
-    category: 'trading',
-    history: [false, false, false, false, false, false, false]
-  }
+  { id: 'make-bed', name: 'Make Bed', icon: '🛏️', target: 'Daily', category: 'productivity' },
+  { id: 'take-meds', name: 'Take Meds (Morning)', icon: '💊', target: 'Daily', category: 'health' },
+  { id: 'market-brief', name: 'Read Market Brief, Stock Screeners', icon: '📈', target: 'Weekdays', category: 'trading' },
+  { id: 'exercise', name: 'Exercise / Lift', icon: '💪', target: '4x/week', category: 'fitness' },
+  { id: 'read', name: 'Read', icon: '📚', target: '30 min', category: 'learning' },
+  { id: 'drink-water', name: 'Drink Water', icon: '💧', target: '2L daily', category: 'health' },
+  { id: 'journal', name: 'Journal', icon: '📝', target: 'Daily', category: 'mindfulness' },
+  { id: 'trade-journal', name: 'Trade Journal', icon: '📊', target: 'Trading days', category: 'trading' }
 ];
 
 // Lazy Redis client initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
 
 async function getRedisClient() {
-  if (redisClient) {
-    return redisClient;
-  }
+  if (redisClient) return redisClient;
   
   try {
-    const client = createClient({
-      url: process.env.REDIS_URL || undefined
-    });
-    
-    client.on('error', (err) => {
-      console.error('Redis Client Error:', err);
-    });
-    
+    const client = createClient({ url: process.env.REDIS_URL || undefined });
+    client.on('error', (err) => console.error('Redis Client Error:', err));
     await client.connect();
     redisClient = client;
     return client;
@@ -113,75 +33,142 @@ async function getRedisClient() {
   }
 }
 
+function getStorageKey(date: string) {
+  return `${STORAGE_KEY_PREFIX}:${date}`;
+}
+
+function getToday() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function getPreviousDate(dateStr: string, daysBack: number) {
+  const date = new Date(dateStr);
+  date.setDate(date.getDate() - daysBack);
+  return date.toISOString().split('T')[0];
+}
+
+interface HabitData {
+  id: string;
+  name: string;
+  icon: string;
+  target: string;
+  category: string;
+  completedToday: boolean;
+  streak: number;
+  history: boolean[]; // Last 7 days (oldest to newest)
+}
+
+// Initialize or shift history for a new day
+function initializeHabits(previousData: HabitData[] | null): HabitData[] {
+  if (!previousData) {
+    // First time - create fresh habits
+    return DEFAULT_HABITS.map(h => ({
+      ...h,
+      completedToday: false,
+      streak: 0,
+      history: [false, false, false, false, false, false, false]
+    }));
+  }
+  
+  // Shift history: drop oldest, add yesterday's completion as newest
+  return previousData.map(h => {
+    const yesterdayCompleted = h.completedToday;
+    const newHistory = [...h.history.slice(1), yesterdayCompleted];
+    
+    // Calculate streak
+    let streak = h.streak;
+    if (yesterdayCompleted) {
+      streak += 1;
+    } else {
+      streak = 0; // Reset streak if missed yesterday
+    }
+    
+    return {
+      ...h,
+      completedToday: false, // Reset for new day
+      streak,
+      history: newHistory
+    };
+  });
+}
+
 export async function GET() {
   try {
     const redis = await getRedisClient();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getToday();
+    const storageKey = getStorageKey(today);
     
-    let habits = [...DEFAULT_HABITS];
+    let habits: HabitData[];
     
-    // Try to load from Redis
     if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
+      // Try to load today's data
+      const stored = await redis.get(storageKey);
+      
       if (stored) {
-        const parsed = JSON.parse(stored);
-        // Check if we need to reset for new day
-        if (parsed.date === today) {
-          habits = parsed.habits;
-        }
+        // Today's data exists
+        habits = JSON.parse(stored);
+      } else {
+        // No data for today - check yesterday to initialize
+        const yesterday = getPreviousDate(today, 1);
+        const yesterdayKey = getStorageKey(yesterday);
+        const yesterdayData = await redis.get(yesterdayKey);
+        
+        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null);
+        
+        // Save initialized habits for today
+        await redis.set(storageKey, JSON.stringify(habits));
       }
+    } else {
+      // No Redis - use defaults
+      habits = DEFAULT_HABITS.map(h => ({
+        ...h,
+        completedToday: false,
+        streak: 0,
+        history: [false, false, false, false, false, false, false]
+      }));
     }
     
-    // Calculate dynamic stats based on actual completion
+    // Calculate stats from history
     const completedToday = habits.filter(h => h.completedToday).length;
     const totalHabits = habits.length;
     const longestStreak = Math.max(...habits.map(h => h.streak), 0);
     
-    // Calculate weekly completion percentage
-    const totalPossibleCompletions = totalHabits * 7;
-    const actualCompletions = habits.reduce((acc, h) => 
-      acc + h.history.filter(Boolean).length, 0
+    // Weekly completion: sum of all history completions / (habits * 7 days)
+    const totalCompletions = habits.reduce((acc, h) => 
+      acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
     );
-    const weeklyCompletion = totalPossibleCompletions > 0 
-      ? Math.round((actualCompletions / totalPossibleCompletions) * 100)
-      : 0;
-
-    const stats = {
-      totalHabits,
-      completedToday,
-      longestStreak,
-      weeklyCompletion
-    };
+    const weeklyCompletion = Math.round((totalCompletions / (totalHabits * 7)) * 100);
 
     return NextResponse.json({ 
       success: true, 
       data: {
         habits,
-        stats,
-        date: today
+        stats: {
+          totalHabits,
+          completedToday,
+          longestStreak,
+          weeklyCompletion
+        }
       },
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('Habit status error:', error);
     
-    // Fallback to default habits
-    const habits = [...DEFAULT_HABITS];
-    const stats = {
-      totalHabits: habits.length,
-      completedToday: 0,
-      longestStreak: 0,
-      weeklyCompletion: 0
-    };
+    // Fallback
+    const habits = DEFAULT_HABITS.map(h => ({
+      ...h,
+      completedToday: false,
+      streak: 0,
+      history: [false, false, false, false, false, false, false]
+    }));
     
     return NextResponse.json({ 
       success: true, 
       data: {
         habits,
-        stats,
-        date: new Date().toISOString().split('T')[0]
-      },
-      timestamp: new Date().toISOString()
+        stats: { totalHabits: habits.length, completedToday: 0, longestStreak: 0, weeklyCompletion: 0 }
+      }
     });
   }
 }
@@ -192,83 +179,60 @@ export async function POST(request: Request) {
     const { habitId, completed } = body;
     
     if (!habitId) {
-      return NextResponse.json({
-        success: false,
-        error: 'habitId is required'
-      }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'habitId is required' }, { status: 400 });
     }
 
     const redis = await getRedisClient();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getToday();
+    const storageKey = getStorageKey(today);
     
-    // Get current habits
-    let habits = [...DEFAULT_HABITS];
+    // Load current habits
+    let habits: HabitData[];
     if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
+      const stored = await redis.get(storageKey);
       if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.date === today) {
-          habits = parsed.habits;
-        }
+        habits = JSON.parse(stored);
+      } else {
+        // Initialize from yesterday if needed
+        const yesterday = getPreviousDate(today, 1);
+        const yesterdayData = await redis.get(getStorageKey(yesterday));
+        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null);
       }
+    } else {
+      return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
     }
     
     // Update the habit
     const habitIndex = habits.findIndex(h => h.id === habitId);
     if (habitIndex === -1) {
-      return NextResponse.json({
-        success: false,
-        error: 'Habit not found'
-      }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Habit not found' }, { status: 404 });
     }
     
-    const habit = habits[habitIndex];
-    habit.completedToday = completed;
-    
-    // Update history (today is the last element)
-    if (completed) {
-      habit.history[6] = true;
-      habit.streak += 1;
-    } else {
-      habit.history[6] = false;
-      // Don't decrement streak on uncheck, just don't increment
-    }
+    habits[habitIndex].completedToday = completed;
     
     // Save back to Redis
-    if (redis) {
-      await redis.set(STORAGE_KEY, JSON.stringify({
-        habits,
-        date: today,
-        updatedAt: new Date().toISOString()
-      }));
-    }
+    await redis.set(storageKey, JSON.stringify(habits));
     
     // Recalculate stats
     const completedToday = habits.filter(h => h.completedToday).length;
-    const stats = {
-      totalHabits: habits.length,
-      completedToday,
-      longestStreak: Math.max(...habits.map(h => h.streak)),
-      weeklyCompletion: Math.round(
-        habits.reduce((acc, h) => acc + h.history.filter(Boolean).length, 0) / 
-        (habits.length * 7) * 100
-      )
-    };
-
+    const totalCompletions = habits.reduce((acc, h) => 
+      acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
+    );
+    
     return NextResponse.json({
       success: true,
       data: {
         habits,
-        stats,
-        date: today
-      },
-      timestamp: new Date().toISOString()
+        stats: {
+          totalHabits: habits.length,
+          completedToday,
+          longestStreak: Math.max(...habits.map(h => h.streak)),
+          weeklyCompletion: Math.round((totalCompletions / (habits.length * 7)) * 100)
+        }
+      }
     });
   } catch (error) {
     console.error('Habit update error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to update habit'
-    }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to update habit' }, { status: 500 });
   }
 }
