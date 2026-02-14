@@ -83,6 +83,16 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
+    // Validate category
+    const validCategories = ['yearly', 'weekly', 'daily'] as const;
+    if (!validCategories.includes(category)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid category'
+      }, { status: 400 });
+    }
+    const cat = category as 'yearly' | 'weekly' | 'daily';
+
     const redis = await getRedisClient();
     
     // Get current goals
@@ -95,7 +105,7 @@ export async function POST(request: Request) {
     }
     
     // Update the goal
-    const goalIndex = goals[category].findIndex((g: { id: string }) => g.id === goalId);
+    const goalIndex = goals[cat].findIndex((g: { id: string }) => g.id === goalId);
     if (goalIndex === -1) {
       return NextResponse.json({
         success: false,
@@ -103,7 +113,7 @@ export async function POST(request: Request) {
       }, { status: 404 });
     }
     
-    goals[category][goalIndex].phase = newPhase;
+    goals[cat][goalIndex].phase = newPhase;
     
     // Save to Redis
     if (redis) {
@@ -136,6 +146,16 @@ export async function PUT(request: Request) {
       }, { status: 400 });
     }
 
+    // Validate category
+    const validCategories = ['yearly', 'weekly', 'daily'] as const;
+    if (!validCategories.includes(category)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid category'
+      }, { status: 400 });
+    }
+    const cat = category as 'yearly' | 'weekly' | 'daily';
+
     const redis = await getRedisClient();
     
     // Get current goals
@@ -149,13 +169,13 @@ export async function PUT(request: Request) {
     
     // Add new goal
     const newGoal = {
-      id: `${category[0]}${Date.now()}`,
+      id: `${cat[0]}${Date.now()}`,
       title,
       phase: 'not-started',
-      category
+      category: cat
     };
     
-    goals[category].push(newGoal);
+    goals[cat].push(newGoal);
     
     // Save to Redis
     if (redis) {
@@ -189,6 +209,16 @@ export async function DELETE(request: Request) {
       }, { status: 400 });
     }
 
+    // Validate category
+    const validCategories = ['yearly', 'weekly', 'daily'] as const;
+    if (!validCategories.includes(category as string)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid category'
+      }, { status: 400 });
+    }
+    const cat = category as 'yearly' | 'weekly' | 'daily';
+
     const redis = await getRedisClient();
     
     // Get current goals
@@ -201,7 +231,7 @@ export async function DELETE(request: Request) {
     }
     
     // Remove goal
-    goals[category] = goals[category].filter((g: { id: string }) => g.id !== goalId);
+    goals[cat] = goals[cat].filter((g: { id: string }) => g.id !== goalId);
     
     // Save to Redis
     if (redis) {
