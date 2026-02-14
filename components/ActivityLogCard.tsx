@@ -75,6 +75,26 @@ export default function ActivityLogCard() {
     }
   };
 
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'cron': return 'Cron Job';
+      case 'api': return 'API Call';
+      case 'user': return 'User Action';
+      case 'system': return 'System';
+      default: return type;
+    }
+  };
+
+  const pluralizeType = (type: string, count: number) => {
+    const label = getTypeLabel(type);
+    if (count === 1) return label;
+    // Pluralize
+    if (label === 'Cron Job') return 'Cron Jobs';
+    if (label === 'API Call') return 'API Calls';
+    if (label === 'User Action') return 'User Actions';
+    return label + 's';
+  };
+
   const getTypeCounts = () => {
     const counts: Record<string, number> = {};
     activities.forEach(a => {
@@ -84,14 +104,6 @@ export default function ActivityLogCard() {
   };
 
   const typeCounts = getTypeCounts();
-    switch (type) {
-      case 'cron': return 'Cron Job';
-      case 'api': return 'API Call';
-      case 'user': return 'User Action';
-      case 'system': return 'System';
-      default: return type;
-    }
-  };
 
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
@@ -104,13 +116,12 @@ export default function ActivityLogCard() {
             <h2 className="text-lg font-semibold text-white">Activity Log</h2>
             <div className="flex items-center gap-2">
               <p className="text-xs text-[#8b949e]">
-                {activities.length} total today
+                {activities.length} activit{activities.length === 1 ? 'y' : 'ies'} today
                 {Object.keys(typeCounts).length > 0 && (
                   <span className="ml-1">
-                    ({Object.entries(typeCounts).map(([type, count]) => `${count} ${type}`).join(', ')})
+                    ({Object.entries(typeCounts).map(([type, count]) => `${count} ${pluralizeType(type, count)}`).join(', ')})
                   </span>
                 )}
-              </p>
               </p>
               {lastUpdated && !loading && (
                 <span className="text-[10px] text-[#238636]">
