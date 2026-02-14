@@ -4,9 +4,8 @@ import { useState, useEffect } from 'react';
 import { Sparkles, Bot } from 'lucide-react';
 
 interface JunoStatus {
-  isActive: boolean;
   isProcessing: boolean;
-  lastActivity: string;
+  lastActivity: number;
 }
 
 interface SubAgentStatus {
@@ -14,28 +13,54 @@ interface SubAgentStatus {
   hasSubAgents: boolean;
 }
 
+type JunoState = 'ready' | 'thinking' | 'idle';
+
 export default function JunoWidget() {
   const [status, setStatus] = useState<JunoStatus>({
-    isActive: true,
     isProcessing: false,
-    lastActivity: new Date().toISOString()
+    lastActivity: Date.now()
   });
+  const [currentState, setCurrentState] = useState<JunoState>('ready');
   const [subAgents, setSubAgents] = useState<SubAgentStatus>({
     count: 0,
     hasSubAgents: false
   });
 
   useEffect(() => {
-    const checkActivity = () => {
+    // Check state every 5 seconds
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const timeSinceActivity = now - status.lastActivity;
+      
+      if (status.isProcessing) {
+        setCurrentState('thinking');
+      } else if (timeSinceActivity > 60000) {
+        // Idle after 60 seconds of no activity
+        setCurrentState('idle');
+      } else {
+        setCurrentState('ready');
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [status]);
+
+  // Simulate activity detection (in real use, this would be triggered by actual work)
+  useEffect(() => {
+    const handleActivity = () => {
       setStatus(prev => ({
         ...prev,
-        isActive: true,
-        lastActivity: new Date().toISOString()
+        lastActivity: Date.now()
       }));
     };
 
-    const interval = setInterval(checkActivity, 5000);
-    return () => clearInterval(interval);
+    window.addEventListener('click', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    
+    return () => {
+      window.removeEventListener('click', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+    };
   }, []);
 
   // Fetch sub-agent status
@@ -61,6 +86,38 @@ export default function JunoWidget() {
     return () => clearInterval(interval);
   }, []);
 
+  const getStatusConfig = () => {
+    switch (currentState) {
+      case 'thinking':
+        return {
+          dotColor: 'bg-[#d29922]',
+          textColor: 'text-[#d29922]',
+          label: 'Juno is thinking...',
+          showSpinner: true,
+          showPulse: false
+        };
+      case 'idle':
+        return {
+          dotColor: 'bg-[#8b949e]',
+          textColor: 'text-[#8b949e]',
+          label: 'Juno is idle',
+          showSpinner: false,
+          showPulse: false
+        };
+      case 'ready':
+      default:
+        return {
+          dotColor: 'bg-[#238636]',
+          textColor: 'text-[#238636]',
+          label: 'Juno is ready',
+          showSpinner: false,
+          showPulse: true
+        };
+    }
+  };
+
+  const config = getStatusConfig();
+
   return (
     <div className="flex items-center gap-2">
       {/* Sub-agents Badge */}
@@ -79,32 +136,28 @@ export default function JunoWidget() {
       {/* Juno Status Indicator */}
       <div className="flex items-center gap-2 px-3 py-1.5 bg-[#0d1117] rounded-full border border-[#30363d]">
         <div className="relative">
-          {/* Pulsing dot */}
-          <div className={`w-2.5 h-2.5 rounded-full ${
-            status.isProcessing 
-              ? 'bg-[#d29922] animate-pulse' 
-              : 'bg-[#238636]'
-          }`} />
+          {/* Status dot */}
+          <div className={`w-2.5 h-2.5 rounded-full ${config.dotColor} ${currentState === 'thinking' ? 'animate-pulse' : ''}`} />
           
-          {/* Outer pulse ring when active */}
-          {status.isActive && !status.isProcessing && (
+          {/* Pulse ring when ready */}
+          {config.showPulse && (
             <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-[#238636] animate-ping opacity-75" />
           )}
           
-          {/* Processing spinner */}
-          {status.isProcessing && (
+          {/* Spinner when thinking */}
+          {config.showSpinner && (
             <div className="absolute -inset-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#d29922] border-t-transparent animate-spin" />
           )}
         </div>
         
-        <span className="text-xs text-[#8b949e]">
-          {status.isProcessing ? (
+        <span className={`text-xs ${config.textColor} font-medium`}>
+          {currentState === 'thinking' ? (
             <span className="flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-[#d29922]" />
-              Thinking...
+              <Sparkles className="w-3 h-3" />
+              {config.label}
             </span>
           ) : (
-            'Juno Active'
+            config.label
           )}
         </span>
       </div>
