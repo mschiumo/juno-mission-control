@@ -264,3 +264,70 @@ export async function DELETE(request: Request) {
     }, { status: 500 });
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { goalId, fromCategory, toCategory } = body;
+    
+    if (!goalId || !fromCategory || !toCategory) {
+      return NextResponse.json({
+        success: false,
+        error: 'Missing required fields'
+      }, { status: 400 });
+    }
+
+    // Validate categories
+    if (!isValidCategory(fromCategory) || !isValidCategory(toCategory)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid category'
+      }, { status: 400 });
+    }
+
+    const redis = await getRedisClient();
+    
+    // Get current goals
+    let goals = DEFAULT_GOALS;
+    if (redis) {
+      const stored = await redis.get(STORAGE_KEY);
+      if (stored) {
+        goals = JSON.parse(stored);
+      }
+    }
+    
+    // Find and remove goal from source category
+    const goalIndex = goals[fromCategory].findIndex((g: Goal) => g.id === goalId);
+    if (goalIndex === -1) {
+      return NextResponse.json({
+        success: false,
+        error: 'Goal not found in source category'
+      }, { status: 404 });
+    }
+    
+    // Get the goal and update its category
+    const goal = goals[fromCategory][goalIndex];
+    goal.category = toCategory;
+    
+    // Remove from source and add to target
+    goals[fromCategory].splice(goalIndex, 1);
+    goals[toCategory].push(goal);
+    
+    // Save to Redis
+    if (redis) {
+      await redis.set(STORAGE_KEY, JSON.stringify(goals));
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: goals,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Goal move error:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to move goal'
+    }, { status: 500 });
+  }
+}

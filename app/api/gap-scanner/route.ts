@@ -11,147 +11,97 @@ interface GapStock {
   status: 'gainer' | 'loser';
 }
 
-const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || 'd6802j9r01qobepji5i0d6802j9r01qobepji5ig';
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY || '';
 
-// High-volume stocks to scan
-const SCAN_SYMBOLS = [
-  'TSLA', 'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'AMD', 'PLTR', 'COIN',
-  'NIO', 'BABA', 'UBER', 'PYPL', 'SQ', 'HOOD', 'SOFI', 'LCID', 'RIVN', 'MARA',
-  'RIOT', 'CVNA', 'GME', 'AMC', 'BB', 'NOK', 'TLRY', 'SNDL', 'F', 'GM',
-  'XOM', 'CVX', 'JPM', 'BAC', 'WFC', 'GS', 'MS', 'SCHW', 'BLK', 'AXP',
-  'JNJ', 'PFE', 'MRNA', 'BNTX', 'AZN', 'NVO', 'UNH', 'ABBV', 'LLY', 'TMO'
-];
-
-// Fetch quote from Finnhub
-async function fetchFinnhubQuote(
-  symbol: string, 
-  debug?: { symbol: string; gapPercent: number; filtered: string; reason?: string }[]
-): Promise<GapStock | null> {
+// Fetch all stocks from Polygon grouped daily endpoint
+async function fetchPolygonGappers(): Promise<GapStock[]> {
   try {
-    const response = await fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`,
+    // Get yesterday's date for previous close data
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Format dates as YYYY-MM-DD
+    const todayStr = now.toISOString().split('T')[0];
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    // Fetch today's data (or most recent trading day)
+    const todayResponse = await fetch(
+      `https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${todayStr}?adjusted=true&apiKey=${POLYGON_API_KEY}`,
       { next: { revalidate: 60 } }
     );
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        console.warn(`Rate limit hit for ${symbol}`);
-      }
-      debug?.push({ symbol, gapPercent: 0, filtered: 'yes', reason: 'API error' });
-      return null;
-    }
-
-    const data = await response.json();
     
-    // Finnhub quote response:
-    // { c: current price, d: change, dp: change percent, h: high, l: low, o: open, pc: previous close, t: timestamp }
-    const currentPrice = data.c;
-    const previousClose = data.pc;
-    
-    if (!currentPrice || !previousClose || previousClose === 0) {
-      debug?.push({ symbol, gapPercent: 0, filtered: 'yes', reason: 'No price data' });
-      return null;
-    }
-
-    const gapPercent = ((currentPrice - previousClose) / previousClose) * 100;
-    
-    // Only include stocks with 5%+ gaps (lowered from 10% for weekend testing)
-    if (Math.abs(gapPercent) < 5) {
-      debug?.push({ symbol, gapPercent: Number(gapPercent.toFixed(2)), filtered: 'yes', reason: 'Gap < 5%' });
-      return null;
-    }
-
-    // Fetch profile for market cap and company name
-    const profile = await fetchFinnhubProfile(symbol);
-    
-    const volume = data.v || 0; // Volume from quote (if available)
-    const marketCap = profile?.marketCapitalization || 0;
-    
-    // Apply filters
-    // Note: Finnhub basic quote doesn't include volume, so we skip volume filter if not available
-    // Market cap: allow if unknown (0) or >= $100M (Finnhub returns in millions, so 100 = $100M)
-    if (marketCap > 0 && marketCap < 100) {
-      debug?.push({ symbol, gapPercent: Number(gapPercent.toFixed(2)), filtered: 'yes', reason: `Market cap too small: ${marketCap}M` });
-      return null; // Only filter if we have data and it's too small
-    }
-    if (currentPrice > 500) {
-      debug?.push({ symbol, gapPercent: Number(gapPercent.toFixed(2)), filtered: 'yes', reason: `Price too high: ${currentPrice}` });
-      return null; // Max $500 price
-    }
-    
-    // Volume filter: skip if not available, otherwise require 100K+
-    if (volume > 0 && volume < 100000) {
-      debug?.push({ symbol, gapPercent: Number(gapPercent.toFixed(2)), filtered: 'yes', reason: `Volume too low: ${volume}` });
-      return null;
-    }
-    
-    debug?.push({ symbol, gapPercent: Number(gapPercent.toFixed(2)), filtered: 'no' });
-
-    return {
-      symbol,
-      name: profile?.name || symbol,
-      price: currentPrice,
-      previousClose,
-      gapPercent: Number(gapPercent.toFixed(2)),
-      volume: volume,
-      marketCap: marketCap * 1000000, // Convert to actual value
-      status: gapPercent > 0 ? 'gainer' : 'loser'
-    };
-  } catch (error) {
-    console.error(`Error fetching ${symbol}:`, error);
-    debug?.push({ symbol, gapPercent: 0, filtered: 'yes', reason: 'Exception' });
-    return null;
-  }
-}
-
-// Fetch company profile for name and market cap
-async function fetchFinnhubProfile(symbol: string): Promise<{ name: string; marketCapitalization: number } | null> {
-  try {
-    const response = await fetch(
-      `https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_API_KEY}`,
-      { next: { revalidate: 3600 } } // Cache for 1 hour
+    // Fetch yesterday's data for previous close
+    const yesterdayResponse = await fetch(
+      `https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${yesterdayStr}?adjusted=true&apiKey=${POLYGON_API_KEY}`,
+      { next: { revalidate: 3600 } }
     );
 
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    return {
-      name: data.name || symbol,
-      marketCapitalization: data.marketCapitalization || 0
-    };
-  } catch (error) {
-    return null;
-  }
-}
-
-// Scan all symbols with rate limiting
-async function scanWithFinnhub(): Promise<GapStock[]> {
-  const results: GapStock[] = [];
-  const debug: { symbol: string; gapPercent: number; filtered: string; reason?: string }[] = [];
-  
-  // Finnhub free tier: 60 calls/minute
-  // We need 2 calls per symbol (quote + profile), so ~30 symbols max per minute
-  // But we can batch profile calls since they're cached
-  
-  // First, fetch all quotes (1 call per symbol)
-  for (let i = 0; i < SCAN_SYMBOLS.length; i++) {
-    const symbol = SCAN_SYMBOLS[i];
-    const result = await fetchFinnhubQuote(symbol, debug);
-    if (result) {
-      results.push(result);
+    if (!todayResponse.ok || !yesterdayResponse.ok) {
+      console.error('Polygon API error:', todayResponse.status, yesterdayResponse.status);
+      return [];
     }
+
+    const todayData = await todayResponse.json();
+    const yesterdayData = await yesterdayResponse.json();
     
-    // Rate limit: 60 calls/min = 1 call per second
-    // Add small delay every 5 calls to be safe
-    if ((i + 1) % 5 === 0) {
-      await new Promise(r => setTimeout(r, 200));
+    if (todayData.resultsCount === 0 || !todayData.results) {
+      console.log('No trading data for today, using previous day');
+      return [];
     }
-  }
-  
-  // Log debug info
-  console.log('Gap Scanner Debug:', JSON.stringify(debug.slice(0, 10), null, 2));
 
-  return results;
+    // Create map of yesterday's closes
+    const yesterdayCloses: Record<string, number> = {};
+    if (yesterdayData.results) {
+      yesterdayData.results.forEach((result: any) => {
+        yesterdayCloses[result.T] = result.c;
+      });
+    }
+
+    const results: GapStock[] = [];
+    
+    // Process all stocks from today
+    for (const result of todayData.results) {
+      const symbol = result.T;
+      const currentPrice = result.c; // Close price (or current if during market)
+      const previousClose = yesterdayCloses[symbol];
+      const volume = result.v;
+      
+      // Skip if no previous close data
+      if (!previousClose || previousClose === 0) continue;
+      
+      // Calculate gap from open vs previous close (typical gap calculation)
+      const openPrice = result.o;
+      const gapPercent = ((openPrice - previousClose) / previousClose) * 100;
+      
+      // Current price for display (use close if market closed, could use last trade if open)
+      const displayPrice = currentPrice || openPrice;
+      
+      // Apply filters
+      if (Math.abs(gapPercent) < 5) continue; // Min 5% gap
+      if (volume < 100000) continue; // Min 100K volume
+      if (displayPrice > 500) continue; // Max $500 price
+      
+      // Polygon doesn't provide market cap, so we'll skip that filter or estimate
+      // Most stocks in Polygon are US equities with reasonable market caps
+      
+      results.push({
+        symbol,
+        name: symbol, // Polygon grouped endpoint doesn't include company names
+        price: displayPrice,
+        previousClose,
+        gapPercent: Number(gapPercent.toFixed(2)),
+        volume,
+        marketCap: 0, // Not available in grouped endpoint
+        status: gapPercent > 0 ? 'gainer' : 'loser'
+      });
+    }
+
+    return results;
+  } catch (error) {
+    console.error('Polygon gap scanner error:', error);
+    return [];
+  }
 }
 
 // Mock data for when API fails
@@ -174,32 +124,29 @@ export async function GET() {
   const timestamp = new Date().toISOString();
   
   try {
-    const stocks = await scanWithFinnhub();
+    const stocks = await fetchPolygonGappers();
     
     // Sort and filter
     const gainers = stocks
       .filter(s => s.status === 'gainer')
       .sort((a, b) => b.gapPercent - a.gapPercent)
-      .slice(0, 5);
+      .slice(0, 10);
     
     const losers = stocks
       .filter(s => s.status === 'loser')
       .sort((a, b) => a.gapPercent - b.gapPercent)
-      .slice(0, 5);
+      .slice(0, 10);
 
-    // Always return live data - even if empty (markets closed, no big gaps)
-    // This shows the last market close data instead of mock
     return NextResponse.json({
       success: true,
       data: { gainers, losers },
       timestamp,
       source: 'live',
-      scanned: SCAN_SYMBOLS.length,
+      scanned: stocks.length,
       found: stocks.length,
       filters: {
         minGapPercent: 5,
         minVolume: 100000,
-        minMarketCap: 100000000,
         maxPrice: 500
       }
     });
@@ -207,7 +154,7 @@ export async function GET() {
   } catch (error) {
     console.error('Gap scanner API error:', error);
     
-    // Only use mock data on actual API errors
+    // Return mock data on error
     const mockData = getMockGapData();
     return NextResponse.json({
       success: true,
@@ -217,13 +164,12 @@ export async function GET() {
       },
       timestamp,
       source: 'fallback',
-      scanned: SCAN_SYMBOLS.length,
+      scanned: 0,
       found: 0,
       error: 'Failed to fetch live data',
       filters: {
         minGapPercent: 5,
         minVolume: 100000,
-        minMarketCap: 100000000,
         maxPrice: 500
       }
     });

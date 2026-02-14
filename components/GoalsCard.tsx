@@ -44,7 +44,7 @@ export default function GoalsCard() {
     daily: []
   });
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState<Category>('yearly');
+  const [activeCategory, setActiveCategory] = useState<Category>('daily');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [draggedGoal, setDraggedGoal] = useState<Goal | null>(null);
@@ -93,6 +93,36 @@ export default function GoalsCard() {
       });
     } catch (error) {
       console.error('Failed to move goal:', error);
+    }
+  };
+
+  const moveCategory = async (goal: Goal, newCategory: Category) => {
+    if (goal.category === newCategory) return;
+    
+    // Optimistically update UI
+    const updatedGoals = { ...goals };
+    const goalIndex = updatedGoals[goal.category].findIndex(g => g.id === goal.id);
+    if (goalIndex > -1) {
+      const [movedGoal] = updatedGoals[goal.category].splice(goalIndex, 1);
+      movedGoal.category = newCategory;
+      updatedGoals[newCategory].push(movedGoal);
+      setGoals(updatedGoals);
+    }
+
+    try {
+      await fetch('/api/goals', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goalId: goal.id,
+          fromCategory: goal.category,
+          toCategory: newCategory
+        })
+      });
+    } catch (error) {
+      console.error('Failed to move goal category:', error);
+      // Revert on error
+      fetchGoals();
     }
   };
 
@@ -190,7 +220,7 @@ export default function GoalsCard() {
 
         {/* Mobile Category Tabs */}
         <div className="flex gap-1 mb-4">
-          {(['yearly', 'weekly', 'daily'] as Category[]).map((cat) => (
+          {(['daily', 'weekly', 'yearly'] as Category[]).map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -259,6 +289,19 @@ export default function GoalsCard() {
                             {phase === 'not-started' ? 'Start →' : 'Done →'}
                           </button>
                         )}
+                      </div>
+                      {/* Mobile Category Move */}
+                      <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-[#30363d]/50">
+                        <span className="text-[10px] text-[#8b949e]">Move:</span>
+                        {(['daily', 'weekly', 'yearly'] as Category[]).filter(cat => cat !== goal.category).map((cat) => (
+                          <button
+                            key={cat}
+                            onClick={() => moveCategory(goal, cat)}
+                            className="text-[10px] px-2 py-1 bg-[#21262d] text-[#8b949e] rounded"
+                          >
+                            {categoryLabels[cat]}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -350,7 +393,7 @@ export default function GoalsCard() {
 
       {/* Category Tabs */}
       <div className="flex gap-2 mb-6">
-        {(['yearly', 'weekly', 'daily'] as Category[]).map((cat) => (
+        {(['daily', 'weekly', 'yearly'] as Category[]).map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
@@ -431,6 +474,20 @@ export default function GoalsCard() {
                         {phase === 'not-started' ? 'Start →' : 'Complete →'}
                       </button>
                     )}
+                  </div>
+                  
+                  {/* Category Move Buttons */}
+                  <div className="flex gap-1 mt-2 pt-2 border-t border-[#30363d]/50">
+                    <span className="text-[10px] text-[#8b949e] mr-1">Move to:</span>
+                    {(['daily', 'weekly', 'yearly'] as Category[]).filter(cat => cat !== goal.category).map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => moveCategory(goal, cat)}
+                        className="text-[10px] px-2 py-1 bg-[#21262d] text-[#8b949e] rounded hover:bg-[#ff6b35]/20 hover:text-[#ff6b35] transition-colors"
+                      >
+                        {categoryLabels[cat]}
+                      </button>
+                    ))}
                   </div>
                 </div>
               ))}
