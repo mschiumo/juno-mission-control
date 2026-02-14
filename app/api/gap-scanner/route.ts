@@ -305,9 +305,31 @@ export async function GET() {
     const enrichedLosers = await enrichWithFinnhubData(topLosers);
     console.log('Finnhub enrichment complete');
 
+    // Filter by minimum market cap ($250M)
+    const MIN_MARKET_CAP = 250000000; // $250 million
+    let marketCapFiltered = 0;
+    
+    const filteredGainers = enrichedGainers.filter(stock => {
+      if (stock.marketCap > 0 && stock.marketCap < MIN_MARKET_CAP) {
+        marketCapFiltered++;
+        return false;
+      }
+      return true;
+    });
+    
+    const filteredLosers = enrichedLosers.filter(stock => {
+      if (stock.marketCap > 0 && stock.marketCap < MIN_MARKET_CAP) {
+        marketCapFiltered++;
+        return false;
+      }
+      return true;
+    });
+
+    console.log(`Market cap filter: ${marketCapFiltered} stocks below $250M removed`);
+
     return NextResponse.json({
       success: true,
-      data: { gainers: enrichedGainers, losers: enrichedLosers },
+      data: { gainers: filteredGainers, losers: filteredLosers },
       timestamp,
       source: 'live',
       scanned: stocks.length,
@@ -322,6 +344,7 @@ export async function GET() {
         minGapPercent: 5,
         minVolume: 100000,
         maxPrice: 500,
+        minMarketCap: 250000000,
         excludeETFs: true,
         excludeWarrants: true
       }
@@ -351,6 +374,7 @@ export async function GET() {
         minGapPercent: 5,
         minVolume: 100000,
         maxPrice: 500,
+        minMarketCap: 250000000,
         excludeETFs: true,
         excludeWarrants: true
       }
