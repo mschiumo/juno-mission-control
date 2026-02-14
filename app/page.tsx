@@ -6,6 +6,7 @@ import DailyReportsCard from "@/components/DailyReportsCard";
 // import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
 import MarketCard from "@/components/MarketCard";
+import GapScannerCard from "@/components/GapScannerCard";
 import ProjectsCard from "@/components/ProjectsCard";
 import ActivityLogCard from "@/components/ActivityLogCard";
 import GoalsCard from "@/components/GoalsCard";
@@ -151,17 +152,13 @@ function DashboardContent() {
           </div>
         ) : activeTab === 'trading' ? (
           /* Trading View */
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
               <div className="lg:col-span-2">
                 <MarketCard />
               </div>
               <div>
-                {/* Future trading components can go here */}
-                <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
-                  <h2 className="text-lg font-semibold text-white mb-4">Trading Stats</h2>
-                  <p className="text-[#8b949e] text-sm">Coming soon: P&L, win rate, trade journal...</p>
-                </div>
+                <GapScannerCard />
               </div>
             </div>
           </div>
