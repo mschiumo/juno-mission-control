@@ -10,9 +10,11 @@ import MarketHoursBanner from "@/components/MarketHoursBanner";
 import GapScannerCard from "@/components/GapScannerCard";
 import ProjectsCard from "@/components/ProjectsCard";
 import ActivityLogCard from "@/components/ActivityLogCard";
+import DailyCronsCard from "@/components/DailyCronsCard";
 import GoalsCard from "@/components/GoalsCard";
 import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
+import NotificationsBell from "@/components/NotificationsBell";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X } from 'lucide-react';
 
@@ -90,6 +92,7 @@ function DashboardContent() {
 
               {/* Desktop Widgets */}
               <div className="hidden md:flex items-center gap-4">
+                <NotificationsBell />
                 <JunoWidget />
                 <LiveClock />
               </div>
@@ -131,6 +134,7 @@ function DashboardContent() {
                 ))}
               </div>
               <div className="mt-4 pt-4 border-t border-[#30363d] flex items-center justify-between">
+                <NotificationsBell />
                 <JunoWidget />
                 <LiveClock />
               </div>
@@ -175,8 +179,11 @@ function DashboardContent() {
           </div>
         ) : (
           /* Activity Log View */
-          <div className="max-w-4xl mx-auto">
-            <ActivityLogCard />
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+              <ActivityLogCard />
+              <DailyCronsCard />
+            </div>
           </div>
         )}
       </main>

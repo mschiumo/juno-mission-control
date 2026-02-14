@@ -1,155 +1,92 @@
 import { NextResponse } from 'next/server';
+import { createClient } from 'redis';
 
-// OpenClaw Gateway endpoint
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://127.0.0.1:18789';
-const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || '';
+const redis = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
 
-interface CronJob {
-  id: string;
-  name: string;
-  schedule: string;
-  lastRun: string;
-  status: 'active' | 'completed' | 'paused' | 'error';
-  description: string;
-}
+// Cron job definitions with their schedules
+const CRON_JOBS = [
+  { id: 'morning-wake', name: 'Morning Wake-up Check', schedule: '7:30 AM EST', frequency: 'Daily', status: 'active' },
+  { id: 'motivational', name: 'Daily Motivational Message', schedule: '7:00 AM EST', frequency: 'Daily', status: 'active' },
+  { id: 'market-brief', name: 'Morning Market Briefing', schedule: '8:00 AM EST', frequency: 'Daily', status: 'active' },
+  { id: 'daily-crontest', name: 'Daily Market Briefing', schedule: '8:00 AM EST', frequency: 'Weekdays', status: 'active' },
+  { id: 'mid-day-check', name: 'Mid-Day Trading Check-in', schedule: '12:30 PM EST', frequency: 'Daily', status: 'active' },
+  { id: 'asia-session', name: 'Asia Session Update', schedule: '7:00 PM EST', frequency: 'Sun-Thu', status: 'active' },
+  { id: 'london-session', name: 'London Session Update', schedule: '3:00 AM EST', frequency: 'Sun-Thu', status: 'active' },
+  { id: 'market-close', name: 'Market Close Report', schedule: '5:00 PM EST', frequency: 'Sun-Thu', status: 'active' },
+  { id: 'post-market', name: 'Post-Market Trading Review', schedule: '5:00 PM EST', frequency: 'Sun-Thu', status: 'active' },
+  { id: 'habit-checkin', name: 'Evening Habit Check-in', schedule: '8:00 PM EST', frequency: 'Daily', status: 'active' },
+  { id: 'task-approval', name: 'Nightly Task Approval', schedule: '10:00 PM EST', frequency: 'Daily', status: 'active' },
+  { id: 'token-summary', name: 'Daily Token Usage Summary', schedule: '11:00 PM EST', frequency: 'Daily', status: 'active' },
+  { id: 'weekly-review', name: 'Weekly Habit Review', schedule: 'Friday 7:00 PM EST', frequency: 'Weekly', status: 'active' },
+  { id: 'pr-monitor', name: 'GitHub PR Monitor', schedule: 'Every 10 min', frequency: 'Continuous', status: 'active' },
+  { id: 'gap-monday-test', name: 'Gap Scanner Monday Test', schedule: 'Monday 9:05 AM EST', frequency: 'Weekly', status: 'active' },
+];
 
 export async function GET() {
+  const timestamp = new Date().toISOString();
+  
   try {
-    // Try to fetch from OpenClaw gateway
-    const response = await fetch(`${GATEWAY_URL}/api/cron/list`, {
-      headers: {
-        'Authorization': `Bearer ${GATEWAY_TOKEN}`,
-        'Content-Type': 'application/json'
+    await redis.connect();
+    
+    // Fetch last run status for each cron job from Redis
+    const cronStatus = await Promise.all(
+      CRON_JOBS.map(async (job) => {
+        const lastRun = await redis.get(`cron:${job.id}:lastRun`);
+        const lastStatus = await redis.get(`cron:${job.id}:status`);
+        const lastOutput = await redis.get(`cron:${job.id}:output`);
+        
+        return {
+          ...job,
+          lastRun: lastRun ? new Date(lastRun).toISOString() : null,
+          lastStatus: lastStatus || 'pending',
+          lastOutput: lastOutput || null,
+        };
+      })
+    );
+    
+    await redis.disconnect();
+    
+    // Calculate summary stats
+    const completed = cronStatus.filter(c => c.lastStatus === 'completed').length;
+    const failed = cronStatus.filter(c => c.lastStatus === 'failed').length;
+    const pending = cronStatus.filter(c => c.lastStatus === 'pending').length;
+    
+    return NextResponse.json({
+      success: true,
+      crons: cronStatus,
+      summary: {
+        total: CRON_JOBS.length,
+        completed,
+        failed,
+        pending,
+        active: CRON_JOBS.filter(j => j.status === 'active').length,
       },
-      next: { revalidate: 30 }
+      timestamp,
     });
-
-    if (response.ok) {
-      const data = await response.json();
-      
-      const jobs: CronJob[] = data.jobs?.map((job: { id: string; name: string; schedule: { expr: string; tz?: string }; state?: { lastRunAtMs?: number; consecutiveErrors?: number }; enabled: boolean }) => ({
-        id: job.id,
-        name: job.name,
-        schedule: formatSchedule(job.schedule),
-        lastRun: job.state?.lastRunAtMs 
-          ? new Date(job.state.lastRunAtMs).toISOString()
-          : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        status: job.enabled 
-          ? ((job.state?.consecutiveErrors ?? 0) > 0 ? 'error' : 'active')
-          : 'paused',
-        description: getJobDescription(job.name)
-      })) || [];
-
-      return NextResponse.json({
-        success: true,
-        data: jobs,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    throw new Error('Failed to fetch from gateway');
-
+    
   } catch (error) {
     console.error('Cron status fetch error:', error);
     
-    // Return known cron jobs as fallback
-    const fallbackJobs: CronJob[] = [
-      {
-        id: '1',
-        name: 'Asia Session Update',
-        schedule: '0 19 * * 1-5',
-        lastRun: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '7 PM EST - Asia market open'
-      },
-      {
-        id: '2',
-        name: 'London Session Update',
-        schedule: '0 3 * * 1-5',
-        lastRun: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '3 AM EST - Europe market open'
-      },
-      {
-        id: '3',
-        name: 'Morning Market Briefing',
-        schedule: '0 13 * * 1-5',
-        lastRun: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '8 AM EST - US pre-market'
-      },
-      {
-        id: '4',
-        name: 'Mid-Day Trading Check',
-        schedule: '30 12 * * 1-5',
-        lastRun: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '12:30 PM EST - Discipline check'
-      },
-      {
-        id: '5',
-        name: 'Post-Market Review',
-        schedule: '0 17 * * 1-5',
-        lastRun: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '5 PM EST - Trading review'
-      },
-      {
-        id: '6',
-        name: 'Daily Token Usage Summary',
-        schedule: '0 23 * * *',
-        lastRun: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '11 PM EST - Usage report'
-      },
-      {
-        id: '7',
-        name: 'Daily Motivational',
-        schedule: '0 12 * * *',
-        lastRun: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '7 AM EST - Morning quote'
-      }
-    ];
-
+    // Return job list without status if Redis fails
     return NextResponse.json({
       success: true,
-      data: fallbackJobs,
-      timestamp: new Date().toISOString()
+      crons: CRON_JOBS.map(job => ({
+        ...job,
+        lastRun: null,
+        lastStatus: 'unknown',
+        lastOutput: null,
+      })),
+      summary: {
+        total: CRON_JOBS.length,
+        completed: 0,
+        failed: 0,
+        pending: CRON_JOBS.length,
+        active: CRON_JOBS.filter(j => j.status === 'active').length,
+      },
+      timestamp,
+      error: 'Failed to fetch run status from Redis',
     });
   }
-}
-
-function formatSchedule(schedule: { expr?: string } | null): string {
-  if (!schedule) return 'Unknown';
-  
-  if (schedule.expr === '0 19 * * 1-5') return 'Weekdays at 7:00 PM';
-  if (schedule.expr === '0 3 * * 1-5') return 'Weekdays at 3:00 AM';
-  if (schedule.expr === '0 13 * * 1-5') return 'Weekdays at 8:00 AM';
-  if (schedule.expr === '30 12 * * 1-5') return 'Weekdays at 12:30 PM';
-  if (schedule.expr === '0 17 * * 1-5') return 'Weekdays at 5:00 PM';
-  if (schedule.expr === '0 23 * * *') return 'Daily at 11:00 PM';
-  if (schedule.expr === '0 12 * * *') return 'Daily at 7:00 AM';
-  if (schedule.expr === '30 7 * * *') return 'Daily at 7:30 AM';
-  if (schedule.expr === '0 20 * * *') return 'Daily at 8:00 PM';
-  if (schedule.expr === '0 22 * * *') return 'Daily at 10:00 PM';
-  
-  return schedule.expr || 'Unknown';
-}
-
-function getJobDescription(name: string): string {
-  const descriptions: Record<string, string> = {
-    'Asia Session Update': '7 PM EST - Asia market open',
-    'London Session Update': '3 AM EST - Europe market open',
-    'Morning Market Briefing': '8 AM EST - US pre-market data',
-    'Mid-Day Trading Check': '12:30 PM - Discipline check-in',
-    'Post-Market Trading Review': '5 PM - Trading review',
-    'Daily Token Usage Summary': '11 PM - Usage analytics',
-    'Daily Motivational Message': '7 AM - Morning inspiration',
-    'Morning Wake-up Check': '7:30 AM - Daily check-in',
-    'Evening Habit Check-in': '8 PM - Habit tracking',
-    'Nightly Task Approval Request': '10 PM - Task approval'
-  };
-  
-  return descriptions[name] || 'Automated task';
 }
