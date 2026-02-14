@@ -127,8 +127,16 @@ export default function HabitCard() {
       weeklyCompletion
     });
     
-    // In production, this would also POST to the API
-    // fetch('/api/habit-status', { method: 'POST', body: JSON.stringify({ habitId, completed: newCompletedState }) })
+    // Persist to Redis via API
+    try {
+      await fetch('/api/habit-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ habitId, completed: newCompletedState })
+      });
+    } catch (error) {
+      console.error('Failed to persist habit:', error);
+    }
   };
 
   const toggleCategory = (category: string) => {
