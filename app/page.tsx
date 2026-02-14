@@ -152,21 +152,19 @@ function DashboardContent() {
             </div>
           </div>
         ) : activeTab === 'trading' ? (
-          /* Trading View - Gap Scanner Left, Market Right */
-          <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
-            {/* Market Hours Banner */}
-            <MarketHoursBanner />
-            
-            {/* Three Column Layout: Gap Scanner + Motivation | Market Card */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-              {/* Left Column: Gap Scanner + Motivational */}
-              <div className="space-y-4">
+          /* Trading View - Sidebar Layout */
+          <div className="max-w-7xl mx-auto">
+            {/* Three Column Layout on Desktop */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
+              {/* Left Sidebar: Gap Scanner + Market Hours + Motivation */}
+              <div className="lg:col-span-1 space-y-4">
                 <GapScannerCard />
+                <MarketHoursBanner compact />
                 <MotivationalBanner compact />
               </div>
               
-              {/* Right Column: Market Card (spans 2 columns) */}
-              <div className="lg:col-span-2">
+              {/* Right Column: Market Card (spans 3 columns) */}
+              <div className="lg:col-span-3">
                 <MarketCard />
               </div>
             </div>
