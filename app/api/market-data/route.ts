@@ -23,13 +23,69 @@ const stockNames: Record<string, string> = {
 };
 
 /**
- * Fetches stock data from Yahoo Finance (unofficial but widely used)
- * Uses the public crumb/cookie-less endpoint
+ * Fetches stock data from Finnhub API
+ * Requires FINNHUB_API_KEY environment variable
+ * Free tier: 60 calls/minute
+ */
+async function fetchFinnhubQuote(symbol: string): Promise<MarketItem | null> {
+  const apiKey = process.env.FINNHUB_API_KEY;
+  if (!apiKey) {
+    console.warn('FINNHUB_API_KEY not set');
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`,
+      { next: { revalidate: 60 } }
+    );
+    
+    if (!response.ok) {
+      console.warn(`Finnhub error for ${symbol}: ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    // Finnhub returns: c (current), d (change), dp (change percent), h (high), l (low), o (open), pc (previous close)
+    const price = data.c || 0;
+    const change = data.d || 0;
+    const changePercent = data.dp || 0;
+    
+    if (price > 0) {
+      return {
+        symbol: symbol,
+        name: stockNames[symbol] || symbol,
+        price: Number(price.toFixed(2)),
+        change: Number(change.toFixed(2)),
+        changePercent: Number(changePercent.toFixed(2)),
+        status: change >= 0 ? 'up' : 'down'
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Finnhub error for ${symbol}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Fetches multiple stocks from Finnhub
+ */
+async function fetchFinnhubStocks(symbols: string[]): Promise<MarketItem[]> {
+  const results = await Promise.all(
+    symbols.map(symbol => fetchFinnhubQuote(symbol))
+  );
+  return results.filter((item): item is MarketItem => item !== null);
+}
+
+/**
+ * Fetches stock data from Yahoo Finance (fallback)
  */
 async function fetchYahooFinance(symbols: string[]): Promise<MarketItem[]> {
   try {
     const symbolsParam = symbols.join(',');
-    // Use the v8 chart endpoint which is more reliable
     const response = await fetch(
       `https://query1.finance.yahoo.com/v8/finance/chart/${symbolsParam}?interval=1d&range=1d`,
       {
@@ -49,7 +105,6 @@ async function fetchYahooFinance(symbols: string[]): Promise<MarketItem[]> {
     const data = await response.json();
     const results: MarketItem[] = [];
     
-    // Handle single or multiple results
     const resultArray = Array.isArray(data.chart?.result) 
       ? data.chart.result 
       : data.chart?.result ? [data.chart.result] : [];
@@ -60,7 +115,6 @@ async function fetchYahooFinance(symbols: string[]): Promise<MarketItem[]> {
       const meta = result.meta;
       const symbol = meta.symbol || meta.shortName || 'UNKNOWN';
       const price = meta.regularMarketPrice || meta.previousClose || meta.chartPreviousClose || 0;
-      // Use chartPreviousClose as fallback for previous close (it's the previous day's close)
       const prevClose = meta.previousClose || meta.chartPreviousClose || price;
       const change = price - prevClose;
       const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
@@ -85,23 +139,7 @@ async function fetchYahooFinance(symbols: string[]): Promise<MarketItem[]> {
 }
 
 /**
- * Alternative: Use Twelve Data API (free tier: 8 calls/day, no key required for some endpoints)
- * Or try other free sources
- */
-async function fetchAlternativeStocks(symbols: string[]): Promise<MarketItem[]> {
-  // Try Yahoo Finance first
-  const yahooData = await fetchYahooFinance(symbols);
-  if (yahooData.length > 0) {
-    return yahooData;
-  }
-  
-  // If Yahoo fails, return empty to trigger fallback
-  return [];
-}
-
-/**
  * Fetches cryptocurrency prices from CoinGecko API
- * Free tier, no API key required
  */
 async function fetchCryptoPrices(): Promise<MarketItem[]> {
   try {
@@ -192,14 +230,32 @@ function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; crypt
 
 export async function GET() {
   const timestamp = new Date().toISOString();
+  const hasFinnhubKey = !!process.env.FINNHUB_API_KEY;
   
   try {
-    // Fetch all data in parallel
-    const [indices, stocks, crypto] = await Promise.all([
-      fetchAlternativeStocks(['SPY', 'QQQ', 'DIA']),
-      fetchAlternativeStocks(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR']),
-      fetchCryptoPrices()
-    ]);
+    let indices: MarketItem[] = [];
+    let stocks: MarketItem[] = [];
+    
+    // Try Finnhub first if API key is available
+    if (hasFinnhubKey) {
+      console.log('Using Finnhub API for market data');
+      [indices, stocks] = await Promise.all([
+        fetchFinnhubStocks(['SPY', 'QQQ', 'DIA']),
+        fetchFinnhubStocks(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR'])
+      ]);
+    }
+    
+    // Fallback to Yahoo Finance if Finnhub returns no data
+    if (indices.length === 0) {
+      console.log('Falling back to Yahoo Finance');
+      [indices, stocks] = await Promise.all([
+        fetchYahooFinance(['SPY', 'QQQ', 'DIA']),
+        fetchYahooFinance(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR'])
+      ]);
+    }
+    
+    // Always fetch crypto from CoinGecko
+    const crypto = await fetchCryptoPrices();
     
     const fallback = getFallbackData();
     
@@ -217,15 +273,19 @@ export async function GET() {
     
     // Determine data source
     const realCount = [hasRealIndices, hasRealStocks, hasRealCrypto].filter(Boolean).length;
-    const source = realCount === 3 ? 'live' : realCount > 0 ? 'partial' : 'fallback';
+    let source: 'live' | 'partial' | 'fallback';
+    if (realCount === 3) source = 'live';
+    else if (realCount > 0) source = 'partial';
+    else source = 'fallback';
     
-    console.log(`Market data: source=${source}, indices=${indices.length}, stocks=${stocks.length}, crypto=${crypto.length}`);
+    console.log(`Market data: source=${source}, provider=${hasFinnhubKey ? 'finnhub' : 'yahoo'}, indices=${indices.length}, stocks=${stocks.length}, crypto=${crypto.length}`);
     
     return NextResponse.json({ 
       success: true, 
       data: marketData,
       timestamp,
-      source
+      source,
+      provider: hasFinnhubKey ? 'finnhub' : indices.length > 0 ? 'yahoo' : 'fallback'
     });
     
   } catch (error) {
@@ -242,6 +302,7 @@ export async function GET() {
       },
       timestamp,
       source: 'fallback',
+      provider: 'fallback',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }

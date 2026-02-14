@@ -39,20 +39,13 @@ const DEFAULT_GOALS: GoalsData = {
   ]
 };
 
+// Helper function to validate category
 function isValidCategory(cat: string): cat is Category {
   return cat === 'yearly' || cat === 'weekly' || cat === 'daily';
 }
 
 // Lazy Redis client initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
-
-// Category validation using const assertion for type safety
-const VALID_CATEGORIES = ['yearly', 'weekly', 'daily'] as const;
-type ValidCategory = typeof VALID_CATEGORIES[number];
-
-function isValidCategory(cat: string): cat is ValidCategory {
-  return (VALID_CATEGORIES as readonly string[]).includes(cat);
-}
 
 async function getRedisClient() {
   if (redisClient) return redisClient;
@@ -102,10 +95,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { goalId, newPhase, category } = body;
     
-    if (!goalId || !newPhase || !category || !isValidCategory(category)) {
+    if (!goalId || !newPhase || !category) {
       return NextResponse.json({
         success: false,
-        error: 'Missing required fields or invalid category'
+        error: 'Missing required fields'
       }, { status: 400 });
     }
 
@@ -163,10 +156,10 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { title, category } = body;
     
-    if (!title || !category || !isValidCategory(category)) {
+    if (!title || !category) {
       return NextResponse.json({
         success: false,
-        error: 'Missing required fields or invalid category'
+        error: 'Missing required fields'
       }, { status: 400 });
     }
 
@@ -224,10 +217,10 @@ export async function DELETE(request: Request) {
     const goalId = searchParams.get('goalId');
     const category = searchParams.get('category');
     
-    if (!goalId || !category || !isValidCategory(category)) {
+    if (!goalId || !category) {
       return NextResponse.json({
         success: false,
-        error: 'Missing required fields or invalid category'
+        error: 'Missing required fields'
       }, { status: 400 });
     }
 
