@@ -16,6 +16,7 @@ import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
 import NotificationsBell from "@/components/NotificationsBell";
 import MotivationalBanner from "@/components/MotivationalBanner";
+import DocumentationCard from "@/components/DocumentationCard";
 import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
 
 type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'activity';
@@ -188,6 +189,7 @@ function DashboardContent() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
               <ActivityLogCard />
               <DailyCronsCard />
+              <DocumentationCard className="lg:col-span-2" />
             </div>
           </div>
         )}
@@ -196,9 +198,29 @@ function DashboardContent() {
       {/* Footer */}
       <footer className="border-t border-[#30363d] bg-[#161b22] mt-8 md:mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
-          <p className="text-center text-xs md:text-sm text-[#8b949e]">
-            Juno Mission Control © {new Date().getFullYear()}
-          </p>
+          <div className="flex flex-col md:flex-row items-center justify-between gap-2">
+            <p className="text-center md:text-left text-xs md:text-sm text-[#8b949e]">
+              Juno Mission Control © {new Date().getFullYear()}
+            </p>
+            <div className="flex items-center gap-4">
+              <a 
+                href="https://github.com/mschiumo/juno-mission-control/blob/main/DOCUMENT_LIBRARY.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[#8b949e] hover:text-[#ff6b35] transition-colors"
+              >
+                📚 Docs
+              </a>
+              <a 
+                href="https://github.com/mschiumo/juno-mission-control"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[#8b949e] hover:text-[#ff6b35] transition-colors"
+              >
+                GitHub
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
