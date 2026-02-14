@@ -6,7 +6,7 @@ const DOC_LINKS = [
   {
     title: 'Document Library',
     description: 'Central index of all docs, rules, and systems',
-    url: 'https://github.com/mschiumo/juno-mission-control/blob/main/DOCUMENT_LIBRARY.md',
+    url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/DOCUMENT_LIBRARY.md',
     icon: BookOpen
   },
   {
