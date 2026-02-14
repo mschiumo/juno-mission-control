@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
 
-const redis = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
+const STORAGE_KEY = 'cron_results';
 
 // Cron job definitions with their schedules - sorted chronologically (earliest to latest)
 const CRON_JOBS = [
@@ -20,36 +18,86 @@ const CRON_JOBS = [
   { id: 'habit-checkin', name: 'Evening Habit Check-in', schedule: '8:00 PM EST', frequency: 'Daily', status: 'active' },
   { id: 'task-approval', name: 'Nightly Task Approval', schedule: '10:00 PM EST', frequency: 'Daily', status: 'active' },
   { id: 'token-summary', name: 'Daily Token Usage Summary', schedule: '11:00 PM EST', frequency: 'Daily', status: 'active' },
-  { id: 'pr-monitor', name: 'GitHub PR Monitor', schedule: 'Every 10 min', frequency: 'Continuous', status: 'active' },
+  { id: 'pr-monitor', name: 'GitHub PR Monitor', schedule: 'Every 10 min', frequency: 'Continuous', status: 'disabled' },
 ];
+
+// Map job names to cron result jobNames for matching
+const JOB_NAME_MAP: Record<string, string[]> = {
+  'london-session': ['London Session Update', 'London Session Open Update'],
+  'motivational': ['Daily Motivational Message'],
+  'morning-wake': ['Morning Wake-up Check'],
+  'market-brief': ['Morning Market Briefing'],
+  'gap-monday-test': ['Gap Scanner Monday Test'],
+  'mid-day-check': ['Mid-Day Trading Check-in'],
+  'market-close': ['Market Close Report'],
+  'post-market': ['Post-Market Trading Review'],
+  'asia-session': ['Asia Session Update', 'Asia Session Open Update'],
+  'weekly-review': ['Weekly Habit Review'],
+  'habit-checkin': ['Evening Habit Check-in'],
+  'task-approval': ['Nightly Task Approval', 'Nightly Task Approval Request'],
+  'token-summary': ['Daily Token Usage Summary'],
+  'pr-monitor': ['GitHub PR Monitor'],
+};
 
 export async function GET() {
   const timestamp = new Date().toISOString();
   
   try {
+    const redis = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379'
+    });
+    
     await redis.connect();
     
-    // Fetch last run status for each cron job from Redis
-    const cronStatus = await Promise.all(
-      CRON_JOBS.map(async (job) => {
-        const lastRun = await redis.get(`cron:${job.id}:lastRun`);
-        const lastStatus = await redis.get(`cron:${job.id}:status`);
-        const lastOutput = await redis.get(`cron:${job.id}:output`);
-        
-        return {
-          ...job,
-          lastRun: lastRun ? new Date(lastRun).toISOString() : null,
-          lastStatus: lastStatus || 'pending',
-          lastOutput: lastOutput || null,
-        };
-      })
-    );
+    // Fetch all cron results from last 24 hours
+    const stored = await redis.get(STORAGE_KEY);
+    let cronResults: any[] = [];
+    
+    if (stored) {
+      try {
+        cronResults = JSON.parse(stored);
+        // Sort by timestamp descending (newest first)
+        cronResults.sort((a: any, b: any) => b.timestamp - a.timestamp);
+      } catch (e) {
+        console.error('Failed to parse cron results:', e);
+      }
+    }
     
     await redis.disconnect();
     
+    // Fetch last run status for each cron job
+    const cronStatus = CRON_JOBS.map((job) => {
+      // Find matching results for this job
+      const matchingNames = JOB_NAME_MAP[job.id] || [job.name];
+      const jobResults = cronResults.filter((r: any) => 
+        matchingNames.some(name => r.jobName?.includes(name))
+      );
+      
+      // Get the most recent result
+      const lastResult = jobResults[0];
+      
+      let lastStatus = 'pending';
+      if (lastResult) {
+        if (lastResult.type === 'error' || lastResult.content?.includes('FAILED') || lastResult.content?.includes('❌')) {
+          lastStatus = 'failed';
+        } else if (lastResult.content?.includes('timeout') || lastResult.content?.includes('timed out')) {
+          lastStatus = 'timeout';
+        } else {
+          lastStatus = 'completed';
+        }
+      }
+      
+      return {
+        ...job,
+        lastRun: lastResult ? new Date(lastResult.timestamp).toISOString() : null,
+        lastStatus,
+        lastOutput: lastResult ? lastResult.content?.substring(0, 100) + '...' : null,
+      };
+    });
+    
     // Calculate summary stats
     const completed = cronStatus.filter(c => c.lastStatus === 'completed').length;
-    const failed = cronStatus.filter(c => c.lastStatus === 'failed').length;
+    const failed = cronStatus.filter(c => c.lastStatus === 'failed' || c.lastStatus === 'timeout').length;
     const pending = cronStatus.filter(c => c.lastStatus === 'pending').length;
     
     return NextResponse.json({
