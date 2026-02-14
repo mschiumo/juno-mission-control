@@ -7,6 +7,7 @@ interface ActivityItem {
   action: string;
   details: string;
   type: 'cron' | 'api' | 'user' | 'system';
+  url?: string;
 }
 
 const STORAGE_KEY = 'activity_log';
@@ -71,7 +72,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, details, type } = body;
+    const { action, details, type, url } = body;
 
     if (!action) {
       return NextResponse.json({
@@ -99,7 +100,8 @@ export async function POST(request: Request) {
       timestamp: new Date().toISOString(),
       action,
       details: details || '',
-      type: type || 'system'
+      type: type || 'system',
+      url: url || undefined
     };
 
     // Add to activities (keep last 200 to prevent unbounded growth)
