@@ -19,9 +19,11 @@ export default function NotificationsBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setMounted(true);
     fetchNotifications();
     // Poll every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
@@ -30,6 +32,8 @@ export default function NotificationsBell() {
 
   // Close dropdown when clicking outside
   useEffect(() => {
+    if (typeof document === 'undefined') return;
+    
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -112,6 +116,17 @@ export default function NotificationsBell() {
     if (days === 1) return 'Yesterday';
     return `${days} days ago`;
   };
+
+  // Prevent hydration mismatch - don't render until mounted
+  if (!mounted) {
+    return (
+      <div className="relative">
+        <button className="relative p-2 hover:bg-[#30363d] rounded-lg transition-colors">
+          <Bell className="w-5 h-5 text-[#8b949e]" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="relative" ref={dropdownRef}>
