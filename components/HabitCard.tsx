@@ -81,7 +81,7 @@ export default function HabitCard() {
         setLastUpdated(new Date());
         
         // Auto-expand all categories by default
-        const categories = new Set(data.data.habits.map((h: Habit) => h.category));
+        const categories = new Set<string>(data.data.habits.map((h: Habit) => h.category));
         setExpandedCategories(categories);
       }
     } catch (error) {
