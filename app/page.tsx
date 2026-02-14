@@ -6,6 +6,8 @@ import DailyReportsCard from "@/components/DailyReportsCard";
 // import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
 import MarketCard from "@/components/MarketCard";
+import MarketHoursBanner from "@/components/MarketHoursBanner";
+import GapScannerCard from "@/components/GapScannerCard";
 import ProjectsCard from "@/components/ProjectsCard";
 import ActivityLogCard from "@/components/ActivityLogCard";
 import GoalsCard from "@/components/GoalsCard";
@@ -137,31 +139,35 @@ function DashboardContent() {
         </div>
       </header>
 
-      {/* Motivational Banner */}
-      <MotivationalBanner />
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
         {activeTab === 'dashboard' ? (
           /* Dashboard Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            <DailyReportsCard />
-            <HabitCard />
-            <ProjectsCard />
+          <div className="space-y-4">
+            <MotivationalBanner />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              <DailyReportsCard />
+              <HabitCard />
+              <ProjectsCard />
+            </div>
           </div>
         ) : activeTab === 'trading' ? (
-          /* Trading View */
-          <div className="max-w-6xl mx-auto">
+          /* Trading View - Gap Scanner Left, Market Right */
+          <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
+            {/* Market Hours Banner */}
+            <MarketHoursBanner />
+            
+            {/* Three Column Layout: Gap Scanner + Motivation | Market Card */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+              {/* Left Column: Gap Scanner + Motivational */}
+              <div className="space-y-4">
+                <GapScannerCard />
+                <MotivationalBanner compact />
+              </div>
+              
+              {/* Right Column: Market Card (spans 2 columns) */}
               <div className="lg:col-span-2">
                 <MarketCard />
-              </div>
-              <div>
-                {/* Future trading components can go here */}
-                <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
-                  <h2 className="text-lg font-semibold text-white mb-4">Trading Stats</h2>
-                  <p className="text-[#8b949e] text-sm">Coming soon: P&L, win rate, trade journal...</p>
-                </div>
               </div>
             </div>
           </div>

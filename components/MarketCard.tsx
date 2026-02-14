@@ -196,7 +196,7 @@ export default function MarketCard() {
       </div>
 
       {/* Market Data */}
-      <div className="space-y-2">
+      <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
         {loading ? (
           <div className="text-center py-4 text-[#8b949e]">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#ff6b35]" />
