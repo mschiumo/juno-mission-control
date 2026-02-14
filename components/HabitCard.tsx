@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp } from 'lucide-react';
+import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2 } from 'lucide-react';
 
 interface Habit {
   id: string;
@@ -21,6 +21,8 @@ interface HabitStats {
   weeklyCompletion: number;
 }
 
+const EMOJI_OPTIONS = ['💪', '🏃', '📚', '💧', '🧘', '🛏️', '💊', '📝', '📊', '🎯', '🔥', '⭐', '🌟', '✨', '🎨', '🎵', '🌱', '☀️', '🌙', '🍎', '🥗', '💤', '🧠', '❤️', '🌈'];
+
 export default function HabitCard() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [stats, setStats] = useState<HabitStats>({
@@ -31,6 +33,12 @@ export default function HabitCard() {
   });
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  
+  // Add habit modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newHabitName, setNewHabitName] = useState('');
+  const [newHabitIcon, setNewHabitIcon] = useState('⭐');
+  const [newHabitTarget, setNewHabitTarget] = useState('Daily');
 
   useEffect(() => {
     fetchHabits();
@@ -93,6 +101,53 @@ export default function HabitCard() {
     }
   };
 
+  const addHabit = async () => {
+    if (!newHabitName.trim()) return;
+
+    try {
+      const response = await fetch('/api/habit-status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newHabitName,
+          icon: newHabitIcon,
+          target: newHabitTarget,
+          category: 'other'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setHabits(data.data.habits);
+        setStats(data.data.stats);
+        setNewHabitName('');
+        setNewHabitIcon('⭐');
+        setNewHabitTarget('Daily');
+        setShowAddModal(false);
+      }
+    } catch (error) {
+      console.error('Failed to add habit:', error);
+    }
+  };
+
+  const deleteHabit = async (habitId: string) => {
+    if (!confirm('Are you sure you want to delete this habit?')) return;
+
+    try {
+      const response = await fetch(`/api/habit-status?habitId=${habitId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setHabits(data.data.habits);
+        setStats(data.data.stats);
+      }
+    } catch (error) {
+      console.error('Failed to delete habit:', error);
+    }
+  };
+
   const formatLastUpdated = () => {
     if (!lastUpdated) return '';
     return lastUpdated.toLocaleString('en-US', {
@@ -141,13 +196,22 @@ export default function HabitCard() {
           </div>
         </div>
         
-        <button
-          onClick={fetchHabits}
-          disabled={loading}
-          className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-5 h-5 text-[#8b949e] hover:text-[#ff6b35] ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="p-2 bg-[#ff6b35] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors"
+            title="Add new habit"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <button
+            onClick={fetchHabits}
+            disabled={loading}
+            className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 text-[#8b949e] hover:text-[#ff6b35] ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -195,7 +259,10 @@ export default function HabitCard() {
           <div className="text-center py-10">
             <Activity className="w-12 h-12 mx-auto mb-3 text-[#8b949e] opacity-50" />
             <p className="text-[#8b949e] mb-2">No habits configured</p>
-            <button className="inline-flex items-center gap-2 px-4 py-2 bg-[#ff6b35]/10 text-[#ff6b35] rounded-lg text-sm">
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#ff6b35]/10 text-[#ff6b35] rounded-lg text-sm hover:bg-[#ff6b35]/20 transition-colors"
+            >
               <Plus className="w-4 h-4" />
               Add Your First Habit
             </button>
@@ -240,14 +307,23 @@ export default function HabitCard() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1">
-                  {habit.history.map((completed, idx) => (
-                    <div
-                      key={idx}
-                      className={`w-2 h-2 rounded-full ${completed ? 'bg-[#238636]' : 'bg-[#30363d]'}`}
-                      title={dayLabels[idx]}
-                    />
-                  ))}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    {habit.history.map((completed, idx) => (
+                      <div
+                        key={idx}
+                        className={`w-2 h-2 rounded-full ${completed ? 'bg-[#238636]' : 'bg-[#30363d]'}`}
+                        title={dayLabels[idx]}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => deleteHabit(habit.id)}
+                    className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors"
+                    title="Delete habit"
+                  >
+                    <Trash2 className="w-4 h-4 text-[#8b949e] hover:text-[#da3633]" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -270,6 +346,83 @@ export default function HabitCard() {
             <div className="flex items-center gap-3 text-[10px] text-[#8b949e]">
               <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#238636]" /><span>Done</span></div>
               <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#30363d]" /><span>Missed</span></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Habit Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Add New Habit</h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-2 hover:bg-[#30363d] rounded-lg"
+              >
+                <X className="w-5 h-5 text-[#8b949e]" />
+              </button>
+            </div>
+            
+            {/* Name Input */}
+            <div className="mb-4">
+              <label className="block text-sm text-[#8b949e] mb-2">Habit Name</label>
+              <input
+                type="text"
+                value={newHabitName}
+                onChange={(e) => setNewHabitName(e.target.value)}
+                placeholder="e.g., Morning Meditation"
+                className="w-full px-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35]"
+              />
+            </div>
+            
+            {/* Icon Selector */}
+            <div className="mb-4">
+              <label className="block text-sm text-[#8b949e] mb-2">Icon</label>
+              <div className="flex flex-wrap gap-2">
+                {EMOJI_OPTIONS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => setNewHabitIcon(emoji)}
+                    className={`text-2xl p-2 rounded-lg border transition-all ${
+                      newHabitIcon === emoji
+                        ? 'border-[#ff6b35] bg-[#ff6b35]/20'
+                        : 'border-[#30363d] hover:border-[#8b949e]'
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Target Input */}
+            <div className="mb-6">
+              <label className="block text-sm text-[#8b949e] mb-2">Target</label>
+              <input
+                type="text"
+                value={newHabitTarget}
+                onChange={(e) => setNewHabitTarget(e.target.value)}
+                placeholder="e.g., Daily, 3x/week, 30 min"
+                className="w-full px-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35]"
+              />
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addHabit}
+                disabled={!newHabitName.trim()}
+                className="flex-1 px-4 py-2 bg-[#ff6b35] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors disabled:opacity-50"
+              >
+                Add Habit
+              </button>
             </div>
           </div>
         </div>
