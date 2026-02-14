@@ -1,15 +1,28 @@
 import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
-import path from 'path';
 
-const KEYFILEPATH = path.join(process.cwd(), '.google_credentials/calendar.json');
 const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
 const CALENDAR_ID = 'mschiumo18@gmail.com';
 
 export async function GET() {
   try {
+    // Get credentials from environment variable
+    const credentialsJson = process.env.GOOGLE_CALENDAR_CREDENTIALS;
+    
+    if (!credentialsJson) {
+      return NextResponse.json({
+        success: false,
+        error: 'GOOGLE_CALENDAR_CREDENTIALS not configured',
+        data: [],
+        count: 0,
+        timestamp: new Date().toISOString()
+      }, { status: 500 });
+    }
+
+    const credentials = JSON.parse(credentialsJson);
+
     const auth = new google.auth.GoogleAuth({
-      keyFile: KEYFILEPATH,
+      credentials,
       scopes: SCOPES,
     });
 
