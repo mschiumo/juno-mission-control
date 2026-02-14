@@ -27,7 +27,7 @@ export async function GET() {
     if (response.ok) {
       const data = await response.json();
       
-      const jobs: CronJob[] = data.jobs?.map((job: any) => ({
+      const jobs: CronJob[] = data.jobs?.map((job: { id: string; name: string; schedule: { expr: string; tz?: string }; state?: { lastRunAtMs?: number; consecutiveErrors?: number }; enabled: boolean }) => ({
         id: job.id,
         name: job.name,
         schedule: formatSchedule(job.schedule),
@@ -35,7 +35,7 @@ export async function GET() {
           ? new Date(job.state.lastRunAtMs).toISOString()
           : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
         status: job.enabled 
-          ? (job.state?.consecutiveErrors > 0 ? 'error' : 'active')
+          ? ((job.state?.consecutiveErrors ?? 0) > 0 ? 'error' : 'active')
           : 'paused',
         description: getJobDescription(job.name)
       })) || [];
@@ -120,7 +120,7 @@ export async function GET() {
   }
 }
 
-function formatSchedule(schedule: any): string {
+function formatSchedule(schedule: { expr?: string } | null): string {
   if (!schedule) return 'Unknown';
   
   if (schedule.expr === '0 19 * * 1-5') return 'Weekdays at 7:00 PM';

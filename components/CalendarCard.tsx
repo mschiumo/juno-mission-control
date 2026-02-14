@@ -40,7 +40,7 @@ export default function CalendarCard() {
         setError(data.error || 'Failed to fetch events');
       }
       setLastUpdated(new Date());
-    } catch (err) {
+    } catch {
       setError('Network error');
     } finally {
       setLoading(false);

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import DailyReportsCard from "@/components/DailyReportsCard";
-import CalendarCard from "@/components/CalendarCard";
+// import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
 import MarketCard from "@/components/MarketCard";
 import ProjectsCard from "@/components/ProjectsCard";
@@ -79,8 +79,8 @@ export default function Home() {
             {/* Daily Reports */}
             <DailyReportsCard />
 
-            {/* Calendar */}
-            <CalendarCard />
+            {/* Calendar - Temporarily disabled */}
+            {/* <CalendarCard /> */}
 
             {/* Habit Tracking */}
             <HabitCard />
