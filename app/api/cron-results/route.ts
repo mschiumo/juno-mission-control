@@ -76,10 +76,21 @@ export async function GET(request: Request) {
       new Date(r.timestamp).toDateString() === today
     );
 
+    // Deduplicate: keep only the latest report per job name
+    const latestByJob = new Map<string, CronResult>();
+    todayResults.forEach(result => {
+      const existing = latestByJob.get(result.jobName);
+      if (!existing || new Date(result.timestamp) > new Date(existing.timestamp)) {
+        latestByJob.set(result.jobName, result);
+      }
+    });
+    
+    const dedupedResults = Array.from(latestByJob.values());
+
     return NextResponse.json({
       success: true,
-      data: todayResults,
-      count: todayResults.length
+      data: dedupedResults,
+      count: dedupedResults.length
     });
   } catch (error) {
     console.error('Redis GET error:', error);
