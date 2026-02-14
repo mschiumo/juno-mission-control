@@ -35,7 +35,7 @@ export async function GET() {
           ? new Date(job.state.lastRunAtMs).toISOString()
           : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
         status: job.enabled 
-          ? (job.state?.consecutiveErrors > 0 ? 'error' : 'active')
+          ? ((job.state?.consecutiveErrors ?? 0) > 0 ? 'error' : 'active')
           : 'paused',
         description: getJobDescription(job.name)
       })) || [];
