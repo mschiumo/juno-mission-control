@@ -17,6 +17,9 @@ interface GoalsData {
   daily: Goal[];
 }
 
+// Type definitions
+type Category = 'yearly' | 'weekly' | 'daily';
+
 // Default goals structure
 const DEFAULT_GOALS: GoalsData = {
   yearly: [
@@ -45,6 +48,11 @@ function isValidCategory(cat: string): cat is Category {
 
 // Lazy Redis client initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
+
+// Helper function to validate category
+function isValidCategory(cat: string): cat is Category {
+  return ['yearly', 'weekly', 'daily'].includes(cat);
+}
 
 async function getRedisClient() {
   if (redisClient) return redisClient;
@@ -94,10 +102,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { goalId, newPhase, category } = body;
     
-    if (!goalId || !newPhase || !category) {
+    if (!goalId || !newPhase || !category || !isValidCategory(category)) {
       return NextResponse.json({
         success: false,
-        error: 'Missing required fields'
+        error: 'Missing required fields or invalid category'
       }, { status: 400 });
     }
 
@@ -155,10 +163,10 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { title, category } = body;
     
-    if (!title || !category) {
+    if (!title || !category || !isValidCategory(category)) {
       return NextResponse.json({
         success: false,
-        error: 'Missing required fields'
+        error: 'Missing required fields or invalid category'
       }, { status: 400 });
     }
 
@@ -216,10 +224,10 @@ export async function DELETE(request: Request) {
     const goalId = searchParams.get('goalId');
     const category = searchParams.get('category');
     
-    if (!goalId || !category) {
+    if (!goalId || !category || !isValidCategory(category)) {
       return NextResponse.json({
         success: false,
-        error: 'Missing required fields'
+        error: 'Missing required fields or invalid category'
       }, { status: 400 });
     }
 
