@@ -204,7 +204,7 @@ function DashboardContent() {
             </p>
             <div className="flex items-center gap-4">
               <a 
-                href="https://github.com/mschiumo/juno-mission-control/blob/main/DOCUMENT_LIBRARY.md"
+                href="https://github.com/mschiumo/juno-mission-control/blob/main/docs/DOCUMENT_LIBRARY.md"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-[#8b949e] hover:text-[#ff6b35] transition-colors"
