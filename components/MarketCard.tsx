@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, RefreshCw, DollarSign, ExternalLink } from 'lucide-react';
+import MarketCountdown from './MarketCountdown';
 
 interface MarketItem {
   symbol: string;
@@ -89,7 +90,10 @@ export default function MarketCard() {
             <DollarSign className="w-5 h-5 text-[#ff6b35]" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Market</h2>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-lg font-semibold text-white">Market</h2>
+              <MarketCountdown />
+            </div>
             <div className="flex items-center gap-2">
               {lastUpdated && !loading && (
                 <span className="text-[10px] text-[#238636]">
