@@ -17,9 +17,6 @@ interface GoalsData {
   daily: Goal[];
 }
 
-// Type definitions
-type Category = 'yearly' | 'weekly' | 'daily';
-
 // Default goals structure
 const DEFAULT_GOALS: GoalsData = {
   yearly: [
@@ -49,9 +46,12 @@ function isValidCategory(cat: string): cat is Category {
 // Lazy Redis client initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
 
-// Helper function to validate category
-function isValidCategory(cat: string): cat is Category {
-  return ['yearly', 'weekly', 'daily'].includes(cat);
+// Category validation using const assertion for type safety
+const VALID_CATEGORIES = ['yearly', 'weekly', 'daily'] as const;
+type ValidCategory = typeof VALID_CATEGORIES[number];
+
+function isValidCategory(cat: string): cat is ValidCategory {
+  return (VALID_CATEGORIES as readonly string[]).includes(cat);
 }
 
 async function getRedisClient() {
