@@ -11,7 +11,14 @@ interface GapStock {
   status: 'gainer' | 'loser';
 }
 
+interface FinnhubProfile {
+  name: string;
+  marketCapitalization: number; // In millions
+  finnhubIndustry: string;
+}
+
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || '';
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || 'd6802j9r01qobepji5i0d6802j9r01qobepji5ig';
 
 // Common ETF prefixes/suffixes and patterns to exclude
 const ETF_PATTERNS = [
@@ -82,6 +89,64 @@ function isWeekend(): boolean {
 // Format date as YYYY-MM-DD
 function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
+}
+
+// Fetch company profile from Finnhub (includes market cap)
+async function fetchFinnhubProfile(symbol: string): Promise<FinnhubProfile | null> {
+  try {
+    const response = await fetch(
+      `https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_API_KEY}`,
+      { next: { revalidate: 3600 } } // Cache for 1 hour
+    );
+    
+    if (!response.ok) {
+      console.warn(`Finnhub profile error for ${symbol}:`, response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (!data || !data.name) {
+      return null;
+    }
+    
+    return {
+      name: data.name,
+      marketCapitalization: data.marketCapitalization || 0, // In millions
+      finnhubIndustry: data.finnhubIndustry || '',
+    };
+  } catch (error) {
+    console.error(`Error fetching Finnhub profile for ${symbol}:`, error);
+    return null;
+  }
+}
+
+// Fetch profiles for top stocks (respects rate limit by batching)
+async function enrichWithFinnhubData(stocks: GapStock[]): Promise<GapStock[]> {
+  // Fetch profiles in batches with small delays to respect rate limit
+  const enriched: GapStock[] = [];
+  
+  for (let i = 0; i < stocks.length; i++) {
+    const stock = stocks[i];
+    const profile = await fetchFinnhubProfile(stock.symbol);
+    
+    if (profile) {
+      enriched.push({
+        ...stock,
+        name: profile.name,
+        marketCap: profile.marketCapitalization * 1000000, // Convert from millions to actual
+      });
+    } else {
+      enriched.push(stock);
+    }
+    
+    // Small delay every 5 calls to stay well under 60/min limit
+    if ((i + 1) % 5 === 0 && i < stocks.length - 1) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
+  
+  return enriched;
 }
 
 // Fetch all stocks from Polygon grouped daily endpoint
@@ -177,12 +242,12 @@ async function fetchPolygonGappers(): Promise<{ stocks: GapStock[]; isWeekend: b
       
       results.push({
         symbol,
-        name: symbol, // Polygon grouped endpoint doesn't include company names
+        name: symbol, // Will be enriched with Finnhub
         price: displayPrice,
         previousClose,
         gapPercent: Number(gapPercent.toFixed(2)),
         volume,
-        marketCap: 0, // Not available in grouped endpoint
+        marketCap: 0, // Will be enriched with Finnhub
         status: gapPercent > 0 ? 'gainer' : 'loser'
       });
     }
@@ -223,20 +288,26 @@ export async function GET() {
   try {
     const { stocks, isWeekend: weekendFlag, tradingDate, previousDate } = await fetchPolygonGappers();
     
-    // Sort and filter
-    const gainers = stocks
+    // Sort and get top 10 gainers and losers
+    const topGainers = stocks
       .filter(s => s.status === 'gainer')
       .sort((a, b) => b.gapPercent - a.gapPercent)
       .slice(0, 10);
     
-    const losers = stocks
+    const topLosers = stocks
       .filter(s => s.status === 'loser')
       .sort((a, b) => a.gapPercent - b.gapPercent)
       .slice(0, 10);
 
+    // Enrich top results with Finnhub data (company name + market cap)
+    console.log('Fetching Finnhub profiles for top 20 gaps...');
+    const enrichedGainers = await enrichWithFinnhubData(topGainers);
+    const enrichedLosers = await enrichWithFinnhubData(topLosers);
+    console.log('Finnhub enrichment complete');
+
     return NextResponse.json({
       success: true,
-      data: { gainers, losers },
+      data: { gainers: enrichedGainers, losers: enrichedLosers },
       timestamp,
       source: 'live',
       scanned: stocks.length,
@@ -246,6 +317,7 @@ export async function GET() {
       previousDate,
       marketStatus: weekendFlag ? 'closed' : 'open',
       nextMarketOpen: weekendFlag ? 'Monday 4:00 AM EST' : null,
+      enriched: true,
       filters: {
         minGapPercent: 5,
         minVolume: 100000,
@@ -273,6 +345,7 @@ export async function GET() {
       isWeekend: isWeekend(),
       marketStatus: isWeekend() ? 'closed' : 'unknown',
       nextMarketOpen: isWeekend() ? 'Monday 4:00 AM EST' : null,
+      enriched: false,
       error: 'Failed to fetch live data',
       filters: {
         minGapPercent: 5,
