@@ -11,96 +11,115 @@ import GoalsCard from "@/components/GoalsCard";
 import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
-import { LayoutDashboard, Activity, Target } from 'lucide-react';
+import { LayoutDashboard, Activity, Target, Menu, X } from 'lucide-react';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'activity' | 'goals'>('dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const tabs = [
+    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'goals' as const, label: 'Goals', icon: Target },
+    { id: 'activity' as const, label: 'Activity', icon: Activity },
+  ];
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
       {/* Header */}
       <header className="border-b border-[#30363d] bg-[#161b22]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#ff6b35] to-[#ff8c5a] flex items-center justify-center text-white font-bold text-xl shadow-lg animate-pulse-tangerine">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-[#ff6b35] to-[#ff8c5a] flex items-center justify-center text-white font-bold text-lg md:text-xl shadow-lg">
                 J
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">Juno Mission Control</h1>
-                <p className="text-sm text-[#8b949e]">Your personal command center</p>
+                <h1 className="text-lg md:text-2xl font-bold text-white">Juno Mission Control</h1>
+                <p className="hidden sm:block text-xs md:text-sm text-[#8b949e]">Your personal command center</p>
               </div>
             </div>
-            
-            <div className="flex items-center gap-4">
-              {/* Tab Navigation */}
-              <div className="flex items-center gap-1 bg-[#0d1117] rounded-lg p-1 border border-[#30363d]">
-                <button
-                  onClick={() => setActiveTab('dashboard')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-                    activeTab === 'dashboard'
-                      ? 'bg-[#ff6b35] text-white'
-                      : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
-                  }`}
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span className="text-sm font-medium">Dashboard</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('goals')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-                    activeTab === 'goals'
-                      ? 'bg-[#ff6b35] text-white'
-                      : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
-                  }`}
-                >
-                  <Target className="w-4 h-4" />
-                  <span className="text-sm font-medium">Goals</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('activity')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-                    activeTab === 'activity'
-                      ? 'bg-[#ff6b35] text-white'
-                      : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
-                  }`}
-                >
-                  <Activity className="w-4 h-4" />
-                  <span className="text-sm font-medium">Activity Log</span>
-                </button>
+
+            <div className="flex items-center gap-2 md:gap-4">
+              {/* Desktop Tab Navigation */}
+              <div className="hidden md:flex items-center gap-1 bg-[#0d1117] rounded-lg p-1 border border-[#30363d]">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-[#ff6b35] text-white'
+                        : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
+                    }`}
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    <span className="text-sm font-medium">{tab.label}</span>
+                  </button>
+                ))}
               </div>
-              
-              {/* Juno Widget - Active Status */}
-              <JunoWidget />
-              
-              {/* Live Clock - Updates every second */}
-              <LiveClock />
+
+              {/* Desktop Widgets */}
+              <div className="hidden md:flex items-center gap-4">
+                <JunoWidget />
+                <LiveClock />
+              </div>
+
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 hover:bg-[#30363d] rounded-lg"
+              >
+                {mobileMenuOpen ? (
+                  <X className="w-5 h-5 text-white" />
+                ) : (
+                  <Menu className="w-5 h-5 text-white" />
+                )}
+              </button>
             </div>
           </div>
+
+          {/* Mobile Menu */}
+          {mobileMenuOpen && (
+            <div className="md:hidden mt-4 pt-4 border-t border-[#30363d]">
+              <div className="flex flex-col gap-2">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-[#ff6b35] text-white'
+                        : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
+                    }`}
+                  >
+                    <tab.icon className="w-5 h-5" />
+                    <span className="font-medium">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 pt-4 border-t border-[#30363d] flex items-center justify-between">
+                <JunoWidget />
+                <LiveClock />
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
-      {/* Motivational Banner - Daily Quote */}
+      {/* Motivational Banner */}
       <MotivationalBanner />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
         {activeTab === 'dashboard' ? (
           /* Dashboard Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Daily Reports */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             <DailyReportsCard />
-
-            {/* Calendar - Temporarily disabled */}
-            {/* <CalendarCard /> */}
-
-            {/* Habit Tracking */}
             <HabitCard />
-
-            {/* Market Overview */}
             <MarketCard />
-
-            {/* Active Projects */}
             <ProjectsCard />
           </div>
         ) : activeTab === 'goals' ? (
@@ -117,13 +136,14 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#30363d] bg-[#161b22] mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <p className="text-center text-sm text-[#8b949e]">
-            Juno Mission Control © {new Date().getFullYear()} — Built with Next.js
+      <footer className="border-t border-[#30363d] bg-[#161b22] mt-8 md:mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
+          <p className="text-center text-xs md:text-sm text-[#8b949e]">
+            Juno Mission Control © {new Date().getFullYear()}
           </p>
         </div>
       </footer>
     </div>
   );
 }
+

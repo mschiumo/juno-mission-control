@@ -32,9 +32,9 @@ const phaseColors: Record<Phase, string> = {
 };
 
 const categoryLabels: Record<Category, string> = {
-  yearly: 'Yearly Goals',
-  weekly: 'Weekly Goals',
-  daily: 'Daily Goals'
+  yearly: 'Yearly',
+  weekly: 'Weekly', 
+  daily: 'Daily'
 };
 
 export default function GoalsCard() {
@@ -48,9 +48,14 @@ export default function GoalsCard() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [draggedGoal, setDraggedGoal] = useState<Goal | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     fetchGoals();
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const fetchGoals = async () => {
@@ -69,7 +74,6 @@ export default function GoalsCard() {
   };
 
   const moveGoal = async (goal: Goal, newPhase: Phase) => {
-    // Optimistic update
     const updatedGoals = { ...goals };
     const goalIndex = updatedGoals[goal.category].findIndex(g => g.id === goal.id);
     if (goalIndex > -1) {
@@ -77,7 +81,6 @@ export default function GoalsCard() {
       setGoals(updatedGoals);
     }
 
-    // Persist to API
     try {
       await fetch('/api/goals', {
         method: 'POST',
@@ -156,13 +159,161 @@ export default function GoalsCard() {
     const categoryGoals = goals[category] || [];
     const total = categoryGoals.length;
     const achieved = categoryGoals.filter(g => g.phase === 'achieved').length;
-    const inProgress = categoryGoals.filter(g => g.phase === 'in-progress').length;
     const percentage = total > 0 ? Math.round((achieved / total) * 100) : 0;
-    return { total, achieved, inProgress, percentage };
+    return { total, achieved, percentage };
   };
 
   const stats = getProgressStats(activeCategory);
 
+  // Mobile: Single column with swipeable phases
+  if (isMobile) {
+    return (
+      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+        {/* Mobile Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-[#ff6b35]/10 rounded-lg">
+              <Target className="w-4 h-4 text-[#ff6b35]" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-white">Goals</h2>
+              <p className="text-xs text-[#8b949e]">{stats.achieved}/{stats.total} done</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="p-2 bg-[#ff6b35] text-white rounded-lg"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Mobile Category Tabs */}
+        <div className="flex gap-1 mb-4">
+          {(['yearly', 'weekly', 'daily'] as Category[]).map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                activeCategory === cat
+                  ? 'bg-[#ff6b35] text-white'
+                  : 'bg-[#0d1117] text-[#8b949e]'
+              }`}
+            >
+              {categoryLabels[cat]}
+            </button>
+          ))}
+        </div>
+
+        {/* Mobile Progress */}
+        <div className="mb-4">
+          <div className="h-1.5 bg-[#0d1117] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-[#ff6b35] to-[#238636]"
+              style={{ width: `${stats.percentage}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Mobile: Stacked Phases */}
+        <div className="space-y-4">
+          {(['not-started', 'in-progress', 'achieved'] as Phase[]).map((phase) => {
+            const phaseGoals = getGoalsByPhase(activeCategory, phase);
+            return (
+              <div key={phase} className="bg-[#0d1117] rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-white">{phaseLabels[phase]}</h3>
+                  <span className="text-xs text-[#8b949e] bg-[#161b22] px-2 py-0.5 rounded-full">
+                    {phaseGoals.length}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {phaseGoals.map((goal) => (
+                    <div
+                      key={goal.id}
+                      className={`p-3 rounded-lg border ${phaseColors[phase]} border-opacity-30`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm text-white flex-1">{goal.title}</p>
+                        <button
+                          onClick={() => deleteGoal(goal)}
+                          className="text-[#8b949e] hover:text-[#da3633]"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        {phase !== 'not-started' && (
+                          <button
+                            onClick={() => moveGoal(goal, 'not-started')}
+                            className="text-[10px] px-2 py-1 bg-[#30363d] rounded"
+                          >
+                            ← Back
+                          </button>
+                        )}
+                        {phase !== 'achieved' && (
+                          <button
+                            onClick={() => moveGoal(goal, phase === 'not-started' ? 'in-progress' : 'achieved')}
+                            className="text-[10px] px-2 py-1 bg-[#30363d] rounded"
+                          >
+                            {phase === 'not-started' ? 'Start →' : 'Done →'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {phaseGoals.length === 0 && (
+                    <div className="text-center py-4 text-[#8b949e] text-xs">
+                      No goals
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Mobile Add Modal */}
+        {showAddModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-semibold text-white">Add Goal</h3>
+                <button onClick={() => setShowAddModal(false)} className="p-1">
+                  <X className="w-4 h-4 text-[#8b949e]" />
+                </button>
+              </div>
+              <input
+                type="text"
+                value={newGoalTitle}
+                onChange={(e) => setNewGoalTitle(e.target.value)}
+                placeholder="Enter goal..."
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm mb-3"
+                onKeyPress={(e) => e.key === 'Enter' && addGoal()}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-3 py-2 bg-[#30363d] text-white rounded-lg text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={addGoal}
+                  disabled={!newGoalTitle.trim()}
+                  className="flex-1 px-3 py-2 bg-[#ff6b35] text-white rounded-lg text-sm disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop: Full KanBan
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
       {/* Header */}
@@ -209,7 +360,7 @@ export default function GoalsCard() {
                 : 'bg-[#0d1117] text-[#8b949e] hover:text-white hover:bg-[#30363d]'
             }`}
           >
-            {categoryLabels[cat]}
+            {categoryLabels[cat]} Goals
           </button>
         ))}
       </div>
@@ -262,7 +413,6 @@ export default function GoalsCard() {
                     </button>
                   </div>
                   
-                  {/* Move buttons */}
                   <div className="flex gap-1 mt-2">
                     {phase !== 'not-started' && (
                       <button
@@ -283,7 +433,6 @@ export default function GoalsCard() {
                   </div>
                 </div>
               ))}
-              
               {getGoalsByPhase(activeCategory, phase).length === 0 && (
                 <div className="text-center py-8 text-[#8b949e] text-sm">
                   Drop goals here
@@ -299,7 +448,7 @@ export default function GoalsCard() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Add {categoryLabels[activeCategory]}</h3>
+              <h3 className="text-lg font-semibold text-white">Add {categoryLabels[activeCategory]} Goal</h3>
               <button
                 onClick={() => setShowAddModal(false)}
                 className="p-2 hover:bg-[#30363d] rounded-lg"
