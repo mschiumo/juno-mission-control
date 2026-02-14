@@ -704,7 +704,7 @@ export default function GoalsCard() {
             }`}
             title={showJunoOnly ? 'Show all goals' : 'Show Juno-assisted only'}
           >
-            <Bot className="w-4 h-4" /
+            <Bot className="w-4 h-4" />
             {showJunoOnly ? 'Juno Only' : 'All Goals'}
           </button>
           
