@@ -249,7 +249,7 @@ export default function HabitCard() {
       )}
 
       {/* Habits List - Flat */}
-      <div className="space-y-2 max-h-[500px] overflow-y-auto">
+      <div className="space-y-3">
         {loading && habits.length === 0 ? (
           <div className="text-center py-8 text-[#8b949e]">
             <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
@@ -289,10 +289,10 @@ export default function HabitCard() {
                   {habit.completedToday && <Check className="w-4 h-4 text-white" />}
                 </button>
 
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">{habit.icon}</span>
-                    <span className={`font-medium truncate ${habit.completedToday ? 'text-[#8b949e] line-through' : 'text-white'}`}>
+                    <span className="text-lg flex-shrink-0">{habit.icon}</span>
+                    <span className={`font-medium break-words ${habit.completedToday ? 'text-[#8b949e] line-through' : 'text-white'}`}>
                       {habit.name}
                     </span>
                   </div>

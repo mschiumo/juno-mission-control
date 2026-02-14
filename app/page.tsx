@@ -16,9 +16,9 @@ import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
 import NotificationsBell from "@/components/NotificationsBell";
 import MotivationalBanner from "@/components/MotivationalBanner";
-import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
 
-type TabId = 'dashboard' | 'trading' | 'goals' | 'activity';
+type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'activity';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -29,7 +29,7 @@ function DashboardContent() {
   // Get tab from URL query param, default to 'dashboard'
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
-    if (tab === 'trading' || tab === 'goals' || tab === 'activity') return tab;
+    if (tab === 'tasks' || tab === 'trading' || tab === 'goals' || tab === 'activity') return tab;
     return 'dashboard';
   }, [searchParams]);
   
@@ -50,6 +50,7 @@ function DashboardContent() {
 
   const tabs = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'tasks' as const, label: 'Tasks', icon: CheckSquare },
     { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
     { id: 'goals' as const, label: 'Goals', icon: Target },
     { id: 'activity' as const, label: 'Activity', icon: Activity },
@@ -146,14 +147,18 @@ function DashboardContent() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
         {activeTab === 'dashboard' ? (
-          /* Dashboard Grid */
+          /* Dashboard Grid - Single column for better spacing */
           <div className="space-y-4">
             <MotivationalBanner compact variant="orange" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <DailyReportsCard />
               <HabitCard />
-              <ProjectsCard />
             </div>
+          </div>
+        ) : activeTab === 'tasks' ? (
+          /* Tasks View - Projects and Task Management */
+          <div className="max-w-6xl mx-auto">
+            <ProjectsCard />
           </div>
         ) : activeTab === 'trading' ? (
           /* Trading View - Sidebar Layout */
