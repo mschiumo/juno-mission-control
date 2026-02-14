@@ -191,19 +191,7 @@ export default function GapScannerCard() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-[#da3633] flex items-center gap-2">
-                <TrendingDown className="w-4 h-4" />
-                Biggest Losers
-              </h3>
-              <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded">
-                {data?.losers.length || 0}
-              </span>
-            </div>
-            {data?.losers && renderStockList(data.losers, 'loser')}
-          </div>
-          
+          {/* Gainers - Left Column */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-[#238636] flex items-center gap-2">
@@ -215,6 +203,20 @@ export default function GapScannerCard() {
               </span>
             </div>
             {data?.gainers && renderStockList(data.gainers, 'gainer')}
+          </div>
+          
+          {/* Losers - Right Column */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-[#da3633] flex items-center gap-2">
+                <TrendingDown className="w-4 h-4" />
+                Biggest Losers
+              </h3>
+              <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded">
+                {data?.losers.length || 0}
+              </span>
+            </div>
+            {data?.losers && renderStockList(data.losers, 'loser')}
           </div>
         </div>
       )}
