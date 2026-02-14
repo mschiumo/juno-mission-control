@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, RefreshCw, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, DollarSign, ExternalLink } from 'lucide-react';
 
 interface MarketItem {
   symbol: string;
@@ -147,9 +147,12 @@ export default function MarketCard() {
         ) : (
           <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
             {currentData.map((item) => (
-              <div 
+              <a
                 key={item.symbol}
-                className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d] hover:border-[#ff6b35]/50 transition-colors"
+                href={`https://www.tradingview.com/chart/?symbol=${item.symbol}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d] hover:border-[#ff6b35]/50 transition-colors block"
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
@@ -158,7 +161,10 @@ export default function MarketCard() {
                     ) : (
                       <TrendingDown className="w-3.5 h-3.5 text-[#da3633]" />
                     )}
-                    <span className="font-semibold text-white">{item.symbol}</span>
+                    <span className="font-semibold text-white hover:text-[#ff6b35] transition-colors flex items-center gap-1">
+                      {item.symbol}
+                      <ExternalLink className="w-3 h-3 opacity-50" />
+                    </span>
                   </div>
                   <span className={`text-xs font-medium ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>
                     {item.change >= 0 ? '+' : ''}{item.changePercent.toFixed(2)}%
@@ -173,7 +179,7 @@ export default function MarketCard() {
                     {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}
                   </span>
                 </div>
-              </div>
+              </a>
             ))}
           </div>
         )}
