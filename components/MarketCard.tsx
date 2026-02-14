@@ -19,11 +19,14 @@ interface MarketData {
   lastUpdated: string;
 }
 
+type DataSource = 'live' | 'partial' | 'fallback';
+
 export default function MarketCard() {
   const [data, setData] = useState<MarketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<'indices' | 'stocks' | 'crypto'>('indices');
+  const [dataSource, setDataSource] = useState<DataSource>('fallback');
 
   useEffect(() => {
     fetchMarketData();
@@ -39,6 +42,7 @@ export default function MarketCard() {
       const result = await response.json();
       if (result.success) {
         setData(result.data);
+        setDataSource(result.source || 'fallback');
         setLastUpdated(new Date());
       }
     } catch (error) {
@@ -87,6 +91,17 @@ export default function MarketCard() {
               {lastUpdated && !loading && (
                 <span className="text-[10px] text-[#238636]">
                   updated {formatLastUpdated()}
+                </span>
+              )}
+              {!loading && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                  dataSource === 'live' 
+                    ? 'bg-[#238636]/20 text-[#238636]' 
+                    : dataSource === 'partial'
+                    ? 'bg-[#d29922]/20 text-[#d29922]'
+                    : 'bg-[#8b949e]/20 text-[#8b949e]'
+                }`}>
+                  {dataSource === 'live' ? 'LIVE' : dataSource === 'partial' ? 'PARTIAL' : 'MOCK'}
                 </span>
               )}
             </div>

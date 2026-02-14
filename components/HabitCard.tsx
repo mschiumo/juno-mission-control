@@ -111,10 +111,10 @@ export default function HabitCard() {
     const totalHabits = updatedHabits.length;
     const longestStreak = Math.max(...updatedHabits.map(h => h.streak), 0);
     
-    // Calculate weekly completion
+    // Calculate weekly completion (7-day history + today)
     const totalPossibleCompletions = totalHabits * 7;
     const actualCompletions = updatedHabits.reduce((acc, h) => 
-      acc + h.history.filter(Boolean).length, 0
+      acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
     );
     const weeklyCompletion = totalPossibleCompletions > 0 
       ? Math.round((actualCompletions / totalPossibleCompletions) * 100)
