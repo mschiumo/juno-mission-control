@@ -23,7 +23,10 @@ const SCAN_SYMBOLS = [
 ];
 
 // Fetch quote from Finnhub
-async function fetchFinnhubQuote(symbol: string): Promise<GapStock | null> {
+async function fetchFinnhubQuote(
+  symbol: string, 
+  debug?: { symbol: string; gapPercent: number; filtered: string; reason?: string }[]
+): Promise<GapStock | null> {
   try {
     const response = await fetch(
       `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`,
@@ -34,6 +37,7 @@ async function fetchFinnhubQuote(symbol: string): Promise<GapStock | null> {
       if (response.status === 429) {
         console.warn(`Rate limit hit for ${symbol}`);
       }
+      debug?.push({ symbol, gapPercent: 0, filtered: 'yes', reason: 'API error' });
       return null;
     }
 
@@ -44,12 +48,18 @@ async function fetchFinnhubQuote(symbol: string): Promise<GapStock | null> {
     const currentPrice = data.c;
     const previousClose = data.pc;
     
-    if (!currentPrice || !previousClose || previousClose === 0) return null;
+    if (!currentPrice || !previousClose || previousClose === 0) {
+      debug?.push({ symbol, gapPercent: 0, filtered: 'yes', reason: 'No price data' });
+      return null;
+    }
 
     const gapPercent = ((currentPrice - previousClose) / previousClose) * 100;
     
     // Only include stocks with 10%+ gaps
-    if (Math.abs(gapPercent) < 10) return null;
+    if (Math.abs(gapPercent) < 10) {
+      debug?.push({ symbol, gapPercent: Number(gapPercent.toFixed(2)), filtered: 'yes', reason: 'Gap < 10%' });
+      return null;
+    }
 
     // Fetch profile for market cap and company name
     const profile = await fetchFinnhubProfile(symbol);
@@ -58,10 +68,24 @@ async function fetchFinnhubQuote(symbol: string): Promise<GapStock | null> {
     const marketCap = profile?.marketCapitalization || 0;
     
     // Apply filters
-    // Note: Finnhub basic quote doesn't include volume, so we rely on profile data
-    // or skip volume filter if not available
-    if (marketCap > 0 && marketCap < 100) return null; // Min $100M market cap (Finnhub returns in millions)
-    if (currentPrice > 500) return null; // Max $500 price
+    // Note: Finnhub basic quote doesn't include volume, so we skip volume filter if not available
+    // Market cap: allow if unknown (0) or >= $100M (Finnhub returns in millions, so 100 = $100M)
+    if (marketCap > 0 && marketCap < 100) {
+      debug?.push({ symbol, gapPercent: Number(gapPercent.toFixed(2)), filtered: 'yes', reason: `Market cap too small: ${marketCap}M` });
+      return null; // Only filter if we have data and it's too small
+    }
+    if (currentPrice > 500) {
+      debug?.push({ symbol, gapPercent: Number(gapPercent.toFixed(2)), filtered: 'yes', reason: `Price too high: ${currentPrice}` });
+      return null; // Max $500 price
+    }
+    
+    // Volume filter: skip if not available, otherwise require 100K+
+    if (volume > 0 && volume < 100000) {
+      debug?.push({ symbol, gapPercent: Number(gapPercent.toFixed(2)), filtered: 'yes', reason: `Volume too low: ${volume}` });
+      return null;
+    }
+    
+    debug?.push({ symbol, gapPercent: Number(gapPercent.toFixed(2)), filtered: 'no' });
 
     return {
       symbol,
@@ -75,6 +99,7 @@ async function fetchFinnhubQuote(symbol: string): Promise<GapStock | null> {
     };
   } catch (error) {
     console.error(`Error fetching ${symbol}:`, error);
+    debug?.push({ symbol, gapPercent: 0, filtered: 'yes', reason: 'Exception' });
     return null;
   }
 }
@@ -102,6 +127,7 @@ async function fetchFinnhubProfile(symbol: string): Promise<{ name: string; mark
 // Scan all symbols with rate limiting
 async function scanWithFinnhub(): Promise<GapStock[]> {
   const results: GapStock[] = [];
+  const debug: { symbol: string; gapPercent: number; filtered: string; reason?: string }[] = [];
   
   // Finnhub free tier: 60 calls/minute
   // We need 2 calls per symbol (quote + profile), so ~30 symbols max per minute
@@ -110,7 +136,7 @@ async function scanWithFinnhub(): Promise<GapStock[]> {
   // First, fetch all quotes (1 call per symbol)
   for (let i = 0; i < SCAN_SYMBOLS.length; i++) {
     const symbol = SCAN_SYMBOLS[i];
-    const result = await fetchFinnhubQuote(symbol);
+    const result = await fetchFinnhubQuote(symbol, debug);
     if (result) {
       results.push(result);
     }
@@ -121,6 +147,9 @@ async function scanWithFinnhub(): Promise<GapStock[]> {
       await new Promise(r => setTimeout(r, 200));
     }
   }
+  
+  // Log debug info
+  console.log('Gap Scanner Debug:', JSON.stringify(debug.slice(0, 10), null, 2));
 
   return results;
 }
