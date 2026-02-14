@@ -412,12 +412,15 @@ export default function ProjectsCard() {
               {/* Due Date */}
               <div>
                 <label className="block text-sm font-medium text-[#8b949e] mb-1">Due Date</label>
-                <input
-                  type="date"
-                  value={editingProject.dueDate || ''}
-                  onChange={(e) => handleChange('dueDate', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#ff6b35]"
-                />
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={editingProject.dueDate || ''}
+                    onChange={(e) => handleChange('dueDate', e.target.value)}
+                    className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#ff6b35] [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b949e] pointer-events-none" />
+                </div>
               </div>
 
               {/* Progress */}
