@@ -401,15 +401,16 @@ export default function GoalsCard() {
                   key={goal.id}
                   draggable
                   onDragStart={() => handleDragStart(goal)}
-                  className={`p-3 rounded-lg border cursor-move transition-all hover:shadow-lg ${phaseColors[phase]} border-opacity-30`}
+                  className={`group p-3 rounded-lg border cursor-move transition-all hover:shadow-lg ${phaseColors[phase]} border-opacity-30`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm text-white flex-1">{goal.title}</p>
                     <button
                       onClick={() => deleteGoal(goal)}
-                      className="opacity-0 group-hover:opacity-100 hover:text-[#da3633] transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 text-[#8b949e] hover:text-[#da3633] transition-all"
+                      title="Delete goal"
                     >
-                      <X className="w-3 h-3" />
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
                   
