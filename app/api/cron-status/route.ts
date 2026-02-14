@@ -5,23 +5,22 @@ const redis = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
 
-// Cron job definitions with their schedules
+// Cron job definitions with their schedules - sorted chronologically (earliest to latest)
 const CRON_JOBS = [
-  { id: 'morning-wake', name: 'Morning Wake-up Check', schedule: '7:30 AM EST', frequency: 'Daily', status: 'active' },
-  { id: 'motivational', name: 'Daily Motivational Message', schedule: '7:00 AM EST', frequency: 'Daily', status: 'active' },
-  { id: 'market-brief', name: 'Morning Market Briefing', schedule: '8:00 AM EST', frequency: 'Daily', status: 'active' },
-  { id: 'daily-crontest', name: 'Daily Market Briefing', schedule: '8:00 AM EST', frequency: 'Weekdays', status: 'active' },
-  { id: 'mid-day-check', name: 'Mid-Day Trading Check-in', schedule: '12:30 PM EST', frequency: 'Daily', status: 'active' },
-  { id: 'asia-session', name: 'Asia Session Update', schedule: '7:00 PM EST', frequency: 'Sun-Thu', status: 'active' },
   { id: 'london-session', name: 'London Session Update', schedule: '3:00 AM EST', frequency: 'Sun-Thu', status: 'active' },
+  { id: 'motivational', name: 'Daily Motivational Message', schedule: '7:00 AM EST', frequency: 'Daily', status: 'active' },
+  { id: 'morning-wake', name: 'Morning Wake-up Check', schedule: '7:30 AM EST', frequency: 'Daily', status: 'active' },
+  { id: 'market-brief', name: 'Morning Market Briefing', schedule: '8:00 AM EST', frequency: 'Daily', status: 'active' },
+  { id: 'gap-monday-test', name: 'Gap Scanner Monday Test', schedule: 'Monday 9:05 AM EST', frequency: 'Weekly', status: 'active' },
+  { id: 'mid-day-check', name: 'Mid-Day Trading Check-in', schedule: '12:30 PM EST', frequency: 'Daily', status: 'active' },
   { id: 'market-close', name: 'Market Close Report', schedule: '5:00 PM EST', frequency: 'Sun-Thu', status: 'active' },
   { id: 'post-market', name: 'Post-Market Trading Review', schedule: '5:00 PM EST', frequency: 'Sun-Thu', status: 'active' },
+  { id: 'asia-session', name: 'Asia Session Update', schedule: '7:00 PM EST', frequency: 'Sun-Thu', status: 'active' },
+  { id: 'weekly-review', name: 'Weekly Habit Review', schedule: 'Friday 7:00 PM EST', frequency: 'Weekly', status: 'active' },
   { id: 'habit-checkin', name: 'Evening Habit Check-in', schedule: '8:00 PM EST', frequency: 'Daily', status: 'active' },
   { id: 'task-approval', name: 'Nightly Task Approval', schedule: '10:00 PM EST', frequency: 'Daily', status: 'active' },
   { id: 'token-summary', name: 'Daily Token Usage Summary', schedule: '11:00 PM EST', frequency: 'Daily', status: 'active' },
-  { id: 'weekly-review', name: 'Weekly Habit Review', schedule: 'Friday 7:00 PM EST', frequency: 'Weekly', status: 'active' },
   { id: 'pr-monitor', name: 'GitHub PR Monitor', schedule: 'Every 10 min', frequency: 'Continuous', status: 'active' },
-  { id: 'gap-monday-test', name: 'Gap Scanner Monday Test', schedule: 'Monday 9:05 AM EST', frequency: 'Weekly', status: 'active' },
 ];
 
 export async function GET() {
