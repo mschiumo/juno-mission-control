@@ -186,7 +186,7 @@ export default function MarketCard() {
           {marketStatus.map((market) => (
             <div key={market.name} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${market.isOpen ? 'bg-[#238636] animate-pulse' : 'bg-[#8b949e]'}`} />
+                <div className={`w-2 h-2 rounded-full ${market.isOpen ? 'bg-[#238636] animate-pulse' : 'bg-[#da3633]'}`} />
                 <span className="text-sm text-white">{market.name}</span>
               </div>
               <span className="text-xs text-[#8b949e]">{market.hours}</span>
