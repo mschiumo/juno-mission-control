@@ -12,9 +12,9 @@ import GoalsCard from "@/components/GoalsCard";
 import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
-import { LayoutDashboard, Activity, Target, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X } from 'lucide-react';
 
-type TabId = 'dashboard' | 'activity' | 'goals';
+type TabId = 'dashboard' | 'trading' | 'goals' | 'activity';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -25,7 +25,7 @@ function DashboardContent() {
   // Get tab from URL query param, default to 'dashboard'
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
-    if (tab === 'goals' || tab === 'activity') return tab;
+    if (tab === 'trading' || tab === 'goals' || tab === 'activity') return tab;
     return 'dashboard';
   }, [searchParams]);
   
@@ -46,6 +46,7 @@ function DashboardContent() {
 
   const tabs = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
     { id: 'goals' as const, label: 'Goals', icon: Target },
     { id: 'activity' as const, label: 'Activity', icon: Activity },
   ];
@@ -146,8 +147,23 @@ function DashboardContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             <DailyReportsCard />
             <HabitCard />
-            <MarketCard />
             <ProjectsCard />
+          </div>
+        ) : activeTab === 'trading' ? (
+          /* Trading View */
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+              <div className="lg:col-span-2">
+                <MarketCard />
+              </div>
+              <div>
+                {/* Future trading components can go here */}
+                <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
+                  <h2 className="text-lg font-semibold text-white mb-4">Trading Stats</h2>
+                  <p className="text-[#8b949e] text-sm">Coming soon: P&L, win rate, trade journal...</p>
+                </div>
+              </div>
+            </div>
           </div>
         ) : activeTab === 'goals' ? (
           /* Goals View */
