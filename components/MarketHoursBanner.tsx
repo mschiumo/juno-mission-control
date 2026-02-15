@@ -21,10 +21,10 @@ function getMarketStatus(): MarketStatus[] {
   const isWeekday = day >= 1 && day <= 5;
 
   // Asia: 7 PM - 2 AM EST (Sunday evening - Friday morning)
-  // Open from 7 PM to midnight, and midnight to 2 AM
-  const isAsiaOpen = (isWeekday && estTime >= 19) || // Mon-Fri 7 PM - midnight
-                     (isWeekday && estTime < 2) ||    // Mon-Fri midnight - 2 AM
-                     (day === 0 && estTime >= 19);    // Sunday 7 PM - midnight
+  // Closed: Friday 2 AM - Sunday 7 PM
+  const isAsiaOpen = (day === 0 && estTime >= 19) ||     // Sunday 7 PM - midnight
+                     ((day >= 1 && day <= 4) && estTime >= 19) || // Mon-Thu 7 PM - midnight
+                     ((day >= 1 && day <= 5) && estTime < 2);     // Mon-Fri 12 AM - 2 AM
   
   // London: 3 AM - 11:30 AM EST (Monday - Friday)
   const isLondonOpen = isWeekday && estTime >= 3 && estTime < 11.5;
