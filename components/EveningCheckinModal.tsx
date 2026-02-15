@@ -16,6 +16,12 @@ interface CheckinData {
     responses: Record<string, boolean>;
     notes: string;
   } | null;
+  history: Array<{
+    date: string;
+    responses: Record<string, boolean>;
+    notes: string;
+    completionRate: number;
+  }>;
   stats: {
     totalCheckins: number;
     averageCompletion: number;
