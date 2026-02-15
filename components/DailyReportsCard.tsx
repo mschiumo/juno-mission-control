@@ -119,7 +119,7 @@ export default function DailyReportsCard() {
     return report ? report.timestamp : null;
   };
 
-  const getNextScheduledTime = (schedule: string) => {
+  const getNextRunDate = (schedule: string): Date | null => {
     // Parse cron schedule and calculate next run
     const now = new Date();
     const estNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
@@ -130,28 +130,17 @@ export default function DailyReportsCard() {
       const next = new Date(estNow);
       next.setHours(23, 0, 0, 0);
       if (estNow > next) next.setDate(next.getDate() + 1);
-      return next.toLocaleString('en-US', { 
-        timeZone: 'America/New_York',
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      });
+      return next;
     }
     if (schedule === '0 20 * * *') {
       // Daily at 8 PM
       const next = new Date(estNow);
       next.setHours(20, 0, 0, 0);
       if (estNow > next) next.setDate(next.getDate() + 1);
-      return next.toLocaleString('en-US', { 
-        timeZone: 'America/New_York',
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      });
+      return next;
     }
     if (schedule === '0 0 * * 0-4') {
       // Weekdays at 12 AM
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const next = new Date(estNow);
       next.setHours(0, 0, 0, 0);
       if (estNow > next || next.getDay() > 4) {
@@ -160,11 +149,10 @@ export default function DailyReportsCard() {
           next.setDate(next.getDate() + 1);
         } while (next.getDay() > 4);
       }
-      return `${days[next.getDay()]} at 12:00 AM`;
+      return next;
     }
     if (schedule === '0 3 * * 0-4') {
       // Weekdays at 3 AM
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const next = new Date(estNow);
       next.setHours(3, 0, 0, 0);
       if (estNow > next || next.getDay() > 4) {
@@ -172,11 +160,10 @@ export default function DailyReportsCard() {
           next.setDate(next.getDate() + 1);
         } while (next.getDay() > 4);
       }
-      return `${days[next.getDay()]} at 3:00 AM`;
+      return next;
     }
     if (schedule === '0 13 * * 0-4') {
       // Weekdays at 1 PM UTC = 8 AM EST
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const next = new Date(estNow);
       next.setHours(8, 0, 0, 0);
       if (estNow > next || next.getDay() > 4 || next.getDay() === 0) {
@@ -184,11 +171,10 @@ export default function DailyReportsCard() {
           next.setDate(next.getDate() + 1);
         } while (next.getDay() > 5 || next.getDay() === 0);
       }
-      return `${days[next.getDay()]} at 8:00 AM`;
+      return next;
     }
     if (schedule === '30 21 * * 0-4') {
       // Weekdays at 9:30 PM UTC = 4:30 PM EST
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const next = new Date(estNow);
       next.setHours(16, 30, 0, 0);
       if (estNow > next || next.getDay() > 4 || next.getDay() === 0) {
@@ -196,9 +182,46 @@ export default function DailyReportsCard() {
           next.setDate(next.getDate() + 1);
         } while (next.getDay() > 5 || next.getDay() === 0);
       }
-      return `${days[next.getDay()]} at 4:30 PM`;
+      return next;
     }
-    return 'Scheduled';
+    return null;
+  };
+
+  const formatDateTime = (date: Date): string => {
+    // Format as "MM/DD @ H:MM AM/PM" in EST
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    let hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    return `${month}/${day} @ ${hours}:${minutes} ${ampm}`;
+  };
+
+  const getNextScheduledTime = (schedule: string): string => {
+    const next = getNextRunDate(schedule);
+    if (!next) return 'Scheduled';
+    
+    // Check if it's a weekday schedule
+    if (schedule.includes('0-4')) {
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const timeStr = next.toLocaleString('en-US', { 
+        timeZone: 'America/New_York',
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      return `${days[next.getDay()]} at ${timeStr}`;
+    }
+    
+    // Daily schedule
+    return next.toLocaleString('en-US', { 
+      timeZone: 'America/New_York',
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
   };
 
   const formatSchedule = (schedule: string) => {
@@ -369,7 +392,7 @@ export default function DailyReportsCard() {
                         <span className="text-[#ff6b35] font-medium">{job.name}</span> not currently available.
                       </p>
                       <p className="text-xs text-[#8b949e] mt-1">
-                        Next report at <span className="text-white">{nextScheduled}</span>
+                        Next Report <span className="text-white">{formatDateTime(getNextRunDate(job.schedule) || new Date())}</span>
                       </p>
                     </div>
                   )}
