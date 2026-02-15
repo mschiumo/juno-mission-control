@@ -43,6 +43,8 @@ interface StravaData {
   lastUpdated: string;
 }
 
+type ConnectionStatus = 'loading' | 'connected' | 'disconnected';
+
 // Format duration from minutes to HH:MM or MM
 function formatDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60);
@@ -113,10 +115,30 @@ function getActivityColor(type: string): string {
   return 'text-[#8b949e] bg-[#8b949e]/10';
 }
 
+// Placeholder component for disconnected state
+function StravaPlaceholder({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="text-center py-10">
+      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#ff6b35]/10 flex items-center justify-center">
+        <Activity className="w-8 h-8 text-[#ff6b35]" />
+      </div>
+      <h3 className="text-sm font-medium text-white mb-2">Strava Activities</h3>
+      <p className="text-xs text-[#8b949e] mb-1">Connect your Strava account to track your workouts here.</p>
+      <p className="text-[10px] text-[#8b949e]/60 mb-4">Strava integration coming soon</p>
+      <button
+        onClick={onRetry}
+        className="text-xs px-3 py-1.5 bg-[#21262d] hover:bg-[#30363d] text-[#8b949e] rounded-lg transition-colors"
+      >
+        Check Connection
+      </button>
+    </div>
+  );
+}
+
 export default function StravaCard() {
   const [data, setData] = useState<StravaData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('loading');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [daysFilter, setDaysFilter] = useState(30);
 
@@ -129,7 +151,6 @@ export default function StravaCard() {
 
   const fetchActivities = async () => {
     setLoading(true);
-    setError(null);
     
     try {
       const response = await fetch(`/api/strava-activities?days=${daysFilter}&limit=10`);
@@ -137,14 +158,29 @@ export default function StravaCard() {
       
       if (result.success) {
         setData(result);
+        setConnectionStatus('connected');
         setLastUpdated(new Date());
       } else {
-        setError(result.message || result.error || 'Failed to fetch activities');
+        // Check for auth/configuration errors - treat as disconnected, not error
+        const isAuthError = response.status === 401 || 
+                           result.error?.includes('not configured') ||
+                           result.error?.includes('authentication') ||
+                           result.error?.includes('token') ||
+                           result.message?.includes('not configured');
+        
+        if (isAuthError) {
+          setConnectionStatus('disconnected');
+          // Don't show error - just show placeholder
+        } else {
+          // Non-auth errors still show as disconnected (no error UI)
+          setConnectionStatus('disconnected');
+        }
         setData(result);
       }
     } catch (err) {
-      setError('Network error while fetching activities');
-      console.error('Failed to fetch Strava activities:', err);
+      // Network errors - show disconnected state, no error message
+      setConnectionStatus('disconnected');
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -159,8 +195,8 @@ export default function StravaCard() {
     });
   };
 
-  // Not configured state
-  if (data && !data.success && data.error === 'Strava not configured') {
+  // Loading state
+  if (connectionStatus === 'loading' && loading) {
     return (
       <div className="card">
         <div className="flex items-center gap-3 mb-4">
@@ -169,15 +205,23 @@ export default function StravaCard() {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">Strava Activities</h2>
-            <p className="text-xs text-[#8b949e]">Not configured</p>
+            <p className="text-xs text-[#8b949e]">Loading...</p>
           </div>
         </div>
         
         <div className="text-center py-8 text-[#8b949e]">
-          <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="text-sm mb-2">Strava integration not configured</p>
-          <p className="text-xs opacity-70">Add STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, and STRAVA_REFRESH_TOKEN to enable</p>
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
+          <p className="text-sm">Loading activities...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Disconnected state - show friendly placeholder
+  if (connectionStatus === 'disconnected') {
+    return (
+      <div className="card">
+        <StravaPlaceholder onRetry={fetchActivities} />
       </div>
     );
   }
@@ -270,17 +314,6 @@ export default function StravaCard() {
           <div className="text-center py-8 text-[#8b949e]">
             <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
             <p className="text-sm">Loading activities...</p>
-          </div>
-        ) : error ? (
-          <div className="text-center py-8">
-            <Activity className="w-12 h-12 mx-auto mb-3 text-[#da3633] opacity-50" />
-            <p className="text-[#da3633] mb-1 text-sm">{error}</p>
-            <button
-              onClick={fetchActivities}
-              className="text-xs text-[#ff6b35] hover:underline mt-2"
-            >
-              Try again
-            </button>
           </div>
         ) : data?.activities?.length === 0 ? (
           <div className="text-center py-10">
