@@ -183,7 +183,9 @@ function DashboardContent() {
         ) : activeTab === 'goals' ? (
           /* Goals View */
           <div className="max-w-6xl mx-auto">
-            <GoalsCard />
+            <Suspense fallback={<div className="p-8 text-center text-[#8b949e]">Loading goals...</div>}>
+              <GoalsCard />
+            </Suspense>
           </div>
         ) : (
           /* Activity Log View */
