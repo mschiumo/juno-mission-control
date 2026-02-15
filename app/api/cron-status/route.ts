@@ -49,13 +49,13 @@ export async function GET() {
     
     // Fetch all cron results from last 24 hours
     const stored = await redis.get(STORAGE_KEY);
-    let cronResults: any[] = [];
+    let cronResults: Array<{ jobName?: string; timestamp: number; type?: string; content?: string }> = [];
     
     if (stored) {
       try {
         cronResults = JSON.parse(stored);
         // Sort by timestamp descending (newest first)
-        cronResults.sort((a: any, b: any) => b.timestamp - a.timestamp);
+        cronResults.sort((a, b) => b.timestamp - a.timestamp);
       } catch (e) {
         console.error('Failed to parse cron results:', e);
       }
@@ -67,7 +67,7 @@ export async function GET() {
     const cronStatus = CRON_JOBS.map((job) => {
       // Find matching results for this job
       const matchingNames = JOB_NAME_MAP[job.id] || [job.name];
-      const jobResults = cronResults.filter((r: any) => 
+      const jobResults = cronResults.filter((r) => 
         matchingNames.some(name => r.jobName?.includes(name))
       );
       
