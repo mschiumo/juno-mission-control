@@ -264,6 +264,7 @@ export default function DailyReportsCard() {
       && job.name !== 'Daily Motivational Message'
       && job.name !== 'Mid-Day Trading Check-in'
       && job.name !== 'Post-Market Trading Review'
+      && job.name !== 'Evening Habit Check-in'
       && job.name !== 'GitHub PR Monitor')
     .sort((a, b) => {
       const aHasReport = hasReport(a.name);
