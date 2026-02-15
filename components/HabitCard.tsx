@@ -38,6 +38,7 @@ export default function HabitCard() {
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEveningCheckin, setShowEveningCheckin] = useState(false);
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitIcon, setNewHabitIcon] = useState('⭐');
   const [newHabitTarget, setNewHabitTarget] = useState('Daily');
@@ -173,10 +174,23 @@ export default function HabitCard() {
     return labels;
   };
 
+  const handleEveningCheckinSuccess = () => {
+    setShowSuccessBanner(true);
+    setTimeout(() => setShowSuccessBanner(false), 3000);
+  };
+
   const dayLabels = getDayLabels();
 
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
+      {/* Success Banner */}
+      {showSuccessBanner && (
+        <div className="mb-4 p-3 bg-[#238636]/20 border border-[#238636] rounded-lg flex items-center gap-2">
+          <Check className="w-5 h-5 text-[#238636]" />
+          <span className="text-[#238636] font-medium">Evening check-in saved!</span>
+        </div>
+      )}
+      
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -440,7 +454,8 @@ export default function HabitCard() {
       {/* Evening Check-in Modal */}
       <EveningCheckinModal 
         isOpen={showEveningCheckin} 
-        onClose={() => setShowEveningCheckin(false)} 
+        onClose={() => setShowEveningCheckin(false)}
+        onSuccess={handleEveningCheckinSuccess}
       />
     </div>
   );
