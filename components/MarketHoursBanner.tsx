@@ -21,6 +21,16 @@ function getMarketStatus(): MarketStatus[] {
   const estTime = estHour + estMinute / 60;
   const estDay = estDate.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
 
+  // DEBUG: Log values
+  console.log('Market Hours Debug:', { 
+    now: now.toISOString(), 
+    estDate: estDate.toISOString(),
+    estDay, 
+    estTime: estTime.toFixed(2),
+    estHour,
+    estMinute 
+  });
+
   const isWeekday = estDay >= 1 && estDay <= 5;
 
   // Asia: 7 PM - 2 AM EST (Sunday evening - Friday morning)
