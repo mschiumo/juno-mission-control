@@ -5,13 +5,13 @@ const STORAGE_KEY = 'evening_checkins';
 
 // Evening habit check-in questions
 const DEFAULT_QUESTIONS = [
-  { id: 'worked-out', question: 'Did you work out / lift today?', label: 'work out', category: 'fitness' },
-  { id: 'ran', question: 'Did you run today?', label: 'run', category: 'fitness' },
-  { id: 'read', question: 'Did you read today?', label: 'read', category: 'learning' },
-  { id: 'journaled', question: 'Did you journal today?', label: 'journal', category: 'mindfulness' },
-  { id: 'traded', question: 'Did you trade today?', label: 'trade', category: 'trading' },
-  { id: 'made-bed', question: 'Did you make your bed today?', label: 'make bed', category: 'discipline' },
-  { id: 'took-meds', question: 'Did you take your meds today?', label: 'take meds', category: 'health' },
+  { id: 'worked-out', question: 'Did you work out / lift today?', label: 'Work Out', category: 'fitness' },
+  { id: 'ran', question: 'Did you run today?', label: 'Run', category: 'fitness' },
+  { id: 'read', question: 'Did you read today?', label: 'Read', category: 'learning' },
+  { id: 'journaled', question: 'Did you journal today?', label: 'Journal', category: 'mindfulness' },
+  { id: 'traded', question: 'Did you trade today?', label: 'Trade', category: 'trading' },
+  { id: 'made-bed', question: 'Did you make your bed today?', label: 'Make Bed', category: 'discipline' },
+  { id: 'took-meds', question: 'Did you take your meds today?', label: 'Take Meds', category: 'health' },
 ];
 
 let redisClient: ReturnType<typeof createClient> | null = null;
