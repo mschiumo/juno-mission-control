@@ -18,6 +18,7 @@ import NotificationsBell from "@/components/NotificationsBell";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import DocumentationCard from "@/components/DocumentationCard";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
+import SubagentCard from "@/components/SubagentCard";
 import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
 
 type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'activity';
@@ -192,6 +193,7 @@ function DashboardContent() {
           <div className="max-w-7xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
               <ActivityLogCard />
+              <SubagentCard />
               <DailyCronsCard />
               <DocumentationCard className="lg:col-span-2" />
             </div>
