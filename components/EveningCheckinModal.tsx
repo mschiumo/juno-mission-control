@@ -47,6 +47,7 @@ function truncateForMobile(text: string, isMobile: boolean): string {
 interface Question {
   id: string;
   question: string;
+  label: string;
   category: string;
 }
 
@@ -248,7 +249,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium truncate">{getActionWord(q.question)}</p>
+                        <p className="text-white font-medium truncate">{q.label}</p>
                         <span className={`text-xs uppercase tracking-wider ${getCategoryColor(q.category)}`}>
                           {q.category}
                         </span>
@@ -360,7 +361,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                     return (
                       <div key={q.id} className="flex items-center gap-3 sm:gap-4">
                         <div className="flex-1 min-w-0" title={q.question}>
-                          <p className="text-sm text-white truncate">{getActionWord(q.question)}</p>
+                          <p className="text-sm text-white truncate">{q.label}</p>
                         </div>
                         <div className="flex items-center gap-2 sm:gap-3 w-32 sm:w-48 flex-shrink-0">
                           <div className="flex-1 h-2 bg-[#21262d] rounded-full overflow-hidden">
