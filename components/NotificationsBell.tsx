@@ -22,6 +22,19 @@ export default function NotificationsBell() {
   const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const fetchNotifications = async () => {
+    try {
+      const response = await fetch('/api/notifications');
+      const result = await response.json();
+      if (result.success) {
+        setNotifications(result.notifications);
+        setUnreadCount(result.count);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
     fetchNotifications();
@@ -42,19 +55,6 @@ export default function NotificationsBell() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const fetchNotifications = async () => {
-    try {
-      const response = await fetch('/api/notifications');
-      const result = await response.json();
-      if (result.success) {
-        setNotifications(result.notifications);
-        setUnreadCount(result.count);
-      }
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-    }
-  };
 
   const markAsRead = async (id: string) => {
     try {
