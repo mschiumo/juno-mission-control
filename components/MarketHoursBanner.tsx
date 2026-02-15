@@ -12,19 +12,22 @@ interface MarketStatus {
 // Get market status based on current EST time
 function getMarketStatus(): MarketStatus[] {
   const now = new Date();
+  
   // Convert to EST (UTC-5)
-  const estHour = (now.getUTCHours() - 5 + 24) % 24;
-  const estMinute = now.getUTCMinutes();
+  const estOffset = -5 * 60 * 60 * 1000; // -5 hours in milliseconds
+  const estDate = new Date(now.getTime() + estOffset);
+  const estHour = estDate.getUTCHours();
+  const estMinute = estDate.getUTCMinutes();
   const estTime = estHour + estMinute / 60;
-  const day = now.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
+  const estDay = estDate.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
 
-  const isWeekday = day >= 1 && day <= 5;
+  const isWeekday = estDay >= 1 && estDay <= 5;
 
   // Asia: 7 PM - 2 AM EST (Sunday evening - Friday morning)
-  // Closed: Friday 2 AM - Sunday 7 PM
-  const isAsiaOpen = (day === 0 && estTime >= 19) ||     // Sunday 7 PM - midnight
-                     ((day >= 1 && day <= 4) && estTime >= 19) || // Mon-Thu 7 PM - midnight
-                     ((day >= 1 && day <= 5) && estTime < 2);     // Mon-Fri 12 AM - 2 AM
+  // Closed: Friday 2 AM - Sunday 7 PM (Saturday all day + Sunday day)
+  const isAsiaOpen = (estDay === 0 && estTime >= 19) ||     // Sunday 7 PM - midnight
+                     ((estDay >= 1 && estDay <= 4) && estTime >= 19) || // Mon-Thu 7 PM - midnight
+                     ((estDay >= 1 && estDay <= 5) && estTime < 2);     // Mon-Fri 12 AM - 2 AM
   
   // London: 3 AM - 11:30 AM EST (Monday - Friday)
   const isLondonOpen = isWeekday && estTime >= 3 && estTime < 11.5;
