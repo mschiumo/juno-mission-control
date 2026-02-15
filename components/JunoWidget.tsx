@@ -13,12 +13,14 @@ type JunoState = 'ready' | 'thinking' | 'idle';
 export default function JunoWidget() {
   const [status, setStatus] = useState<JunoStatus>({
     isProcessing: false,
-    lastActivity: Date.now()
+    lastActivity: 0
   });
   const [currentState, setCurrentState] = useState<JunoState>('ready');
 
   useEffect(() => {
-    // Check state every 5 seconds
+    // Initialize lastActivity on client side only
+    setStatus(prev => ({ ...prev, lastActivity: Date.now() }));
+  }, []);
     const interval = setInterval(() => {
       const now = Date.now();
       const timeSinceActivity = now - status.lastActivity;

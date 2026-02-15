@@ -36,7 +36,10 @@ export default function NotificationsBell() {
   };
 
   useEffect(() => {
-    setMounted(true);
+    // Use requestAnimationFrame to avoid setState in render warning
+    requestAnimationFrame(() => {
+      setMounted(true);
+    });
     fetchNotifications();
     // Poll every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
@@ -182,7 +185,7 @@ export default function NotificationsBell() {
               <div className="p-8 text-center text-[#8b949e]">
                 <Bell className="w-12 h-12 mx-auto mb-2 opacity-30" />
                 <p>All caught up!</p>
-                <p className="text-xs mt-1">I'll notify you when I need approval or hit a blocker.</p>
+                <p className="text-xs mt-1">I&#39;ll notify you when I need approval or hit a blocker.</p>
               </div>
             ) : (
               notifications.map((notification) => (
