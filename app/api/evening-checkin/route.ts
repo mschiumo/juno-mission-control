@@ -32,12 +32,15 @@ async function getRedisClient() {
 }
 
 function getToday() {
-  return new Date().toLocaleDateString('en-US', {
+  const date = new Date().toLocaleDateString('en-US', {
     timeZone: 'America/New_York',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
-  }).split('/').reverse().join('-');
+  });
+  // Format: MM/DD/YYYY → YYYY-MM-DD
+  const [month, day, year] = date.split('/');
+  return `${year}-${month}-${day}`;
 }
 
 export async function GET(request: Request) {
