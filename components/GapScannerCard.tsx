@@ -246,9 +246,16 @@ export default function GapScannerCard() {
       {/* Pre-Market Banner */}
       {response?.marketSession === 'pre-market' && (
         <div className="mb-4 p-3 bg-[#58a6ff]/10 border border-[#58a6ff]/30 rounded-lg">
-          <div className="flex items-center gap-2 text-[#58a6ff]">
-            <Clock className="w-4 h-4" />
-            <span className="text-sm font-medium">Pre-Market Active</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[#58a6ff]">
+              <Clock className="w-4 h-4" />
+              <span className="text-sm font-medium">Pre-Market Active</span>
+            </div>
+            {lastUpdated && (
+              <span className="text-[10px] text-[#8b949e]">
+                Last updated: {formatLastUpdated()}
+              </span>
+            )}
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
             Showing overnight gaps from {response?.previousDate} close → {response?.tradingDate} open.
@@ -260,9 +267,16 @@ export default function GapScannerCard() {
       {/* Market Open Banner */}
       {response?.marketSession === 'market-open' && (
         <div className="mb-4 p-3 bg-[#238636]/10 border border-[#238636]/30 rounded-lg">
-          <div className="flex items-center gap-2 text-[#238636]">
-            <Clock className="w-4 h-4" />
-            <span className="text-sm font-medium">Market Open</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[#238636]">
+              <Clock className="w-4 h-4" />
+              <span className="text-sm font-medium">Market Open</span>
+            </div>
+            {lastUpdated && (
+              <span className="text-[10px] text-[#8b949e]">
+                Last updated: {formatLastUpdated()}
+              </span>
+            )}
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
             Live gap data from {response?.tradingDate}. Market closes at 4:00 PM EST.
@@ -273,9 +287,16 @@ export default function GapScannerCard() {
       {/* Post-Market Banner */}
       {response?.marketSession === 'post-market' && (
         <div className="mb-4 p-3 bg-[#8b949e]/10 border border-[#8b949e]/30 rounded-lg">
-          <div className="flex items-center gap-2 text-[#8b949e]">
-            <Clock className="w-4 h-4" />
-            <span className="text-sm font-medium">After Hours</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[#8b949e]">
+              <Clock className="w-4 h-4" />
+              <span className="text-sm font-medium">After Hours</span>
+            </div>
+            {lastUpdated && (
+              <span className="text-[10px] text-[#8b949e]">
+                Last updated: {formatLastUpdated()}
+              </span>
+            )}
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
             Post-market session. Showing final gaps from {response?.tradingDate}.
