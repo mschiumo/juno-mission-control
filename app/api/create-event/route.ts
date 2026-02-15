@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createCalendarEvent } from '@/lib/google-calendar';
 
 export async function POST(request: Request) {
   try {
@@ -18,25 +19,30 @@ export async function POST(request: Request) {
       );
     }
 
-    // Placeholder: In production, this would create an event via Google Calendar API
-    // Requires OAuth2 authentication with Google
-
-    const newEvent = {
-      id: Math.random().toString(36).substr(2, 9),
-      title,
+    // Create event via Google Calendar API
+    const event = await createCalendarEvent({
+      summary: title,
       description: description || '',
-      start: startDate,
-      end: endDate || new Date(new Date(startDate).getTime() + 60 * 60 * 1000).toISOString(),
-      calendar,
-      createdAt: new Date().toISOString()
-    };
+      start: {
+        dateTime: startDate
+      },
+      end: {
+        dateTime: endDate || new Date(new Date(startDate).getTime() + 60 * 60 * 1000).toISOString()
+      },
+      calendarId: calendar
+    });
 
-    console.log('Creating calendar event:', newEvent);
+    if (!event) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to create calendar event - check Google credentials' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ 
       success: true, 
       message: 'Event created successfully',
-      data: newEvent
+      data: event
     });
   } catch (error) {
     console.error('Error creating calendar event:', error);
