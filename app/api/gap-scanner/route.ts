@@ -240,7 +240,7 @@ async function fetchPolygonGappers(): Promise<{ stocks: GapStock[]; isWeekend: b
     // Create map of yesterday's closes
     const yesterdayCloses: Record<string, number> = {};
     if (yesterdayData.results) {
-      yesterdayData.results.forEach((result: any) => {
+      yesterdayData.results.forEach((result: { T: string; c: number }) => {
         yesterdayCloses[result.T] = result.c;
       });
     }

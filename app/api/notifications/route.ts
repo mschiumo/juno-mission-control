@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
 
+interface Notification {
+  id: string;
+  read: boolean;
+  readAt?: string;
+}
+
 const redis = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
@@ -16,7 +22,7 @@ export async function GET() {
     const notifications = notificationsJson ? JSON.parse(notificationsJson) : [];
     
     // Filter unread notifications
-    const unread = notifications.filter((n: any) => !n.read);
+    const unread = notifications.filter((n: Notification) => !n.read);
     
     await redis.disconnect();
     
@@ -103,7 +109,7 @@ export async function PATCH(request: Request) {
     const notifications = notificationsJson ? JSON.parse(notificationsJson) : [];
     
     // Mark as read
-    const updated = notifications.map((n: any) => 
+    const updated = notifications.map((n: Notification) => 
       n.id === id ? { ...n, read: true, readAt: new Date().toISOString() } : n
     );
     

@@ -66,13 +66,13 @@ export async function GET(request: Request) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysBack);
     
-    const filteredCheckins = allCheckins.filter((c: any) => {
+    const filteredCheckins = allCheckins.filter((c: { date: string }) => {
       const checkinDate = new Date(c.date);
       return checkinDate >= cutoffDate;
     });
 
     // Get today's checkin if exists
-    const todayCheckin = allCheckins.find((c: any) => c.date === date);
+    const todayCheckin = allCheckins.find((c: { date: string }) => c.date === date);
 
     return NextResponse.json({
       success: true,
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
     const allCheckins = stored ? JSON.parse(stored) : [];
 
     // Check if already submitted today
-    const existingIndex = allCheckins.findIndex((c: any) => c.date === today);
+    const existingIndex = allCheckins.findIndex((c: { date: string }) => c.date === today);
 
     const newCheckin = {
       date: today,
@@ -139,7 +139,7 @@ export async function POST(request: Request) {
     // Keep only last 90 days
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 90);
-    const trimmedCheckins = allCheckins.filter((c: any) => {
+    const trimmedCheckins = allCheckins.filter((c: { date: string }) => {
       return new Date(c.date) >= cutoffDate;
     });
 
@@ -159,13 +159,19 @@ export async function POST(request: Request) {
   }
 }
 
-function calculateCompletionRate(responses: Record<string, boolean>, questions: any[]) {
+interface Question {
+  id: string;
+  question: string;
+  category: string;
+}
+
+function calculateCompletionRate(responses: Record<string, boolean>, questions: Question[]) {
   const total = questions.length;
   const completed = Object.values(responses).filter(Boolean).length;
   return Math.round((completed / total) * 100);
 }
 
-function calculateStats(checkins: any[], questions: any[]) {
+function calculateStats(checkins: { date: string; responses: Record<string, boolean>; completionRate: number }[], questions: Question[]) {
   if (checkins.length === 0) {
     return {
       totalCheckins: 0,

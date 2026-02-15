@@ -22,24 +22,26 @@ export default function NotificationsBell() {
   const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchNotifications = async () => {
-    try {
-      const response = await fetch('/api/notifications');
-      const result = await response.json();
-      if (result.success) {
-        setNotifications(result.notifications);
-        setUnreadCount(result.count);
-      }
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-    }
-  };
-
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    fetchNotifications();
+    // Fetch immediately then poll
+    const doFetch = () => {
+      fetch('/api/notifications')
+        .then(r => r.json())
+        .then(result => {
+          if (result.success) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setNotifications(result.notifications);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setUnreadCount(result.count);
+          }
+        })
+        .catch(console.error);
+    };
+    doFetch();
     // Poll every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
+    const interval = setInterval(doFetch, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -182,7 +184,7 @@ export default function NotificationsBell() {
               <div className="p-8 text-center text-[#8b949e]">
                 <Bell className="w-12 h-12 mx-auto mb-2 opacity-30" />
                 <p>All caught up!</p>
-                <p className="text-xs mt-1">I'll notify you when I need approval or hit a blocker.</p>
+                <p className="text-xs mt-1">I&#39;ll notify you when I need approval or hit a blocker.</p>
               </div>
             ) : (
               notifications.map((notification) => (

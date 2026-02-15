@@ -89,6 +89,9 @@ export default function GoalsCard() {
     params.set('tab', category);
     router.push(`?${params.toString()}`, { scroll: false });
   };
+
+  // Mobile detection
+  useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
