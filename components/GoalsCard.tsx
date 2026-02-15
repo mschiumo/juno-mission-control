@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Target, Plus, X, RefreshCw, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw } from 'lucide-react';
+import { Target, Plus, X, RefreshCw, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle } from 'lucide-react';
 
 interface Notification {
   message: string;
@@ -84,6 +84,9 @@ export default function GoalsCard() {
   // Notification state
   const [notification, setNotification] = useState<Notification | null>(null);
   const [notificationTimeout, setNotificationTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<Goal | null>(null);
 
   // Initialize active category from URL query param
   useEffect(() => {
@@ -267,6 +270,11 @@ export default function GoalsCard() {
   };
 
   const deleteGoal = async (goal: Goal) => {
+    // Show confirmation instead of deleting immediately
+    setDeleteConfirm(goal);
+  };
+
+  const executeDelete = async (goal: Goal) => {
     // Store goal before deleting for potential undo
     const deletedGoal = { ...goal };
     
@@ -903,6 +911,38 @@ export default function GoalsCard() {
             </div>
           </div>
         )}
+
+        {/* Delete Confirmation Modal */}
+        {deleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="card w-full max-w-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle className="w-5 h-5 text-[#da3633]" />
+                <h3 className="text-lg font-semibold text-white">Delete Goal?</h3>
+              </div>
+              <p className="text-[#737373] mb-6">
+                Are you sure you want to delete "{deleteConfirm.title}"? This action cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    executeDelete(deleteConfirm);
+                    setDeleteConfirm(null);
+                  }}
+                  className="flex-1 px-4 py-2 bg-[#da3633] text-white rounded-xl"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1217,6 +1257,38 @@ export default function GoalsCard() {
                 className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card w-full max-w-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="w-5 h-5 text-[#da3633]" />
+              <h3 className="text-lg font-semibold text-white">Delete Goal?</h3>
+            </div>
+            <p className="text-[#737373] mb-6">
+              Are you sure you want to delete "{deleteConfirm.title}"? This action cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  executeDelete(deleteConfirm);
+                  setDeleteConfirm(null);
+                }}
+                className="flex-1 px-4 py-2 bg-[#da3633] text-white rounded-xl hover:bg-red-600 transition-colors"
+              >
+                Delete
               </button>
             </div>
           </div>
