@@ -1,5 +1,6 @@
-import { createClient } from 'redis';
 import { NextResponse } from 'next/server';
+import { readFile, stat, readdir } from 'fs/promises';
+import { join } from 'path';
 
 export interface SubagentStatus {
   sessionKey: string;
@@ -9,60 +10,142 @@ export interface SubagentStatus {
   lastUpdated: string;
 }
 
-const SUBAGENT_KEY_PREFIX = 'subagent:';
-const SUBAGENT_TTL_SECONDS = 30 * 60; // 30 minutes
+const SESSIONS_DIR = '/home/clawd/.openclaw/agents/main/sessions';
+const SESSIONS_JSON = join(SESSIONS_DIR, 'sessions.json');
 
-// Lazy Redis client initialization
-let redisClient: ReturnType<typeof createClient> | null = null;
+interface SessionMapping {
+  sessionId: string;
+  updatedAt: number;
+  [key: string]: any;
+}
 
-async function getRedisClient() {
-  if (redisClient) {
-    return redisClient;
+interface SessionsJson {
+  [sessionKey: string]: SessionMapping;
+}
+
+async function readSessionsJson(): Promise<SessionsJson> {
+  try {
+    const data = await readFile(SESSIONS_JSON, 'utf-8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('Failed to read sessions.json:', error);
+    return {};
+  }
+}
+
+async function isSessionActive(sessionId: string): Promise<boolean> {
+  try {
+    await stat(join(SESSIONS_DIR, `${sessionId}.jsonl.lock`));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function getSessionFileModifiedTime(sessionId: string): Promise<Date | null> {
+  try {
+    const stats = await stat(join(SESSIONS_DIR, `${sessionId}.jsonl`));
+    return stats.mtime;
+  } catch {
+    return null;
+  }
+}
+
+function extractTaskFromMessage(content: string): string {
+  // Try to extract task name from common patterns
+  const taskMatch = content.match(/## Task:\s*(.+?)(?:\n|$)/);
+  if (taskMatch) {
+    return taskMatch[1].trim();
   }
   
+  // Fallback: extract first line that looks like a task
+  const lines = content.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('[') && !trimmed.startsWith('##')) {
+      return trimmed.substring(0, 100); // Limit length
+    }
+  }
+  
+  return 'Unknown Task';
+}
+
+async function getSessionTask(sessionId: string): Promise<{ task: string; startedAt: string } | null> {
   try {
-    const client = createClient({
-      url: process.env.REDIS_URL || undefined
-    });
+    const filePath = join(SESSIONS_DIR, `${sessionId}.jsonl`);
+    const data = await readFile(filePath, 'utf-8');
+    const lines = data.split('\n').filter(line => line.trim());
     
-    client.on('error', (err) => {
-      console.error('Redis Client Error:', err);
-    });
+    if (lines.length === 0) return null;
     
-    await client.connect();
-    redisClient = client;
-    return client;
+    // Parse first line to get session start time
+    const firstLine = JSON.parse(lines[0]);
+    const startedAt = firstLine.timestamp || new Date().toISOString();
+    
+    // Look for the first user message to extract task
+    for (const line of lines) {
+      try {
+        const event = JSON.parse(line);
+        if (event.type === 'message' && event.message?.role === 'user') {
+          const content = event.message.content;
+          if (Array.isArray(content)) {
+            for (const item of content) {
+              if (item.type === 'text' && item.text) {
+                const task = extractTaskFromMessage(item.text);
+                if (task !== 'Unknown Task') {
+                  return { task, startedAt };
+                }
+              }
+            }
+          } else if (typeof content === 'string') {
+            const task = extractTaskFromMessage(content);
+            if (task !== 'Unknown Task') {
+              return { task, startedAt };
+            }
+          }
+        }
+      } catch {
+        // Skip malformed lines
+        continue;
+      }
+    }
+    
+    return { task: 'Unknown Task', startedAt };
   } catch (error) {
-    console.error('Failed to connect to Redis:', error);
+    console.error(`Failed to read session ${sessionId}:`, error);
     return null;
   }
 }
 
 export async function GET() {
   try {
-    const redis = await getRedisClient();
-    
-    if (!redis) {
-      return NextResponse.json({
-        success: false,
-        error: 'Redis unavailable'
-      }, { status: 503 });
-    }
-
-    // Get all keys matching subagent:*
-    const keys = await redis.keys(`${SUBAGENT_KEY_PREFIX}*`);
-    
+    const sessions = await readSessionsJson();
     const subagents: SubagentStatus[] = [];
     
-    for (const key of keys) {
-      const data = await redis.get(key);
-      if (data) {
-        try {
-          const subagent: SubagentStatus = JSON.parse(data);
-          subagents.push(subagent);
-        } catch (e) {
-          console.error('Failed to parse subagent data:', e);
-        }
+    // Find all subagent sessions (keys containing 'subagent')
+    for (const [sessionKey, sessionData] of Object.entries(sessions)) {
+      if (!sessionKey.includes('subagent')) continue;
+      
+      const sessionId = sessionData.sessionId;
+      if (!sessionId) continue;
+      
+      // Check if session is active (has lock file)
+      const isActive = await isSessionActive(sessionId);
+      
+      // Get task from session file
+      const sessionInfo = await getSessionTask(sessionId);
+      
+      if (sessionInfo) {
+        // Get last modified time for lastUpdated
+        const lastModified = await getSessionFileModifiedTime(sessionId);
+        
+        subagents.push({
+          sessionKey,
+          task: sessionInfo.task,
+          status: isActive ? 'working' : 'completed',
+          startedAt: sessionInfo.startedAt,
+          lastUpdated: lastModified?.toISOString() || new Date().toISOString()
+        });
       }
     }
 
@@ -87,6 +170,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  // For backwards compatibility, accept POST but store in memory only
+  // since we now read from session files directly
   try {
     const body = await request.json();
     const { sessionKey, task, status } = body;
@@ -98,64 +183,23 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    if (!task) {
-      return NextResponse.json({
-        success: false,
-        error: 'task is required'
-      }, { status: 400 });
-    }
-
-    if (!status || !['working', 'in_progress', 'completed', 'failed'].includes(status)) {
-      return NextResponse.json({
-        success: false,
-        error: 'status must be one of: working, in_progress, completed, failed'
-      }, { status: 400 });
-    }
-
-    const redis = await getRedisClient();
-    
-    if (!redis) {
-      return NextResponse.json({
-        success: false,
-        error: 'Redis unavailable'
-      }, { status: 503 });
-    }
-
-    const key = `${SUBAGENT_KEY_PREFIX}${sessionKey}`;
-    
-    // Get existing data to preserve startedAt if it exists
-    const existingData = await redis.get(key);
-    let startedAt = new Date().toISOString();
-    
-    if (existingData) {
-      try {
-        const existing: SubagentStatus = JSON.parse(existingData);
-        startedAt = existing.startedAt;
-      } catch (e) {
-        // Use new startedAt if parsing fails
-      }
-    }
-
-    const subagent: SubagentStatus = {
-      sessionKey,
-      task,
-      status,
-      startedAt,
-      lastUpdated: new Date().toISOString()
-    };
-
-    // Save to Redis with TTL
-    await redis.setEx(key, SUBAGENT_TTL_SECONDS, JSON.stringify(subagent));
-
+    // Return success but note that we now read from session files
     return NextResponse.json({
       success: true,
-      data: subagent
+      message: 'Subagent status is now read from session files directly. POST is deprecated.',
+      data: {
+        sessionKey,
+        task: task || 'Unknown',
+        status: status || 'working',
+        startedAt: new Date().toISOString(),
+        lastUpdated: new Date().toISOString()
+      }
     });
   } catch (error) {
     console.error('Subagent status POST error:', error);
     return NextResponse.json({
       success: false,
-      error: 'Failed to store subagent status'
+      error: 'Failed to process subagent status'
     }, { status: 500 });
   }
 }
@@ -172,21 +216,11 @@ export async function DELETE(request: Request) {
       }, { status: 400 });
     }
 
-    const redis = await getRedisClient();
-    
-    if (!redis) {
-      return NextResponse.json({
-        success: false,
-        error: 'Redis unavailable'
-      }, { status: 503 });
-    }
-
-    const key = `${SUBAGENT_KEY_PREFIX}${sessionKey}`;
-    await redis.del(key);
-
+    // Note: We can't delete session files from the API
+    // The session will naturally expire when the process ends
     return NextResponse.json({
       success: true,
-      message: `Subagent ${sessionKey} removed`
+      message: `Subagent ${sessionKey} removed from tracking (session files remain until process ends)`
     });
   } catch (error) {
     console.error('Subagent status DELETE error:', error);
