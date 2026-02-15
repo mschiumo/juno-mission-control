@@ -3,6 +3,33 @@
 import { useState, useEffect } from 'react';
 import { Moon, Check, X, Save, TrendingUp, Calendar, StickyNote } from 'lucide-react';
 
+// Utility function to truncate text for mobile
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return isMobile;
+}
+
+function truncateForMobile(text: string, isMobile: boolean): string {
+  if (!isMobile) return text;
+  // Truncate to first word for mobile
+  const firstWord = text.split(' ')[0];
+  // If first word is still too long, add ellipsis
+  if (firstWord.length > 10) {
+    return firstWord.slice(0, 10) + '...';
+  }
+  return firstWord;
+}
+
 interface Question {
   id: string;
   question: string;
@@ -44,6 +71,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState('checkin');
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (isOpen) {
@@ -204,37 +232,37 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                     key={q.id}
                     className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#484f58] transition-colors"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-white font-medium">{q.question}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium truncate">{truncateForMobile(q.question, isMobile)}</p>
                         <span className={`text-xs uppercase tracking-wider ${getCategoryColor(q.category)}`}>
                           {q.category}
                         </span>
                       </div>
                       
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-shrink-0">
                         <button
                           onClick={() => handleResponse(q.id, true)}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all ${
                             responses[q.id] === true
                               ? 'bg-[#238636] text-white'
                               : 'bg-[#21262d] text-[#8b949e] hover:bg-[#30363d]'
                           }`}
                         >
                           <Check className="w-4 h-4" />
-                          Yes
+                          <span className="hidden sm:inline">Yes</span>
                         </button>
                         
                         <button
                           onClick={() => handleResponse(q.id, false)}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all ${
                             responses[q.id] === false
                               ? 'bg-[#da3633] text-white'
                               : 'bg-[#21262d] text-[#8b949e] hover:bg-[#30363d]'
                           }`}
                         >
                           <X className="w-4 h-4" />
-                          No
+                          <span className="hidden sm:inline">No</span>
                         </button>
                       </div>
                     </div>
@@ -314,20 +342,20 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                   {data?.questions.map((q) => {
                     const stat = data?.stats.byQuestion?.[q.id];
                     if (!stat) return null;
-                    
+
                     return (
-                      <div key={q.id} className="flex items-center gap-4">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-white truncate">{q.question}</p>
+                      <div key={q.id} className="flex items-center gap-3 sm:gap-4">
+                        <div className="flex-1 min-w-0" title={q.question}>
+                          <p className="text-sm text-white truncate">{truncateForMobile(q.question, isMobile)}</p>
                         </div>
-                        <div className="flex items-center gap-3 w-48">
+                        <div className="flex items-center gap-2 sm:gap-3 w-32 sm:w-48 flex-shrink-0">
                           <div className="flex-1 h-2 bg-[#21262d] rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className="h-full bg-[#238636] rounded-full"
                               style={{ width: `${stat.rate}%` }}
                             />
                           </div>
-                          <span className="text-xs text-[#8b949e] w-16 text-right">
+                          <span className="text-xs text-[#8b949e] w-12 sm:w-16 text-right">
                             {stat.yes}/{stat.yes + stat.no}
                           </span>
                         </div>
