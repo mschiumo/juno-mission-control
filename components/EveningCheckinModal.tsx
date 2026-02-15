@@ -85,8 +85,11 @@ export default function EveningCheckinModal({ isOpen, onClose }: EveningCheckinM
       
       if (response.ok) {
         setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
         fetchData(); // Refresh stats
+        setTimeout(() => {
+          setSaved(false);
+          onClose(); // Close the modal
+        }, 1500);
       }
     } catch (error) {
       console.error('Failed to save checkin:', error);
