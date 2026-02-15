@@ -480,9 +480,10 @@ export default function GoalsCard() {
           
           <button
             onClick={(e) => { e.stopPropagation(); openActionItems(goal); }}
-            className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+            className="flex items-center gap-1 text-[10px] px-2.5 py-1.5 min-h-[32px] bg-purple-500/20 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors"
           >
-            Action Items →
+            Action Items
+            <span className="text-purple-300">→</span>
           </button>
         </div>
         
