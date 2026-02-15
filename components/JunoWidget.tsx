@@ -21,6 +21,8 @@ export default function JunoWidget() {
     // Initialize lastActivity on client side only
     setStatus(prev => ({ ...prev, lastActivity: Date.now() }));
   }, []);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
       const timeSinceActivity = now - status.lastActivity;

@@ -36,14 +36,17 @@ export default function NotificationsBell() {
   };
 
   useEffect(() => {
-    // Use requestAnimationFrame to avoid setState in render warning
-    requestAnimationFrame(() => {
-      setMounted(true);
-    });
-    fetchNotifications();
+    setMounted(true);
+    // Small delay to avoid setState warning
+    const timeout = setTimeout(() => {
+      fetchNotifications();
+    }, 0);
     // Poll every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
   }, []);
 
   // Close dropdown when clicking outside
