@@ -51,8 +51,12 @@ async function getAccessToken(): Promise<string | null> {
       hasClientId: !!clientId,
       hasClientSecret: !!clientSecret,
       hasRefreshToken: !!refreshToken,
+      clientIdValue: clientId,
+      clientSecretLength: clientSecret?.length,
+      refreshTokenLength: refreshToken?.length,
     });
-    return null;
+    // DEBUG: Return detailed error instead of null
+    throw new Error(`Missing credentials: clientId=${!!clientId}, secret=${!!clientSecret}, refresh=${!!refreshToken}`);
   }
 
   try {
