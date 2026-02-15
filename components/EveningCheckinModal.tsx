@@ -36,7 +36,7 @@ export default function EveningCheckinModal({ isOpen, onClose }: EveningCheckinM
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState<'checkin' | 'stats'>('checkin');
+  const [activeTab, setActiveTab] = useState('checkin');
 
   useEffect(() => {
     if (isOpen) {
