@@ -117,6 +117,15 @@ export default function NotificationsBell() {
     return `${days} days ago`;
   };
 
+  const isValidUrl = (str: string) => {
+    try {
+      new URL(str);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   // Prevent hydration mismatch - don't render until mounted
   if (!mounted) {
     return (
@@ -206,7 +215,7 @@ export default function NotificationsBell() {
                           {formatTime(notification.createdAt)}
                         </span>
                         
-                        {notification.action && (
+                        {notification.action && isValidUrl(notification.action) && (
                           <a
                             href={notification.action}
                             className="flex items-center gap-1 text-xs text-[#58a6ff] hover:underline"
@@ -214,6 +223,15 @@ export default function NotificationsBell() {
                             rel="noopener noreferrer"
                           >
                             View
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                        {notification.action && !isValidUrl(notification.action) && (
+                          <a
+                            href="https://juno-mission-control.vercel.app"
+                            className="flex items-center gap-1 text-xs text-[#58a6ff] hover:underline"
+                          >
+                            Open Dashboard
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         )}
