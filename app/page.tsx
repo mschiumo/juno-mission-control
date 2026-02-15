@@ -154,8 +154,8 @@ function DashboardContent() {
             <MotivationalBanner compact variant="orange" />
             <EveningCheckinReminder />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
-              <DailyReportsCard />
               <HabitCard />
+              <DailyReportsCard />
             </div>
           </div>
         ) : activeTab === 'tasks' ? (
