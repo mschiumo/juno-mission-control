@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Clock, CheckCircle, AlertCircle, FileText, X, Eye, RefreshCw } from 'lucide-react';
+import { parseExpression } from 'cron-parser';
 
 interface CronJob {
   id: string;
@@ -120,71 +121,17 @@ export default function DailyReportsCard() {
   };
 
   const getNextRunDate = (schedule: string): Date | null => {
-    // Parse cron schedule and calculate next run
-    const now = new Date();
-    const estNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    
-    // Simple parsing for common schedules
-    if (schedule === '0 23 * * *') {
-      // Daily at 11 PM
-      const next = new Date(estNow);
-      next.setHours(23, 0, 0, 0);
-      if (estNow > next) next.setDate(next.getDate() + 1);
-      return next;
+    try {
+      // Use cron-parser to handle any cron expression
+      const interval = parseExpression(schedule, {
+        tz: 'America/New_York',
+        currentDate: new Date()
+      });
+      return interval.next().toDate();
+    } catch (error) {
+      console.error('Failed to parse cron schedule:', schedule, error);
+      return null;
     }
-    if (schedule === '0 20 * * *') {
-      // Daily at 8 PM
-      const next = new Date(estNow);
-      next.setHours(20, 0, 0, 0);
-      if (estNow > next) next.setDate(next.getDate() + 1);
-      return next;
-    }
-    if (schedule === '0 0 * * 0-4') {
-      // Weekdays at 12 AM
-      const next = new Date(estNow);
-      next.setHours(0, 0, 0, 0);
-      if (estNow > next || next.getDay() > 4) {
-        // Find next weekday
-        do {
-          next.setDate(next.getDate() + 1);
-        } while (next.getDay() > 4);
-      }
-      return next;
-    }
-    if (schedule === '0 3 * * 0-4') {
-      // Weekdays at 3 AM
-      const next = new Date(estNow);
-      next.setHours(3, 0, 0, 0);
-      if (estNow > next || next.getDay() > 4) {
-        do {
-          next.setDate(next.getDate() + 1);
-        } while (next.getDay() > 4);
-      }
-      return next;
-    }
-    if (schedule === '0 13 * * 0-4') {
-      // Weekdays at 1 PM UTC = 8 AM EST
-      const next = new Date(estNow);
-      next.setHours(8, 0, 0, 0);
-      if (estNow > next || next.getDay() > 4 || next.getDay() === 0) {
-        do {
-          next.setDate(next.getDate() + 1);
-        } while (next.getDay() > 5 || next.getDay() === 0);
-      }
-      return next;
-    }
-    if (schedule === '30 21 * * 0-4') {
-      // Weekdays at 9:30 PM UTC = 4:30 PM EST
-      const next = new Date(estNow);
-      next.setHours(16, 30, 0, 0);
-      if (estNow > next || next.getDay() > 4 || next.getDay() === 0) {
-        do {
-          next.setDate(next.getDate() + 1);
-        } while (next.getDay() > 5 || next.getDay() === 0);
-      }
-      return next;
-    }
-    return null;
   };
 
   const formatDateTime = (date: Date): string => {

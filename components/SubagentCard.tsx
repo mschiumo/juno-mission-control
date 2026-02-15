@@ -19,8 +19,8 @@ export default function SubagentCard() {
 
   useEffect(() => {
     fetchSubagents();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchSubagents, 30000);
+    // Refresh every 10 seconds for near real-time updates
+    const interval = setInterval(fetchSubagents, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -158,9 +158,14 @@ export default function SubagentCard() {
                 )}
               </p>
               {lastUpdated && !loading && (
-                <span className="text-[10px] text-[#238636]">
-                  updated {formatLastUpdated()}
-                </span>
+                <>
+                  <span className="text-[10px] text-[#238636]">
+                    updated {formatLastUpdated()}
+                  </span>
+                  <span className="text-[10px] text-[#58a6ff] ml-1 animate-pulse">
+                    ● Live
+                  </span>
+                </>
               )}
             </div>
           </div>
@@ -248,7 +253,7 @@ export default function SubagentCard() {
       {/* Footer hint */}
       <div className="mt-3 pt-3 border-t border-[#30363d]">
         <p className="text-[10px] text-[#6e7681]">
-          Subagents auto-expire after 30 minutes of inactivity
+          Auto-refreshes every 10 seconds • Subagents expire after 30 min inactivity
         </p>
       </div>
     </div>
