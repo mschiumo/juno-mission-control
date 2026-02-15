@@ -49,13 +49,13 @@ export async function GET() {
     
     // Fetch all cron results from last 24 hours
     const stored = await redis.get(STORAGE_KEY);
-    let cronResults: Array<{ jobName?: string; timestamp: number; type?: string; content?: string }> = [];
-    
+    let cronResults: Array<{ jobName?: string; timestamp: string; type?: string; content?: string }> = [];
+
     if (stored) {
       try {
         cronResults = JSON.parse(stored);
-        // Sort by timestamp descending (newest first)
-        cronResults.sort((a, b) => b.timestamp - a.timestamp);
+        // Sort by timestamp descending (newest first) - timestamps are ISO strings
+        cronResults.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       } catch (e) {
         console.error('Failed to parse cron results:', e);
       }
