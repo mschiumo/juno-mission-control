@@ -19,6 +19,7 @@ export default function JunoWidget() {
 
   useEffect(() => {
     // Initialize lastActivity on client side only
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStatus(prev => ({ ...prev, lastActivity: Date.now() }));
   }, []);
 

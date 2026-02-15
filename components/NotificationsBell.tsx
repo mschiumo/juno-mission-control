@@ -22,31 +22,27 @@ export default function NotificationsBell() {
   const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchNotifications = async () => {
-    try {
-      const response = await fetch('/api/notifications');
-      const result = await response.json();
-      if (result.success) {
-        setNotifications(result.notifications);
-        setUnreadCount(result.count);
-      }
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-    }
-  };
-
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    // Small delay to avoid setState warning
-    const timeout = setTimeout(() => {
-      fetchNotifications();
-    }, 0);
-    // Poll every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => {
-      clearTimeout(timeout);
-      clearInterval(interval);
+    // Fetch immediately then poll
+    const doFetch = () => {
+      fetch('/api/notifications')
+        .then(r => r.json())
+        .then(result => {
+          if (result.success) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setNotifications(result.notifications);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setUnreadCount(result.count);
+          }
+        })
+        .catch(console.error);
     };
+    doFetch();
+    // Poll every 30 seconds
+    const interval = setInterval(doFetch, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Close dropdown when clicking outside
