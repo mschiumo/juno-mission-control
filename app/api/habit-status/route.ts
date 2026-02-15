@@ -70,25 +70,27 @@ interface HabitData {
   completedToday: boolean;
   streak: number;
   history: boolean[]; // Last 7 days (oldest to newest)
+  order: number;
 }
 
 // Initialize or shift history for a new day
 function initializeHabits(previousData: HabitData[] | null): HabitData[] {
   if (!previousData) {
-    // First time - create fresh habits
-    return DEFAULT_HABITS.map(h => ({
+    // First time - create fresh habits with order
+    return DEFAULT_HABITS.map((h, index) => ({
       ...h,
       completedToday: false,
       streak: 0,
-      history: [false, false, false, false, false, false, false]
+      history: [false, false, false, false, false, false, false],
+      order: index
     }));
   }
-  
+
   // Shift history: drop oldest, add yesterday's completion as newest
   return previousData.map(h => {
     const yesterdayCompleted = h.completedToday;
     const newHistory = [...h.history.slice(1), yesterdayCompleted];
-    
+
     // Calculate streak
     let streak = h.streak;
     if (yesterdayCompleted) {
@@ -96,7 +98,7 @@ function initializeHabits(previousData: HabitData[] | null): HabitData[] {
     } else {
       streak = 0; // Reset streak if missed yesterday
     }
-    
+
     return {
       ...h,
       completedToday: false, // Reset for new day
@@ -142,19 +144,22 @@ export async function GET() {
       }));
     }
     
+    // Sort habits by order
+    habits.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
     // Calculate stats from history
     const completedToday = habits.filter(h => h.completedToday).length;
     const totalHabits = habits.length;
     const longestStreak = Math.max(...habits.map(h => h.streak), 0);
-    
+
     // Weekly completion: sum of all history completions / (habits * 7 days)
-    const totalCompletions = habits.reduce((acc, h) => 
+    const totalCompletions = habits.reduce((acc, h) =>
       acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
     );
     const weeklyCompletion = Math.round((totalCompletions / (totalHabits * 7)) * 100);
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: {
         habits,
         stats: {
@@ -283,7 +288,8 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
     }
     
-    // Create new habit
+    // Create new habit with order at the end
+    const maxOrder = habits.length > 0 ? Math.max(...habits.map(h => h.order ?? 0)) : -1;
     const newHabit: HabitData = {
       id: `habit_${Date.now()}`,
       name,
@@ -292,7 +298,8 @@ export async function PUT(request: Request) {
       category: category || 'other',
       completedToday: false,
       streak: 0,
-      history: [false, false, false, false, false, false, false]
+      history: [false, false, false, false, false, false, false],
+      order: maxOrder + 1
     };
     
     habits.push(newHabit);
@@ -357,29 +364,102 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, error: 'Habit not found' }, { status: 404 });
     }
     
+    // Reorder remaining habits
+    const reorderedHabits = filteredHabits
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((h, index) => ({ ...h, order: index }));
+    
     // Save back to Redis
-    await redis.set(storageKey, JSON.stringify(filteredHabits));
+    await redis.set(storageKey, JSON.stringify(reorderedHabits));
     
     // Recalculate stats
-    const completedToday = filteredHabits.filter(h => h.completedToday).length;
-    const totalCompletions = filteredHabits.reduce((acc, h) => 
+    const completedToday = reorderedHabits.filter(h => h.completedToday).length;
+    const totalCompletions = reorderedHabits.reduce((acc, h) => 
       acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
     );
     
     return NextResponse.json({
       success: true,
       data: {
-        habits: filteredHabits,
+        habits: reorderedHabits,
         stats: {
-          totalHabits: filteredHabits.length,
+          totalHabits: reorderedHabits.length,
           completedToday,
-          longestStreak: Math.max(...filteredHabits.map(h => h.streak), 0),
-          weeklyCompletion: filteredHabits.length > 0 ? Math.round((totalCompletions / (filteredHabits.length * 7)) * 100) : 0
+          longestStreak: Math.max(...reorderedHabits.map(h => h.streak), 0),
+          weeklyCompletion: reorderedHabits.length > 0 ? Math.round((totalCompletions / (reorderedHabits.length * 7)) * 100) : 0
         }
       }
     });
   } catch (error) {
     console.error('Habit delete error:', error);
     return NextResponse.json({ success: false, error: 'Failed to delete habit' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { habitIds } = body;
+    
+    if (!habitIds || !Array.isArray(habitIds)) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'habitIds array is required' 
+      }, { status: 400 });
+    }
+
+    const redis = await getRedisClient();
+    const today = getToday();
+    const storageKey = getStorageKey(today);
+    
+    // Load current habits
+    let habits: HabitData[];
+    if (redis) {
+      const stored = await redis.get(storageKey);
+      if (stored) {
+        habits = JSON.parse(stored);
+      } else {
+        return NextResponse.json({ success: false, error: 'No habits found' }, { status: 404 });
+      }
+    } else {
+      return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
+    }
+    
+    // Update order based on the new habitIds array
+    const updatedHabits = habits.map(habit => {
+      const newIndex = habitIds.indexOf(habit.id);
+      if (newIndex !== -1) {
+        return { ...habit, order: newIndex };
+      }
+      return habit;
+    });
+    
+    // Sort by the new order
+    updatedHabits.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    
+    // Save back to Redis
+    await redis.set(storageKey, JSON.stringify(updatedHabits));
+    
+    // Recalculate stats
+    const completedToday = updatedHabits.filter(h => h.completedToday).length;
+    const totalCompletions = updatedHabits.reduce((acc, h) => 
+      acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
+    );
+    
+    return NextResponse.json({
+      success: true,
+      data: {
+        habits: updatedHabits,
+        stats: {
+          totalHabits: updatedHabits.length,
+          completedToday,
+          longestStreak: Math.max(...updatedHabits.map(h => h.streak), 0),
+          weeklyCompletion: Math.round((totalCompletions / (updatedHabits.length * 7)) * 100)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Habit reorder error:', error);
+    return NextResponse.json({ success: false, error: 'Failed to reorder habits' }, { status: 500 });
   }
 }

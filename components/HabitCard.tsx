@@ -1,8 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, Moon } from 'lucide-react';
+import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, Moon, GripVertical } from 'lucide-react';
 import EveningCheckinModal from './EveningCheckinModal';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Habit {
   id: string;
@@ -13,6 +31,7 @@ interface Habit {
   target: string;
   category: string;
   history: boolean[];
+  order: number;
 }
 
 interface HabitStats {
@@ -23,6 +42,102 @@ interface HabitStats {
 }
 
 const EMOJI_OPTIONS = ['💪', '🏃', '📚', '💧', '🧘', '🛏️', '💊', '📝', '📊', '🎯', '🔥', '⭐', '🌟', '✨', '🎨', '🎵', '🌱', '☀️', '🌙', '🍎', '🥗', '💤', '🧠', '❤️', '🌈'];
+
+// Sortable habit item component
+interface SortableHabitItemProps {
+  habit: Habit;
+  onToggle: (habitId: string) => void;
+  onDelete: (habitId: string) => void;
+  dayLabels: string[];
+}
+
+function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHabitItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: habit.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`p-3 rounded-lg border transition-all ${
+        habit.completedToday
+          ? 'bg-[#238636]/10 border-[#238636]/30'
+          : 'bg-[#0d1117] border-[#30363d] hover:border-[#ff6b35]/50'
+      } ${isDragging ? 'shadow-lg ring-2 ring-[#ff6b35]/50' : ''}`}
+    >
+      <div className="flex items-center gap-3">
+        <button
+          {...attributes}
+          {...listeners}
+          className="p-1 hover:bg-[#30363d] rounded cursor-grab active:cursor-grabbing touch-none"
+          title="Drag to reorder"
+        >
+          <GripVertical className="w-4 h-4 text-[#8b949e]" />
+        </button>
+
+        <button
+          onClick={() => onToggle(habit.id)}
+          className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center ${
+            habit.completedToday
+              ? 'bg-[#238636] border-[#238636]'
+              : 'border-[#8b949e] hover:border-[#ff6b35]'
+          }`}
+        >
+          {habit.completedToday && <Check className="w-4 h-4 text-white" />}
+        </button>
+
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="flex items-center gap-2">
+            <span className="text-lg flex-shrink-0">{habit.icon}</span>
+            <span className={`font-medium break-words ${habit.completedToday ? 'text-[#8b949e] line-through' : 'text-white'}`}>
+              {habit.name}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-1">
+              <Flame className={`w-3 h-3 ${habit.streak > 0 ? 'text-[#ff6b35]' : 'text-[#8b949e]'}`} />
+              <span className={`text-xs ${habit.streak > 0 ? 'text-[#ff6b35]' : 'text-[#8b949e]'}`}>
+                {habit.streak} day{habit.streak !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <span className="text-xs text-[#8b949e]">{habit.target}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            {habit.history.map((completed, idx) => (
+              <div
+                key={idx}
+                className={`w-2 h-2 rounded-full ${completed ? 'bg-[#238636]' : 'bg-[#30363d]'}`}
+                title={dayLabels[idx]}
+              />
+            ))}
+          </div>
+          <button
+            onClick={() => onDelete(habit.id)}
+            className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors"
+            title="Delete habit"
+          >
+            <Trash2 className="w-4 h-4 text-[#8b949e] hover:text-[#da3633]" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function HabitCard() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -42,6 +157,24 @@ export default function HabitCard() {
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitIcon, setNewHabitIcon] = useState('⭐');
   const [newHabitTarget, setNewHabitTarget] = useState('Daily');
+
+  // Sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     fetchHabits();
@@ -63,6 +196,30 @@ export default function HabitCard() {
       console.error('Failed to fetch habits:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setHabits((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        
+        // Save the new order to the server
+        const habitIds = newItems.map(h => h.id);
+        fetch('/api/habit-status', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ habitIds })
+        }).catch(error => {
+          console.error('Failed to save habit order:', error);
+        });
+        
+        return newItems;
+      });
     }
   };
 
@@ -271,88 +428,48 @@ export default function HabitCard() {
         </div>
       )}
 
-      {/* Habits List - Flat */}
-      <div className="space-y-3">
-        {loading && habits.length === 0 ? (
-          <div className="text-center py-8 text-[#8b949e]">
-            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
-            <p>Loading habits...</p>
-          </div>
-        ) : habits.length === 0 ? (
-          <div className="text-center py-10">
-            <Activity className="w-12 h-12 mx-auto mb-3 text-[#8b949e] opacity-50" />
-            <p className="text-[#8b949e] mb-2">No habits configured</p>
-            <button 
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#ff6b35]/10 text-[#ff6b35] rounded-lg text-sm hover:bg-[#ff6b35]/20 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Add Your First Habit
-            </button>
-          </div>
-        ) : (
-          habits.map((habit) => (
-            <div
-              key={habit.id}
-              className={`p-3 rounded-lg border transition-all ${
-                habit.completedToday
-                  ? 'bg-[#238636]/10 border-[#238636]/30'
-                  : 'bg-[#0d1117] border-[#30363d] hover:border-[#ff6b35]/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => toggleHabit(habit.id)}
-                  className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center ${
-                    habit.completedToday
-                      ? 'bg-[#238636] border-[#238636]'
-                      : 'border-[#8b949e] hover:border-[#ff6b35]'
-                  }`}
-                >
-                  {habit.completedToday && <Check className="w-4 h-4 text-white" />}
-                </button>
-
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg flex-shrink-0">{habit.icon}</span>
-                    <span className={`font-medium break-words ${habit.completedToday ? 'text-[#8b949e] line-through' : 'text-white'}`}>
-                      {habit.name}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 mt-1">
-                    <div className="flex items-center gap-1">
-                      <Flame className={`w-3 h-3 ${habit.streak > 0 ? 'text-[#ff6b35]' : 'text-[#8b949e]'}`} />
-                      <span className={`text-xs ${habit.streak > 0 ? 'text-[#ff6b35]' : 'text-[#8b949e]'}`}>
-                        {habit.streak} day{habit.streak !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    <span className="text-xs text-[#8b949e]">{habit.target}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    {habit.history.map((completed, idx) => (
-                      <div
-                        key={idx}
-                        className={`w-2 h-2 rounded-full ${completed ? 'bg-[#238636]' : 'bg-[#30363d]'}`}
-                        title={dayLabels[idx]}
-                      />
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => deleteHabit(habit.id)}
-                    className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors"
-                    title="Delete habit"
-                  >
-                    <Trash2 className="w-4 h-4 text-[#8b949e] hover:text-[#da3633]" />
-                  </button>
-                </div>
-              </div>
+      {/* Habits List - Draggable */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="space-y-3">
+          {loading && habits.length === 0 ? (
+            <div className="text-center py-8 text-[#8b949e]">
+              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
+              <p>Loading habits...</p>
             </div>
-          ))
-        )}
-      </div>
+          ) : habits.length === 0 ? (
+            <div className="text-center py-10">
+              <Activity className="w-12 h-12 mx-auto mb-3 text-[#8b949e] opacity-50" />
+              <p className="text-[#8b949e] mb-2">No habits configured</p>
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#ff6b35]/10 text-[#ff6b35] rounded-lg text-sm hover:bg-[#ff6b35]/20 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Your First Habit
+              </button>
+            </div>
+          ) : (
+            <SortableContext 
+              items={habits.map(h => h.id)} 
+              strategy={verticalListSortingStrategy}
+            >
+              {habits.map((habit) => (
+                <SortableHabitItem
+                  key={habit.id}
+                  habit={habit}
+                  onToggle={toggleHabit}
+                  onDelete={deleteHabit}
+                  dayLabels={dayLabels}
+                />
+              ))}
+            </SortableContext>
+          )}
+        </div>
+      </DndContext>
       
       {/* Legend */}
       {habits.length > 0 && !loading && (
