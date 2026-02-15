@@ -136,14 +136,21 @@ export default function DailyReportsCard() {
 
   const formatDateTime = (date: Date): string => {
     // Format as "MM/DD @ H:MM AM/PM" in EST
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    let hours = date.getHours();
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12; // the hour '0' should be '12'
-    return `${month}/${day} @ ${hours}:${minutes} ${ampm}`;
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      month: '2-digit',
+      day: '2-digit',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    const parts = formatter.formatToParts(date);
+    const month = parts.find(p => p.type === 'month')?.value || '01';
+    const day = parts.find(p => p.type === 'day')?.value || '01';
+    const hour = parts.find(p => p.type === 'hour')?.value || '12';
+    const minute = parts.find(p => p.type === 'minute')?.value || '00';
+    const dayPeriod = parts.find(p => p.type === 'dayPeriod')?.value || 'AM';
+    return `${month}/${day} @ ${hour}:${minute} ${dayPeriod}`;
   };
 
   const getNextScheduledTime = (schedule: string): string => {
