@@ -77,11 +77,11 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHab
           : 'bg-[#0d1117] border-[#30363d] hover:border-[#ff6b35]/50'
       } ${isDragging ? 'shadow-lg ring-2 ring-[#ff6b35]/50' : ''}`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <button
           {...attributes}
           {...listeners}
-          className="p-1 hover:bg-[#30363d] rounded cursor-grab active:cursor-grabbing touch-none"
+          className="p-1 hover:bg-[#30363d] rounded cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
           title="Drag to reorder"
         >
           <GripVertical className="w-4 h-4 text-[#8b949e]" />
@@ -98,26 +98,26 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHab
           {habit.completedToday && <Check className="w-4 h-4 text-white" />}
         </button>
 
-        <div className="flex-1 min-w-0 overflow-hidden">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-lg flex-shrink-0">{habit.icon}</span>
-            <span className={`font-medium break-words ${habit.completedToday ? 'text-[#8b949e] line-through' : 'text-white'}`}>
+            <span className={`font-medium truncate ${habit.completedToday ? 'text-[#8b949e] line-through' : 'text-white'}`}>
               {habit.name}
             </span>
           </div>
-          <div className="flex items-center gap-3 mt-1">
-            <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <Flame className={`w-3 h-3 ${habit.streak > 0 ? 'text-[#ff6b35]' : 'text-[#8b949e]'}`} />
               <span className={`text-xs ${habit.streak > 0 ? 'text-[#ff6b35]' : 'text-[#8b949e]'}`}>
                 {habit.streak} day{habit.streak !== 1 ? 's' : ''}
               </span>
             </div>
-            <span className="text-xs text-[#8b949e]">{habit.target}</span>
+            <span className="text-xs text-[#8b949e] truncate">{habit.target}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          <div className="hidden sm:flex items-center gap-1">
             {habit.history.map((completed, idx) => (
               <div
                 key={idx}
@@ -474,7 +474,7 @@ export default function HabitCard() {
       {/* Legend */}
       {habits.length > 0 && !loading && (
         <div className="mt-4 pt-3 border-t border-[#30363d]">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-3">
               <span className="text-[10px] text-[#8b949e] uppercase">Last 7 Days</span>
               <div className="flex items-center gap-1">
