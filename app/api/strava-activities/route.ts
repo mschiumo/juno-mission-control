@@ -97,13 +97,23 @@ function getRelativeTime(dateString: string): string {
 }
 
 export async function GET(request: Request) {
+  console.log('[StravaActivities] GET request received');
+  
   try {
     // Check if Strava is configured
+    console.log('[StravaActivities] Checking Strava configuration...');
+    
     const hasStravaConfig = process.env.STRAVA_CLIENT_ID && 
                            process.env.STRAVA_CLIENT_SECRET && 
                            process.env.STRAVA_REFRESH_TOKEN;
     
+    console.log('[StravaActivities] STRAVA_CLIENT_ID available:', !!process.env.STRAVA_CLIENT_ID);
+    console.log('[StravaActivities] STRAVA_CLIENT_SECRET available:', !!process.env.STRAVA_CLIENT_SECRET);
+    console.log('[StravaActivities] STRAVA_REFRESH_TOKEN available:', !!process.env.STRAVA_REFRESH_TOKEN);
+    console.log('[StravaActivities] Has full Strava config:', !!hasStravaConfig);
+    
     if (!hasStravaConfig) {
+      console.log('[StravaActivities] Strava not configured - returning 503');
       return NextResponse.json({
         success: false,
         error: 'Strava not configured',
@@ -114,9 +124,12 @@ export async function GET(request: Request) {
     }
 
     // Get a valid access token (will refresh if needed)
+    console.log('[StravaActivities] Calling getValidAccessToken()...');
     const accessToken = await getValidAccessToken();
+    console.log('[StravaActivities] getValidAccessToken() result:', accessToken ? 'SUCCESS (token obtained)' : 'FAILED (null)');
     
     if (!accessToken) {
+      console.error('[StravaActivities] Unable to obtain valid Strava access token');
       return NextResponse.json({
         success: false,
         error: 'Authentication failed',
@@ -125,33 +138,40 @@ export async function GET(request: Request) {
         stats: null
       }, { status: 401 });
     }
+    
+    console.log('[StravaActivities] Access token obtained (first 10 chars):', accessToken.substring(0, 10) + '...');
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '10', 10);
     const days = parseInt(searchParams.get('days') || '30', 10);
     
+    console.log('[StravaActivities] Query params - limit:', limit, 'days:', days);
+    
     // Calculate after timestamp (activities after this date)
     const afterTimestamp = Math.floor(Date.now() / 1000) - (days * 24 * 60 * 60);
+    console.log('[StravaActivities] After timestamp:', afterTimestamp);
 
     // Fetch activities from Strava API
-    console.log(`Fetching Strava activities (limit: ${limit}, days: ${days})...`);
+    const apiUrl = `https://www.strava.com/api/v3/athlete/activities?after=${afterTimestamp}&per_page=${limit}`;
+    console.log('[StravaActivities] Fetching from Strava API:', apiUrl);
     
-    const response = await fetch(
-      `https://www.strava.com/api/v3/athlete/activities?after=${afterTimestamp}&per_page=${limit}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      }
-    );
+    const response = await fetch(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    console.log('[StravaActivities] Strava API response status:', response.status);
+    console.log('[StravaActivities] Strava API response OK:', response.ok);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Strava API error:', response.status, errorText);
+      console.error('[StravaActivities] Strava API error:', response.status, errorText);
       
       // Handle specific error cases
       if (response.status === 401) {
+        console.error('[StravaActivities] Got 401 from Strava API - token may be invalid');
         return NextResponse.json({
           success: false,
           error: 'Authentication expired',
@@ -171,6 +191,7 @@ export async function GET(request: Request) {
     }
 
     const activities: StravaActivity[] = await response.json();
+    console.log('[StravaActivities] Activities fetched:', activities.length);
     
     // Transform activities to our format
     const formattedActivities: ActivitySummary[] = activities.map(activity => ({
@@ -210,6 +231,8 @@ export async function GET(request: Request) {
       byType[activity.type] = (byType[activity.type] || 0) + 1;
     });
 
+    console.log('[StravaActivities] Success - returning', formattedActivities.length, 'activities');
+
     return NextResponse.json({
       success: true,
       activities: formattedActivities,
@@ -221,7 +244,10 @@ export async function GET(request: Request) {
     });
 
   } catch (error) {
-    console.error('Strava activities API error:', error);
+    console.error('[StravaActivities] API error:', error instanceof Error ? error.message : error);
+    console.error('[StravaActivities] Error details:', error);
+    console.error('[StravaActivities] Stack trace:', error instanceof Error ? error.stack : 'No stack');
+    
     return NextResponse.json({
       success: false,
       error: 'Internal server error',

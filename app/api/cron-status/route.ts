@@ -4,20 +4,22 @@ import { createClient } from 'redis';
 const STORAGE_KEY = 'cron_results';
 
 // Cron job definitions with their schedules - sorted chronologically (earliest to latest)
+// schedule: human-readable display format
+// cronExpression: standard cron format for parsing (minute hour day month dayOfWeek)
 const CRON_JOBS = [
-  { id: 'london-session', name: 'London Session Update', schedule: '3:00 AM EST', frequency: 'Sun-Thu', status: 'active' },
-  { id: 'motivational', name: 'Daily Motivational Message', schedule: '7:00 AM EST', frequency: 'Daily', status: 'active' },
-  { id: 'morning-wake', name: 'Morning Wake-up Check', schedule: '7:30 AM EST', frequency: 'Daily', status: 'active' },
-  { id: 'market-brief', name: 'Morning Market Briefing', schedule: '8:00 AM EST', frequency: 'Daily', status: 'active' },
-  { id: 'gap-monday-test', name: 'Gap Scanner Monday Test', schedule: 'Monday 9:05 AM EST', frequency: 'Weekly', status: 'active' },
-  { id: 'mid-day-check', name: 'Mid-Day Trading Check-in', schedule: '12:30 PM EST', frequency: 'Daily', status: 'active' },
-  { id: 'market-close', name: 'Market Close Report', schedule: '5:00 PM EST', frequency: 'Sun-Thu', status: 'active' },
-  { id: 'post-market', name: 'Post-Market Trading Review', schedule: '5:00 PM EST', frequency: 'Sun-Thu', status: 'active' },
-  { id: 'asia-session', name: 'Asia Session Update', schedule: '7:00 PM EST', frequency: 'Sun-Thu', status: 'active' },
-  { id: 'weekly-review', name: 'Weekly Habit Review', schedule: 'Friday 7:00 PM EST', frequency: 'Weekly', status: 'active' },
-  { id: 'task-approval', name: 'Nightly Task Approval', schedule: '10:00 PM EST', frequency: 'Daily', status: 'active' },
-  { id: 'token-summary', name: 'Daily Token Usage Summary', schedule: '11:00 PM EST', frequency: 'Daily', status: 'active' },
-  { id: 'pr-monitor', name: 'GitHub PR Monitor', schedule: 'Every 10 min', frequency: 'Continuous', status: 'disabled' },
+  { id: 'london-session', name: 'London Session Update', schedule: '3:00 AM EST', cronExpression: '0 3 * * 0-4', frequency: 'Sun-Thu', status: 'active' },
+  { id: 'motivational', name: 'Daily Motivational Message', schedule: '7:00 AM EST', cronExpression: '0 7 * * *', frequency: 'Daily', status: 'active' },
+  { id: 'morning-wake', name: 'Morning Wake-up Check', schedule: '7:30 AM EST', cronExpression: '30 7 * * *', frequency: 'Daily', status: 'active' },
+  { id: 'market-brief', name: 'Morning Market Briefing', schedule: '8:00 AM EST', cronExpression: '0 8 * * *', frequency: 'Daily', status: 'active' },
+  { id: 'gap-monday-test', name: 'Gap Scanner Monday Test', schedule: 'Monday 9:05 AM EST', cronExpression: '5 9 * * 1', frequency: 'Weekly', status: 'active' },
+  { id: 'mid-day-check', name: 'Mid-Day Trading Check-in', schedule: '12:30 PM EST', cronExpression: '30 12 * * *', frequency: 'Daily', status: 'active' },
+  { id: 'market-close', name: 'Market Close Report', schedule: '5:00 PM EST', cronExpression: '0 17 * * 0-4', frequency: 'Sun-Thu', status: 'active' },
+  { id: 'post-market', name: 'Post-Market Trading Review', schedule: '5:00 PM EST', cronExpression: '0 17 * * 0-4', frequency: 'Sun-Thu', status: 'active' },
+  { id: 'asia-session', name: 'Asia Session Update', schedule: '7:00 PM EST', cronExpression: '0 19 * * 0-4', frequency: 'Sun-Thu', status: 'active' },
+  { id: 'weekly-review', name: 'Weekly Habit Review', schedule: 'Friday 7:00 PM EST', cronExpression: '0 19 * * 5', frequency: 'Weekly', status: 'active' },
+  { id: 'task-approval', name: 'Nightly Task Approval', schedule: '10:00 PM EST', cronExpression: '0 22 * * *', frequency: 'Daily', status: 'active' },
+  { id: 'token-summary', name: 'Daily Token Usage Summary', schedule: '11:00 PM EST', cronExpression: '0 23 * * *', frequency: 'Daily', status: 'active' },
+  { id: 'pr-monitor', name: 'GitHub PR Monitor', schedule: 'Every 10 min', cronExpression: '*/10 * * * *', frequency: 'Continuous', status: 'disabled' },
 ];
 
 // Map job names to cron result jobNames for matching
