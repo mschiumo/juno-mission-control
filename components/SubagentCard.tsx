@@ -79,6 +79,20 @@ export default function SubagentCard() {
     }).replace(',', ' @');
   };
 
+  const getStatusDot = (status: string) => {
+    switch (status) {
+      case 'working':
+      case 'in_progress':
+        return <span className="status-dot status-dot-blue animate-pulse" />;
+      case 'completed':
+        return <span className="status-dot status-dot-green" />;
+      case 'failed':
+        return <span className="status-dot status-dot-red" />;
+      default:
+        return <span className="status-dot" />;
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'working':
@@ -93,7 +107,7 @@ export default function SubagentCard() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case 'working':
       case 'in_progress':
@@ -135,10 +149,10 @@ export default function SubagentCard() {
   });
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="card">
+      <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#58a6ff]/10 rounded-lg">
+          <div className="p-2 bg-[#58a6ff]/10 rounded-xl">
             <Bot className="w-5 h-5 text-[#58a6ff]" />
           </div>
           <div>
@@ -146,26 +160,21 @@ export default function SubagentCard() {
             <div className="flex items-center gap-2">
               <p className="text-xs text-[#8b949e]">
                 {activeSubagents.length > 0 ? (
-                  <span className="text-[#58a6ff]">{activeSubagents.length} active</span>
+                  <span className="text-[#58a6ff] font-medium">{activeSubagents.length} active</span>
                 ) : (
                   <span>0 active</span>
                 )}
                 {completedSubagents.length > 0 && (
-                  <span className="text-[#238636] ml-1">• {completedSubagents.length} completed</span>
+                  <span className="text-[#238636] ml-2">• {completedSubagents.length} completed</span>
                 )}
                 {failedSubagents.length > 0 && (
-                  <span className="text-[#f85149] ml-1">• {failedSubagents.length} failed</span>
+                  <span className="text-[#f85149] ml-2">• {failedSubagents.length} failed</span>
                 )}
               </p>
               {lastUpdated && !loading && (
-                <>
-                  <span className="text-[10px] text-[#238636]">
-                    updated {formatLastUpdated()}
-                  </span>
-                  <span className="text-[10px] text-[#58a6ff] ml-1 animate-pulse">
-                    ● Live
-                  </span>
-                </>
+                <span className="text-[10px] text-[#238636]">
+                  updated {formatLastUpdated()}
+                </span>
               )}
             </div>
           </div>
@@ -174,21 +183,21 @@ export default function SubagentCard() {
         <button
           onClick={fetchSubagents}
           disabled={loading}
-          className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+          className="pill p-2"
           title="Refresh subagents"
         >
-          <RefreshCw className={`w-5 h-5 text-[#8b949e] hover:text-[#58a6ff] ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
-      <div className="space-y-2 max-h-[400px] overflow-y-auto">
+      <div className="space-y-3 max-h-[400px] overflow-y-auto">
         {error ? (
-          <div className="text-center py-8 text-[#f85149]">
-            <XCircle className="w-8 h-8 mx-auto mb-2" />
-            <p className="text-sm">{error}</p>
+          <div className="text-center py-8">
+            <XCircle className="w-10 h-10 mx-auto mb-3 text-[#f85149]" />
+            <p className="text-sm text-[#f85149] mb-2">{error}</p>
             <button 
               onClick={fetchSubagents}
-              className="mt-2 text-xs text-[#58a6ff] hover:underline"
+              className="pill pill-primary text-xs px-4 py-2"
             >
               Retry
             </button>
@@ -196,23 +205,23 @@ export default function SubagentCard() {
         ) : loading && subagents.length === 0 ? (
           <div className="text-center py-8 text-[#8b949e]">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-[#58a6ff]" />
-            <p>Loading subagents...</p>
+            <p className="text-sm">Loading subagents...</p>
           </div>
         ) : subagents.length === 0 ? (
-          <div className="text-center py-8 text-[#8b949e]">
-            <Bot className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>No active subagents</p>
-            <p className="text-xs mt-1">Subagents will appear here when tasks are spawned</p>
+          <div className="text-center py-10">
+            <Bot className="w-12 h-12 mx-auto mb-3 text-[#8b949e] opacity-50" />
+            <p className="text-[#8b949e] mb-1">No active subagents</p>
+            <p className="text-xs text-[#8b949e]/70">Subagents will appear here when tasks are spawned</p>
           </div>
         ) : (
           sortedSubagents.map((subagent) => (
             <div
               key={subagent.sessionKey}
-              className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d] hover:border-[#58a6ff]/30 transition-colors"
+              className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#58a6ff]/30 transition-all"
             >
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
-                  {getStatusIcon(subagent.status)}
+                  {getStatusDot(subagent.status)}
                 </div>
                 
                 <div className="flex-1 min-w-0">
@@ -220,14 +229,14 @@ export default function SubagentCard() {
                     <span className="font-medium text-white text-sm truncate">
                       {subagent.task}
                     </span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${getStatusColor(subagent.status)}`}>
+                    <span className={`text-[10px] px-2.5 py-1 rounded-full border font-medium ${getStatusBadgeClass(subagent.status)}`}>
                       {getStatusLabel(subagent.status)}
                     </span>
                   </div>
                   
-                  <div className="flex items-center gap-3 mt-2 text-[10px] text-[#8b949e]">
-                    <div className="flex items-center gap-1" title="Session ID">
-                      <span className="font-mono text-[#6e7681]">
+                  <div className="flex items-center gap-3 mt-3 text-[10px] text-[#8b949e]">
+                    <div className="flex items-center gap-1.5" title="Session ID">
+                      <span className="font-mono text-[#6e7681] bg-[#21262d] px-1.5 py-0.5 rounded">
                         {subagent.sessionKey.slice(0, 8)}...
                       </span>
                     </div>
@@ -236,8 +245,9 @@ export default function SubagentCard() {
                       <Clock className="w-3 h-3" />
                       <span>{formatTime(subagent.startedAt)}</span>
                     </div>
+                    
                     {(subagent.status === 'working' || subagent.status === 'in_progress') && (
-                      <div className="flex items-center gap-1 text-[#58a6ff]" title="Duration">
+                      <div className="flex items-center gap-1 text-[#58a6ff] font-medium" title="Duration">
                         <Activity className="w-3 h-3" />
                         <span>{formatDuration(subagent.startedAt)}</span>
                       </div>
@@ -251,7 +261,7 @@ export default function SubagentCard() {
       </div>
 
       {/* Footer hint */}
-      <div className="mt-3 pt-3 border-t border-[#30363d]">
+      <div className="mt-4 pt-4 border-t border-[#30363d]">
         <p className="text-[10px] text-[#6e7681]">
           Auto-refreshes every 10 seconds • Subagents expire after 30 min inactivity
         </p>

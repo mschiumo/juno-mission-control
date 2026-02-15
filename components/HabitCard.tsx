@@ -71,28 +71,28 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHab
     <div
       ref={setNodeRef}
       style={style}
-      className={`p-3 rounded-lg border transition-all ${
+      className={`p-4 rounded-xl border transition-all ${
         habit.completedToday
-          ? 'bg-[#238636]/10 border-[#238636]/30'
-          : 'bg-[#0d1117] border-[#30363d] hover:border-[#ff6b35]/50'
-      } ${isDragging ? 'shadow-lg ring-2 ring-[#ff6b35]/50' : ''}`}
+          ? 'bg-[#22c55e]/10 border-[#22c55e]/30'
+          : 'bg-[#0F0F0F] border-[#262626] hover:border-[#F97316]/50'
+      } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''}`}
     >
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center gap-3">
         <button
           {...attributes}
           {...listeners}
-          className="p-1 hover:bg-[#30363d] rounded cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+          className="p-1.5 hover:bg-[#262626] rounded-lg cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
           title="Drag to reorder"
         >
-          <GripVertical className="w-4 h-4 text-[#8b949e]" />
+          <GripVertical className="w-4 h-4 text-[#737373]" />
         </button>
 
         <button
           onClick={() => onToggle(habit.id)}
           className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center ${
             habit.completedToday
-              ? 'bg-[#238636] border-[#238636]'
-              : 'border-[#8b949e] hover:border-[#ff6b35]'
+              ? 'bg-[#22c55e] border-[#22c55e]'
+              : 'border-[#737373] hover:border-[#F97316]'
           }`}
         >
           {habit.completedToday && <Check className="w-4 h-4 text-white" />}
@@ -101,27 +101,27 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHab
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-lg flex-shrink-0">{habit.icon}</span>
-            <span className={`font-medium truncate ${habit.completedToday ? 'text-[#8b949e] line-through' : 'text-white'}`}>
+            <span className={`font-medium truncate ${habit.completedToday ? 'text-[#737373] line-through' : 'text-white'}`}>
               {habit.name}
             </span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
             <div className="flex items-center gap-1 flex-shrink-0">
-              <Flame className={`w-3 h-3 ${habit.streak > 0 ? 'text-[#ff6b35]' : 'text-[#8b949e]'}`} />
-              <span className={`text-xs ${habit.streak > 0 ? 'text-[#ff6b35]' : 'text-[#8b949e]'}`}>
+              <Flame className={`w-3 h-3 ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#737373]'}`} />
+              <span className={`text-xs ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#737373]'}`}>
                 {habit.streak} day{habit.streak !== 1 ? 's' : ''}
               </span>
             </div>
-            <span className="text-xs text-[#8b949e] truncate">{habit.target}</span>
+            <span className="text-xs text-[#737373] truncate">{habit.target}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <div className="hidden sm:flex items-center gap-1">
             {habit.history.map((completed, idx) => (
               <div
                 key={idx}
-                className={`w-2 h-2 rounded-full ${completed ? 'bg-[#238636]' : 'bg-[#30363d]'}`}
+                className={`w-2 h-2 rounded-full ${completed ? 'bg-[#22c55e]' : 'bg-[#262626]'}`}
                 title={dayLabels[idx]}
               />
             ))}
@@ -131,7 +131,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHab
             className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors"
             title="Delete habit"
           >
-            <Trash2 className="w-4 h-4 text-[#8b949e] hover:text-[#da3633]" />
+            <Trash2 className="w-4 h-4 text-[#737373] hover:text-[#da3633]" />
           </button>
         </div>
       </div>
@@ -339,29 +339,29 @@ export default function HabitCard() {
   const dayLabels = getDayLabels();
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
+    <div className="card">
       {/* Success Banner */}
       {showSuccessBanner && (
-        <div className="mb-4 p-3 bg-[#238636]/20 border border-[#238636] rounded-lg flex items-center gap-2">
-          <Check className="w-5 h-5 text-[#238636]" />
-          <span className="text-[#238636] font-medium">Evening check-in saved!</span>
+        <div className="mb-4 p-3 bg-[#22c55e]/20 border border-[#22c55e] rounded-xl flex items-center gap-2">
+          <Check className="w-5 h-5 text-[#22c55e]" />
+          <span className="text-[#22c55e] font-medium">Evening check-in saved!</span>
         </div>
       )}
       
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
-            <Activity className="w-5 h-5 text-[#ff6b35]" />
+          <div className="p-2 bg-[#F97316]/10 rounded-xl">
+            <Activity className="w-5 h-5 text-[#F97316]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">Habits</h2>
             <div className="flex items-center gap-2">
-              <p className="text-xs text-[#8b949e]">
+              <p className="text-xs text-[#737373]">
                 {stats.completedToday} of {stats.totalHabits} completed today
               </p>
               {lastUpdated && !loading && (
-                <span className="text-[10px] text-[#238636]">
+                <span className="text-[10px] text-[#22c55e]">
                   updated {formatLastUpdated()}
                 </span>
               )}
@@ -372,14 +372,14 @@ export default function HabitCard() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowEveningCheckin(true)}
-            className="p-2 bg-[#a371f7] text-white rounded-lg hover:bg-[#8957e5] transition-colors"
+            className="p-2 bg-[#a371f7] text-white rounded-xl hover:bg-[#8957e5] transition-colors"
             title="Evening check-in"
           >
             <Moon className="w-4 h-4" />
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="p-2 bg-[#ff6b35] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors"
+            className="p-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors"
             title="Add new habit"
           >
             <Plus className="w-4 h-4" />
@@ -387,41 +387,41 @@ export default function HabitCard() {
           <button
             onClick={fetchHabits}
             disabled={loading}
-            className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+            className="p-2 hover:bg-[#262626] rounded-xl transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`w-5 h-5 text-[#8b949e] hover:text-[#ff6b35] ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 text-[#737373] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      {/* Stats Grid with metric classes */}
+      <div className="grid grid-cols-4 gap-3 mb-6">
         {[
           { value: `${completionRate}%`, label: 'Today' },
           { value: stats.longestStreak, label: 'Best Streak' },
           { value: `${stats.weeklyCompletion}%`, label: 'This Week' },
           { value: habits.length, label: 'Total' }
         ].map((stat, i) => (
-          <div key={i} className="bg-[#0d1117] rounded-lg p-3 text-center">
-            <div className="text-xl font-bold text-[#ff6b35]">{stat.value}</div>
-            <div className="text-[10px] text-[#8b949e] uppercase">{stat.label}</div>
+          <div key={i} className="bg-[#0F0F0F] rounded-xl p-3 text-center border border-[#262626]">
+            <div className="metric-value text-[#F97316]">{stat.value}</div>
+            <div className="metric-label mt-1">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Weekly Progress */}
+      {/* Weekly Progress with new progress bar */}
       {habits.length > 0 && !loading && (
-        <div className="mb-5 p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
+        <div className="mb-6 p-4 bg-[#0F0F0F] rounded-xl border border-[#262626]">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-[#8b949e]" />
-              <span className="text-xs text-[#8b949e]">Weekly Progress</span>
+              <TrendingUp className="w-4 h-4 text-[#737373]" />
+              <span className="text-xs text-[#737373] uppercase tracking-wider font-medium">Weekly Progress</span>
             </div>
-            <span className="text-xs text-[#238636] font-medium">{stats.weeklyCompletion}% avg</span>
+            <span className="text-xs text-[#22c55e] font-medium">{stats.weeklyCompletion}% avg</span>
           </div>
-          <div className="h-2 bg-[#21262d] rounded-full overflow-hidden">
+          <div className="progress-bar">
             <div 
-              className="h-full bg-gradient-to-r from-[#ff6b35] to-[#238636]"
+              className="progress-fill"
               style={{ width: `${stats.weeklyCompletion}%` }}
             />
           </div>
@@ -436,17 +436,17 @@ export default function HabitCard() {
       >
         <div className="space-y-3">
           {loading && habits.length === 0 ? (
-            <div className="text-center py-8 text-[#8b949e]">
-              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
+            <div className="text-center py-8 text-[#737373]">
+              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#F97316]" />
               <p>Loading habits...</p>
             </div>
           ) : habits.length === 0 ? (
             <div className="text-center py-10">
-              <Activity className="w-12 h-12 mx-auto mb-3 text-[#8b949e] opacity-50" />
-              <p className="text-[#8b949e] mb-2">No habits configured</p>
+              <Activity className="w-12 h-12 mx-auto mb-3 text-[#737373] opacity-50" />
+              <p className="text-[#737373] mb-2">No habits configured</p>
               <button 
                 onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#ff6b35]/10 text-[#ff6b35] rounded-lg text-sm hover:bg-[#ff6b35]/20 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#F97316]/10 text-[#F97316] rounded-xl text-sm hover:bg-[#F97316]/20 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Your First Habit
@@ -473,19 +473,19 @@ export default function HabitCard() {
       
       {/* Legend */}
       {habits.length > 0 && !loading && (
-        <div className="mt-4 pt-3 border-t border-[#30363d]">
+        <div className="mt-4 pt-4 border-t border-[#262626]">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-3">
-              <span className="text-[10px] text-[#8b949e] uppercase">Last 7 Days</span>
+              <span className="metric-label">Last 7 Days</span>
               <div className="flex items-center gap-1">
                 {dayLabels.map((day, i) => (
-                  <span key={i} className="text-[10px] text-[#8b949e] w-2 text-center">{day}</span>
+                  <span key={i} className="text-[10px] text-[#737373] w-2 text-center">{day}</span>
                 ))}
               </div>
             </div>
-            <div className="flex items-center gap-3 text-[10px] text-[#8b949e]">
-              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#238636]" /><span>Done</span></div>
-              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#30363d]" /><span>Missed</span></div>
+            <div className="flex items-center gap-3 text-[10px] text-[#737373]">
+              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#22c55e]" /><span>Done</span></div>
+              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#262626]" /><span>Missed</span></div>
             </div>
           </div>
         </div>
@@ -494,32 +494,32 @@ export default function HabitCard() {
       {/* Add Habit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-md p-6">
+          <div className="card w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">Add New Habit</h3>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="p-2 hover:bg-[#30363d] rounded-lg"
+                className="p-2 hover:bg-[#262626] rounded-lg"
               >
-                <X className="w-5 h-5 text-[#8b949e]" />
+                <X className="w-5 h-5 text-[#737373]" />
               </button>
             </div>
             
             {/* Name Input */}
             <div className="mb-4">
-              <label className="block text-sm text-[#8b949e] mb-2">Habit Name</label>
+              <label className="block text-sm text-[#737373] mb-2">Habit Name</label>
               <input
                 type="text"
                 value={newHabitName}
                 onChange={(e) => setNewHabitName(e.target.value)}
                 placeholder="e.g., Morning Meditation"
-                className="w-full px-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35]"
+                className="w-full px-4 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316]"
               />
             </div>
             
             {/* Icon Selector */}
             <div className="mb-4">
-              <label className="block text-sm text-[#8b949e] mb-2">Icon</label>
+              <label className="block text-sm text-[#737373] mb-2">Icon</label>
               <div className="flex flex-wrap gap-2">
                 {EMOJI_OPTIONS.map((emoji) => (
                   <button
@@ -527,8 +527,8 @@ export default function HabitCard() {
                     onClick={() => setNewHabitIcon(emoji)}
                     className={`text-2xl p-2 rounded-lg border transition-all ${
                       newHabitIcon === emoji
-                        ? 'border-[#ff6b35] bg-[#ff6b35]/20'
-                        : 'border-[#30363d] hover:border-[#8b949e]'
+                        ? 'border-[#F97316] bg-[#F97316]/20'
+                        : 'border-[#262626] hover:border-[#737373]'
                     }`}
                   >
                     {emoji}
@@ -539,27 +539,27 @@ export default function HabitCard() {
             
             {/* Target Input */}
             <div className="mb-6">
-              <label className="block text-sm text-[#8b949e] mb-2">Target</label>
+              <label className="block text-sm text-[#737373] mb-2">Target</label>
               <input
                 type="text"
                 value={newHabitTarget}
                 onChange={(e) => setNewHabitTarget(e.target.value)}
                 placeholder="e.g., Daily, 3x/week, 30 min"
-                className="w-full px-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35]"
+                className="w-full px-4 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316]"
               />
             </div>
             
             <div className="flex gap-2">
               <button
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors"
+                className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={addHabit}
                 disabled={!newHabitName.trim()}
-                className="flex-1 px-4 py-2 bg-[#ff6b35] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors disabled:opacity-50"
               >
                 Add Habit
               </button>
