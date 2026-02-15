@@ -82,7 +82,8 @@ async function getAccessToken(): Promise<string | null> {
     return cachedToken;
   } catch (error) {
     console.error('Failed to refresh Strava token:', error);
-    return null;
+    // DEBUG: Throw error instead of returning null
+    throw new Error(`Token refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
