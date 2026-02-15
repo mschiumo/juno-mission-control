@@ -37,9 +37,9 @@ const phaseLabels: Record<Phase, string> = {
 };
 
 const phaseColors: Record<Phase, string> = {
-  'not-started': 'bg-[#8b949e]/20 border-[#8b949e]/50 text-[#8b949e]',
+  'not-started': 'bg-[#737373]/20 border-[#737373]/50 text-[#737373]',
   'in-progress': 'bg-[#d29922]/20 border-[#d29922]/50 text-[#d29922]',
-  'achieved': 'bg-[#238636]/20 border-[#238636]/50 text-[#238636]'
+  'achieved': 'bg-[#22c55e]/20 border-[#22c55e]/50 text-[#22c55e]'
 };
 
 const categoryLabels: Record<Category, string> = {
@@ -145,7 +145,7 @@ export default function GoalsCard() {
   const moveCategory = async (goal: Goal, newCategory: Category) => {
     if (goal.category === newCategory) return;
     
-    const originalCategory = goal.category; // Store original BEFORE mutation
+    const originalCategory = goal.category;
     
     const updatedGoals = { ...goals };
     const goalIndex = updatedGoals[goal.category].findIndex(g => g.id === goal.id);
@@ -162,7 +162,7 @@ export default function GoalsCard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           goalId: goal.id,
-          fromCategory: originalCategory, // Use original, not mutated
+          fromCategory: originalCategory,
           toCategory: newCategory
         })
       });
@@ -252,7 +252,6 @@ export default function GoalsCard() {
   const toggleJunoAssisted = async (goal: Goal) => {
     const newValue = !goal.junoAssisted;
     
-    // Optimistic update
     const updatedGoals = { ...goals };
     const goalIndex = updatedGoals[goal.category].findIndex(g => g.id === goal.id);
     if (goalIndex > -1) {
@@ -272,10 +271,9 @@ export default function GoalsCard() {
       });
 
       if (!response.ok) {
-        // Revert on failure
         fetchGoals();
       } else {
-        await fetchGoals(); // Refresh on success too
+        await fetchGoals();
       }
     } catch (error) {
       console.error('Failed to toggle Juno-assisted:', error);
@@ -321,7 +319,7 @@ export default function GoalsCard() {
         setGoals(data.data);
         setActionItemsGoal({ ...actionItemsGoal, actionItems: updatedItems });
         setNewActionItem('');
-        await fetchGoals(); // Refresh all goals data
+        await fetchGoals();
       }
     } catch (error) {
       console.error('Failed to add action item:', error);
@@ -350,7 +348,7 @@ export default function GoalsCard() {
         const data = await response.json();
         setGoals(data.data);
         setActionItemsGoal({ ...actionItemsGoal, actionItems: updatedItems });
-        await fetchGoals(); // Refresh all goals data
+        await fetchGoals();
       }
     } catch (error) {
       console.error('Failed to update action item:', error);
@@ -377,7 +375,7 @@ export default function GoalsCard() {
         const data = await response.json();
         setGoals(data.data);
         setActionItemsGoal({ ...actionItemsGoal, actionItems: updatedItems });
-        await fetchGoals(); // Refresh all goals data
+        await fetchGoals();
       }
     } catch (error) {
       console.error('Failed to delete action item:', error);
@@ -434,7 +432,7 @@ export default function GoalsCard() {
                 <span>JUNO</span>
               </div>
             )}
-            <p className={`text-sm text-white flex-1 ${goal.junoAssisted ? '' : ''}`}>{goal.title}</p>
+            <p className="text-sm text-white flex-1">{goal.title}</p>
           </div>
           <div className="flex items-center gap-1">
             {/* Action items indicator */}
@@ -450,14 +448,14 @@ export default function GoalsCard() {
             )}
             <button
               onClick={(e) => { e.stopPropagation(); openNotes(goal); }}
-              className="text-[#8b949e] hover:text-[#ff6b35] transition-colors"
+              className="text-[#737373] hover:text-[#F97316] transition-colors"
               title="View/Edit Notes"
             >
-              <FileText className={`w-4 h-4 ${goal.notes ? 'text-[#ff6b35]' : ''}`} />
+              <FileText className={`w-4 h-4 ${goal.notes ? 'text-[#F97316]' : ''}`} />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); deleteGoal(goal); }}
-              className="text-[#8b949e] hover:text-[#da3633] transition-colors"
+              className="text-[#737373] hover:text-[#da3633] transition-colors"
               title="Delete goal"
             >
               <X className="w-4 h-4" />
@@ -475,9 +473,9 @@ export default function GoalsCard() {
               type="checkbox"
               checked={goal.junoAssisted || false}
               onChange={(e) => { e.stopPropagation(); toggleJunoAssisted(goal); }}
-              className="w-3.5 h-3.5 rounded border-[#30363d] bg-[#0d1117] text-purple-500 focus:ring-purple-500/20"
+              className="w-3.5 h-3.5 rounded border-[#262626] bg-[#0F0F0F] text-purple-500 focus:ring-purple-500/20"
             />
-            <span className="text-[10px] text-[#8b949e]">Juno-assisted</span>
+            <span className="text-[10px] text-[#737373]">Juno-assisted</span>
           </label>
           
           <button
@@ -489,7 +487,7 @@ export default function GoalsCard() {
         </div>
         
         {goal.notes && (
-          <p className="text-xs text-[#8b949e] mt-2 line-clamp-2 italic">
+          <p className="text-xs text-[#737373] mt-2 line-clamp-2 italic">
             {goal.notes}
           </p>
         )}
@@ -498,7 +496,7 @@ export default function GoalsCard() {
           {phase !== 'not-started' && (
             <button
               onClick={(e) => { e.stopPropagation(); moveGoal(goal, 'not-started'); }}
-              className="text-[10px] px-2 py-1 bg-[#30363d] rounded hover:bg-[#484f58] transition-colors"
+              className="text-[10px] px-2 py-1 bg-[#262626] rounded hover:bg-[#404040] transition-colors"
             >
               ← Back
             </button>
@@ -506,7 +504,7 @@ export default function GoalsCard() {
           {phase !== 'achieved' && (
             <button
               onClick={(e) => { e.stopPropagation(); moveGoal(goal, phase === 'not-started' ? 'in-progress' : 'achieved'); }}
-              className="text-[10px] px-2 py-1 bg-[#30363d] rounded hover:bg-[#484f58] transition-colors"
+              className="text-[10px] px-2 py-1 bg-[#262626] rounded hover:bg-[#404040] transition-colors"
             >
               {phase === 'not-started' ? 'Start →' : 'Done →'}
             </button>
@@ -514,13 +512,13 @@ export default function GoalsCard() {
         </div>
         
         {!isMobileView && (
-          <div className="flex gap-1 mt-2 pt-2 border-t border-[#30363d]/50 opacity-0 group-hover:opacity-100 transition-opacity">
-            <span className="text-[10px] text-[#8b949e] mr-1">Move to:</span>
+          <div className="flex gap-1 mt-2 pt-2 border-t border-[#262626]/50 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="text-[10px] text-[#737373] mr-1">Move to:</span>
             {(['daily', 'weekly', 'yearly'] as Category[]).filter(cat => cat !== goal.category).map((cat) => (
               <button
                 key={cat}
                 onClick={(e) => { e.stopPropagation(); moveCategory(goal, cat); }}
-                className="text-[10px] px-2 py-1 bg-[#21262d] text-[#8b949e] rounded hover:bg-[#ff6b35]/20 hover:text-[#ff6b35] transition-colors"
+                className="text-[10px] px-2 py-1 bg-[#0F0F0F] text-[#737373] rounded hover:bg-[#F97316]/20 hover:text-[#F97316] transition-colors"
               >
                 {categoryLabels[cat]}
               </button>
@@ -534,7 +532,7 @@ export default function GoalsCard() {
       return (
         <div
           key={goal.id}
-          className={`p-3 rounded-lg border ${phaseColors[phase]} border-opacity-30 ${junoBorderClass}`}
+          className={`p-4 rounded-xl border ${phaseColors[phase]} border-opacity-30 ${junoBorderClass}`}
         >
           {cardContent}
         </div>
@@ -547,7 +545,7 @@ export default function GoalsCard() {
         draggable
         onDragStart={() => handleDragStart(goal)}
         onClick={() => openNotes(goal)}
-        className={`group p-3 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${phaseColors[phase]} border-opacity-30 ${junoBorderClass}`}
+        className={`group p-4 rounded-xl border cursor-pointer transition-all hover:shadow-lg ${phaseColors[phase]} border-opacity-30 ${junoBorderClass}`}
       >
         {cardContent}
       </div>
@@ -557,37 +555,33 @@ export default function GoalsCard() {
   // Mobile view
   if (isMobile) {
     return (
-      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+      <div className="card">
         {/* Mobile Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-[#ff6b35]/10 rounded-lg">
-              <Target className="w-4 h-4 text-[#ff6b35]" />
+            <div className="p-1.5 bg-[#F97316]/10 rounded-xl">
+              <Target className="w-4 h-4 text-[#F97316]" />
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">Goals</h2>
-              <p className="text-xs text-[#8b949e]">{stats.achieved}/{stats.total} done</p>
+              <p className="text-xs text-[#737373]">{stats.achieved}/{stats.total} done</p>
             </div>
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="p-2 bg-[#ff6b35] text-white rounded-lg"
+            className="p-2 bg-[#F97316] text-white rounded-xl"
           >
             <Plus className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Mobile Category Tabs */}
-        <div className="flex gap-1 mb-4">
+        {/* Mobile Category Tabs - Segmented Control */}
+        <div className="segmented-control mb-6">
           {(['daily', 'weekly', 'yearly'] as Category[]).map((cat) => (
             <button
               key={cat}
               onClick={() => handleCategoryChange(cat)}
-              className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                activeCategory === cat
-                  ? 'bg-[#ff6b35] text-white'
-                  : 'bg-[#0d1117] text-[#8b949e]'
-              }`}
+              className={`segment ${activeCategory === cat ? 'segment-active' : 'segment-inactive'}`}
             >
               {categoryLabels[cat]}
             </button>
@@ -595,10 +589,10 @@ export default function GoalsCard() {
         </div>
 
         {/* Mobile Progress */}
-        <div className="mb-4">
-          <div className="h-1.5 bg-[#0d1117] rounded-full overflow-hidden">
+        <div className="mb-6">
+          <div className="progress-bar">
             <div
-              className="h-full bg-gradient-to-r from-[#ff6b35] to-[#238636]"
+              className="progress-fill"
               style={{ width: `${stats.percentage}%` }}
             />
           </div>
@@ -609,17 +603,17 @@ export default function GoalsCard() {
           {(['not-started', 'in-progress', 'achieved'] as Phase[]).map((phase) => {
             const phaseGoals = getGoalsByPhase(activeCategory, phase);
             return (
-              <div key={phase} className="bg-[#0d1117] rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
+              <div key={phase} className="bg-[#0F0F0F] rounded-xl p-4 border border-[#262626]">
+                <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-medium text-white">{phaseLabels[phase]}</h3>
-                  <span className="text-xs text-[#8b949e] bg-[#161b22] px-2 py-0.5 rounded-full">
+                  <span className="text-xs text-[#737373] bg-[#1a1a1a] px-2 py-0.5 rounded-full">
                     {phaseGoals.length}
                   </span>
                 </div>
                 <div className="space-y-2">
                   {phaseGoals.map((goal) => renderGoalCard(goal, phase, true))}
                   {phaseGoals.length === 0 && (
-                    <div className="text-center py-4 text-[#8b949e] text-xs">
+                    <div className="text-center py-4 text-[#737373] text-xs">
                       No goals
                     </div>
                   )}
@@ -632,11 +626,11 @@ export default function GoalsCard() {
         {/* Mobile Add Modal */}
         {showAddModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-sm p-4">
+            <div className="card w-full max-w-sm">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold text-white">Add Goal</h3>
                 <button onClick={() => setShowAddModal(false)} className="p-1">
-                  <X className="w-4 h-4 text-[#8b949e]" />
+                  <X className="w-4 h-4 text-[#737373]" />
                 </button>
               </div>
               <input
@@ -644,27 +638,27 @@ export default function GoalsCard() {
                 value={newGoalTitle}
                 onChange={(e) => setNewGoalTitle(e.target.value)}
                 placeholder="Enter goal..."
-                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm mb-3"
+                className="w-full px-3 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm mb-3"
                 onKeyPress={(e) => e.key === 'Enter' && addGoal()}
               />
               <textarea
                 value={newGoalNotes}
                 onChange={(e) => setNewGoalNotes(e.target.value)}
                 placeholder="Add notes (optional)..."
-                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm mb-3 resize-none"
+                className="w-full px-3 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm mb-3 resize-none"
                 rows={3}
               />
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-3 py-2 bg-[#30363d] text-white rounded-lg text-sm"
+                  className="flex-1 px-3 py-2 bg-[#262626] text-white rounded-xl text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={addGoal}
                   disabled={!newGoalTitle.trim()}
-                  className="flex-1 px-3 py-2 bg-[#ff6b35] text-white rounded-lg text-sm disabled:opacity-50"
+                  className="flex-1 px-3 py-2 bg-[#F97316] text-white rounded-xl text-sm disabled:opacity-50"
                 >
                   Add
                 </button>
@@ -676,29 +670,29 @@ export default function GoalsCard() {
         {/* Notes Modal */}
         {notesGoal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-lg p-4 max-h-[90vh] flex flex-col">
+            <div className="card w-full max-w-lg">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold text-white">Notes: {notesGoal.title}</h3>
                 <button onClick={closeNotes} className="p-1">
-                  <X className="w-4 h-4 text-[#8b949e]" />
+                  <X className="w-4 h-4 text-[#737373]" />
                 </button>
               </div>
               <textarea
                 value={notesContent}
                 onChange={(e) => setNotesContent(e.target.value)}
                 placeholder="Add notes about this goal..."
-                className="flex-1 min-h-[300px] w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm mb-3 resize-none overflow-y-auto"
+                className="flex-1 min-h-[300px] w-full px-3 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm mb-3 resize-none overflow-y-auto"
               />
               <div className="flex gap-2">
                 <button
                   onClick={closeNotes}
-                  className="flex-1 px-3 py-2 bg-[#30363d] text-white rounded-lg text-sm"
+                  className="flex-1 px-3 py-2 bg-[#262626] text-white rounded-xl text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={saveNotes}
-                  className="flex-1 px-3 py-2 bg-[#ff6b35] text-white rounded-lg text-sm"
+                  className="flex-1 px-3 py-2 bg-[#F97316] text-white rounded-xl text-sm"
                 >
                   Save
                 </button>
@@ -712,16 +706,16 @@ export default function GoalsCard() {
 
   // Desktop view
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
+    <div className="card">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
-            <Target className="w-5 h-5 text-[#ff6b35]" />
+          <div className="p-2 bg-[#F97316]/10 rounded-xl">
+            <Target className="w-5 h-5 text-[#F97316]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">Goals</h2>
-            <p className="text-xs text-[#8b949e]">
+            <p className="text-xs text-[#737373]">
               {stats.achieved}/{stats.total} achieved ({stats.percentage}%)
             </p>
           </div>
@@ -730,7 +724,7 @@ export default function GoalsCard() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#ff6b35] text-white rounded-lg text-sm hover:bg-[#ff8c5a] transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 bg-[#F97316] text-white rounded-xl text-sm hover:bg-[#ff8c5a] transition-colors"
           >
             <Plus className="w-4 h-4" />
             Add Goal
@@ -739,10 +733,10 @@ export default function GoalsCard() {
           {/* Juno Filter Toggle */}
           <button
             onClick={() => setShowJunoOnly(!showJunoOnly)}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm transition-colors ${
               showJunoOnly
                 ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
-                : 'bg-[#0d1117] text-[#8b949e] hover:bg-[#30363d]'
+                : 'bg-[#0F0F0F] text-[#737373] hover:bg-[#262626]'
             }`}
             title={showJunoOnly ? 'Show all goals' : 'Show Juno-assisted only'}
           >
@@ -753,24 +747,20 @@ export default function GoalsCard() {
           <button
             onClick={fetchGoals}
             disabled={loading}
-            className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+            className="p-2 hover:bg-[#262626] rounded-xl transition-colors"
           >
-            <RefreshCw className={`w-5 h-5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 text-[#737373] ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="flex gap-2 mb-6">
+      {/* Category Tabs - Segmented Control */}
+      <div className="segmented-control mb-6">
         {(['daily', 'weekly', 'yearly'] as Category[]).map((cat) => (
           <button
             key={cat}
             onClick={() => handleCategoryChange(cat)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              activeCategory === cat
-                ? 'bg-[#ff6b35] text-white'
-                : 'bg-[#0d1117] text-[#8b949e] hover:text-white hover:bg-[#30363d]'
-            }`}
+            className={`segment ${activeCategory === cat ? 'segment-active' : 'segment-inactive'}`}
           >
             {categoryLabels[cat]} Goals
           </button>
@@ -779,13 +769,13 @@ export default function GoalsCard() {
 
       {/* Progress Bar */}
       <div className="mb-6">
-        <div className="flex justify-between text-xs text-[#8b949e] mb-2">
-          <span>Progress</span>
-          <span>{stats.percentage}%</span>
+        <div className="flex justify-between items-center mb-2">
+          <span className="metric-label">Progress</span>
+          <span className="text-xs font-medium text-[#F97316]">{stats.percentage}%</span>
         </div>
-        <div className="h-2 bg-[#0d1117] rounded-full overflow-hidden">
+        <div className="progress-bar">
           <div
-            className="h-full bg-gradient-to-r from-[#ff6b35] to-[#238636] transition-all duration-500"
+            className="progress-fill"
             style={{ width: `${stats.percentage}%` }}
           />
         </div>
@@ -796,13 +786,13 @@ export default function GoalsCard() {
         {(['not-started', 'in-progress', 'achieved'] as Phase[]).map((phase) => (
           <div
             key={phase}
-            className="bg-[#0d1117] rounded-lg p-4 min-h-[300px]"
+            className="bg-[#0F0F0F] rounded-xl p-4 min-h-[300px] border border-[#262626]"
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, phase)}
           >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-white">{phaseLabels[phase]}</h3>
-              <span className="text-xs text-[#8b949e] bg-[#161b22] px-2 py-1 rounded-full">
+              <span className="text-xs text-[#737373] bg-[#1a1a1a] px-2 py-1 rounded-full">
                 {getGoalsByPhase(activeCategory, phase).length}
               </span>
             </div>
@@ -810,7 +800,7 @@ export default function GoalsCard() {
             <div className="space-y-2">
               {getGoalsByPhase(activeCategory, phase).map((goal) => renderGoalCard(goal, phase, false))}
               {getGoalsByPhase(activeCategory, phase).length === 0 && (
-                <div className="text-center py-8 text-[#8b949e] text-sm">
+                <div className="text-center py-8 text-[#737373] text-sm">
                   Drop goals here
                 </div>
               )}
@@ -822,14 +812,14 @@ export default function GoalsCard() {
       {/* Add Goal Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-md p-6">
+          <div className="card w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">Add {categoryLabels[activeCategory]} Goal</h3>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="p-2 hover:bg-[#30363d] rounded-lg"
+                className="p-2 hover:bg-[#262626] rounded-lg"
               >
-                <X className="w-5 h-5 text-[#8b949e]" />
+                <X className="w-5 h-5 text-[#737373]" />
               </button>
             </div>
             
@@ -838,7 +828,7 @@ export default function GoalsCard() {
               value={newGoalTitle}
               onChange={(e) => setNewGoalTitle(e.target.value)}
               placeholder="Enter goal title..."
-              className="w-full px-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35] mb-4"
+              className="w-full px-4 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316] mb-4"
               onKeyPress={(e) => e.key === 'Enter' && addGoal()}
             />
 
@@ -846,21 +836,21 @@ export default function GoalsCard() {
               value={newGoalNotes}
               onChange={(e) => setNewGoalNotes(e.target.value)}
               placeholder="Add notes about this goal (optional)..."
-              className="w-full px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35] mb-4 resize-none"
+              className="w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316] mb-4 resize-none"
               rows={4}
             />
             
             <div className="flex gap-2">
               <button
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors"
+                className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={addGoal}
                 disabled={!newGoalTitle.trim()}
-                className="flex-1 px-4 py-2 bg-[#ff6b35] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors disabled:opacity-50"
               >
                 Add Goal
               </button>
@@ -872,39 +862,39 @@ export default function GoalsCard() {
       {/* Notes Modal */}
       {notesGoal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-3xl p-6 max-h-[90vh] flex flex-col">
+          <div className="card w-full max-w-3xl">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-[#ff6b35]" />
+                <FileText className="w-5 h-5 text-[#F97316]" />
                 <h3 className="text-lg font-semibold text-white">Notes</h3>
               </div>
               <button
                 onClick={closeNotes}
-                className="p-2 hover:bg-[#30363d] rounded-lg"
+                className="p-2 hover:bg-[#262626] rounded-lg"
               >
-                <X className="w-5 h-5 text-[#8b949e]" />
+                <X className="w-5 h-5 text-[#737373]" />
               </button>
             </div>
             
-            <p className="text-sm text-[#8b949e] mb-4">{notesGoal.title}</p>
+            <p className="text-sm text-[#737373] mb-4">{notesGoal.title}</p>
             
             <textarea
               value={notesContent}
               onChange={(e) => setNotesContent(e.target.value)}
               placeholder="Add notes, links, research, or any details about this goal..."
-              className="flex-1 min-h-[400px] w-full px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35] mb-4 resize-none overflow-y-auto"
+              className="flex-1 min-h-[400px] w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316] mb-4 resize-none overflow-y-auto"
             />
             
             <div className="flex gap-2">
               <button
                 onClick={closeNotes}
-                className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors"
+                className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={saveNotes}
-                className="flex-1 px-4 py-2 bg-[#ff6b35] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors"
+                className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors"
               >
                 Save Notes
               </button>
@@ -916,22 +906,22 @@ export default function GoalsCard() {
       {/* Action Items Modal */}
       {actionItemsGoal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-2xl p-6 max-h-[90vh] flex flex-col">
+          <div className="card w-full max-w-2xl">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-500/10 rounded-lg">
+                <div className="p-2 bg-purple-500/10 rounded-xl">
                   <Bot className="w-5 h-5 text-purple-400" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-white">Action Items</h3>
-                  <p className="text-sm text-[#8b949e]">{actionItemsGoal.title}</p>
+                  <p className="text-sm text-[#737373]">{actionItemsGoal.title}</p>
                 </div>
               </div>
               <button
                 onClick={closeActionItems}
-                className="p-2 hover:bg-[#30363d] rounded-lg"
+                className="p-2 hover:bg-[#262626] rounded-lg"
               >
-                <X className="w-5 h-5 text-[#8b949e]" />
+                <X className="w-5 h-5 text-[#737373]" />
               </button>
             </div>
 
@@ -942,13 +932,13 @@ export default function GoalsCard() {
                 value={newActionItem}
                 onChange={(e) => setNewActionItem(e.target.value)}
                 placeholder="Add a new action item for Juno..."
-                className="flex-1 px-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-purple-500"
+                className="flex-1 px-4 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-purple-500"
                 onKeyPress={(e) => e.key === 'Enter' && addActionItem()}
               />
               <button
                 onClick={addActionItem}
                 disabled={!newActionItem.trim()}
-                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-colors disabled:opacity-50"
               >
                 <Plus className="w-5 h-5" />
               </button>
@@ -957,7 +947,7 @@ export default function GoalsCard() {
             {/* Action items list */}
             <div className="flex-1 overflow-y-auto space-y-2 mb-4">
               {(actionItemsGoal.actionItems || []).length === 0 ? (
-                <div className="text-center py-8 text-[#8b949e]">
+                <div className="text-center py-8 text-[#737373]">
                   <Bot className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   <p>No action items yet.</p>
                   <p className="text-sm mt-1">Add items for Juno to work on!</p>
@@ -966,12 +956,12 @@ export default function GoalsCard() {
                 (actionItemsGoal.actionItems || []).map((item) => (
                   <div
                     key={item.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg border ${
+                    className={`flex items-center gap-3 p-3 rounded-xl border ${
                       item.status === 'completed'
-                        ? 'bg-[#238636]/10 border-[#238636]/30'
+                        ? 'bg-[#22c55e]/10 border-[#22c55e]/30'
                         : item.status === 'in-progress'
                         ? 'bg-[#d29922]/10 border-[#d29922]/30'
-                        : 'bg-[#0d1117] border-[#30363d]'
+                        : 'bg-[#0F0F0F] border-[#262626]'
                     }`}
                   >
                     <button
@@ -982,21 +972,21 @@ export default function GoalsCard() {
                       className="flex-shrink-0"
                     >
                       {item.status === 'completed' ? (
-                        <CheckCircle className="w-5 h-5 text-[#238636]" />
+                        <CheckCircle className="w-5 h-5 text-[#22c55e]" />
                       ) : item.status === 'in-progress' ? (
                         <Loader2 className="w-5 h-5 text-[#d29922] animate-spin" />
                       ) : (
-                        <Circle className="w-5 h-5 text-[#8b949e]" />
+                        <Circle className="w-5 h-5 text-[#737373]" />
                       )}
                     </button>
                     
-                    <span className={`flex-1 ${item.status === 'completed' ? 'line-through text-[#8b949e]' : 'text-white'}`}>
+                    <span className={`flex-1 ${item.status === 'completed' ? 'line-through text-[#737373]' : 'text-white'}`}>
                       {item.text}
                     </span>
                     
                     <button
                       onClick={() => deleteActionItem(item.id)}
-                      className="text-[#8b949e] hover:text-[#da3633] transition-colors"
+                      className="text-[#737373] hover:text-[#da3633] transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1007,12 +997,12 @@ export default function GoalsCard() {
 
             {/* Juno assistance indicator */}
             {actionItemsGoal.junoAssisted && (
-              <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg mb-4">
+              <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl mb-4">
                 <div className="flex items-center gap-2 text-purple-400">
                   <Bot className="w-4 h-4" />
                   <span className="text-sm font-medium">Juno is monitoring this goal</span>
                 </div>
-                <p className="text-xs text-[#8b949e] mt-1">
+                <p className="text-xs text-[#737373] mt-1">
                   Juno will ask before taking action on pending items
                 </p>
               </div>
@@ -1021,7 +1011,7 @@ export default function GoalsCard() {
             <div className="flex gap-2">
               <button
                 onClick={closeActionItems}
-                className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors"
+                className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors"
               >
                 Close
               </button>

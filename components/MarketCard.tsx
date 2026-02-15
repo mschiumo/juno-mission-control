@@ -63,11 +63,6 @@ export default function MarketCard() {
     }).format(price);
   };
 
-  // const formatChange = (change: number, changePercent: number) => {
-  //   const sign = change >= 0 ? '+' : '';
-  //   return `${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)`;
-  // };
-
   const formatLastUpdated = () => {
     if (!lastUpdated) return '';
     return lastUpdated.toLocaleString('en-US', {
@@ -89,15 +84,19 @@ export default function MarketCard() {
     return symbol;
   };
 
+  // Calculate market stats
+  const upCount = currentData.filter(item => item.change >= 0).length;
+  const downCount = currentData.filter(item => item.change < 0).length;
+
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="card">
+      <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
+          <div className="p-2 bg-[#ff6b35]/10 rounded-xl">
             <DollarSign className="w-5 h-5 text-[#ff6b35]" />
           </div>
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-0.5">
               <h2 className="text-lg font-semibold text-white">Market</h2>
               <MarketCountdown />
             </div>
@@ -108,7 +107,7 @@ export default function MarketCard() {
                 </span>
               )}
               {!loading && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                   dataSource === 'live' 
                     ? 'bg-[#238636]/20 text-[#238636]' 
                     : dataSource === 'partial'
@@ -124,36 +123,49 @@ export default function MarketCard() {
         <button 
           onClick={fetchMarketData}
           disabled={loading}
-          className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+          className="pill p-2"
           title="Refresh market data"
         >
-          <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#ff6b35] ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4 bg-[#0d1117] rounded-lg p-1">
+      {/* Segmented Control Tabs */}
+      <div className="segmented-control mb-5">
         {(['indices', 'stocks', 'commodities', 'crypto'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              activeTab === tab 
-                ? 'bg-[#ff6b35] text-white' 
-                : 'text-[#8b949e] hover:text-white'
-            }`}
+            className={`segmented-btn ${activeTab === tab ? 'active' : ''}`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
 
+      {/* Market Stats */}
+      {currentData.length > 0 && (
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-[#238636]"></div>
+              <span className="text-xs text-[#8b949e]">{upCount} Up</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-[#da3633]"></div>
+              <span className="text-xs text-[#8b949e]">{downCount} Down</span>
+            </div>
+          </div>
+          <span className="text-xs text-[#8b949e]">{currentData.length} symbols</span>
+        </div>
+      )}
+
       {/* Market Data - Grid Layout */}
       <div className="max-h-[500px] overflow-y-auto pr-1">
         {loading ? (
-          <div className="text-center py-4 text-[#8b949e]">
-            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#ff6b35]" />
-            Loading...
+          <div className="text-center py-8 text-[#8b949e]">
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
+            <p className="text-sm">Loading market data...</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
@@ -163,7 +175,7 @@ export default function MarketCard() {
                 href={`https://www.tradingview.com/chart/?symbol=${getTradingViewSymbol(item.symbol, activeTab === 'crypto')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d] hover:border-[#ff6b35]/50 transition-colors block"
+                className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#ff6b35]/50 transition-all block group"
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
@@ -172,21 +184,25 @@ export default function MarketCard() {
                     ) : (
                       <TrendingDown className="w-3.5 h-3.5 text-[#da3633]" />
                     )}
-                    <span className="font-semibold text-white hover:text-[#ff6b35] transition-colors flex items-center gap-1">
+                    <span className="font-semibold text-white group-hover:text-[#ff6b35] transition-colors flex items-center gap-1">
                       {item.symbol}
                       <ExternalLink className="w-3 h-3 opacity-50" />
                     </span>
                   </div>
-                  <span className={`text-xs font-medium ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                    item.change >= 0 
+                      ? 'bg-[#238636]/20 text-[#238636]' 
+                      : 'bg-[#da3633]/20 text-[#da3633]'
+                  }`}>
                     {item.change >= 0 ? '+' : ''}{item.changePercent.toFixed(2)}%
                   </span>
                 </div>
                 
-                <p className="text-xs text-[#8b949e] mb-2 truncate">{item.name}</p>
+                <p className="text-xs text-[#8b949e] mb-3 truncate">{item.name}</p>
                 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-white">{formatPrice(item.price)}</span>
-                  <span className={`text-xs ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>
+                <div className="flex items-baseline justify-between">
+                  <span className="metric-value text-xl">{formatPrice(item.price)}</span>
+                  <span className={`text-xs font-medium ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>
                     {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}
                   </span>
                 </div>
@@ -197,7 +213,7 @@ export default function MarketCard() {
       </div>
 
       {data?.lastUpdated && (
-        <div className="mt-3 text-xs text-[#8b949e] text-center">
+        <div className="mt-4 pt-4 border-t border-[#30363d] text-xs text-[#8b949e] text-center">
           Last updated: {new Date(data.lastUpdated).toLocaleTimeString('en-US', {
             timeZone: 'America/New_York',
             hour: '2-digit',
