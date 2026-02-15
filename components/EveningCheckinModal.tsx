@@ -21,13 +21,9 @@ function useIsMobile() {
 
 function truncateForMobile(text: string, isMobile: boolean): string {
   if (!isMobile) return text;
-  // Truncate to first word for mobile
+  // Truncate to first word, max 8 chars for mobile
   const firstWord = text.split(' ')[0];
-  // If first word is still too long, add ellipsis
-  if (firstWord.length > 10) {
-    return firstWord.slice(0, 10) + '...';
-  }
-  return firstWord;
+  return firstWord.slice(0, 8);
 }
 
 interface Question {
