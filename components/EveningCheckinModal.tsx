@@ -19,11 +19,29 @@ function useIsMobile() {
   return isMobile;
 }
 
+function getActionWord(question: string): string {
+  // Remove "Did you " prefix and get next word
+  const cleaned = question.replace(/^Did you\s*/i, '');
+  const words = cleaned.split(' ');
+  
+  // Skip "your", "the", etc. Find the action word
+  const skip = ['your', 'the', 'a', 'an', 'my', 'today'];
+  for (const word of words) {
+    const clean = word.toLowerCase().replace(/[^a-z]/g, '');
+    if (!skip.includes(clean) && clean.length > 0) {
+      return word.replace(/[^a-zA-Z]/g, ''); // Remove punctuation
+    }
+  }
+  
+  return words[0]?.replace(/[^a-zA-Z]/g, '') || 'Habit';
+}
+
 function truncateForMobile(text: string, isMobile: boolean): string {
   if (!isMobile) return text;
-  // Truncate to first word, max 8 chars for mobile
-  const firstWord = text.split(' ')[0];
-  return firstWord.slice(0, 8);
+  // Extract action word for mobile display
+  const actionWord = getActionWord(text);
+  // Limit to 10 chars for mobile display
+  return actionWord.slice(0, 10);
 }
 
 interface Question {
@@ -230,7 +248,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium truncate">{truncateForMobile(q.question, isMobile)}</p>
+                        <p className="text-white font-medium truncate">{getActionWord(q.question)}</p>
                         <span className={`text-xs uppercase tracking-wider ${getCategoryColor(q.category)}`}>
                           {q.category}
                         </span>
@@ -342,7 +360,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                     return (
                       <div key={q.id} className="flex items-center gap-3 sm:gap-4">
                         <div className="flex-1 min-w-0" title={q.question}>
-                          <p className="text-sm text-white truncate">{truncateForMobile(q.question, isMobile)}</p>
+                          <p className="text-sm text-white truncate">{getActionWord(q.question)}</p>
                         </div>
                         <div className="flex items-center gap-2 sm:gap-3 w-32 sm:w-48 flex-shrink-0">
                           <div className="flex-1 h-2 bg-[#21262d] rounded-full overflow-hidden">
