@@ -8,8 +8,7 @@ export async function POST(request: Request) {
       title, 
       description, 
       startDate, 
-      endDate, 
-      calendar = 'primary' 
+      endDate
     } = body;
 
     if (!title || !startDate) {
@@ -28,8 +27,7 @@ export async function POST(request: Request) {
       },
       end: {
         dateTime: endDate || new Date(new Date(startDate).getTime() + 60 * 60 * 1000).toISOString()
-      },
-      calendarId: calendar
+      }
     });
 
     if (!event) {
