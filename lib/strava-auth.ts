@@ -166,6 +166,13 @@ export async function refreshStravaToken(refreshToken: string): Promise<StravaTo
       const errorText = await response.text();
       console.error('[StravaAuth] Strava token refresh failed:', response.status, errorText);
       console.error('[StravaAuth] Full error response:', errorText);
+      console.error('[StravaAuth] Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
+      try {
+        const errorJson = JSON.parse(errorText);
+        console.error('[StravaAuth] Parsed error details:', JSON.stringify(errorJson, null, 2));
+      } catch {
+        // Not JSON, text already logged above
+      }
       return null;
     }
 
@@ -261,6 +268,19 @@ export async function getValidAccessToken(): Promise<string | null> {
       console.log('[StravaAuth] No tokens in Redis, trying to initialize from env...');
       tokens = await initializeTokensFromEnv();
       console.log('[StravaAuth] Tokens from env:', tokens ? 'YES' : 'NO');
+    }
+
+    // If still no tokens, use refresh token from env var directly (fallback for Redis issues)
+    if (!tokens) {
+      const refreshToken = process.env.STRAVA_REFRESH_TOKEN;
+      if (refreshToken) {
+        console.log('[StravaAuth] Using refresh token from env var directly');
+        tokens = await refreshStravaToken(refreshToken);
+        if (tokens) {
+          // Save to Redis for next time (best effort)
+          await saveTokens(tokens);
+        }
+      }
     }
 
     if (!tokens) {
