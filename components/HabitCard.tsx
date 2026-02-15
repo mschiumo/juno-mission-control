@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2 } from 'lucide-react';
+import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, Moon } from 'lucide-react';
+import EveningCheckinModal from './EveningCheckinModal';
 
 interface Habit {
   id: string;
@@ -34,8 +35,9 @@ export default function HabitCard() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   
-  // Add habit modal state
+  // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEveningCheckin, setShowEveningCheckin] = useState(false);
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitIcon, setNewHabitIcon] = useState('⭐');
   const [newHabitTarget, setNewHabitTarget] = useState('Daily');
@@ -197,6 +199,13 @@ export default function HabitCard() {
         </div>
         
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowEveningCheckin(true)}
+            className="p-2 bg-[#a371f7] text-white rounded-lg hover:bg-[#8957e5] transition-colors"
+            title="Evening check-in"
+          >
+            <Moon className="w-4 h-4" />
+          </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="p-2 bg-[#ff6b35] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors"
@@ -427,6 +436,12 @@ export default function HabitCard() {
           </div>
         </div>
       )}
+
+      {/* Evening Check-in Modal */}
+      <EveningCheckinModal 
+        isOpen={showEveningCheckin} 
+        onClose={() => setShowEveningCheckin(false)} 
+      />
     </div>
   );
 }
