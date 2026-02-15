@@ -136,11 +136,12 @@ export async function GET() {
       }
     } else {
       // No Redis - use defaults
-      habits = DEFAULT_HABITS.map(h => ({
+      habits = DEFAULT_HABITS.map((h, index) => ({
         ...h,
         completedToday: false,
         streak: 0,
-        history: [false, false, false, false, false, false, false]
+        history: [false, false, false, false, false, false, false],
+        order: index
       }));
     }
     
@@ -175,11 +176,12 @@ export async function GET() {
     console.error('Habit status error:', error);
     
     // Fallback
-    const habits = DEFAULT_HABITS.map(h => ({
+    const habits = DEFAULT_HABITS.map((h, index) => ({
       ...h,
       completedToday: false,
       streak: 0,
-      history: [false, false, false, false, false, false, false]
+      history: [false, false, false, false, false, false, false],
+      order: index
     }));
     
     return NextResponse.json({ 
