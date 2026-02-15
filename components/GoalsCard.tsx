@@ -119,6 +119,8 @@ export default function GoalsCard() {
   const moveCategory = async (goal: Goal, newCategory: Category) => {
     if (goal.category === newCategory) return;
     
+    const originalCategory = goal.category; // Store original BEFORE mutation
+    
     const updatedGoals = { ...goals };
     const goalIndex = updatedGoals[goal.category].findIndex(g => g.id === goal.id);
     if (goalIndex > -1) {
@@ -134,7 +136,7 @@ export default function GoalsCard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           goalId: goal.id,
-          fromCategory: goal.category,
+          fromCategory: originalCategory, // Use original, not mutated
           toCategory: newCategory
         })
       });
