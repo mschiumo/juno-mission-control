@@ -82,6 +82,13 @@ export default function MarketCard() {
 
   const currentData = data?.[activeTab] || [];
 
+  const getTradingViewSymbol = (symbol: string, isCrypto: boolean) => {
+    if (isCrypto) {
+      return `COINBASE:${symbol}USD`;
+    }
+    return symbol;
+  };
+
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
@@ -153,7 +160,7 @@ export default function MarketCard() {
             {currentData.map((item) => (
               <a
                 key={item.symbol}
-                href={`https://www.tradingview.com/chart/?symbol=${item.symbol}`}
+                href={`https://www.tradingview.com/chart/?symbol=${getTradingViewSymbol(item.symbol, activeTab === 'crypto')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d] hover:border-[#ff6b35]/50 transition-colors block"
