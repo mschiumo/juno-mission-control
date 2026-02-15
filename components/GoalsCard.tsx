@@ -61,6 +61,7 @@ export default function GoalsCard() {
   const [activeCategory, setActiveCategory] = useState<Category>('daily');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
+  const [newGoalNotes, setNewGoalNotes] = useState('');
   const [draggedGoal, setDraggedGoal] = useState<Goal | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   
@@ -180,7 +181,8 @@ export default function GoalsCard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: newGoalTitle,
-          category: activeCategory
+          category: activeCategory,
+          notes: newGoalNotes
         })
       });
 
@@ -188,6 +190,7 @@ export default function GoalsCard() {
         const data = await response.json();
         setGoals(data.data);
         setNewGoalTitle('');
+        setNewGoalNotes('');
         setShowAddModal(false);
       }
     } catch (error) {
@@ -644,6 +647,13 @@ export default function GoalsCard() {
                 className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm mb-3"
                 onKeyPress={(e) => e.key === 'Enter' && addGoal()}
               />
+              <textarea
+                value={newGoalNotes}
+                onChange={(e) => setNewGoalNotes(e.target.value)}
+                placeholder="Add notes (optional)..."
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm mb-3 resize-none"
+                rows={3}
+              />
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowAddModal(false)}
@@ -830,6 +840,14 @@ export default function GoalsCard() {
               placeholder="Enter goal title..."
               className="w-full px-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35] mb-4"
               onKeyPress={(e) => e.key === 'Enter' && addGoal()}
+            />
+
+            <textarea
+              value={newGoalNotes}
+              onChange={(e) => setNewGoalNotes(e.target.value)}
+              placeholder="Add notes about this goal (optional)..."
+              className="w-full px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35] mb-4 resize-none"
+              rows={4}
             />
             
             <div className="flex gap-2">

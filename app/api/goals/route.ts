@@ -182,7 +182,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { title, category } = body;
+    const { title, category, notes } = body;
     
     if (!title || !category) {
       return NextResponse.json({
@@ -215,7 +215,8 @@ export async function PUT(request: Request) {
       id: `${category[0]}${Date.now()}`,
       title,
       phase: 'not-started',
-      category
+      category,
+      notes: notes || undefined
     };
     
     goals[category].push(newGoal);
