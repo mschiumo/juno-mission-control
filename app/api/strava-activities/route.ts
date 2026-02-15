@@ -29,6 +29,14 @@ let cachedToken: string | null = null;
 let tokenExpiry: number = 0;
 
 async function getAccessToken(): Promise<string | null> {
+  // DEBUG: Log env var status
+  console.log('Strava env check:', {
+    hasClientId: !!process.env.STRAVA_CLIENT_ID,
+    hasClientSecret: !!process.env.STRAVA_CLIENT_SECRET,
+    hasRefreshToken: !!process.env.STRAVA_REFRESH_TOKEN,
+    clientId: process.env.STRAVA_CLIENT_ID?.substring(0, 4) + '...',
+  });
+
   // Return cached token if still valid (with 5 min buffer)
   if (cachedToken && Date.now() / 1000 < tokenExpiry - 300) {
     return cachedToken;
@@ -39,7 +47,11 @@ async function getAccessToken(): Promise<string | null> {
   const refreshToken = process.env.STRAVA_REFRESH_TOKEN;
 
   if (!clientId || !clientSecret || !refreshToken) {
-    console.error('Strava credentials not configured');
+    console.error('Strava credentials not configured - missing:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      hasRefreshToken: !!refreshToken,
+    });
     return null;
   }
 
@@ -79,6 +91,12 @@ export async function GET(request: Request) {
         success: false,
         error: 'Strava not configured',
         message: 'Please set STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, and STRAVA_REFRESH_TOKEN environment variables',
+        debug: {
+          hasClientId: !!process.env.STRAVA_CLIENT_ID,
+          hasClientSecret: !!process.env.STRAVA_CLIENT_SECRET,
+          hasRefreshToken: !!process.env.STRAVA_REFRESH_TOKEN,
+          clientIdPreview: process.env.STRAVA_CLIENT_ID?.substring(0, 4),
+        }
       }, { status: 503 });
     }
 
