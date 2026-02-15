@@ -1,5 +1,8 @@
-// utils/subagent-tracker.ts
+// lib/subagent-tracker.ts
 // Helper to auto-register subagents when spawning
+
+// Base URL for API calls - works in both client and server contexts
+const API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://juno-mission-control.vercel.app';
 
 interface SubagentRegistration {
   sessionKey: string;
@@ -10,6 +13,7 @@ interface SubagentRegistration {
 /**
  * Register a new subagent with the tracking system
  * Call this immediately after spawning a subagent
+ * Uses the dedicated subagent-register endpoint for Redis storage
  */
 export async function registerSubagent(
   sessionKey: string,
@@ -17,7 +21,7 @@ export async function registerSubagent(
   status: 'working' | 'in_progress' = 'working'
 ): Promise<boolean> {
   try {
-    const response = await fetch('/api/subagents', {
+    const response = await fetch(`${API_BASE_URL}/api/subagent-register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -39,6 +43,7 @@ export async function registerSubagent(
 
 /**
  * Update subagent status (e.g., when work progresses or completes)
+ * Uses the /api/subagents endpoint for status updates
  */
 export async function updateSubagentStatus(
   sessionKey: string,
@@ -46,7 +51,7 @@ export async function updateSubagentStatus(
   task?: string
 ): Promise<boolean> {
   try {
-    const response = await fetch('/api/subagents', {
+    const response = await fetch(`${API_BASE_URL}/api/subagents`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -71,7 +76,7 @@ export async function updateSubagentStatus(
  */
 export async function unregisterSubagent(sessionKey: string): Promise<boolean> {
   try {
-    const response = await fetch(`/api/subagents?sessionKey=${sessionKey}`, {
+    const response = await fetch(`${API_BASE_URL}/api/subagents?sessionKey=${encodeURIComponent(sessionKey)}`, {
       method: 'DELETE',
     });
 
