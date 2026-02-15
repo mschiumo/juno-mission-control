@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Target, Plus, X, RefreshCw, FileText, Bot, CheckCircle, Circle, Loader2 } from 'lucide-react';
 
 interface ActionItem {
@@ -48,6 +49,9 @@ const categoryLabels: Record<Category, string> = {
 };
 
 export default function GoalsCard() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [goals, setGoals] = useState<GoalsData>({
     yearly: [],
     weekly: [],
@@ -70,8 +74,21 @@ export default function GoalsCard() {
   const [newActionItem, setNewActionItem] = useState('');
   const [showJunoOnly, setShowJunoOnly] = useState(false);
 
+  // Initialize active category from URL query param
   useEffect(() => {
-    fetchGoals();
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['daily', 'weekly', 'yearly'].includes(tabParam)) {
+      setActiveCategory(tabParam as Category);
+    }
+  }, [searchParams]);
+
+  // Update URL when tab changes
+  const handleCategoryChange = (category: Category) => {
+    setActiveCategory(category);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', category);
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -554,7 +571,7 @@ export default function GoalsCard() {
           {(['daily', 'weekly', 'yearly'] as Category[]).map((cat) => (
             <button
               key={cat}
-              onClick={() => setActiveCategory(cat)}
+              onClick={() => handleCategoryChange(cat)}
               className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
                 activeCategory === cat
                   ? 'bg-[#ff6b35] text-white'
@@ -730,7 +747,7 @@ export default function GoalsCard() {
         {(['daily', 'weekly', 'yearly'] as Category[]).map((cat) => (
           <button
             key={cat}
-            onClick={() => setActiveCategory(cat)}
+            onClick={() => handleCategoryChange(cat)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeCategory === cat
                 ? 'bg-[#ff6b35] text-white'
