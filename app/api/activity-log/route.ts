@@ -104,9 +104,9 @@ export async function POST(request: Request) {
       url: url || undefined
     };
 
-    // Add to activities (keep last 200 to prevent unbounded growth)
+    // Add to activities (keep last 25 max)
     activities.push(newActivity);
-    if (activities.length > 200) {
+    if (activities.length > 25) {
       activities.shift(); // Remove oldest
     }
 
