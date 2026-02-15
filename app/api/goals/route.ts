@@ -182,7 +182,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { title, category, notes } = body;
+    const { title, category, notes, phase, junoAssisted, actionItems, id } = body;
     
     if (!title || !category) {
       return NextResponse.json({
@@ -210,13 +210,15 @@ export async function PUT(request: Request) {
       }
     }
     
-    // Add new goal
+    // Add new goal (or restore with existing ID)
     const newGoal: Goal = {
-      id: `${category[0]}${Date.now()}`,
+      id: id || `${category[0]}${Date.now()}`,
       title,
-      phase: 'not-started',
+      phase: phase || 'not-started',
       category,
-      notes: notes || undefined
+      notes: notes || undefined,
+      junoAssisted: junoAssisted || false,
+      actionItems: actionItems || undefined
     };
     
     goals[category].push(newGoal);
