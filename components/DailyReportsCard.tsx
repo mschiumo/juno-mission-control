@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Clock, CheckCircle, AlertCircle, FileText, X, Eye, RefreshCw } from 'lucide-react';
-import { parseExpression } from 'cron-parser';
+import cronParser from 'cron-parser';
 
 interface CronJob {
   id: string;
@@ -123,7 +123,7 @@ export default function DailyReportsCard() {
   const getNextRunDate = (schedule: string): Date | null => {
     try {
       // Use cron-parser to handle any cron expression
-      const interval = parseExpression(schedule, {
+      const interval = cronParser.parse(schedule, {
         tz: 'America/New_York',
         currentDate: new Date()
       });
