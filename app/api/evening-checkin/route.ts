@@ -159,13 +159,19 @@ export async function POST(request: Request) {
   }
 }
 
-function calculateCompletionRate(responses: Record<string, boolean>, questions: any[]) {
+interface Question {
+  id: string;
+  question: string;
+  category: string;
+}
+
+function calculateCompletionRate(responses: Record<string, boolean>, questions: Question[]) {
   const total = questions.length;
   const completed = Object.values(responses).filter(Boolean).length;
   return Math.round((completed / total) * 100);
 }
 
-function calculateStats(checkins: any[], questions: any[]) {
+function calculateStats(checkins: { date: string; responses: Record<string, boolean>; completionRate: number }[], questions: Question[]) {
   if (checkins.length === 0) {
     return {
       totalCheckins: 0,
