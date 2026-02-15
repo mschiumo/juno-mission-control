@@ -98,6 +98,11 @@ export default function GoalsCard() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Fetch goals on mount
+  useEffect(() => {
+    fetchGoals();
+  }, []);
+
   const fetchGoals = async () => {
     setLoading(true);
     try {
