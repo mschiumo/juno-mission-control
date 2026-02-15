@@ -1,8 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Target, Plus, X, RefreshCw, FileText, Bot, CheckCircle, Circle, Loader2 } from 'lucide-react';
+import { Target, Plus, X, RefreshCw, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw } from 'lucide-react';
+
+interface Notification {
+  message: string;
+  type: 'success' | 'error' | 'undo';
+  deletedGoal?: Goal;
+}
 
 interface ActionItem {
   id: string;
@@ -75,6 +81,10 @@ export default function GoalsCard() {
   const [newActionItem, setNewActionItem] = useState('');
   const [showJunoOnly, setShowJunoOnly] = useState(false);
 
+  // Notification state
+  const [notification, setNotification] = useState<Notification | null>(null);
+  const [notificationTimeout, setNotificationTimeout] = useState<NodeJS.Timeout | null>(null);
+
   // Initialize active category from URL query param
   useEffect(() => {
     const tabParam = searchParams.get('tab');
@@ -98,6 +108,40 @@ export default function GoalsCard() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Notification helpers
+  const showNotification = useCallback((message: string, type: 'success' | 'error' | 'undo' = 'success', deletedGoal?: Goal) => {
+    // Clear any existing timeout
+    if (notificationTimeout) {
+      clearTimeout(notificationTimeout);
+    }
+
+    setNotification({ message, type, deletedGoal });
+
+    // Auto-dismiss after 5 seconds (except for undo)
+    if (type !== 'undo') {
+      const timeout = setTimeout(() => {
+        setNotification(null);
+      }, 5000);
+      setNotificationTimeout(timeout);
+    }
+  }, [notificationTimeout]);
+
+  const dismissNotification = useCallback(() => {
+    if (notificationTimeout) {
+      clearTimeout(notificationTimeout);
+    }
+    setNotification(null);
+  }, [notificationTimeout]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (notificationTimeout) {
+        clearTimeout(notificationTimeout);
+      }
+    };
+  }, [notificationTimeout]);
 
   // Fetch goals on mount
   useEffect(() => {
@@ -128,7 +172,7 @@ export default function GoalsCard() {
     }
 
     try {
-      await fetch('/api/goals', {
+      const response = await fetch('/api/goals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -137,8 +181,20 @@ export default function GoalsCard() {
           category: goal.category
         })
       });
+
+      if (response.ok) {
+        const phaseLabel = newPhase === 'achieved' ? 'Goal achieved! 🎉' : 
+                          newPhase === 'in-progress' ? 'Goal in progress' : 
+                          'Goal moved back';
+        showNotification(phaseLabel, 'success');
+      } else {
+        showNotification('Failed to move goal', 'error');
+        fetchGoals();
+      }
     } catch (error) {
       console.error('Failed to move goal:', error);
+      showNotification('Failed to move goal', 'error');
+      fetchGoals();
     }
   };
 
@@ -157,7 +213,7 @@ export default function GoalsCard() {
     }
 
     try {
-      await fetch('/api/goals', {
+      const response = await fetch('/api/goals', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -166,8 +222,16 @@ export default function GoalsCard() {
           toCategory: newCategory
         })
       });
+
+      if (response.ok) {
+        showNotification(`Goal moved to ${categoryLabels[newCategory]}`, 'success');
+      } else {
+        showNotification('Failed to move goal', 'error');
+        fetchGoals();
+      }
     } catch (error) {
       console.error('Failed to move goal category:', error);
+      showNotification('Failed to move goal', 'error');
       fetchGoals();
     }
   };
@@ -192,24 +256,88 @@ export default function GoalsCard() {
         setNewGoalTitle('');
         setNewGoalNotes('');
         setShowAddModal(false);
+        showNotification('Goal added', 'success');
+      } else {
+        showNotification('Failed to add goal', 'error');
       }
     } catch (error) {
       console.error('Failed to add goal:', error);
+      showNotification('Failed to add goal', 'error');
     }
   };
 
   const deleteGoal = async (goal: Goal) => {
+    // Store goal before deleting for potential undo
+    const deletedGoal = { ...goal };
+    
+    // Optimistically remove from UI
+    const updatedGoals = { ...goals };
+    updatedGoals[goal.category] = updatedGoals[goal.category].filter(g => g.id !== goal.id);
+    setGoals(updatedGoals);
+    
+    // Show undo notification
+    showNotification('Goal deleted', 'undo', deletedGoal);
+
     try {
       const response = await fetch(`/api/goals?goalId=${goal.id}&category=${goal.category}`, {
         method: 'DELETE'
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setGoals(data.data);
+      if (!response.ok) {
+        // Restore on error
+        setGoals(goals);
+        showNotification('Failed to delete goal', 'error');
       }
     } catch (error) {
       console.error('Failed to delete goal:', error);
+      // Restore on error
+      setGoals(goals);
+      showNotification('Failed to delete goal', 'error');
+    }
+  };
+
+  const undoDelete = async () => {
+    if (!notification?.deletedGoal) return;
+
+    const goalToRestore = notification.deletedGoal;
+    
+    // Dismiss notification
+    dismissNotification();
+    
+    // Optimistically restore to UI
+    const updatedGoals = { ...goals };
+    updatedGoals[goalToRestore.category].push(goalToRestore);
+    setGoals(updatedGoals);
+
+    try {
+      // Restore goal via API using PUT (create) with the same ID
+      const response = await fetch('/api/goals', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: goalToRestore.title,
+          category: goalToRestore.category,
+          notes: goalToRestore.notes,
+          phase: goalToRestore.phase,
+          junoAssisted: goalToRestore.junoAssisted,
+          actionItems: goalToRestore.actionItems,
+          id: goalToRestore.id // Pass the original ID to restore
+        })
+      });
+
+      if (!response.ok) {
+        // If restore fails, refresh to get accurate state
+        fetchGoals();
+        showNotification('Failed to restore goal', 'error');
+      } else {
+        const data = await response.json();
+        setGoals(data.data);
+        showNotification('Goal restored', 'success');
+      }
+    } catch (error) {
+      console.error('Failed to restore goal:', error);
+      fetchGoals();
+      showNotification('Failed to restore goal', 'error');
     }
   };
 
@@ -242,9 +370,13 @@ export default function GoalsCard() {
         const data = await response.json();
         setGoals(data.data);
         closeNotes();
+        showNotification('Notes saved', 'success');
+      } else {
+        showNotification('Failed to save notes', 'error');
       }
     } catch (error) {
       console.error('Failed to save notes:', error);
+      showNotification('Failed to save notes', 'error');
     }
   };
 
@@ -272,12 +404,15 @@ export default function GoalsCard() {
 
       if (!response.ok) {
         fetchGoals();
+        showNotification('Failed to update Juno setting', 'error');
       } else {
         await fetchGoals();
+        showNotification(newValue ? 'Juno assistance enabled' : 'Juno assistance disabled', 'success');
       }
     } catch (error) {
       console.error('Failed to toggle Juno-assisted:', error);
       fetchGoals();
+      showNotification('Failed to update Juno setting', 'error');
     }
   };
 
@@ -1084,6 +1219,38 @@ export default function GoalsCard() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification Banner */}
+      {notification && (
+        <div className={`fixed bottom-4 right-4 z-[60] p-4 rounded-xl shadow-lg border animate-in slide-in-from-bottom-2 fade-in duration-200 ${
+          notification.type === 'undo' 
+            ? 'bg-orange-500/20 border-orange-500' 
+            : notification.type === 'error'
+            ? 'bg-red-500/20 border-red-500'
+            : 'bg-green-500/20 border-green-500'
+        }`}>
+          <div className="flex items-center gap-3">
+            {notification.type === 'success' && <Check className="w-5 h-5 text-green-400" />}
+            {notification.type === 'error' && <AlertCircle className="w-5 h-5 text-red-400" />}
+            {notification.type === 'undo' && <RotateCcw className="w-5 h-5 text-orange-400" />}
+            <span className="text-white font-medium">{notification.message}</span>
+            {notification.type === 'undo' && (
+              <button 
+                onClick={undoDelete}
+                className="ml-2 px-3 py-1.5 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
+              >
+                Undo
+              </button>
+            )}
+            <button 
+              onClick={dismissNotification}
+              className="ml-1 p-1 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <X className="w-4 h-4 text-white/70" />
+            </button>
           </div>
         </div>
       )}
