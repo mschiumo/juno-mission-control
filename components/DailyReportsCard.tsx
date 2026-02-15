@@ -260,19 +260,24 @@ export default function DailyReportsCard() {
       return 0;
     });
 
+  // Calculate progress
+  const availableReports = reports.filter(r => sortedJobs.some(j => j.name === r.jobName)).length;
+  const totalJobs = sortedJobs.length;
+  const progressPercent = totalJobs > 0 ? Math.round((availableReports / totalJobs) * 100) : 0;
+
   return (
     <>
-      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="card">
+        <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
+            <div className="p-2 bg-[#ff6b35]/10 rounded-xl">
               <FileText className="w-5 h-5 text-[#ff6b35]" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">Daily Reports</h2>
               <div className="flex items-center gap-2">
                 <p className="text-xs text-[#8b949e]">
-                  {reports.filter(r => sortedJobs.some(j => j.name === r.jobName)).length} of {sortedJobs.length} available
+                  {availableReports} of {totalJobs} available
                 </p>
                 {lastUpdated && !loading && (
                   <span className="text-[10px] text-[#238636]">
@@ -286,16 +291,33 @@ export default function DailyReportsCard() {
           <button
             onClick={fetchData}
             disabled={loading}
-            className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+            className="pill p-2"
             title="Refresh reports"
           >
-            <RefreshCw className={`w-5 h-5 text-[#8b949e] hover:text-[#ff6b35] ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="mb-5 p-4 bg-[#0d1117] rounded-xl">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-[#8b949e] uppercase tracking-wider font-medium">Reports Available</span>
+            <span className="text-xs font-medium text-[#ff6b35]">{progressPercent}%</span>
+          </div>
+          <div className="progress-bar">
+            <div 
+              className="progress-fill"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
         </div>
 
         <div className="space-y-2">
           {loading && reports.length === 0 ? (
-            <div className="text-center py-4 text-[#8b949e]">Loading...</div>
+            <div className="text-center py-8 text-[#8b949e]">
+              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
+              <p className="text-sm">Loading reports...</p>
+            </div>
           ) : (
             sortedJobs.map((job) => {
               const jobHasReport = hasReport(job.name);
@@ -310,20 +332,20 @@ export default function DailyReportsCard() {
                   <button
                     onClick={() => jobHasReport && openReport(job.name)}
                     disabled={!jobHasReport}
-                    className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors text-left ${
+                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left ${
                       jobHasReport 
-                        ? 'bg-[#0d1117] border-[#ff6b35]/50 hover:border-[#ff6b35] cursor-pointer' 
+                        ? 'bg-[#0d1117] border-[#ff6b35]/30 hover:border-[#ff6b35] hover:bg-[#0d1117]/80 cursor-pointer' 
                         : 'bg-[#0d1117]/50 border-[#30363d] cursor-not-allowed opacity-60'
                     }`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         {getStatusIcon(job.status)}
-                        <span className={`font-medium truncate ${jobHasReport ? 'text-white' : 'text-[#8b949e]'}`}>
+                        <span className={`font-medium text-sm truncate ${jobHasReport ? 'text-white' : 'text-[#8b949e]'}`}>
                           {job.name}
                         </span>
                         {jobHasReport && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-[#238636]/20 text-[#238636] rounded-full">
+                          <span className="pill pill-primary text-[10px] px-2 py-0.5">
                             NEW
                           </span>
                         )}
@@ -341,7 +363,7 @@ export default function DailyReportsCard() {
                   
                   {/* Tooltip for unavailable reports */}
                   {!jobHasReport && hoveredJob === job.name && (
-                    <div className="absolute z-10 left-0 right-0 top-full mt-1 p-2 bg-[#0d1117] border border-[#ff6b35] rounded-lg shadow-lg">
+                    <div className="absolute z-10 left-0 right-0 top-full mt-1 p-3 bg-[#0d1117] border border-[#ff6b35] rounded-xl shadow-lg">
                       <p className="text-xs text-[#8b949e]">
                         <span className="text-[#ff6b35] font-medium">{job.name}</span> not currently available.
                       </p>
@@ -359,10 +381,10 @@ export default function DailyReportsCard() {
 
       {/* Report Modal */}
       {modalOpen && selectedReport && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#161b22] border border-[#30363d] rounded-lg w-full max-w-2xl max-h-[80vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b border-[#30363d]">
+            <div className="flex items-center justify-between p-5 border-b border-[#30363d]">
               <div>
                 <h3 className="text-lg font-semibold text-white">{selectedReport.jobName}</h3>
                 <p className="text-xs text-[#8b949e]">
@@ -378,24 +400,24 @@ export default function DailyReportsCard() {
               </div>
               <button
                 onClick={closeModal}
-                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+                className="pill p-2"
               >
-                <X className="w-5 h-5 text-[#8b949e]" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Content */}
-            <div className="p-4 overflow-y-auto max-h-[60vh]">
+            <div className="p-5 overflow-y-auto max-h-[60vh]">
               <pre className="whitespace-pre-wrap text-sm text-[#e6edf3] font-sans leading-relaxed">
                 {selectedReport.content}
               </pre>
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-[#30363d] flex justify-end">
+            <div className="p-5 border-t border-[#30363d] flex justify-end">
               <button
                 onClick={closeModal}
-                className="px-4 py-2 bg-[#ff6b35] hover:bg-[#ff8c5a] text-white rounded-lg transition-colors"
+                className="pill pill-primary px-5 py-2"
               >
                 Close
               </button>

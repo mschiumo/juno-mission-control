@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0d1117;
+  --background: #0F0F0F;
   --foreground: #e6edf3;
-  --tangerine: #ff6b35;
+  --tangerine: #F97316;
   --tangerine-light: #ff8c5a;
   --tangerine-dark: #e55a2b;
-  --card-bg: #161b22;
-  --card-border: #30363d;
-  --muted: #8b949e;
-  --success: #238636;
+  --card-bg: #1a1a1a;
+  --card-border: #262626;
+  --muted: #737373;
+  --success: #22c55e;
   --warning: #d29922;
   --error: #da3633;
+  --info: #58a6ff;
 }
 
 @theme inline {
@@ -26,6 +27,7 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-error: var(--error);
+  --color-info: var(--info);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -35,7 +37,159 @@ body {
   color: var(--foreground);
 }
 
-/* Custom scrollbar */
+/* ========================================
+   RobinHood-Inspired Design System
+   ======================================== */
+
+/* Card - Clean, minimalist cards with subtle shadows */
+.card {
+  background: #1a1a1a;
+  border: 1px solid #262626;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  border-color: rgba(249, 115, 22, 0.2);
+}
+
+/* Metric Value - Bold typography for numbers */
+.metric-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+/* Metric Label - Small uppercase labels */
+.metric-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #737373;
+}
+
+/* Segmented Control - Tab navigation */
+.segmented-control {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #0F0F0F;
+  border: 1px solid #262626;
+  border-radius: 12px;
+}
+
+.segment {
+  flex: 1;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: transparent;
+  border: none;
+  color: #737373;
+}
+
+.segment:hover {
+  color: white;
+}
+
+.segment-active {
+  background: #262626;
+  color: white;
+}
+
+.segment-inactive {
+  color: #737373;
+}
+
+.segment-inactive:hover {
+  color: white;
+}
+
+/* Progress Bar */
+.progress-bar {
+  height: 8px;
+  background: #262626;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #F97316;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+/* Pill - Pill-shaped buttons */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(48, 54, 61, 0.6);
+  border: 1px solid var(--card-border);
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.pill:hover {
+  background: rgba(48, 54, 61, 0.8);
+  color: var(--foreground);
+  border-color: var(--muted);
+}
+
+.pill-primary {
+  background: var(--tangerine);
+  border-color: var(--tangerine);
+  color: white;
+}
+
+.pill-primary:hover {
+  background: var(--tangerine-light);
+  border-color: var(--tangerine-light);
+  color: white;
+}
+
+/* Status Dots */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--muted);
+}
+
+.status-dot-green {
+  background: var(--success);
+}
+
+.status-dot-red {
+  background: var(--error);
+}
+
+.status-dot-blue {
+  background: var(--info);
+}
+
+.status-dot-yellow {
+  background: var(--warning);
+}
+
+/* ========================================
+   Custom scrollbar
+   ======================================== */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -57,10 +211,10 @@ body {
 /* Animation for pulse effect */
 @keyframes pulse-tangerine {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.4);
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4);
   }
   50% {
-    box-shadow: 0 0 0 10px rgba(255, 107, 53, 0);
+    box-shadow: 0 0 0 10px rgba(249, 115, 22, 0);
   }
 }
 
