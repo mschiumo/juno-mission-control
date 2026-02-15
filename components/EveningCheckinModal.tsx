@@ -334,15 +334,15 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
               <div className="grid grid-cols-3 gap-4">
                 <div className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] text-center">
                   <div className="text-3xl font-bold text-[#a371f7]">{data?.stats.totalCheckins || 0}</div>
-                  <div className="text-xs text-[#8b949e] uppercase mt-1">Total Check-ins</div>
+                  <div className="text-[10px] sm:text-xs text-[#8b949e] uppercase mt-1 leading-tight">Total<br className="sm:hidden"/>Check-ins</div>
                 </div>
                 <div className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] text-center">
                   <div className="text-3xl font-bold text-[#ff6b35]">{data?.stats.averageCompletion || 0}%</div>
-                  <div className="text-xs text-[#8b949e] uppercase mt-1">Avg Completion</div>
+                  <div className="text-[10px] sm:text-xs text-[#8b949e] uppercase mt-1 leading-tight">Avg<br className="sm:hidden"/>Completion</div>
                 </div>
                 <div className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] text-center">
                   <div className="text-3xl font-bold text-[#238636]">{data?.stats.streak || 0}</div>
-                  <div className="text-xs text-[#8b949e] uppercase mt-1">Day Streak</div>
+                  <div className="text-[10px] sm:text-xs text-[#8b949e] uppercase mt-1 leading-tight">Day<br className="sm:hidden"/>Streak</div>
                 </div>
               </div>
 
