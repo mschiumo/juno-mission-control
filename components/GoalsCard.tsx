@@ -701,6 +701,73 @@ export default function GoalsCard() {
             </div>
           </div>
         )}
+
+        {/* Action Items Modal */}
+        {actionItemsGoal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="card w-full max-w-sm max-h-[80vh] overflow-hidden">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-purple-400" />
+                  <span className="text-sm font-medium text-white">Action Items</span>
+                </div>
+                <button onClick={() => { setActionItemsGoal(null); setNewActionItem(''); }} className="p-1">
+                  <X className="w-4 h-4 text-[#737373]" />
+                </button>
+              </div>
+              <p className="text-xs text-[#737373] mb-3">{actionItemsGoal.title}</p>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={newActionItem}
+                  onChange={(e) => setNewActionItem(e.target.value)}
+                  placeholder="Add action item..."
+                  className="flex-1 px-3 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-xs"
+                  onKeyPress={(e) => e.key === 'Enter' && addActionItem()}
+                />
+                <button
+                  onClick={addActionItem}
+                  disabled={!newActionItem.trim()}
+                  className="px-3 py-2 bg-purple-500 text-white rounded-xl disabled:opacity-50"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="overflow-y-auto max-h-[50vh] space-y-2">
+                {(actionItemsGoal.actionItems || []).length === 0 ? (
+                  <div className="text-center py-4 text-[#737373] text-xs">
+                    <Bot className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p>No action items yet</p>
+                  </div>
+                ) : (
+                  (actionItemsGoal.actionItems || []).map((item) => (
+                    <div key={item.id} className="flex items-center gap-2 p-2 bg-[#0F0F0F] rounded-lg">
+                      <button onClick={() => updateActionItemStatus(item.id, item.status === 'completed' ? 'pending' : 'completed')}>
+                        {item.status === 'completed' ? (
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Circle className="w-4 h-4 text-[#737373]" />
+                        )}
+                      </button>
+                      <span className={`flex-1 text-xs ${item.status === 'completed' ? 'line-through text-[#737373]' : 'text-white'}`}>
+                        {item.text}
+                      </span>
+                      <button onClick={() => deleteActionItem(item.id)} className="text-[#737373] hover:text-red-500">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <button
+                onClick={() => { setActionItemsGoal(null); setNewActionItem(''); }}
+                className="w-full mt-3 px-3 py-2 bg-[#262626] text-white rounded-xl text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
