@@ -18,7 +18,6 @@ import NotificationsBell from "@/components/NotificationsBell";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import DocumentationCard from "@/components/DocumentationCard";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
-import StravaCard from "@/components/StravaCard";
 import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
 
 type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'activity';
@@ -157,7 +156,6 @@ function DashboardContent() {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <DailyReportsCard />
               <HabitCard />
-              <StravaCard />
             </div>
           </div>
         ) : activeTab === 'tasks' ? (
@@ -185,7 +183,9 @@ function DashboardContent() {
         ) : activeTab === 'goals' ? (
           /* Goals View */
           <div className="max-w-6xl mx-auto">
-            <GoalsCard />
+            <Suspense fallback={<div className="p-8 text-center text-[#8b949e]">Loading goals...</div>}>
+              <GoalsCard />
+            </Suspense>
           </div>
         ) : (
           /* Activity Log View */
