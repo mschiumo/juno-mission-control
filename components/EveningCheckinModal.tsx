@@ -33,9 +33,10 @@ interface CheckinData {
 interface EveningCheckinModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function EveningCheckinModal({ isOpen, onClose }: EveningCheckinModalProps) {
+export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: EveningCheckinModalProps) {
   const [data, setData] = useState<CheckinData | null>(null);
   const [responses, setResponses] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState('');
@@ -84,12 +85,9 @@ export default function EveningCheckinModal({ isOpen, onClose }: EveningCheckinM
       });
       
       if (response.ok) {
-        setSaved(true);
         fetchData(); // Refresh stats
-        setTimeout(() => {
-          setSaved(false);
-          onClose(); // Close the modal
-        }, 1500);
+        onClose(); // Close modal immediately
+        onSuccess?.(); // Trigger success notification
       }
     } catch (error) {
       console.error('Failed to save checkin:', error);
