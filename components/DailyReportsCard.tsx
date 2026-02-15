@@ -8,6 +8,7 @@ interface CronJob {
   id: string;
   name: string;
   schedule: string;
+  cronExpression?: string;
   lastRun: string;
   status: 'active' | 'completed' | 'paused' | 'error';
   description: string;
@@ -120,16 +121,17 @@ export default function DailyReportsCard() {
     return report ? report.timestamp : null;
   };
 
-  const getNextRunDate = (schedule: string): Date | null => {
+  const getNextRunDate = (job: CronJob): Date | null => {
     try {
-      // Use cron-parser to handle any cron expression
-      const interval = cronParser.parse(schedule, {
+      // Use cronExpression if available, otherwise fall back to schedule for backward compatibility
+      const cronSchedule = job.cronExpression || job.schedule;
+      const interval = cronParser.parse(cronSchedule, {
         tz: 'America/New_York',
         currentDate: new Date()
       });
       return interval.next().toDate();
     } catch (error) {
-      console.error('Failed to parse cron schedule:', schedule, error);
+      console.error('Failed to parse cron schedule:', job.cronExpression || job.schedule, error);
       return null;
     }
   };
@@ -153,12 +155,13 @@ export default function DailyReportsCard() {
     return `${month}/${day} @ ${hour}:${minute} ${dayPeriod}`;
   };
 
-  const getNextScheduledTime = (schedule: string): string => {
-    const next = getNextRunDate(schedule);
+  const getNextScheduledTime = (job: CronJob): string => {
+    const next = getNextRunDate(job);
     if (!next) return 'Scheduled';
     
     // Check if it's a weekday schedule
-    if (schedule.includes('0-4')) {
+    const cronSchedule = job.cronExpression || job.schedule;
+    if (cronSchedule.includes('0-4') || cronSchedule.includes('1-5')) {
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const timeStr = next.toLocaleString('en-US', { 
         timeZone: 'America/New_York',
@@ -321,7 +324,7 @@ export default function DailyReportsCard() {
           ) : (
             sortedJobs.map((job) => {
               const jobHasReport = hasReport(job.name);
-              const nextScheduled = getNextScheduledTime(job.schedule);
+              const nextScheduled = getNextScheduledTime(job);
               return (
                 <div
                   key={job.id}
@@ -368,7 +371,7 @@ export default function DailyReportsCard() {
                         <span className="text-[#ff6b35] font-medium">{job.name}</span> not currently available.
                       </p>
                       <p className="text-xs text-[#8b949e] mt-1">
-                        Next Report <span className="text-white">{formatDateTime(getNextRunDate(job.schedule) || new Date())}</span>
+                        Next Report <span className="text-white">{formatDateTime(getNextRunDate(job) || new Date())}</span>
                       </p>
                     </div>
                   )}
