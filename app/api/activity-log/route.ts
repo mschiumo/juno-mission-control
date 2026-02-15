@@ -49,16 +49,16 @@ export async function GET() {
       activities = data ? JSON.parse(data) : [];
     }
 
-    // Get all activities for today
-    const today = new Date().toDateString();
-    const todayActivities = activities.filter(a => 
-      new Date(a.timestamp).toDateString() === today
+    // Get all activities from last 48 hours
+    const cutoffTime = Date.now() - (48 * 60 * 60 * 1000); // 48 hours ago
+    const recentActivities = activities.filter(a => 
+      new Date(a.timestamp).getTime() > cutoffTime
     );
 
     return NextResponse.json({
       success: true,
-      data: todayActivities,
-      count: todayActivities.length
+      data: recentActivities,
+      count: recentActivities.length
     });
   } catch (error) {
     console.error('Activity log GET error:', error);
