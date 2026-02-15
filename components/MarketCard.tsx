@@ -63,10 +63,10 @@ export default function MarketCard() {
     }).format(price);
   };
 
-  const formatChange = (change: number, changePercent: number) => {
-    const sign = change >= 0 ? '+' : '';
-    return `${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)`;
-  };
+  // const formatChange = (change: number, changePercent: number) => {
+  //   const sign = change >= 0 ? '+' : '';
+  //   return `${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)`;
+  // };
 
   const formatLastUpdated = () => {
     if (!lastUpdated) return '';

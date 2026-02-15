@@ -575,7 +575,7 @@ export default function ProjectsCard() {
             </div>
             <div className="p-4">
               <p className="text-sm text-[#8b949e]">
-                Are you sure you want to delete <span className="text-white font-medium">"{projectToDelete.name}"</span>?
+                Are you sure you want to delete <span className="text-white font-medium">&quot;{projectToDelete.name}&quot;</span>?
                 This action cannot be undone.
               </p>
             </div>
