@@ -373,7 +373,7 @@ export default function HabitCard() {
           <button
             onClick={() => setShowEveningCheckin(true)}
             className="p-2 bg-[#a371f7] text-white rounded-xl hover:bg-[#8957e5] transition-colors"
-            title="Evening check-in"
+            title="See Report"
           >
             <ClipboardList className="w-4 h-4" />
           </button>
