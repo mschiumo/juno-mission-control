@@ -1,48 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Moon, Check, X, Save, TrendingUp, Calendar, StickyNote } from 'lucide-react';
-
-// Utility function to truncate text for mobile
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 640);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  return isMobile;
-}
-
-function getActionWord(question: string): string {
-  // Remove "Did you " prefix and get next word
-  const cleaned = question.replace(/^Did you\s*/i, '');
-  const words = cleaned.split(' ');
-  
-  // Skip "your", "the", etc. Find the action word
-  const skip = ['your', 'the', 'a', 'an', 'my', 'today'];
-  for (const word of words) {
-    const clean = word.toLowerCase().replace(/[^a-z]/g, '');
-    if (!skip.includes(clean) && clean.length > 0) {
-      return word.replace(/[^a-zA-Z]/g, ''); // Remove punctuation
-    }
-  }
-  
-  return words[0]?.replace(/[^a-zA-Z]/g, '') || 'Habit';
-}
-
-function truncateForMobile(text: string, isMobile: boolean): string {
-  if (!isMobile) return text;
-  // Extract action word for mobile display
-  const actionWord = getActionWord(text);
-  // Limit to 10 chars for mobile display
-  return actionWord.slice(0, 10);
-}
+import { ClipboardList, X, TrendingUp, Calendar } from 'lucide-react';
 
 interface Question {
   id: string;
@@ -75,18 +34,11 @@ interface CheckinData {
 interface EveningCheckinModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
 }
 
-export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: EveningCheckinModalProps) {
+export default function EveningCheckinModal({ isOpen, onClose }: EveningCheckinModalProps) {
   const [data, setData] = useState<CheckinData | null>(null);
-  const [responses, setResponses] = useState<Record<string, boolean>>({});
-  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState('checkin');
-  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (isOpen) {
@@ -101,48 +53,12 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
       const result = await response.json();
       if (result.success) {
         setData(result.data);
-        // Pre-fill if already submitted today
-        if (result.data.todayCheckin) {
-          setResponses(result.data.todayCheckin.responses || {});
-          setNotes(result.data.todayCheckin.notes || '');
-        }
       }
     } catch (error) {
       console.error('Failed to fetch checkin data:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleResponse = (questionId: string, value: boolean) => {
-    setResponses(prev => ({ ...prev, [questionId]: value }));
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const response = await fetch('/api/evening-checkin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ responses, notes })
-      });
-      
-      if (response.ok) {
-        fetchData(); // Refresh stats
-        onClose(); // Close modal immediately
-        onSuccess?.(); // Trigger success notification
-      }
-    } catch (error) {
-      console.error('Failed to save checkin:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const getCompletionRate = () => {
-    if (!data?.questions.length) return 0;
-    const answered = Object.keys(responses).length;
-    return Math.round((answered / data.questions.length) * 100);
   };
 
   const getCategoryColor = (category: string) => {
@@ -167,7 +83,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-[#a371f7]/10 rounded-xl">
-                <Moon className="w-6 h-6 text-[#a371f7]" />
+                <ClipboardList className="w-6 h-6 text-[#a371f7]" />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white">Evening Habit Check-in</h2>
@@ -186,33 +102,6 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
               <X className="w-5 h-5 text-[#8b949e]" />
             </button>
           </div>
-
-          {/* Tabs */}
-          <div className="flex gap-1 mt-4 bg-[#0d1117] p-1 rounded-lg w-fit">
-            <button
-              onClick={() => setActiveTab('checkin')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === 'checkin'
-                  ? 'bg-[#30363d] text-white'
-                  : 'text-[#8b949e] hover:text-white'
-              }`}
-            >
-              Daily Check-in
-            </button>
-            <button
-              onClick={() => setActiveTab('stats')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === 'stats'
-                  ? 'bg-[#30363d] text-white'
-                  : 'text-[#8b949e] hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" />
-                Stats & Reports
-              </div>
-            </button>
-          </div>
         </div>
 
         {/* Content */}
@@ -222,113 +111,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
               <div className="animate-spin w-8 h-8 border-2 border-[#a371f7] border-t-transparent rounded-full mx-auto mb-4" />
               <p className="text-[#8b949e]">Loading...</p>
             </div>
-          ) : activeTab === 'checkin' ? (
-            <div className="space-y-6">
-              {/* Progress */}
-              <div className="flex items-center justify-between p-4 bg-[#0d1117] rounded-xl border border-[#30363d]">
-                <span className="text-sm text-[#8b949e]">Completion Progress</span>
-                <div className="flex items-center gap-3">
-                  <div className="w-32 h-2 bg-[#21262d] rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-[#a371f7] to-[#ff6b35] transition-all"
-                      style={{ width: `${getCompletionRate()}%` }}
-                    />
-                  </div>
-                  <span className="text-sm font-bold text-white w-12 text-right">
-                    {getCompletionRate()}%
-                  </span>
-                </div>
-              </div>
-
-              {/* Questions */}
-              <div className="space-y-3">
-                {data?.questions.map((q) => (
-                  <div 
-                    key={q.id}
-                    className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#484f58] transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium truncate">{q.label}</p>
-                        <span className={`text-xs uppercase tracking-wider ${getCategoryColor(q.category)}`}>
-                          {q.category}
-                        </span>
-                      </div>
-                      
-                      <div className="flex gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => handleResponse(q.id, true)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all ${
-                            responses[q.id] === true
-                              ? 'bg-[#238636] text-white'
-                              : 'bg-[#21262d] text-[#8b949e] hover:bg-[#30363d]'
-                          }`}
-                        >
-                          <Check className="w-4 h-4" />
-                          <span className="hidden sm:inline">Yes</span>
-                        </button>
-                        
-                        <button
-                          onClick={() => handleResponse(q.id, false)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all ${
-                            responses[q.id] === false
-                              ? 'bg-[#da3633] text-white'
-                              : 'bg-[#21262d] text-[#8b949e] hover:bg-[#30363d]'
-                          }`}
-                        >
-                          <X className="w-4 h-4" />
-                          <span className="hidden sm:inline">No</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Notes */}
-              <div className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d]">
-                <div className="flex items-center gap-2 mb-3">
-                  <StickyNote className="w-4 h-4 text-[#8b949e]" />
-                  <span className="text-sm text-[#8b949e]">Notes (Optional)</span>
-                </div>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="How did today go? Any reflections?"
-                  className="w-full h-24 px-4 py-3 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#a371f7] resize-none"
-                />
-              </div>
-
-              {/* Save Button */}
-              <button
-                onClick={handleSave}
-                disabled={saving || Object.keys(responses).length === 0}
-                className={`w-full py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
-                  saved
-                    ? 'bg-[#238636] text-white'
-                    : 'bg-[#a371f7] text-white hover:bg-[#8957e5] disabled:opacity-50 disabled:cursor-not-allowed'
-                }`}
-              >
-                {saved ? (
-                  <>
-                    <Check className="w-5 h-5" />
-                    Saved!
-                  </>
-                ) : saving ? (
-                  <>
-                    <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-5 h-5" />
-                    {data?.todayCheckin ? 'Update Check-in' : 'Save Check-in'}
-                  </>
-                )}
-              </button>
-            </div>
           ) : (
-            /* Stats Tab */
             <div className="space-y-6">
               {/* Summary Cards */}
               <div className="grid grid-cols-3 gap-4">
