@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, Moon, GripVertical } from 'lucide-react';
+import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, ClipboardList, GripVertical } from 'lucide-react';
 import EveningCheckinModal from './EveningCheckinModal';
 import {
   DndContext,
@@ -375,7 +375,7 @@ export default function HabitCard() {
             className="p-2 bg-[#a371f7] text-white rounded-xl hover:bg-[#8957e5] transition-colors"
             title="Evening check-in"
           >
-            <Moon className="w-4 h-4" />
+            <ClipboardList className="w-4 h-4" />
           </button>
           <button
             onClick={() => setShowAddModal(true)}
