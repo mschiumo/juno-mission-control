@@ -68,14 +68,20 @@ export default function DailyReportsCard() {
     }
   };
 
-  const openReport = async (jobName: string) => {
+  // Map of cron job display names to possible report jobNames
+const JOB_NAME_MAP: Record<string, string[]> = {
+  'London Session Update': ['London Session Update', 'London Session Open Update'],
+  'Nightly Task Approval': ['Nightly Task Approval', 'Nightly Task Approval Request'],
+  'Asia Session Update': ['Asia Session Update', 'Asia Session Open Update'],
+  'Gap Scanner Pre-Market': ['Gap Scanner Pre-Market', 'Gap Scanner Monday Test'],
+};
+
+const openReport = async (jobName: string) => {
     // Handle name mismatches between cron-status and cron-results
-    const normalizedJobName = jobName === 'Nightly Task Approval' 
-      ? 'Nightly Task Approval Request' 
-      : jobName;
+    const possibleNames = JOB_NAME_MAP[jobName] || [jobName];
     // Only open if report exists
     const report = reports
-      .filter(r => r.jobName === jobName || r.jobName === normalizedJobName)
+      .filter(r => possibleNames.includes(r.jobName))
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
     
     if (report) {
@@ -104,19 +110,15 @@ export default function DailyReportsCard() {
 
   const hasReport = (jobName: string) => {
     // Handle name mismatches between cron-status and cron-results
-    const normalizedJobName = jobName === 'Nightly Task Approval' 
-      ? 'Nightly Task Approval Request' 
-      : jobName;
-    return reports.some(r => r.jobName === jobName || r.jobName === normalizedJobName);
+    const possibleNames = JOB_NAME_MAP[jobName] || [jobName];
+    return reports.some(r => possibleNames.includes(r.jobName));
   };
 
   const getLatestReportTime = (jobName: string) => {
     // Handle name mismatches between cron-status and cron-results
-    const normalizedJobName = jobName === 'Nightly Task Approval' 
-      ? 'Nightly Task Approval Request' 
-      : jobName;
+    const possibleNames = JOB_NAME_MAP[jobName] || [jobName];
     const report = reports
-      .filter(r => r.jobName === jobName || r.jobName === normalizedJobName)
+      .filter(r => possibleNames.includes(r.jobName))
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
     return report ? report.timestamp : null;
   };

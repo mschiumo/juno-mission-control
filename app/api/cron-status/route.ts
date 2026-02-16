@@ -6,37 +6,40 @@ const STORAGE_KEY = 'cron_results';
 // Cron job definitions with their schedules - sorted chronologically (earliest to latest)
 // schedule: human-readable display format
 // cronExpression: standard cron format for parsing (minute hour day month dayOfWeek)
+// NOTE: This list matches the DailyReportsCard filter - excluded jobs go to Telegram/banner only
 const CRON_JOBS = [
   { id: 'london-session', name: 'London Session Update', schedule: '3:00 AM EST', cronExpression: '0 3 * * 0-4', frequency: 'Sun-Thu', status: 'active' },
-  { id: 'motivational', name: 'Daily Motivational Message', schedule: '7:00 AM EST', cronExpression: '0 7 * * *', frequency: 'Daily', status: 'active' },
+  // Daily Motivational excluded - shows in banner, not reports
   { id: 'morning-wake', name: 'Morning Wake-up Check', schedule: '7:30 AM EST', cronExpression: '30 7 * * *', frequency: 'Daily', status: 'active' },
-  { id: 'market-brief', name: 'Morning Market Briefing', schedule: '8:00 AM EST', cronExpression: '0 8 * * *', frequency: 'Daily', status: 'active' },
+  { id: 'market-brief', name: 'Morning Market Briefing', schedule: '8:00 AM EST', cronExpression: '0 8 * * 0-4', frequency: 'Mon-Fri', status: 'active' },
   { id: 'gap-scanner', name: 'Gap Scanner Pre-Market', schedule: 'Mon-Fri 7:30 AM EST', cronExpression: '30 7 * * 1-5', frequency: 'Mon-Fri', status: 'active' },
-  { id: 'mid-day-check', name: 'Mid-Day Trading Check-in', schedule: '12:30 PM EST', cronExpression: '30 12 * * *', frequency: 'Daily', status: 'active' },
-  { id: 'market-close', name: 'Market Close Report', schedule: '5:00 PM EST', cronExpression: '0 17 * * 0-4', frequency: 'Sun-Thu', status: 'active' },
-  { id: 'post-market', name: 'Post-Market Trading Review', schedule: '5:00 PM EST', cronExpression: '0 17 * * 0-4', frequency: 'Sun-Thu', status: 'active' },
+  // Mid-Day Trading Check-in excluded - Telegram only
+  { id: 'market-close', name: 'Market Close Report', schedule: '5:00 PM EST', cronExpression: '30 21 * * 0-4', frequency: 'Mon-Fri', status: 'active' },
+  // Post-Market Trading Review excluded - Telegram only
   { id: 'asia-session', name: 'Asia Session Update', schedule: '7:00 PM EST', cronExpression: '0 19 * * 0-4', frequency: 'Sun-Thu', status: 'active' },
   { id: 'weekly-review', name: 'Weekly Habit Review', schedule: 'Friday 7:00 PM EST', cronExpression: '0 19 * * 5', frequency: 'Weekly', status: 'active' },
   { id: 'task-approval', name: 'Nightly Task Approval', schedule: '10:00 PM EST', cronExpression: '0 22 * * *', frequency: 'Daily', status: 'active' },
   { id: 'token-summary', name: 'Daily Token Usage Summary', schedule: '11:00 PM EST', cronExpression: '0 23 * * *', frequency: 'Daily', status: 'active' },
-  { id: 'pr-monitor', name: 'GitHub PR Monitor', schedule: 'Every 10 min', cronExpression: '*/10 * * * *', frequency: 'Continuous', status: 'disabled' },
+  // Evening Habit Check-in excluded - has its own UI card
+  // GitHub PR Monitor excluded - internal tool
 ];
 
 // Map job names to cron result jobNames for matching
 const JOB_NAME_MAP: Record<string, string[]> = {
   'london-session': ['London Session Update', 'London Session Open Update'],
-  'motivational': ['Daily Motivational Message'],
+  // Daily Motivational excluded - shows in banner
   'morning-wake': ['Morning Wake-up Check'],
   'market-brief': ['Morning Market Briefing'],
   'gap-scanner': ['Gap Scanner Pre-Market', 'Gap Scanner Monday Test'],
-  'mid-day-check': ['Mid-Day Trading Check-in'],
+  // Mid-Day Trading Check-in excluded - Telegram only
   'market-close': ['Market Close Report'],
-  'post-market': ['Post-Market Trading Review'],
+  // Post-Market Trading Review excluded - Telegram only
   'asia-session': ['Asia Session Update', 'Asia Session Open Update'],
   'weekly-review': ['Weekly Habit Review'],
   'task-approval': ['Nightly Task Approval', 'Nightly Task Approval Request'],
   'token-summary': ['Daily Token Usage Summary'],
-  'pr-monitor': ['GitHub PR Monitor'],
+  // Evening Habit Check-in excluded - has its own card
+  // GitHub PR Monitor excluded - internal tool
 };
 
 export async function GET() {
