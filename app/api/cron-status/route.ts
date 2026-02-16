@@ -11,7 +11,7 @@ const CRON_JOBS = [
   { id: 'motivational', name: 'Daily Motivational Message', schedule: '7:00 AM EST', cronExpression: '0 7 * * *', frequency: 'Daily', status: 'active' },
   { id: 'morning-wake', name: 'Morning Wake-up Check', schedule: '7:30 AM EST', cronExpression: '30 7 * * *', frequency: 'Daily', status: 'active' },
   { id: 'market-brief', name: 'Morning Market Briefing', schedule: '8:00 AM EST', cronExpression: '0 8 * * *', frequency: 'Daily', status: 'active' },
-  { id: 'gap-scanner', name: 'Gap Scanner Pre-Market', schedule: 'Mon-Fri 4:00 AM EST', cronExpression: '0 4 * * 1-5', frequency: 'Mon-Fri', status: 'active' },
+  { id: 'gap-scanner', name: 'Gap Scanner Pre-Market', schedule: 'Mon-Fri 7:30 AM EST', cronExpression: '30 7 * * 1-5', frequency: 'Mon-Fri', status: 'active' },
   { id: 'mid-day-check', name: 'Mid-Day Trading Check-in', schedule: '12:30 PM EST', cronExpression: '30 12 * * *', frequency: 'Daily', status: 'active' },
   { id: 'market-close', name: 'Market Close Report', schedule: '5:00 PM EST', cronExpression: '0 17 * * 0-4', frequency: 'Sun-Thu', status: 'active' },
   { id: 'post-market', name: 'Post-Market Trading Review', schedule: '5:00 PM EST', cronExpression: '0 17 * * 0-4', frequency: 'Sun-Thu', status: 'active' },
