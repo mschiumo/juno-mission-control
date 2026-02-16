@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Activity, Clock, RefreshCw } from 'lucide-react';
+import { Activity, Clock, RefreshCw, X } from 'lucide-react';
 
 interface ActivityItem {
   id: string;
@@ -55,6 +55,7 @@ export default function ActivityLogCard() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'cron' | 'api' | 'user' | 'system'>('all');
 
   useEffect(() => {
     fetchActivities();
@@ -127,7 +128,16 @@ export default function ActivityLogCard() {
     }
   };
 
-  const getTypeBadgeColor = (type: string) => {
+  const getTypeBadgeColor = (type: string, isActive: boolean = false) => {
+    if (isActive) {
+      switch (type) {
+        case 'cron': return 'bg-[#238636] text-white ring-2 ring-[#238636]/50';
+        case 'api': return 'bg-[#58a6ff] text-white ring-2 ring-[#58a6ff]/50';
+        case 'user': return 'bg-[#ff6b35] text-white ring-2 ring-[#ff6b35]/50';
+        case 'system': return 'bg-[#8b949e] text-white ring-2 ring-[#8b949e]/50';
+        default: return 'bg-[#ff6b35] text-white ring-2 ring-[#ff6b35]/50';
+      }
+    }
     switch (type) {
       case 'cron': return 'bg-[#238636]/20 text-[#238636]';
       case 'api': return 'bg-[#58a6ff]/20 text-[#58a6ff]';
@@ -155,12 +165,32 @@ export default function ActivityLogCard() {
     return counts;
   };
 
+  const handleFilterClick = (type: 'cron' | 'api' | 'user' | 'system') => {
+    if (activeFilter === type) {
+      setActiveFilter('all');
+    } else {
+      setActiveFilter(type);
+    }
+  };
+
+  const clearFilter = () => {
+    setActiveFilter('all');
+  };
+
   const typeCounts = getTypeCounts();
 
-  // Sort activities by timestamp descending (newest first)
-  const sortedActivities = [...activities].sort((a, b) => 
+  // Filter and sort activities
+  const filteredActivities = activeFilter === 'all' 
+    ? activities 
+    : activities.filter(a => a.type === activeFilter);
+  
+  const sortedActivities = [...filteredActivities].sort((a, b) => 
     new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
+
+  // Calculate filtered count for display
+  const filteredCount = filteredActivities.length;
+  const totalCount = activities.length;
 
   return (
     <div className="card">
@@ -173,7 +203,13 @@ export default function ActivityLogCard() {
             <h2 className="text-lg font-semibold text-white">Activity Log</h2>
             <div className="flex items-center gap-2">
               <p className="text-xs text-[#8b949e]">
-                {activities.length} activit{activities.length === 1 ? 'y' : 'ies'}
+                {activeFilter === 'all' 
+                  ? `${totalCount} activit${totalCount === 1 ? 'y' : 'ies'}`
+                  : `${filteredCount} of ${totalCount} activit${totalCount === 1 ? 'y' : 'ies'}`
+                }
+                {activeFilter !== 'all' && (
+                  <span className="ml-1 text-[#ff6b35]">({getTypeLabel(activeFilter)})</span>
+                )}
               </p>
               {lastUpdated && !loading && (
                 <span className="text-[10px] text-[#238636]">
@@ -194,17 +230,29 @@ export default function ActivityLogCard() {
         </button>
       </div>
 
-      {/* Activity Type Summary */}
+      {/* Activity Type Summary - Clickable Filters */}
       {Object.keys(typeCounts).length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-5 p-3 bg-[#0d1117] rounded-xl">
+        <div className="flex flex-wrap items-center gap-2 mb-5 p-3 bg-[#0d1117] rounded-xl">
           {Object.entries(typeCounts).map(([type, count]) => (
-            <span 
-              key={type} 
-              className={`text-[10px] px-2.5 py-1 rounded-full font-medium ${getTypeBadgeColor(type)}`}
+            <button
+              key={type}
+              onClick={() => handleFilterClick(type as 'cron' | 'api' | 'user' | 'system')}
+              className={`text-[10px] px-2.5 py-1 rounded-full font-medium cursor-pointer transition-all hover:scale-105 ${getTypeBadgeColor(type, activeFilter === type)}`}
+              title={`Filter by ${getTypeLabel(type)}`}
             >
               {count} {pluralizeType(type, count)}
-            </span>
+            </button>
           ))}
+          {activeFilter !== 'all' && (
+            <button
+              onClick={clearFilter}
+              className="text-[10px] px-2.5 py-1 rounded-full font-medium bg-[#30363d] text-[#8b949e] hover:bg-[#484f58] hover:text-white cursor-pointer transition-all flex items-center gap-1"
+              title="Show all activities"
+            >
+              <X className="w-3 h-3" />
+              Clear
+            </button>
+          )}
         </div>
       )}
 
@@ -214,11 +262,29 @@ export default function ActivityLogCard() {
             <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
             <p className="text-sm">Loading activities...</p>
           </div>
-        ) : activities.length === 0 ? (
+        ) : sortedActivities.length === 0 ? (
           <div className="text-center py-10">
             <Activity className="w-12 h-12 mx-auto mb-3 text-[#8b949e] opacity-50" />
-            <p className="text-[#8b949e] mb-1">No activities today</p>
-            <p className="text-xs text-[#8b949e]/70">Activities will appear here when cron jobs run or actions are logged</p>
+            <p className="text-[#8b949e] mb-1">
+              {activeFilter !== 'all' 
+                ? `No ${getTypeLabel(activeFilter).toLowerCase()} activities found`
+                : 'No activities today'
+              }
+            </p>
+            <p className="text-xs text-[#8b949e]/70">
+              {activeFilter !== 'all' 
+                ? 'Try clearing the filter to see all activities'
+                : 'Activities will appear here when cron jobs run or actions are logged'
+              }
+            </p>
+            {activeFilter !== 'all' && (
+              <button
+                onClick={clearFilter}
+                className="mt-4 text-xs px-3 py-1.5 bg-[#ff6b35]/20 text-[#ff6b35] hover:bg-[#ff6b35]/30 rounded-lg transition-colors"
+              >
+                Show All Activities
+              </button>
+            )}
           </div>
         ) : (
           sortedActivities.map((activity) => (
