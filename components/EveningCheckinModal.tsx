@@ -34,9 +34,10 @@ interface CheckinData {
 interface EveningCheckinModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function EveningCheckinModal({ isOpen, onClose }: EveningCheckinModalProps) {
+export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: EveningCheckinModalProps) {
   const [data, setData] = useState<CheckinData | null>(null);
   const [loading, setLoading] = useState(true);
 
