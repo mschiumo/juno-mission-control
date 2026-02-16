@@ -113,6 +113,30 @@ body {
   color: white;
 }
 
+/* Segmented Button - For MarketCard tabs */
+.segmented-btn {
+  flex: 1;
+  padding: 8px 16px;
+  margin: 0 2px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: transparent;
+  border: none;
+  color: #737373;
+}
+
+.segmented-btn:hover {
+  color: white;
+}
+
+.segmented-btn.active {
+  background: #262626;
+  color: white;
+}
+
 /* Progress Bar */
 .progress-bar {
   height: 8px;
