@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { TrendingUp, TrendingDown, RefreshCw, DollarSign, ExternalLink } from 'lucide-react';
 import MarketCountdown from './MarketCountdown';
 
@@ -21,14 +22,42 @@ interface MarketData {
   lastUpdated: string;
 }
 
+type MarketTab = 'indices' | 'stocks' | 'commodities' | 'crypto';
 type DataSource = 'live' | 'partial' | 'fallback';
 
 export default function MarketCard() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Get tab from URL query param, default to 'indices'
+  const getTabFromUrl = useCallback((): MarketTab => {
+    const tab = searchParams.get('marketTab');
+    if (tab === 'stocks' || tab === 'commodities' || tab === 'crypto') return tab;
+    return 'indices';
+  }, [searchParams]);
+
   const [data, setData] = useState<MarketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<'indices' | 'stocks' | 'commodities' | 'crypto'>('indices');
+  const [activeTab, setActiveTabState] = useState<MarketTab>(getTabFromUrl);
   const [dataSource, setDataSource] = useState<DataSource>('fallback');
+
+  // Update URL when tab changes (using replace to avoid bloating history)
+  const setActiveTab = (tab: MarketTab) => {
+    setActiveTabState(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === 'indices') {
+      params.delete('marketTab');
+    } else {
+      params.set('marketTab', tab);
+    }
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
+  // Sync state with URL on mount and when URL changes
+  useEffect(() => {
+    setActiveTabState(getTabFromUrl());
+  }, [getTabFromUrl]);
 
   useEffect(() => {
     fetchMarketData();
