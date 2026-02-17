@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient } from 'redis';
 
 interface CronResult {
   id: string;
@@ -8,34 +9,50 @@ interface CronResult {
   type: 'market' | 'motivational' | 'check-in' | 'review' | 'error';
 }
 
-// In-memory storage - persists until server restart/deploy
-// This is more reliable than Redis for Vercel serverless functions
-const cronResults: CronResult[] = [];
+const STORAGE_KEY = 'cron_results';
 const MAX_RESULTS = 100;
 
-// Notifications stored in-memory too
-interface Notification {
-  id: string;
-  type: 'blocker' | 'info' | 'success';
-  title: string;
-  message: string;
-  action?: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  read: boolean;
-  createdAt: string;
-}
+// Redis client - lazy initialization
+let redisClient: ReturnType<typeof createClient> | null = null;
 
-const notifications: Notification[] = [];
-const MAX_NOTIFICATIONS = 50;
+async function getRedisClient() {
+  if (redisClient?.isReady) {
+    return redisClient;
+  }
+  
+  try {
+    const client = createClient({
+      url: process.env.UPSTASH_REDIS_URL || process.env.REDIS_URL || undefined,
+    });
+    
+    client.on('error', (err) => {
+      console.error('Redis Client Error:', err);
+    });
+    
+    await client.connect();
+    redisClient = client;
+    return client;
+  } catch (error) {
+    console.error('Failed to connect to Redis:', error);
+    return null;
+  }
+}
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const jobName = searchParams.get('jobName');
+    
+    const redis = await getRedisClient();
+    
+    let results: CronResult[] = [];
+    if (redis) {
+      const data = await redis.get(STORAGE_KEY);
+      results = data ? JSON.parse(data) : [];
+    }
 
     if (jobName) {
-      // Get latest result for specific job
-      const result = cronResults
+      const result = results
         .filter(r => r.jobName === jobName)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
       
@@ -54,7 +71,7 @@ export async function GET(request: Request) {
 
     // Get all results for today
     const today = new Date().toDateString();
-    const todayResults = cronResults.filter(r => 
+    const todayResults = results.filter(r => 
       new Date(r.timestamp).toDateString() === today
     );
 
@@ -95,6 +112,19 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
+    const redis = await getRedisClient();
+    
+    if (!redis) {
+      return NextResponse.json({
+        success: false,
+        error: 'Redis unavailable'
+      }, { status: 503 });
+    }
+
+    // Get existing results
+    const data = await redis.get(STORAGE_KEY);
+    const results: CronResult[] = data ? JSON.parse(data) : [];
+
     // Create new result
     const newResult: CronResult = {
       id: Date.now().toString(),
@@ -104,39 +134,14 @@ export async function POST(request: Request) {
       type: type || 'check-in'
     };
 
-    // Add to results (keep last 100 to prevent unbounded growth)
-    cronResults.push(newResult);
-    while (cronResults.length > MAX_RESULTS) {
-      cronResults.shift(); // Remove oldest
+    // Add to results (keep last 100)
+    results.push(newResult);
+    while (results.length > MAX_RESULTS) {
+      results.shift();
     }
 
-    // Check for timeout or failure and create notification
-    const isTimeout = content.toLowerCase().includes('timeout') || 
-                      content.toLowerCase().includes('timed out');
-    const isError = type === 'error' || 
-                    content.includes('❌') || 
-                    content.includes('FAILED') ||
-                    content.toLowerCase().includes('error');
-
-    if (isTimeout || isError) {
-      const newNotification: Notification = {
-        id: `notif_${Date.now()}`,
-        type: 'blocker',
-        title: isTimeout ? '⏱️ Cron Job Timeout' : '❌ Cron Job Failed',
-        message: `${jobName}: ${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`,
-        action: 'Check dashboard for details',
-        priority: isTimeout ? 'high' : 'urgent',
-        read: false,
-        createdAt: new Date().toISOString(),
-      };
-      
-      notifications.unshift(newNotification);
-      
-      // Keep only last 50 notifications
-      while (notifications.length > MAX_NOTIFICATIONS) {
-        notifications.pop();
-      }
-    }
+    // Save to Redis
+    await redis.set(STORAGE_KEY, JSON.stringify(results));
 
     return NextResponse.json({
       success: true,
@@ -150,6 +155,3 @@ export async function POST(request: Request) {
     }, { status: 500 });
   }
 }
-
-// Export for use by notifications API
-export { notifications };
