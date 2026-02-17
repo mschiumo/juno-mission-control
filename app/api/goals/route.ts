@@ -230,6 +230,11 @@ export async function PUT(request: Request) {
       const stored = await redis.get(STORAGE_KEY);
       if (stored) {
         goals = JSON.parse(stored);
+        // Ensure all categories exist (fix for corrupted data)
+        if (!goals.collaborative) goals.collaborative = [];
+        if (!goals.yearly) goals.yearly = [];
+        if (!goals.weekly) goals.weekly = [];
+        if (!goals.daily) goals.daily = [];
       }
     }
     
