@@ -87,22 +87,36 @@ export default function DailyReportsCard() {
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0] || null;
   };
 
-  const getScheduledTimeToday = (job: CronJob): Date | null => {
+  const getScheduledTimeToday = (job: CronJob): { time: Date | null; isFuture: boolean } => {
     try {
       const cronSchedule = job.cronExpression || job.schedule;
       const interval = cronParser.parse(cronSchedule, {
         tz: 'America/New_York',
         currentDate: new Date()
       });
-      return interval.prev().toDate(); // Get today's scheduled time
+      
+      // Get both next and prev to determine if job is today
+      const nextTime = interval.next().toDate();
+      const prevTime = interval.prev().toDate();
+      const now = new Date();
+      
+      // If next occurrence is within 24h, it's a future job for today
+      const hoursUntilNext = (nextTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      
+      if (hoursUntilNext <= 24 && hoursUntilNext > 0) {
+        return { time: nextTime, isFuture: true };
+      }
+      
+      // Otherwise use prev (job already passed today)
+      return { time: prevTime, isFuture: false };
     } catch (error) {
-      return null;
+      return { time: null, isFuture: false };
     }
   };
 
   const getJobStatus = (job: CronJob): { status: JobStatus; time: string | null; message: string } => {
     const report = getReportForJob(job.name);
-    const scheduledTime = getScheduledTimeToday(job);
+    const { time: scheduledTime, isFuture } = getScheduledTimeToday(job);
     const now = new Date();
     
     // If has report from today
@@ -127,8 +141,18 @@ export default function DailyReportsCard() {
       }
     }
     
-    // Check if overdue (scheduled time passed, no report)
+    // Check job status based on scheduled time
     if (scheduledTime) {
+      if (isFuture) {
+        // Job is scheduled for later today
+        return { 
+          status: 'pending', 
+          time: formatTime(scheduledTime),
+          message: `Scheduled for ${formatTime(scheduledTime)}`
+        };
+      }
+      
+      // Job was scheduled earlier today
       const timeDiff = now.getTime() - scheduledTime.getTime();
       const hoursDiff = timeDiff / (1000 * 60 * 60);
       
