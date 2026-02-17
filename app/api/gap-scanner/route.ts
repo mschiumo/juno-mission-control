@@ -13,14 +13,38 @@ interface GapStock {
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || 'd6802j9r01qobepji5i0d6802j9r01qobepji5ig';
 
-// Popular stocks to check for gaps (top 500 liquid stocks)
-// In production, this could be fetched from a database or updated daily
+// Popular stocks to check for gaps (expanded universe)
 const STOCK_UNIVERSE = [
-  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'AMD', 'NFLX', 'CRM',
-  'DIS', 'BA', 'GS', 'JPM', 'V', 'MA', 'PYPL', 'SQ', 'SHOP', 'ZM',
-  'PTON', 'SNOW', 'PLTR', 'ABNB', 'UBER', 'LYFT', 'RBLX', 'COIN', 'HOOD', 'SOFI',
-  'FSLY', 'NET', 'DDOG', 'CRWD', 'OKTA', 'TWLO', 'FSLR', 'ENPH', 'SEDG', 'RUN',
-  'ARKK', 'TLRY', 'ACB', 'CGC', 'GME', 'AMC', 'BB', 'NOK', 'EXPR', 'KOSS'
+  // Mega caps
+  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'BRK.B', 'UNH', 'JNJ',
+  'XOM', 'JPM', 'V', 'PG', 'HD', 'CVX', 'MA', 'LLY', 'BAC', 'ABBV',
+  'PFE', 'KO', 'PEP', 'MRK', 'AVGO', 'TMO', 'COST', 'DIS', 'ABT', 'ADBE',
+  // Tech
+  'AMD', 'NFLX', 'CRM', 'INTC', 'CSCO', 'CMCSA', 'VZ', 'QCOM', 'AMAT', 'TXN',
+  'INTU', 'NOW', 'IBM', 'MU', 'LRCX', 'ADI', 'KLAC', 'SNPS', 'CDNS', 'MRVL',
+  // Growth/Momentum
+  'PLTR', 'ABNB', 'UBER', 'COIN', 'HOOD', 'RBLX', 'SOFI', 'LMND', 'ASAN', 'DOCN',
+  'NET', 'DDOG', 'CRWD', 'OKTA', 'TWLO', 'ZM', 'SNOW', 'U', 'IOT', 'S',
+  // Trading favorites
+  'FSLY', 'ENPH', 'SEDG', 'RUN', 'ARKK', 'ARKG', 'ARKW', 'ICLN', 'LIT', 'XBI',
+  // Meme/Retail
+  'GME', 'AMC', 'BB', 'NOK', 'EXPR', 'KOSS', 'BBBY', 'SPCE', 'TLRY', 'ACB',
+  'CGC', 'SNDL', 'CRON', 'GRWG', 'APHA', 'HEXO', 'OGI', 'ARVL', 'RIVN', 'LCID',
+  // EV/Energy
+  'NIO', 'XPEV', 'LI', 'RIDE', 'GOEV', 'WKHS', 'FSR', 'BLNK', 'CHPT', 'QS',
+  'BE', 'PLUG', 'SPWR', 'MAXN', 'NOVA', 'CWEN', 'NEE', 'ENLC', 'ET', 'MPLX',
+  // Finance
+  'SQ', 'PYPL', 'SOFI', 'AFRM', 'UPST', 'COF', 'DFS', 'AXP', 'ALLY', 'C',
+  'WFC', 'GS', 'MS', 'SCHW', 'BLK', 'BX', 'KKR', 'APO', 'CG', 'OWL',
+  // Consumer
+  'SHOP', 'ETSY', 'EBAY', 'PINS', 'SNAP', 'TWTR', 'MTCH', 'BMBL', 'DASH', 'DID',
+  'LULU', 'NKE', 'LULU', 'TJX', 'ROST', 'ULTA', 'BBY', 'TGT', 'WMT', 'COST',
+  // Healthcare
+  'GILD', 'BIIB', 'REGN', 'VRTX', 'ALNY', 'MRNA', 'BNTX', 'NVAX', 'INO', 'SRNE',
+  'TDOC', 'AMWL', 'HIMS', 'OSH', 'AGL', 'PACS', 'OSH', 'CANO', 'SGFY', 'ACC',
+  // Industrials
+  'CAT', 'DE', 'GE', 'HON', 'MMM', 'ITW', 'EMR', 'ETN', 'ROK', 'AME',
+  'TDG', 'HEI', 'FAST', 'GWW', 'CSX', 'UNP', 'NSC', 'ODFL', 'LSTR', 'KNX'
 ];
 
 // ETF patterns to exclude
@@ -126,7 +150,7 @@ export async function GET() {
       const gapPercent = ((quote.current - quote.previous) / quote.previous) * 100;
       
       // Apply filters
-      if (Math.abs(gapPercent) < 5) continue; // Min 5% gap
+      if (Math.abs(gapPercent) < 2) continue; // Min 2% gap (changed from 5%)
       if (quote.volume < 100000) continue; // Min 100K volume
       if (quote.current > 500) continue; // Max $500 price
       
@@ -181,7 +205,7 @@ export async function GET() {
       isPreMarket: true,
       enriched: true,
       filters: {
-        minGapPercent: 5,
+        minGapPercent: 2,
         minVolume: 100000,
         maxPrice: 500,
         minMarketCap: 250000000,
