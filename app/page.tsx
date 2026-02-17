@@ -5,7 +5,6 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import DailyReportsCard from "@/components/DailyReportsCard";
 // import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
-import StravaCard from "@/components/StravaCard";
 import MarketCard from "@/components/MarketCard";
 import MarketHoursBanner from "@/components/MarketHoursBanner";
 import GapScannerCard from "@/components/GapScannerCard";
@@ -157,9 +156,6 @@ function DashboardContent() {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <HabitCard />
               <DailyReportsCard />
-            </div>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
-              <StravaCard />
             </div>
           </div>
         ) : activeTab === 'tasks' ? (
