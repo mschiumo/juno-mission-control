@@ -83,38 +83,17 @@ function getMarketSession(): {
   return { session: 'closed', isPreMarket: false, marketStatus: 'closed' };
 }
 
-// Popular stocks to check for gaps (expanded universe)
+// Popular stocks to check for gaps (top 50 liquid stocks for free tier)
 const STOCK_UNIVERSE = [
   // Mega caps
   'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'BRK.B', 'UNH', 'JNJ',
   'XOM', 'JPM', 'V', 'PG', 'HD', 'CVX', 'MA', 'LLY', 'BAC', 'ABBV',
-  'PFE', 'KO', 'PEP', 'MRK', 'AVGO', 'TMO', 'COST', 'DIS', 'ABT', 'ADBE',
   // Tech
-  'AMD', 'NFLX', 'CRM', 'INTC', 'CSCO', 'CMCSA', 'VZ', 'QCOM', 'AMAT', 'TXN',
-  'INTU', 'NOW', 'IBM', 'MU', 'LRCX', 'ADI', 'KLAC', 'SNPS', 'CDNS', 'MRVL',
+  'AMD', 'NFLX', 'CRM', 'INTC', 'CSCO', 'VZ', 'QCOM', 'AMAT', 'TXN', 'INTU',
   // Growth/Momentum
-  'PLTR', 'ABNB', 'UBER', 'COIN', 'HOOD', 'RBLX', 'SOFI', 'LMND', 'ASAN', 'DOCN',
-  'NET', 'DDOG', 'CRWD', 'OKTA', 'TWLO', 'ZM', 'SNOW', 'U', 'IOT', 'S',
+  'PLTR', 'ABNB', 'UBER', 'COIN', 'HOOD', 'RBLX', 'SOFI', 'NET', 'DDOG', 'CRWD',
   // Trading favorites
-  'FSLY', 'ENPH', 'SEDG', 'RUN', 'ARKK', 'ARKG', 'ARKW', 'ICLN', 'LIT', 'XBI',
-  // Meme/Retail
-  'GME', 'AMC', 'BB', 'NOK', 'EXPR', 'KOSS', 'BBBY', 'SPCE', 'TLRY', 'ACB',
-  'CGC', 'SNDL', 'CRON', 'GRWG', 'APHA', 'HEXO', 'OGI', 'ARVL', 'RIVN', 'LCID',
-  // EV/Energy
-  'NIO', 'XPEV', 'LI', 'RIDE', 'GOEV', 'WKHS', 'FSR', 'BLNK', 'CHPT', 'QS',
-  'BE', 'PLUG', 'SPWR', 'MAXN', 'NOVA', 'CWEN', 'NEE', 'ENLC', 'ET', 'MPLX',
-  // Finance
-  'SQ', 'PYPL', 'SOFI', 'AFRM', 'UPST', 'COF', 'DFS', 'AXP', 'ALLY', 'C',
-  'WFC', 'GS', 'MS', 'SCHW', 'BLK', 'BX', 'KKR', 'APO', 'CG', 'OWL',
-  // Consumer
-  'SHOP', 'ETSY', 'EBAY', 'PINS', 'SNAP', 'TWTR', 'MTCH', 'BMBL', 'DASH', 'DID',
-  'LULU', 'NKE', 'LULU', 'TJX', 'ROST', 'ULTA', 'BBY', 'TGT', 'WMT', 'COST',
-  // Healthcare
-  'GILD', 'BIIB', 'REGN', 'VRTX', 'ALNY', 'MRNA', 'BNTX', 'NVAX', 'INO', 'SRNE',
-  'TDOC', 'AMWL', 'HIMS', 'OSH', 'AGL', 'PACS', 'OSH', 'CANO', 'SGFY', 'ACC',
-  // Industrials
-  'CAT', 'DE', 'GE', 'HON', 'MMM', 'ITW', 'EMR', 'ETN', 'ROK', 'AME',
-  'TDG', 'HEI', 'FAST', 'GWW', 'CSX', 'UNP', 'NSC', 'ODFL', 'LSTR', 'KNX'
+  'FSLY', 'ENPH', 'SEDG', 'RUN', 'ARKK', 'ARKG', 'ARKW', 'ICLN', 'LIT', 'XBI'
 ];
 
 // ETF patterns to exclude
@@ -252,26 +231,16 @@ export async function GET() {
         continue;
       }
       
-      // Get company info
-      const profile = await fetchFinnhubProfile(symbol);
-      if (!profile) {
-        profileFailures++;
-      }
-      
-      // Skip if market cap < $50M (if available)
-      if (profile && profile.marketCap > 0 && profile.marketCap < 50000000) {
-        skippedMarketCap++;
-        continue;
-      }
-      
+      // Skip profile call to save API rate limit - use symbol as name
+      // Profile call is 1 extra API call per stock, hitting rate limits
       const stock: GapStock = {
         symbol,
-        name: profile?.name || symbol,
+        name: symbol,
         price: quote.current,
         previousClose: quote.previous,
         gapPercent: Number(gapPercent.toFixed(2)),
         volume: quote.volume,
-        marketCap: profile?.marketCap || 0,
+        marketCap: 0, // Skip market cap check to save API calls
         status: gapPercent > 0 ? 'gainer' : 'loser'
       };
       
@@ -281,8 +250,8 @@ export async function GET() {
         losers.push(stock);
       }
       
-      // Rate limiting - stay under 60 calls/min
-      await new Promise(r => setTimeout(r, 100));
+      // Rate limiting - 1000ms = max 60 calls/min (Finnhub free tier)
+      await new Promise(r => setTimeout(r, 1000));
     }
     
     // Sort by gap magnitude
