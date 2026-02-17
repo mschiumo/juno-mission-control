@@ -21,20 +21,23 @@ interface Goal {
   id: string;
   title: string;
   phase: 'not-started' | 'in-progress' | 'achieved';
-  category: 'yearly' | 'weekly' | 'daily';
+  category: 'yearly' | 'weekly' | 'daily' | 'collaborative';
   notes?: string;
   junoAssisted?: boolean;
   actionItems?: ActionItem[];
+  source?: 'mj' | 'juno' | 'subagent';
 }
 
 interface GoalsData {
   yearly: Goal[];
   weekly: Goal[];
   daily: Goal[];
+  collaborative: Goal[];
 }
 
 type Phase = 'not-started' | 'in-progress' | 'achieved';
-type Category = 'yearly' | 'weekly' | 'daily';
+type Category = 'yearly' | 'weekly' | 'daily' | 'collaborative';
+type Source = 'mj' | 'juno' | 'subagent';
 
 const phaseLabels: Record<Phase, string> = {
   'not-started': 'Not Started',
@@ -51,7 +54,21 @@ const phaseColors: Record<Phase, string> = {
 const categoryLabels: Record<Category, string> = {
   yearly: 'Yearly',
   weekly: 'Weekly', 
-  daily: 'Daily'
+  daily: 'Daily',
+  collaborative: 'Collaborative'
+};
+
+const categoryDescriptions: Record<Category, string> = {
+  yearly: 'Long-term personal goals',
+  weekly: 'Weekly personal targets',
+  daily: 'Daily habits & tasks',
+  collaborative: 'Tasks with Juno & subagents'
+};
+
+const sourceLabels: Record<Source, { label: string; color: string; icon: string }> = {
+  mj: { label: 'MJ', color: 'text-[#F97316]', icon: '👤' },
+  juno: { label: 'Juno', color: 'text-purple-400', icon: '🤖' },
+  subagent: { label: 'Subagent', color: 'text-blue-400', icon: '⚡' }
 };
 
 export default function GoalsCard() {
@@ -61,7 +78,8 @@ export default function GoalsCard() {
   const [goals, setGoals] = useState<GoalsData>({
     yearly: [],
     weekly: [],
-    daily: []
+    daily: [],
+    collaborative: []
   });
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<Category>('daily');
@@ -79,7 +97,6 @@ export default function GoalsCard() {
   const [showActionItemsModal, setShowActionItemsModal] = useState(false);
   const [actionItemsGoal, setActionItemsGoal] = useState<Goal | null>(null);
   const [newActionItem, setNewActionItem] = useState('');
-  const [showJunoOnly, setShowJunoOnly] = useState(false);
 
   // Notification state
   const [notification, setNotification] = useState<Notification | null>(null);
@@ -91,7 +108,7 @@ export default function GoalsCard() {
   // Initialize active category from URL query param
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['daily', 'weekly', 'yearly'].includes(tabParam)) {
+    if (tabParam && ['daily', 'weekly', 'yearly', 'collaborative'].includes(tabParam)) {
       setActiveCategory(tabParam as Category);
     }
   }, [searchParams]);
@@ -543,9 +560,6 @@ export default function GoalsCard() {
 
   const getGoalsByPhase = (category: Category, phase: Phase) => {
     let filtered = goals[category]?.filter(g => g.phase === phase) || [];
-    if (showJunoOnly) {
-      filtered = filtered.filter(g => g.junoAssisted);
-    }
     return filtered;
   };
 
@@ -562,17 +576,19 @@ export default function GoalsCard() {
   // Render goal card with notes button and Juno-assisted features
   const renderGoalCard = (goal: Goal, phase: Phase, isMobileView: boolean) => {
     const pendingActions = (goal.actionItems || []).filter(item => item.status === 'pending').length;
-    const junoBorderClass = goal.junoAssisted ? 'ring-1 ring-purple-500/50' : '';
+    const isCollaborative = goal.category === 'collaborative' || goal.source !== 'mj';
+    const source = goal.source || 'mj';
+    const sourceInfo = sourceLabels[source];
     
     const cardContent = (
       <>
-        {/* Header with Juno badge */}
+        {/* Header with source badge */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 flex-1">
-            {goal.junoAssisted && (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-purple-500/20 rounded text-[10px] text-purple-400">
-                <Bot className="w-3 h-3" />
-                <span>JUNO</span>
+            {isCollaborative && (
+              <div className={`flex items-center gap-1 px-1.5 py-0.5 bg-purple-500/20 rounded text-[10px] ${sourceInfo.color}`}>
+                <span>{sourceInfo.icon}</span>
+                <span>{sourceInfo.label}</span>
               </div>
             )}
             <p className="text-sm text-white flex-1">{goal.title}</p>
@@ -606,29 +622,49 @@ export default function GoalsCard() {
           </div>
         </div>
         
-        {/* Juno checkbox and action items button */}
-        <div className="flex items-center justify-between mt-2">
-          <label 
-            className="flex items-center gap-2 cursor-pointer"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <input
-              type="checkbox"
-              checked={goal.junoAssisted || false}
-              onChange={(e) => { e.stopPropagation(); toggleJunoAssisted(goal); }}
-              className="w-3.5 h-3.5 rounded border-[#262626] bg-[#0F0F0F] text-purple-500 focus:ring-purple-500/20"
-            />
-            <span className="text-[10px] text-[#737373]">Juno-assisted</span>
-          </label>
-          
-          <button
-            onClick={(e) => { e.stopPropagation(); openActionItems(goal); }}
-            className="flex items-center gap-1.5 text-xs px-3 py-2 min-h-[44px] min-w-[44px] bg-purple-500/20 text-purple-400 rounded-full hover:bg-purple-500/30 transition-colors font-medium"
-          >
-            Action Items
-            <span className="text-purple-300">→</span>
-          </button>
-        </div>
+        {/* Action items button for collaborative goals */}
+        {isCollaborative && (
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[10px] text-purple-400/70">
+              {goal.actionItems?.length || 0} action items
+            </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); openActionItems(goal); }}
+              className="flex items-center gap-1.5 text-xs px-3 py-2 min-h-[44px] min-w-[44px] bg-purple-500/20 text-purple-400 rounded-full hover:bg-purple-500/30 transition-colors font-medium"
+            >
+              Action Items
+              <span className="text-purple-300">→</span>
+            </button>
+          </div>
+        )}
+        
+        {/* For personal goals: Juno checkbox */}
+        {!isCollaborative && (
+          <div className="flex items-center justify-between mt-2">
+            <label 
+              className="flex items-center gap-2 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <input
+                type="checkbox"
+                checked={goal.junoAssisted || false}
+                onChange={(e) => { e.stopPropagation(); toggleJunoAssisted(goal); }}
+                className="w-3.5 h-3.5 rounded border-[#262626] bg-[#0F0F0F] text-purple-500 focus:ring-purple-500/20"
+              />
+              <span className="text-[10px] text-[#737373]">Juno-assisted</span>
+            </label>
+            
+            {goal.junoAssisted && (
+              <button
+                onClick={(e) => { e.stopPropagation(); openActionItems(goal); }}
+                className="flex items-center gap-1.5 text-xs px-3 py-2 min-h-[44px] min-w-[44px] bg-purple-500/20 text-purple-400 rounded-full hover:bg-purple-500/30 transition-colors font-medium"
+              >
+                Action Items
+                <span className="text-purple-300">→</span>
+              </button>
+            )}
+          </div>
+        )}
         
         {goal.notes && (
           <p className="text-xs text-[#737373] mt-2 line-clamp-2 italic">
@@ -655,7 +691,8 @@ export default function GoalsCard() {
           )}
         </div>
         
-        {!isMobileView && (
+        {/* Move to category - only for non-collaborative goals */}
+        {!isCollaborative && !isMobileView && (
           <div className="flex gap-1 mt-2 pt-2 border-t border-[#262626]/50 opacity-0 group-hover:opacity-100 transition-opacity">
             <span className="text-[10px] text-[#737373] mr-1">Move to:</span>
             {(['daily', 'weekly', 'yearly'] as Category[]).filter(cat => cat !== goal.category).map((cat) => (
@@ -676,7 +713,7 @@ export default function GoalsCard() {
       return (
         <div
           key={goal.id}
-          className={`p-4 rounded-xl border ${phaseColors[phase]} border-opacity-30 ${junoBorderClass}`}
+          className={`p-4 rounded-xl border ${phaseColors[phase]} border-opacity-30 ${isCollaborative ? 'ring-1 ring-purple-500/30' : ''}`}
         >
           {cardContent}
         </div>
@@ -689,7 +726,7 @@ export default function GoalsCard() {
         draggable
         onDragStart={() => handleDragStart(goal)}
         onClick={() => openNotes(goal)}
-        className={`group p-4 rounded-xl border cursor-pointer transition-all hover:shadow-lg ${phaseColors[phase]} border-opacity-30 ${junoBorderClass}`}
+        className={`group p-4 rounded-xl border cursor-pointer transition-all hover:shadow-lg ${phaseColors[phase]} border-opacity-30 ${isCollaborative ? 'ring-1 ring-purple-500/30' : ''}`}
       >
         {cardContent}
       </div>
@@ -707,8 +744,10 @@ export default function GoalsCard() {
               <Target className="w-4 h-4 text-[#F97316]" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">Goals</h2>
-              <p className="text-xs text-[#737373]">{stats.achieved}/{stats.total} done</p>
+              <h2 className="text-base font-semibold text-white">
+                {activeCategory === 'collaborative' ? 'Tasks' : 'Goals'}
+              </h2>
+              <p className="text-xs text-[#737373]">{categoryDescriptions[activeCategory]}</p>
             </div>
           </div>
           <button
@@ -719,18 +758,41 @@ export default function GoalsCard() {
           </button>
         </div>
 
-        {/* Mobile Category Tabs - Segmented Control */}
-        <div className="segmented-control mb-6">
-          {(['daily', 'weekly', 'yearly'] as Category[]).map((cat) => (
-            <button
-              key={cat}
-              onClick={() => handleCategoryChange(cat)}
-              className={`segment ${activeCategory === cat ? 'segment-active' : 'segment-inactive'}`}
-            >
-              {categoryLabels[cat]}
-            </button>
-          ))}
+        {/* Mobile Category Tabs - Two-level navigation */}
+        {/* Primary tabs: Personal vs Collaborative */}
+        <div className="segmented-control mb-4">
+          <button
+            onClick={() => handleCategoryChange('daily')}
+            className={`segment ${activeCategory !== 'collaborative' ? 'segment-active' : 'segment-inactive'}`}
+          >
+            Personal
+          </button>
+          <button
+            onClick={() => handleCategoryChange('collaborative')}
+            className={`segment ${activeCategory === 'collaborative' ? 'segment-active' : 'segment-inactive'}`}
+          >
+            Collaborative
+          </button>
         </div>
+
+        {/* Secondary tabs: Only show for personal goals */}
+        {activeCategory !== 'collaborative' && (
+          <div className="flex gap-2 mb-6 overflow-x-auto">
+            {(['daily', 'weekly', 'yearly'] as Category[]).map((cat) => (
+              <button
+                key={cat}
+                onClick={() => handleCategoryChange(cat)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                  activeCategory === cat
+                    ? 'bg-[#F97316] text-white'
+                    : 'bg-[#262626] text-[#737373]'
+                }`}
+              >
+                {categoryLabels[cat]}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Mobile Progress */}
         <div className="mb-6">
@@ -769,74 +831,76 @@ export default function GoalsCard() {
 
         {/* Mobile Add Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="card w-full max-w-sm">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-base font-semibold text-white">Add Goal</h3>
-                <button onClick={() => setShowAddModal(false)} className="p-1">
-                  <X className="w-4 h-4 text-[#737373]" />
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+            <div className="card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border-b-0 sm:border-b border-[#262626] max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-3 sticky top-0 bg-[#1a1a1a] pt-4 pb-2 px-4 -mx-4 border-b border-[#262626] sm:static sm:bg-transparent sm:p-0 sm:border-0">
+                <h3 className="text-base font-semibold text-white">Add {activeCategory === 'collaborative' ? 'Task' : 'Goal'}</h3>
+                <button onClick={() => setShowAddModal(false)} className="p-2 -mr-2 hover:bg-[#262626] rounded-lg">
+                  <X className="w-5 h-5 text-[#737373]" />
                 </button>
               </div>
-              <input
-                type="text"
-                value={newGoalTitle}
-                onChange={(e) => setNewGoalTitle(e.target.value)}
-                placeholder="Enter goal..."
-                className="w-full px-3 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm mb-3"
-                onKeyPress={(e) => e.key === 'Enter' && addGoal()}
-              />
-              <textarea
-                value={newGoalNotes}
-                onChange={(e) => setNewGoalNotes(e.target.value)}
-                placeholder="Add notes (optional)..."
-                className="w-full px-3 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm mb-3 resize-none"
-                rows={3}
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-3 py-2 bg-[#262626] text-white rounded-xl text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={addGoal}
-                  disabled={!newGoalTitle.trim()}
-                  className="flex-1 px-3 py-2 bg-[#F97316] text-white rounded-xl text-sm disabled:opacity-50"
-                >
-                  Add
-                </button>
+              <div className="px-4 sm:px-0 pb-4 sm:pb-0">
+                <input
+                  type="text"
+                  value={newGoalTitle}
+                  onChange={(e) => setNewGoalTitle(e.target.value)}
+                  placeholder="Enter goal..."
+                  className="w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm mb-3"
+                  onKeyPress={(e) => e.key === 'Enter' && addGoal()}
+                />
+                <textarea
+                  value={newGoalNotes}
+                  onChange={(e) => setNewGoalNotes(e.target.value)}
+                  placeholder="Add notes (optional)..."
+                  className="w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm mb-3 resize-none"
+                  rows={3}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 px-3 py-3 bg-[#262626] text-white rounded-xl text-sm font-medium min-h-[44px]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={addGoal}
+                    disabled={!newGoalTitle.trim()}
+                    className="flex-1 px-3 py-3 bg-[#F97316] text-white rounded-xl text-sm font-medium disabled:opacity-50 min-h-[44px]"
+                  >
+                    Add
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Notes Modal */}
+        {/* Mobile Notes Modal */}
         {notesGoal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="card w-full max-w-lg">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-base font-semibold text-white">Notes: {notesGoal.title}</h3>
-                <button onClick={closeNotes} className="p-1">
-                  <X className="w-4 h-4 text-[#737373]" />
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+            <div className="card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl border-b-0 sm:border-b border-[#262626] h-[80vh] sm:h-auto flex flex-col">
+              <div className="flex items-center justify-between mb-3 sticky top-0 bg-[#1a1a1a] pt-4 pb-2 px-4 -mx-4 border-b border-[#262626]">
+                <h3 className="text-base font-semibold text-white truncate pr-4">Notes: {notesGoal.title}</h3>
+                <button onClick={closeNotes} className="p-2 -mr-2 hover:bg-[#262626] rounded-lg flex-shrink-0">
+                  <X className="w-5 h-5 text-[#737373]" />
                 </button>
               </div>
               <textarea
                 value={notesContent}
                 onChange={(e) => setNotesContent(e.target.value)}
                 placeholder="Add notes about this goal..."
-                className="flex-1 min-h-[300px] w-full px-3 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm mb-3 resize-none overflow-y-auto"
+                className="flex-1 min-h-[200px] w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm mb-3 resize-none overflow-y-auto"
               />
-              <div className="flex gap-2">
+              <div className="flex gap-2 sticky bottom-0 bg-[#1a1a1a] pt-2 pb-4 px-4 -mx-4 border-t border-[#262626] sm:static sm:bg-transparent sm:p-0 sm:border-0">
                 <button
                   onClick={closeNotes}
-                  className="flex-1 px-3 py-2 bg-[#262626] text-white rounded-xl text-sm"
+                  className="flex-1 px-3 py-3 bg-[#262626] text-white rounded-xl text-sm font-medium min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={saveNotes}
-                  className="flex-1 px-3 py-2 bg-[#F97316] text-white rounded-xl text-sm"
+                  className="flex-1 px-3 py-3 bg-[#F97316] text-white rounded-xl text-sm font-medium min-h-[44px]"
                 >
                   Save
                 </button>
@@ -845,38 +909,38 @@ export default function GoalsCard() {
           </div>
         )}
 
-        {/* Action Items Modal */}
+        {/* Mobile Action Items Modal */}
         {actionItemsGoal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="card w-full max-w-sm max-h-[80vh] overflow-hidden">
-              <div className="flex items-center justify-between mb-3">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+            <div className="card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border-b-0 sm:border-b border-[#262626] h-[80vh] sm:h-auto sm:max-h-[80vh] flex flex-col">
+              <div className="flex items-center justify-between mb-3 sticky top-0 bg-[#1a1a1a] pt-4 pb-2 px-4 -mx-4 border-b border-[#262626]">
                 <div className="flex items-center gap-2">
-                  <Bot className="w-4 h-4 text-purple-400" />
-                  <span className="text-sm font-medium text-white">Action Items</span>
+                  <Bot className="w-5 h-5 text-purple-400" />
+                  <span className="text-base font-semibold text-white">Action Items</span>
                 </div>
-                <button onClick={() => { setActionItemsGoal(null); setNewActionItem(''); }} className="p-1">
-                  <X className="w-4 h-4 text-[#737373]" />
+                <button onClick={() => { setActionItemsGoal(null); setNewActionItem(''); }} className="p-2 -mr-2 hover:bg-[#262626] rounded-lg">
+                  <X className="w-5 h-5 text-[#737373]" />
                 </button>
               </div>
-              <p className="text-xs text-[#737373] mb-3">{actionItemsGoal.title}</p>
-              <div className="flex gap-2 mb-3">
+              <p className="text-xs text-[#737373] mb-3 px-4 sm:px-0 truncate">{actionItemsGoal.title}</p>
+              <div className="flex gap-2 mb-3 px-4 sm:px-0">
                 <input
                   type="text"
                   value={newActionItem}
                   onChange={(e) => setNewActionItem(e.target.value)}
                   placeholder="Add action item..."
-                  className="flex-1 px-3 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-xs"
+                  className="flex-1 px-3 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm min-h-[44px]"
                   onKeyPress={(e) => e.key === 'Enter' && addActionItem()}
                 />
                 <button
                   onClick={addActionItem}
                   disabled={!newActionItem.trim()}
-                  className="px-3 py-2 bg-purple-500 text-white rounded-xl disabled:opacity-50"
+                  className="px-3 py-2 bg-purple-500 text-white rounded-xl disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-5 h-5" />
                 </button>
               </div>
-              <div className="overflow-y-auto max-h-[50vh] space-y-2">
+              <div className="overflow-y-auto flex-1 px-4 sm:px-0 space-y-2">
                 {(actionItemsGoal.actionItems || []).length === 0 ? (
                   <div className="text-center py-4 text-[#737373] text-xs">
                     <Bot className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -884,19 +948,19 @@ export default function GoalsCard() {
                   </div>
                 ) : (
                   (actionItemsGoal.actionItems || []).map((item) => (
-                    <div key={item.id} className="flex items-center gap-2 p-2 bg-[#0F0F0F] rounded-lg">
-                      <button onClick={() => updateActionItemStatus(item.id, item.status === 'completed' ? 'pending' : 'completed')}>
+                    <div key={item.id} className="flex items-center gap-2 p-3 bg-[#0F0F0F] rounded-lg">
+                      <button onClick={() => updateActionItemStatus(item.id, item.status === 'completed' ? 'pending' : 'completed')} className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center">
                         {item.status === 'completed' ? (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          <CheckCircle className="w-5 h-5 text-green-500" />
                         ) : (
-                          <Circle className="w-4 h-4 text-[#737373]" />
+                          <Circle className="w-5 h-5 text-[#737373]" />
                         )}
                       </button>
                       <span className={`flex-1 text-xs ${item.status === 'completed' ? 'line-through text-[#737373]' : 'text-white'}`}>
                         {item.text}
                       </span>
-                      <button onClick={() => deleteActionItem(item.id)} className="text-[#737373] hover:text-red-500">
-                        <X className="w-3 h-3" />
+                      <button onClick={() => deleteActionItem(item.id)} className="text-[#737373] hover:text-red-500 min-w-[44px] min-h-[44px] flex items-center justify-center">
+                        <X className="w-4 h-4" />
                       </button>
                     </div>
                   ))
@@ -904,7 +968,7 @@ export default function GoalsCard() {
               </div>
               <button
                 onClick={() => { setActionItemsGoal(null); setNewActionItem(''); }}
-                className="w-full mt-3 px-3 py-2 bg-[#262626] text-white rounded-xl text-sm"
+                className="w-full mt-3 px-3 py-3 bg-[#262626] text-white rounded-xl text-sm font-medium min-h-[44px] sticky bottom-0"
               >
                 Close
               </button>
@@ -912,21 +976,21 @@ export default function GoalsCard() {
           </div>
         )}
 
-        {/* Delete Confirmation Modal */}
+        {/* Mobile Delete Confirmation Modal */}
         {deleteConfirm && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="card w-full max-w-sm">
               <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle className="w-5 h-5 text-[#da3633]" />
+                <AlertTriangle className="w-6 h-6 text-[#da3633]" />
                 <h3 className="text-lg font-semibold text-white">Delete Goal?</h3>
               </div>
-              <p className="text-[#737373] mb-6">
-                Are you sure you want to delete "{deleteConfirm.title}"? This action cannot be undone.
+              <p className="text-[#737373] mb-6 text-sm">
+                Are you sure you want to delete &quot;{deleteConfirm.title}&quot;? This action cannot be undone.
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setDeleteConfirm(null)}
-                  className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl"
+                  className="flex-1 px-4 py-3 bg-[#262626] text-white rounded-xl text-sm font-medium min-h-[44px]"
                 >
                   Cancel
                 </button>
@@ -935,7 +999,7 @@ export default function GoalsCard() {
                     executeDelete(deleteConfirm);
                     setDeleteConfirm(null);
                   }}
-                  className="flex-1 px-4 py-2 bg-[#da3633] text-white rounded-xl"
+                  className="flex-1 px-4 py-3 bg-[#da3633] text-white rounded-xl text-sm font-medium min-h-[44px]"
                 >
                   Delete
                 </button>
@@ -957,9 +1021,11 @@ export default function GoalsCard() {
             <Target className="w-5 h-5 text-[#F97316]" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Goals</h2>
+            <h2 className="text-lg font-semibold text-white">
+              {activeCategory === 'collaborative' ? 'Collaborative Tasks' : 'Goals'}
+            </h2>
             <p className="text-xs text-[#737373]">
-              {stats.achieved}/{stats.total} achieved ({stats.percentage}%)
+              {categoryDescriptions[activeCategory]}
             </p>
           </div>
         </div>
@@ -970,21 +1036,7 @@ export default function GoalsCard() {
             className="flex items-center gap-1 px-3 py-1.5 bg-[#F97316] text-white rounded-xl text-sm hover:bg-[#ff8c5a] transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Add Goal
-          </button>
-          
-          {/* Juno Filter Toggle */}
-          <button
-            onClick={() => setShowJunoOnly(!showJunoOnly)}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm transition-colors ${
-              showJunoOnly
-                ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
-                : 'bg-[#0F0F0F] text-[#737373] hover:bg-[#262626]'
-            }`}
-            title={showJunoOnly ? 'Show all goals' : 'Show Juno-assisted only'}
-          >
-            <Bot className="w-4 h-4" />
-            {showJunoOnly ? 'Juno Only' : 'All Goals'}
+            Add {activeCategory === 'collaborative' ? 'Task' : 'Goal'}
           </button>
           
           <button
@@ -999,16 +1051,50 @@ export default function GoalsCard() {
 
       {/* Category Tabs - Segmented Control */}
       <div className="segmented-control mb-6">
-        {(['daily', 'weekly', 'yearly'] as Category[]).map((cat) => (
+        {(['personal', 'collaborative'] as const).map((tab) => (
           <button
-            key={cat}
-            onClick={() => handleCategoryChange(cat)}
-            className={`segment ${activeCategory === cat ? 'segment-active' : 'segment-inactive'}`}
+            key={tab}
+            onClick={() => handleCategoryChange(tab === 'personal' ? 'daily' : 'collaborative')}
+            className={`segment ${
+              (tab === 'personal' && activeCategory !== 'collaborative') || 
+              (tab === 'collaborative' && activeCategory === 'collaborative')
+                ? 'segment-active' 
+                : 'segment-inactive'
+            }`}
           >
-            {categoryLabels[cat]} Goals
+            {tab === 'personal' ? (
+              <>
+                <span className="hidden sm:inline">Personal Goals</span>
+                <span className="sm:hidden">Personal</span>
+              </>
+            ) : (
+              <>
+                <span className="hidden sm:inline">Collaborative Tasks</span>
+                <span className="sm:hidden">Collaborative</span>
+              </>
+            )}
           </button>
         ))}
       </div>
+
+      {/* Personal Goals Sub-tabs - Only show when in personal mode */}
+      {activeCategory !== 'collaborative' && (
+        <div className="flex gap-2 mb-6">
+          {(['daily', 'weekly', 'yearly'] as Category[]).map((cat) => (
+            <button
+              key={cat}
+              onClick={() => handleCategoryChange(cat)}
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                activeCategory === cat
+                  ? 'bg-[#F97316] text-white'
+                  : 'bg-[#262626] text-[#737373] hover:text-white'
+              }`}
+            >
+              {categoryLabels[cat]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Progress Bar */}
       <div className="mb-6">
@@ -1052,15 +1138,15 @@ export default function GoalsCard() {
         ))}
       </div>
 
-      {/* Add Goal Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      {/* Add Goal Modal - Desktop */}
+      {showAddModal && !isMobile && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="card w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Add {categoryLabels[activeCategory]} Goal</h3>
+              <h3 className="text-lg font-semibold text-white">Add {activeCategory === 'collaborative' ? 'Collaborative Task' : categoryLabels[activeCategory] + ' Goal'}</h3>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="p-2 hover:bg-[#262626] rounded-lg"
+                className="p-2 hover:bg-[#262626] rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X className="w-5 h-5 text-[#737373]" />
               </button>
@@ -1071,7 +1157,7 @@ export default function GoalsCard() {
               value={newGoalTitle}
               onChange={(e) => setNewGoalTitle(e.target.value)}
               placeholder="Enter goal title..."
-              className="w-full px-4 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316] mb-4"
+              className="w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316] mb-4"
               onKeyPress={(e) => e.key === 'Enter' && addGoal()}
             />
 
@@ -1086,26 +1172,26 @@ export default function GoalsCard() {
             <div className="flex gap-2">
               <button
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors"
+                className="flex-1 px-4 py-3 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors font-medium min-h-[44px]"
               >
                 Cancel
               </button>
               <button
                 onClick={addGoal}
                 disabled={!newGoalTitle.trim()}
-                className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-3 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors disabled:opacity-50 font-medium min-h-[44px]"
               >
-                Add Goal
+                Add {activeCategory === 'collaborative' ? 'Task' : 'Goal'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Notes Modal */}
-      {notesGoal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="card w-full max-w-3xl">
+      {/* Notes Modal - Desktop */}
+      {notesGoal && !isMobile && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="card w-full max-w-3xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-[#F97316]" />
@@ -1113,31 +1199,31 @@ export default function GoalsCard() {
               </div>
               <button
                 onClick={closeNotes}
-                className="p-2 hover:bg-[#262626] rounded-lg"
+                className="p-2 hover:bg-[#262626] rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X className="w-5 h-5 text-[#737373]" />
               </button>
             </div>
             
-            <p className="text-sm text-[#737373] mb-4">{notesGoal.title}</p>
+            <p className="text-sm text-[#737373] mb-4 truncate">{notesGoal.title}</p>
             
             <textarea
               value={notesContent}
               onChange={(e) => setNotesContent(e.target.value)}
               placeholder="Add notes, links, research, or any details about this goal..."
-              className="flex-1 min-h-[400px] w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316] mb-4 resize-none overflow-y-auto"
+              className="flex-1 min-h-[300px] sm:min-h-[400px] w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316] mb-4 resize-none overflow-y-auto"
             />
             
             <div className="flex gap-2">
               <button
                 onClick={closeNotes}
-                className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors"
+                className="flex-1 px-4 py-3 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors font-medium min-h-[44px]"
               >
                 Cancel
               </button>
               <button
                 onClick={saveNotes}
-                className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors"
+                className="flex-1 px-4 py-3 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors font-medium min-h-[44px]"
               >
                 Save Notes
               </button>
@@ -1146,10 +1232,10 @@ export default function GoalsCard() {
         </div>
       )}
 
-      {/* Action Items Modal */}
-      {actionItemsGoal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="card w-full max-w-2xl">
+      {/* Action Items Modal - Desktop */}
+      {actionItemsGoal && !isMobile && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="card w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-500/10 rounded-xl">
@@ -1157,12 +1243,12 @@ export default function GoalsCard() {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-white">Action Items</h3>
-                  <p className="text-sm text-[#737373]">{actionItemsGoal.title}</p>
+                  <p className="text-sm text-[#737373] truncate max-w-[300px] sm:max-w-[400px]">{actionItemsGoal.title}</p>
                 </div>
               </div>
               <button
                 onClick={closeActionItems}
-                className="p-2 hover:bg-[#262626] rounded-lg"
+                className="p-2 hover:bg-[#262626] rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X className="w-5 h-5 text-[#737373]" />
               </button>
@@ -1175,13 +1261,13 @@ export default function GoalsCard() {
                 value={newActionItem}
                 onChange={(e) => setNewActionItem(e.target.value)}
                 placeholder="Add a new action item for Juno..."
-                className="flex-1 px-4 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-purple-500"
+                className="flex-1 px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-purple-500"
                 onKeyPress={(e) => e.key === 'Enter' && addActionItem()}
               />
               <button
                 onClick={addActionItem}
                 disabled={!newActionItem.trim()}
-                className="px-4 py-2 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-colors disabled:opacity-50"
+                className="px-4 py-3 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-colors disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <Plus className="w-5 h-5" />
               </button>
@@ -1212,7 +1298,7 @@ export default function GoalsCard() {
                         item.status === 'completed' ? 'pending' : 
                         item.status === 'in-progress' ? 'completed' : 'in-progress'
                       )}
-                      className="flex-shrink-0"
+                      className="flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"
                     >
                       {item.status === 'completed' ? (
                         <CheckCircle className="w-5 h-5 text-[#22c55e]" />
@@ -1229,7 +1315,7 @@ export default function GoalsCard() {
                     
                     <button
                       onClick={() => deleteActionItem(item.id)}
-                      className="text-[#737373] hover:text-[#da3633] transition-colors"
+                      className="text-[#737373] hover:text-[#da3633] transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1254,7 +1340,7 @@ export default function GoalsCard() {
             <div className="flex gap-2">
               <button
                 onClick={closeActionItems}
-                className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors"
+                className="flex-1 px-4 py-3 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors font-medium min-h-[44px]"
               >
                 Close
               </button>
@@ -1263,21 +1349,21 @@ export default function GoalsCard() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      {/* Delete Confirmation Modal - Desktop */}
+      {deleteConfirm && !isMobile && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="card w-full max-w-sm">
             <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle className="w-5 h-5 text-[#da3633]" />
+              <AlertTriangle className="w-6 h-6 text-[#da3633]" />
               <h3 className="text-lg font-semibold text-white">Delete Goal?</h3>
             </div>
             <p className="text-[#737373] mb-6">
-              Are you sure you want to delete "{deleteConfirm.title}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{deleteConfirm.title}&quot;? This action cannot be undone.
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors"
+                className="flex-1 px-4 py-3 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors font-medium min-h-[44px]"
               >
                 Cancel
               </button>
@@ -1286,7 +1372,7 @@ export default function GoalsCard() {
                   executeDelete(deleteConfirm);
                   setDeleteConfirm(null);
                 }}
-                className="flex-1 px-4 py-2 bg-[#da3633] text-white rounded-xl hover:bg-red-600 transition-colors"
+                className="flex-1 px-4 py-3 bg-[#da3633] text-white rounded-xl hover:bg-red-600 transition-colors font-medium min-h-[44px]"
               >
                 Delete
               </button>

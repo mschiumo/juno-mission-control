@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
 
 const STORAGE_KEY = 'goals_data';
-type Category = 'yearly' | 'weekly' | 'daily';
+type Category = 'yearly' | 'weekly' | 'daily' | 'collaborative';
 
 interface ActionItem {
   id: string;
@@ -19,39 +19,62 @@ interface Goal {
   notes?: string;
   junoAssisted?: boolean;
   actionItems?: ActionItem[];
+  source?: 'mj' | 'juno' | 'subagent';  // Who created this goal
 }
 
 interface GoalsData {
   yearly: Goal[];
   weekly: Goal[];
   daily: Goal[];
+  collaborative: Goal[];  // Tasks/Projects involving MJ, Juno, and subagents
 }
 
 // Default goals structure
 const DEFAULT_GOALS: GoalsData = {
   yearly: [
-    { id: 'y1', title: 'Generate steady self-generated income', phase: 'in-progress', category: 'yearly' },
-    { id: 'y2', title: 'Master physical health & fitness', phase: 'in-progress', category: 'yearly' },
-    { id: 'y3', title: 'Launch KeepLiving brand', phase: 'not-started', category: 'yearly' },
-    { id: 'y4', title: 'Move overseas successfully', phase: 'not-started', category: 'yearly' }
+    { id: 'y1', title: 'Generate steady self-generated income', phase: 'in-progress', category: 'yearly', source: 'mj' },
+    { id: 'y2', title: 'Master physical health & fitness', phase: 'in-progress', category: 'yearly', source: 'mj' },
+    { id: 'y3', title: 'Launch KeepLiving brand', phase: 'not-started', category: 'yearly', source: 'mj' },
+    { id: 'y4', title: 'Move overseas successfully', phase: 'not-started', category: 'yearly', source: 'mj' }
   ],
   weekly: [
-    { id: 'w1', title: 'Lift 4x this week', phase: 'in-progress', category: 'weekly' },
-    { id: 'w2', title: 'Run 5x this week', phase: 'in-progress', category: 'weekly' },
-    { id: 'w3', title: 'Trade daily with discipline', phase: 'in-progress', category: 'weekly' },
-    { id: 'w4', title: 'Publish 1 blog post', phase: 'not-started', category: 'weekly' }
+    { id: 'w1', title: 'Lift 4x this week', phase: 'in-progress', category: 'weekly', source: 'mj' },
+    { id: 'w2', title: 'Run 5x this week', phase: 'in-progress', category: 'weekly', source: 'mj' },
+    { id: 'w3', title: 'Trade daily with discipline', phase: 'in-progress', category: 'weekly', source: 'mj' },
+    { id: 'w4', title: 'Publish 1 blog post', phase: 'not-started', category: 'weekly', source: 'mj' }
   ],
   daily: [
-    { id: 'd1', title: 'Make bed', phase: 'achieved', category: 'daily' },
-    { id: 'd2', title: 'Take morning meds', phase: 'in-progress', category: 'daily' },
-    { id: 'd3', title: 'Read market brief', phase: 'not-started', category: 'daily' },
-    { id: 'd4', title: 'Exercise/Lift', phase: 'not-started', category: 'daily' }
+    { id: 'd1', title: 'Make bed', phase: 'achieved', category: 'daily', source: 'mj' },
+    { id: 'd2', title: 'Take morning meds', phase: 'in-progress', category: 'daily', source: 'mj' },
+    { id: 'd3', title: 'Read market brief', phase: 'not-started', category: 'daily', source: 'mj' },
+    { id: 'd4', title: 'Exercise/Lift', phase: 'not-started', category: 'daily', source: 'mj' }
+  ],
+  collaborative: [
+    { 
+      id: 'c1', 
+      title: 'Dashboard Theme Improvements', 
+      phase: 'in-progress', 
+      category: 'collaborative', 
+      source: 'juno',
+      junoAssisted: true,
+      actionItems: [
+        { id: 'ai-1', text: 'Update GoalsCard with tabs', status: 'completed', createdAt: new Date().toISOString() }
+      ]
+    },
+    { 
+      id: 'c2', 
+      title: 'Email Integration Setup', 
+      phase: 'not-started', 
+      category: 'collaborative', 
+      source: 'subagent',
+      junoAssisted: true
+    }
   ]
 };
 
 // Helper function to validate category
 function isValidCategory(cat: string): cat is Category {
-  return cat === 'yearly' || cat === 'weekly' || cat === 'daily';
+  return cat === 'yearly' || cat === 'weekly' || cat === 'daily' || cat === 'collaborative';
 }
 
 // Lazy Redis client initialization
@@ -182,7 +205,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { title, category, notes, phase, junoAssisted, actionItems, id } = body;
+    const { title, category, notes, phase, junoAssisted, actionItems, id, source } = body;
     
     if (!title || !category) {
       return NextResponse.json({
@@ -210,18 +233,25 @@ export async function PUT(request: Request) {
       }
     }
     
+    // Determine source - MJ-created goals default to 'mj', unless explicitly set
+    const goalSource: 'mj' | 'juno' | 'subagent' = source || 'mj';
+    
+    // Auto-categorize collaborative goals
+    const finalCategory = goalSource !== 'mj' ? 'collaborative' : category;
+    
     // Add new goal (or restore with existing ID)
     const newGoal: Goal = {
-      id: id || `${category[0]}${Date.now()}`,
+      id: id || `${finalCategory[0]}${Date.now()}`,
       title,
       phase: phase || 'not-started',
-      category,
+      category: finalCategory,
       notes: notes || undefined,
-      junoAssisted: junoAssisted || false,
-      actionItems: actionItems || undefined
+      junoAssisted: junoAssisted || goalSource !== 'mj',
+      actionItems: actionItems || undefined,
+      source: goalSource
     };
     
-    goals[category].push(newGoal);
+    goals[finalCategory].push(newGoal);
     
     // Save to Redis
     if (redis) {
