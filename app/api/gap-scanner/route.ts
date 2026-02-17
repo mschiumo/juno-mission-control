@@ -197,38 +197,72 @@ async function fetchFinnhubProfile(symbol: string): Promise<{ name: string; mark
 
 export async function GET() {
   const timestamp = new Date().toISOString();
+  const errors: string[] = [];
   
   try {
     console.log(`[GapScanner] Starting scan at ${timestamp}`);
+    console.log(`[GapScanner] API Key present: ${!!FINNHUB_API_KEY}`);
+    console.log(`[GapScanner] API Key length: ${FINNHUB_API_KEY?.length || 0}`);
     
     const gainers: GapStock[] = [];
     const losers: GapStock[] = [];
     let scanned = 0;
+    let quoteFailures = 0;
+    let profileFailures = 0;
+    let skippedETF = 0;
+    let skippedGap = 0;
+    let skippedVolume = 0;
+    let skippedPrice = 0;
+    let skippedMarketCap = 0;
     
     // Check each stock in our universe
     for (const symbol of STOCK_UNIVERSE) {
       // Skip ETFs
-      if (isETFOrDerivative(symbol)) continue;
+      if (isETFOrDerivative(symbol)) {
+        skippedETF++;
+        continue;
+      }
       
       // Get real-time quote
       const quote = await fetchFinnhubQuote(symbol);
-      if (!quote) continue;
+      if (!quote) {
+        quoteFailures++;
+        if (quoteFailures <= 5) {
+          errors.push(`Quote failed for ${symbol}`);
+        }
+        continue;
+      }
       
       scanned++;
       
       // Calculate gap from current price vs previous close
       const gapPercent = ((quote.current - quote.previous) / quote.previous) * 100;
       
-      // Apply filters
-      if (Math.abs(gapPercent) < 2) continue; // Min 2% gap (changed from 5%)
-      if (quote.volume < 100000) continue; // Min 100K volume
-      if (quote.current > 500) continue; // Max $500 price
+      // Apply filters with logging
+      if (Math.abs(gapPercent) < 2) {
+        skippedGap++;
+        continue;
+      }
+      if (quote.volume < 100000) {
+        skippedVolume++;
+        continue;
+      }
+      if (quote.current > 500) {
+        skippedPrice++;
+        continue;
+      }
       
       // Get company info
       const profile = await fetchFinnhubProfile(symbol);
+      if (!profile) {
+        profileFailures++;
+      }
       
       // Skip if market cap < $250M (if available)
-      if (profile && profile.marketCap > 0 && profile.marketCap < 250000000) continue;
+      if (profile && profile.marketCap > 0 && profile.marketCap < 250000000) {
+        skippedMarketCap++;
+        continue;
+      }
       
       const stock: GapStock = {
         symbol,
@@ -255,7 +289,9 @@ export async function GET() {
     gainers.sort((a, b) => b.gapPercent - a.gapPercent);
     losers.sort((a, b) => a.gapPercent - b.gapPercent);
     
-    console.log(`[GapScanner] Found ${gainers.length} gainers, ${losers.length} losers from ${scanned} stocks`);
+    console.log(`[GapScanner] Results: ${gainers.length} gainers, ${losers.length} losers from ${scanned} stocks scanned`);
+    console.log(`[GapScanner] Skipped: ${skippedETF} ETFs, ${skippedGap} gap<2%, ${skippedVolume} vol<100K, ${skippedPrice} price>$500, ${skippedMarketCap} cap<$250M`);
+    console.log(`[GapScanner] Failures: ${quoteFailures} quotes, ${profileFailures} profiles`);
     
     // Determine actual market session
     const marketSession = getMarketSession();
@@ -263,8 +299,8 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: {
-        gainers: gainers.slice(0, 10), // Top 10 gainers
-        losers: losers.slice(0, 10)     // Top 10 losers
+        gainers: gainers.slice(0, 10),
+        losers: losers.slice(0, 10)
       },
       timestamp,
       source: 'live',
@@ -276,6 +312,19 @@ export async function GET() {
       marketSession: marketSession.session,
       marketStatus: marketSession.marketStatus,
       isPreMarket: marketSession.isPreMarket,
+      debug: {
+        apiKeyPresent: !!FINNHUB_API_KEY,
+        apiKeyLength: FINNHUB_API_KEY?.length || 0,
+        universeSize: STOCK_UNIVERSE.length,
+        skippedETF,
+        skippedGap,
+        skippedVolume,
+        skippedPrice,
+        skippedMarketCap,
+        quoteFailures,
+        profileFailures,
+        errors: errors.slice(0, 10)
+      },
       enriched: true,
       filters: {
         minGapPercent: 2,
