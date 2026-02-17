@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, CheckCircle, AlertCircle, FileText, X, Eye, RefreshCw } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, FileText, X, Eye, RefreshCw, AlertTriangle } from 'lucide-react';
 import cronParser from 'cron-parser';
 
 interface CronJob {
@@ -22,6 +22,9 @@ interface CronResult {
   type: string;
 }
 
+// Job status type
+ type JobStatus = 'completed' | 'failed' | 'pending' | 'overdue';
+
 export default function DailyReportsCard() {
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [reports, setReports] = useState<CronResult[]>([]);
@@ -29,7 +32,6 @@ export default function DailyReportsCard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedReport, setSelectedReport] = useState<CronResult | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [hoveredJob, setHoveredJob] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -41,7 +43,6 @@ export default function DailyReportsCard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch cron jobs and reports in parallel
       const [jobsRes, reportsRes] = await Promise.all([
         fetch('/api/cron-status'),
         fetch('/api/cron-results')
@@ -54,7 +55,6 @@ export default function DailyReportsCard() {
         setJobs(jobsData.crons || []);
       }
       if (reportsData.success) {
-        // Sort reports by timestamp (newest first)
         const sortedReports = (reportsData.data || []).sort((a: CronResult, b: CronResult) => 
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
@@ -69,21 +69,98 @@ export default function DailyReportsCard() {
   };
 
   // Map of cron job display names to possible report jobNames
-const JOB_NAME_MAP: Record<string, string[]> = {
-  'London Session Update': ['London Session Update', 'London Session Open Update'],
-  'Nightly Task Approval': ['Nightly Task Approval', 'Nightly Task Approval Request'],
-  'Asia Session Update': ['Asia Session Update', 'Asia Session Open Update'],
-  'Gap Scanner Pre-Market': ['Gap Scanner Pre-Market', 'Gap Scanner Monday Test'],
-};
+  const JOB_NAME_MAP: Record<string, string[]> = {
+    'London Session Update': ['London Session Update', 'London Session Open Update'],
+    'Nightly Task Approval': ['Nightly Task Approval', 'Nightly Task Approval Request'],
+    'Asia Session Update': ['Asia Session Update', 'Asia Session Open Update'],
+    'Gap Scanner Pre-Market': ['Gap Scanner Pre-Market', 'Gap Scanner Monday Test'],
+    'Morning Market Briefing': ['Morning Market Briefing'],
+    'Market Close Report': ['Market Close Report'],
+    'Weekly Habit Review': ['Weekly Habit Review'],
+    'Daily Token Usage Summary': ['Daily Token Usage Summary'],
+  };
 
-const openReport = async (jobName: string) => {
-    // Handle name mismatches between cron-status and cron-results
+  const getReportForJob = (jobName: string): CronResult | null => {
     const possibleNames = JOB_NAME_MAP[jobName] || [jobName];
-    // Only open if report exists
-    const report = reports
+    return reports
       .filter(r => possibleNames.includes(r.jobName))
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0] || null;
+  };
+
+  const getScheduledTimeToday = (job: CronJob): Date | null => {
+    try {
+      const cronSchedule = job.cronExpression || job.schedule;
+      const interval = cronParser.parse(cronSchedule, {
+        tz: 'America/New_York',
+        currentDate: new Date()
+      });
+      return interval.prev().toDate(); // Get today's scheduled time
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const getJobStatus = (job: CronJob): { status: JobStatus; time: string | null; message: string } => {
+    const report = getReportForJob(job.name);
+    const scheduledTime = getScheduledTimeToday(job);
+    const now = new Date();
     
+    // If has report from today
+    if (report) {
+      const reportDate = new Date(report.timestamp);
+      const isToday = reportDate.toDateString() === now.toDateString();
+      
+      if (isToday) {
+        // Check if report indicates failure
+        if (report.type === 'error' || report.content?.includes('FAILED') || report.content?.includes('❌')) {
+          return { 
+            status: 'failed', 
+            time: formatTime(reportDate),
+            message: `Failed at ${formatTime(reportDate)}`
+          };
+        }
+        return { 
+          status: 'completed', 
+          time: formatTime(reportDate),
+          message: `${formatTime(reportDate)} — Click to view`
+        };
+      }
+    }
+    
+    // Check if overdue (scheduled time passed, no report)
+    if (scheduledTime) {
+      const timeDiff = now.getTime() - scheduledTime.getTime();
+      const hoursDiff = timeDiff / (1000 * 60 * 60);
+      
+      if (hoursDiff > 1) {
+        return { 
+          status: 'overdue', 
+          time: formatTime(scheduledTime),
+          message: `Overdue — should have run at ${formatTime(scheduledTime)}`
+        };
+      }
+      
+      return { 
+        status: 'pending', 
+        time: formatTime(scheduledTime),
+        message: `Scheduled for ${formatTime(scheduledTime)}`
+      };
+    }
+    
+    return { status: 'pending', time: null, message: 'Scheduled' };
+  };
+
+  const formatTime = (date: Date): string => {
+    return date.toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  const openReport = (jobName: string) => {
+    const report = getReportForJob(jobName);
     if (report) {
       setSelectedReport(report);
       setModalOpen(true);
@@ -95,136 +172,37 @@ const openReport = async (jobName: string) => {
     setSelectedReport(null);
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusBadge = (status: JobStatus) => {
     switch (status) {
-      case 'active':
-        return <CheckCircle className="w-4 h-4 text-[#238636]" />;
       case 'completed':
-        return <CheckCircle className="w-4 h-4 text-[#8b949e]" />;
-      case 'error':
-        return <AlertCircle className="w-4 h-4 text-[#da3633]" />;
-      default:
-        return <Clock className="w-4 h-4 text-[#d29922]" />;
+        return (
+          <span className="flex items-center gap-1 px-2 py-1 bg-[#238636]/20 text-[#238636] rounded-full text-xs font-medium">
+            <CheckCircle className="w-3 h-3" />
+            Done
+          </span>
+        );
+      case 'failed':
+        return (
+          <span className="flex items-center gap-1 px-2 py-1 bg-[#da3633]/20 text-[#da3633] rounded-full text-xs font-medium">
+            <AlertCircle className="w-3 h-3" />
+            Failed
+          </span>
+        );
+      case 'overdue':
+        return (
+          <span className="flex items-center gap-1 px-2 py-1 bg-[#d29922]/20 text-[#d29922] rounded-full text-xs font-medium">
+            <AlertTriangle className="w-3 h-3" />
+            Overdue
+          </span>
+        );
+      case 'pending':
+        return (
+          <span className="flex items-center gap-1 px-2 py-1 bg-[#8b949e]/20 text-[#8b949e] rounded-full text-xs font-medium">
+            <Clock className="w-3 h-3" />
+            Pending
+          </span>
+        );
     }
-  };
-
-  const hasReport = (jobName: string) => {
-    // Handle name mismatches between cron-status and cron-results
-    const possibleNames = JOB_NAME_MAP[jobName] || [jobName];
-    return reports.some(r => possibleNames.includes(r.jobName));
-  };
-
-  const getLatestReportTime = (jobName: string) => {
-    // Handle name mismatches between cron-status and cron-results
-    const possibleNames = JOB_NAME_MAP[jobName] || [jobName];
-    const report = reports
-      .filter(r => possibleNames.includes(r.jobName))
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-    return report ? report.timestamp : null;
-  };
-
-  const getNextRunDate = (job: CronJob): Date | null => {
-    try {
-      // Use cronExpression if available, otherwise fall back to schedule for backward compatibility
-      const cronSchedule = job.cronExpression || job.schedule;
-      const interval = cronParser.parse(cronSchedule, {
-        tz: 'America/New_York',
-        currentDate: new Date()
-      });
-      return interval.next().toDate();
-    } catch (error) {
-      console.error('Failed to parse cron schedule:', job.cronExpression || job.schedule, error);
-      return null;
-    }
-  };
-
-  const formatDateTime = (date: Date): string => {
-    // Format as "MM/DD @ H:MM AM/PM" in EST
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/New_York',
-      month: '2-digit',
-      day: '2-digit',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-    const parts = formatter.formatToParts(date);
-    const month = parts.find(p => p.type === 'month')?.value || '01';
-    const day = parts.find(p => p.type === 'day')?.value || '01';
-    const hour = parts.find(p => p.type === 'hour')?.value || '12';
-    const minute = parts.find(p => p.type === 'minute')?.value || '00';
-    const dayPeriod = parts.find(p => p.type === 'dayPeriod')?.value || 'AM';
-    return `${month}/${day} @ ${hour}:${minute} ${dayPeriod}`;
-  };
-
-  const getNextScheduledTime = (job: CronJob): string => {
-    const next = getNextRunDate(job);
-    if (!next) return 'Scheduled';
-    
-    // Check if it's a weekday schedule
-    const cronSchedule = job.cronExpression || job.schedule;
-    if (cronSchedule.includes('0-4') || cronSchedule.includes('1-5')) {
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const timeStr = next.toLocaleString('en-US', { 
-        timeZone: 'America/New_York',
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      });
-      return `${days[next.getDay()]} at ${timeStr}`;
-    }
-    
-    // Daily schedule
-    return next.toLocaleString('en-US', { 
-      timeZone: 'America/New_York',
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
-  };
-
-  const formatSchedule = (schedule: string) => {
-    if (schedule === '0 8 * * *') return 'Daily at 8:00 AM';
-    if (schedule === '0 0 * * *') return 'Daily at 12:00 AM';
-    if (schedule === '0 7 * * *') return 'Daily at 7:00 AM';
-    if (schedule === '30 7 * * *') return 'Daily at 7:30 AM';
-    if (schedule === '30 12 * * *') return 'Daily at 12:30 PM';
-    if (schedule === '0 17 * * 1-5') return 'Weekdays at 5:00 PM';
-    if (schedule === '0 20 * * *') return 'Daily at 8:00 PM';
-    if (schedule === '0 22 * * *') return 'Daily at 10:00 PM';
-    if (schedule === '30 22 * * *') return 'Daily at 10:30 PM';
-    if (schedule === '0 23 * * *') return 'Daily at 11:00 PM';
-    if (schedule === '30 23 * * *') return 'Daily at 11:30 PM';
-    if (schedule === '0 19 * * 5') return 'Fridays at 7:00 PM';
-    if (schedule === '0 9,12,16 * * 1-5') return 'Weekdays at 9AM, 12PM, 4PM';
-    if (schedule === '0 2 * * *') return 'Daily at 2:00 AM';
-    if (schedule === '*/30 * * * *') return 'Every 30 minutes';
-    return schedule;
-  };
-
-  const formatLastRun = (date: string, jobName: string) => {
-    // Use report timestamp if available
-    const reportTime = getLatestReportTime(jobName);
-    const d = new Date(reportTime || date);
-    const now = new Date();
-    
-    const dEST = new Date(d.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const nowEST = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    
-    const diff = nowEST.getTime() - dEST.getTime();
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes} min ago`;
-    if (hours === 1) return '1 hour ago';
-    if (hours < 24) return `${hours} hours ago`;
-    return d.toLocaleDateString('en-US', {
-      timeZone: 'America/New_York',
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
   };
 
   const formatLastUpdated = () => {
@@ -232,15 +210,13 @@ const openReport = async (jobName: string) => {
     return lastUpdated.toLocaleString('en-US', {
       month: '2-digit',
       day: '2-digit',
-      year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
       hour12: true
     }).replace(',', ' @');
   };
 
-  // Sort jobs: those with reports first (sorted by most recent report), then by schedule time
-  // Exclude jobs that are shown elsewhere: Daily Motivational (banner), Mid-Day/Post-Market (Telegram only), GitHub PR Monitor (internal)
+  // Sort jobs: completed first (by time), then failed/overdue, then pending
   const sortedJobs = [...jobs]
     .filter(job => job.name !== 'Daily Motivational' 
       && job.name !== 'Daily Motivational Message'
@@ -249,26 +225,28 @@ const openReport = async (jobName: string) => {
       && job.name !== 'Evening Habit Check-in'
       && job.name !== 'GitHub PR Monitor')
     .sort((a, b) => {
-      const aHasReport = hasReport(a.name);
-      const bHasReport = hasReport(b.name);
-      if (aHasReport && !bHasReport) return -1;
-      if (!aHasReport && bHasReport) return 1;
+      const aStatus = getJobStatus(a);
+      const bStatus = getJobStatus(b);
       
-      // Both have reports - sort by most recent report timestamp
-      if (aHasReport && bHasReport) {
-        const aTime = getLatestReportTime(a.name);
-        const bTime = getLatestReportTime(b.name);
-        if (aTime && bTime) {
-          return new Date(bTime).getTime() - new Date(aTime).getTime();
-        }
+      // Priority: completed > failed > overdue > pending
+      const priority = { completed: 0, failed: 1, overdue: 2, pending: 3 };
+      if (priority[aStatus.status] !== priority[bStatus.status]) {
+        return priority[aStatus.status] - priority[bStatus.status];
+      }
+      
+      // Same status - sort by time
+      if (aStatus.time && bStatus.time) {
+        return new Date(b.lastRun).getTime() - new Date(a.lastRun).getTime();
       }
       return 0;
     });
 
-  // Calculate progress
-  const availableReports = reports.filter(r => sortedJobs.some(j => j.name === r.jobName)).length;
-  const totalJobs = sortedJobs.length;
-  const progressPercent = totalJobs > 0 ? Math.round((availableReports / totalJobs) * 100) : 0;
+  // Calculate summary
+  const completedCount = sortedJobs.filter(j => getJobStatus(j).status === 'completed').length;
+  const failedCount = sortedJobs.filter(j => {
+    const s = getJobStatus(j).status;
+    return s === 'failed' || s === 'overdue';
+  }).length;
 
   return (
     <>
@@ -282,7 +260,7 @@ const openReport = async (jobName: string) => {
               <h2 className="text-lg font-semibold text-white">Daily Reports</h2>
               <div className="flex items-center gap-2">
                 <p className="text-xs text-[#8b949e]">
-                  {availableReports} of {totalJobs} available
+                  {completedCount} done • {failedCount} issues
                 </p>
                 {lastUpdated && !loading && (
                   <span className="text-[10px] text-[#238636]">
@@ -303,18 +281,13 @@ const openReport = async (jobName: string) => {
           </button>
         </div>
 
-        {/* Progress Bar */}
-        <div className="mb-5 p-4 bg-[#0d1117] rounded-xl">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-[#8b949e] uppercase tracking-wider font-medium">Reports Available</span>
-            <span className="text-xs font-medium text-[#ff6b35]">{progressPercent}%</span>
-          </div>
-          <div className="progress-bar">
-            <div 
-              className="progress-fill"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
+        {/* Status Summary */}
+        <div className="flex gap-2 mb-5">
+          {failedCount > 0 && (
+            <div className="flex-1 p-3 bg-[#da3633]/10 border border-[#da3633]/30 rounded-xl">
+              <p className="text-xs text-[#da3633] font-medium">⚠️ {failedCount} job{failedCount !== 1 ? 's' : ''} need attention</p>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -325,58 +298,39 @@ const openReport = async (jobName: string) => {
             </div>
           ) : (
             sortedJobs.map((job) => {
-              const jobHasReport = hasReport(job.name);
-              const nextScheduled = getNextScheduledTime(job);
+              const { status, message } = getJobStatus(job);
+              const canClick = status === 'completed';
+              
               return (
-                <div
-                  key={job.id}
-                  className="relative"
-                  onMouseEnter={() => setHoveredJob(job.name)}
-                  onMouseLeave={() => setHoveredJob(null)}
-                >
+                <div key={job.id}>
                   <button
-                    onClick={() => jobHasReport && openReport(job.name)}
-                    disabled={!jobHasReport}
+                    onClick={() => canClick && openReport(job.name)}
+                    disabled={!canClick}
                     className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left ${
-                      jobHasReport 
-                        ? 'bg-[#0d1117] border-[#ff6b35]/30 hover:border-[#ff6b35] hover:bg-[#0d1117]/80 cursor-pointer' 
-                        : 'bg-[#0d1117]/50 border-[#30363d] cursor-not-allowed opacity-60'
+                      canClick 
+                        ? 'bg-[#0d1117] border-[#30363d] hover:border-[#ff6b35] cursor-pointer' 
+                        : status === 'failed' || status === 'overdue'
+                          ? 'bg-[#da3633]/5 border-[#da3633]/30'
+                          : 'bg-[#0d1117]/50 border-[#30363d]'
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(job.status)}
-                        <span className={`font-medium text-sm truncate ${jobHasReport ? 'text-white' : 'text-[#8b949e]'}`}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-medium text-sm truncate ${canClick ? 'text-white' : 'text-[#8b949e]'}`}>
                           {job.name}
                         </span>
-                        {jobHasReport && (
-                          <span className="pill pill-primary text-[10px] px-2 py-0.5">
-                            NEW
-                          </span>
-                        )}
+                        {getStatusBadge(status)}
                       </div>
-                      <div className="text-xs text-[#8b949e] mt-1">
-                        {formatSchedule(job.schedule)} • {formatLastRun(job.lastRun, job.name)}
+                      <div className={`text-xs mt-1 ${
+                        status === 'failed' || status === 'overdue' ? 'text-[#da3633]' : 'text-[#8b949e]'
+                      }`}>
+                        {message}
                       </div>
                     </div>
-                    {jobHasReport ? (
+                    {canClick && (
                       <Eye className="w-4 h-4 text-[#ff6b35] ml-3" />
-                    ) : (
-                      <FileText className="w-4 h-4 text-[#8b949e]/50 ml-3" />
                     )}
                   </button>
-                  
-                  {/* Tooltip for unavailable reports */}
-                  {!jobHasReport && hoveredJob === job.name && (
-                    <div className="absolute z-10 left-0 right-0 top-full mt-1 p-3 bg-[#0d1117] border border-[#ff6b35] rounded-xl shadow-lg">
-                      <p className="text-xs text-[#8b949e]">
-                        <span className="text-[#ff6b35] font-medium">{job.name}</span> not currently available.
-                      </p>
-                      <p className="text-xs text-[#8b949e] mt-1">
-                        Next Report <span className="text-white">{formatDateTime(getNextRunDate(job) || new Date())}</span>
-                      </p>
-                    </div>
-                  )}
                 </div>
               );
             })
@@ -388,7 +342,6 @@ const openReport = async (jobName: string) => {
       {modalOpen && selectedReport && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#161b22] border border-[#30363d] rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-5 border-b border-[#30363d]">
               <div>
                 <h3 className="text-lg font-semibold text-white">{selectedReport.jobName}</h3>
@@ -403,27 +356,19 @@ const openReport = async (jobName: string) => {
                   })} EST
                 </p>
               </div>
-              <button
-                onClick={closeModal}
-                className="pill p-2"
-              >
+              <button onClick={closeModal} className="pill p-2">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="p-5 overflow-y-auto max-h-[60vh]">
               <pre className="whitespace-pre-wrap text-sm text-[#e6edf3] font-sans leading-relaxed">
                 {selectedReport.content}
               </pre>
             </div>
 
-            {/* Modal Footer */}
             <div className="p-5 border-t border-[#30363d] flex justify-end">
-              <button
-                onClick={closeModal}
-                className="pill pill-primary px-5 py-2"
-              >
+              <button onClick={closeModal} className="pill pill-primary px-5 py-2">
                 Close
               </button>
             </div>
