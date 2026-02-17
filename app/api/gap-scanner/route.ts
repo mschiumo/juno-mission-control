@@ -63,19 +63,35 @@ function isETFOrDerivative(symbol: string): boolean {
   return false;
 }
 
-// Get the last trading day (handles weekends and holidays simply)
+// Market holidays 2026 (NYSE closed)
+const MARKET_HOLIDAYS_2026 = [
+  '2026-01-01', // New Year's Day
+  '2026-01-19', // Martin Luther King Jr. Day
+  '2026-02-16', // Presidents' Day
+  '2026-04-03', // Good Friday
+  '2026-05-25', // Memorial Day
+  '2026-06-19', // Juneteenth
+  '2026-07-03', // Independence Day (observed)
+  '2026-09-07', // Labor Day
+  '2026-11-26', // Thanksgiving
+  '2026-12-25', // Christmas Day
+];
+
+function isMarketHoliday(date: Date): boolean {
+  const dateStr = date.toISOString().split('T')[0];
+  return MARKET_HOLIDAYS_2026.includes(dateStr);
+}
+
+// Get the last trading day (handles weekends and holidays)
 function getLastTradingDate(date: Date): Date {
   const d = new Date(date);
-  const day = d.getDay(); // 0 = Sunday, 6 = Saturday
   
-  // If Saturday, go back to Friday
-  if (day === 6) {
+  // Go back one day at a time until we find a trading day
+  do {
     d.setDate(d.getDate() - 1);
-  }
-  // If Sunday, go back to Friday
-  else if (day === 0) {
-    d.setDate(d.getDate() - 2);
-  }
+    const day = d.getDay();
+    // Skip weekends (0 = Sunday, 6 = Saturday) and holidays
+  } while (d.getDay() === 0 || d.getDay() === 6 || isMarketHoliday(d));
   
   return d;
 }
