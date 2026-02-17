@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Moon, X, ExternalLink } from 'lucide-react';
+import { Moon, X } from 'lucide-react';
 
 export default function EveningCheckinReminder() {
   const [showReminder, setShowReminder] = useState(false);
@@ -76,14 +76,6 @@ export default function EveningCheckinReminder() {
           </p>
           
           <div className="flex items-center gap-3 mt-3">
-            <a
-              href="https://juno-mission-control.vercel.app"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#a371f7] text-white text-sm font-medium rounded-lg hover:bg-[#8957e5] transition-colors"
-            >
-              Open Dashboard
-              <ExternalLink className="w-4 h-4" />
-            </a>
-            
             <button
               onClick={dismissReminder}
               className="text-sm text-[#8b949e] hover:text-white transition-colors"
