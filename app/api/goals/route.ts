@@ -105,6 +105,11 @@ export async function GET() {
       const stored = await redis.get(STORAGE_KEY);
       if (stored) {
         goals = JSON.parse(stored);
+        // Ensure all categories exist (migration for old data)
+        if (!goals.collaborative) goals.collaborative = [];
+        if (!goals.yearly) goals.yearly = DEFAULT_GOALS.yearly;
+        if (!goals.weekly) goals.weekly = DEFAULT_GOALS.weekly;
+        if (!goals.daily) goals.daily = DEFAULT_GOALS.daily;
       }
     }
 
@@ -306,6 +311,11 @@ export async function DELETE(request: Request) {
       const stored = await redis.get(STORAGE_KEY);
       if (stored) {
         goals = JSON.parse(stored);
+        // Ensure all categories exist (migration for old data)
+        if (!goals.collaborative) goals.collaborative = [];
+        if (!goals.yearly) goals.yearly = DEFAULT_GOALS.yearly;
+        if (!goals.weekly) goals.weekly = DEFAULT_GOALS.weekly;
+        if (!goals.daily) goals.daily = DEFAULT_GOALS.daily;
       }
     }
     
