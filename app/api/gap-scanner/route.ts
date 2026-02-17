@@ -258,8 +258,8 @@ export async function GET() {
         profileFailures++;
       }
       
-      // Skip if market cap < $250M (if available)
-      if (profile && profile.marketCap > 0 && profile.marketCap < 250000000) {
+      // Skip if market cap < $50M (if available)
+      if (profile && profile.marketCap > 0 && profile.marketCap < 50000000) {
         skippedMarketCap++;
         continue;
       }
@@ -290,7 +290,7 @@ export async function GET() {
     losers.sort((a, b) => a.gapPercent - b.gapPercent);
     
     console.log(`[GapScanner] Results: ${gainers.length} gainers, ${losers.length} losers from ${scanned} stocks scanned`);
-    console.log(`[GapScanner] Skipped: ${skippedETF} ETFs, ${skippedGap} gap<2%, ${skippedVolume} vol<100K, ${skippedPrice} price>$500, ${skippedMarketCap} cap<$250M`);
+    console.log(`[GapScanner] Skipped: ${skippedETF} ETFs, ${skippedGap} gap<2%, ${skippedVolume} vol<100K, ${skippedPrice} price>$500, ${skippedMarketCap} cap<$50M`);
     console.log(`[GapScanner] Failures: ${quoteFailures} quotes, ${profileFailures} profiles`);
     
     // Determine actual market session
@@ -330,7 +330,7 @@ export async function GET() {
         minGapPercent: 2,
         minVolume: 100000,
         maxPrice: 500,
-        minMarketCap: 250000000,
+        minMarketCap: 50000000,
         excludeETFs: true,
         excludeWarrants: true
       }
