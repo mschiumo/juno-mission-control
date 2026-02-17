@@ -39,7 +39,7 @@ function DashboardContent() {
   const [activeTab, setActiveTabState] = useState<TabId>(getTabFromUrl);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Update URL when tab changes
+  // Update URL when tab changes (using replace to avoid bloating history)
   const setActiveTab = (tab: TabId) => {
     setActiveTabState(tab);
     const params = new URLSearchParams(searchParams);
@@ -48,7 +48,7 @@ function DashboardContent() {
     } else {
       params.set('tab', tab);
     }
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
   const tabs = [

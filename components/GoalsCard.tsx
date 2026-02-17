@@ -113,12 +113,12 @@ export default function GoalsCard() {
     }
   }, [searchParams]);
 
-  // Update URL when tab changes
+  // Update URL when tab changes (using replace to avoid bloating history)
   const handleCategoryChange = (category: Category) => {
     setActiveCategory(category);
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', category);
-    router.push(`?${params.toString()}`, { scroll: false });
+    router.replace(`?${params.toString()}`, { scroll: false });
   };
 
   // Mobile detection
