@@ -81,11 +81,28 @@ body {
   background: #0F0F0F;
   border: 1px solid #262626;
   border-radius: 12px;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.segmented-control::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 .segment {
-  flex: 1;
-  padding: 8px 16px;
+  flex: 0 0 auto;
+  padding: 8px 12px;
   font-size: 13px;
   font-weight: 500;
   border-radius: 8px;
@@ -94,6 +111,14 @@ body {
   background: transparent;
   border: none;
   color: #737373;
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .segment {
+    flex: 1;
+    padding: 8px 16px;
+  }
 }
 
 .segment:hover {
@@ -115,8 +140,8 @@ body {
 
 /* Segmented Button - For MarketCard tabs */
 .segmented-btn {
-  flex: 1;
-  padding: 8px 16px;
+  flex: 0 0 auto;
+  padding: 8px 12px;
   margin: 0 2px;
   font-size: 13px;
   font-weight: 500;
@@ -126,15 +151,14 @@ body {
   background: transparent;
   border: none;
   color: #737373;
+  white-space: nowrap;
 }
 
-.segmented-btn:hover {
-  color: white;
-}
-
-.segmented-btn.active {
-  background: #262626;
-  color: white;
+@media (min-width: 640px) {
+  .segmented-btn {
+    flex: 1;
+    padding: 8px 16px;
+  }
 }
 
 /* Progress Bar */

@@ -130,13 +130,13 @@ export default function MarketCard() {
         </button>
       </div>
 
-      {/* Segmented Control Tabs */}
-      <div className="segmented-control mb-5">
+      {/* Segmented Control Tabs - Mobile Responsive */}
+      <div className="segmented-control mb-5 overflow-x-auto scrollbar-hide">
         {(['indices', 'stocks', 'commodities', 'crypto'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`segmented-btn ${activeTab === tab ? 'active' : ''}`}
+            className={`segmented-btn whitespace-nowrap ${activeTab === tab ? 'active' : ''}`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
@@ -168,28 +168,28 @@ export default function MarketCard() {
             <p className="text-sm">Loading market data...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {currentData.map((item) => (
               <a
                 key={item.symbol}
                 href={`https://www.tradingview.com/chart/?symbol=${getTradingViewSymbol(item.symbol, activeTab === 'crypto')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#ff6b35]/50 transition-all block group"
+                className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#ff6b35]/50 transition-all block group min-w-0"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
+                <div className="flex items-center justify-between mb-2 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
                     {item.change >= 0 ? (
-                      <TrendingUp className="w-3.5 h-3.5 text-[#238636]" />
+                      <TrendingUp className="w-3.5 h-3.5 text-[#238636] flex-shrink-0" />
                     ) : (
-                      <TrendingDown className="w-3.5 h-3.5 text-[#da3633]" />
+                      <TrendingDown className="w-3.5 h-3.5 text-[#da3633] flex-shrink-0" />
                     )}
-                    <span className="font-semibold text-white group-hover:text-[#ff6b35] transition-colors flex items-center gap-1">
-                      {item.symbol}
-                      <ExternalLink className="w-3 h-3 opacity-50" />
+                    <span className="font-semibold text-white group-hover:text-[#ff6b35] transition-colors flex items-center gap-1 truncate">
+                      <span className="truncate">{item.symbol}</span>
+                      <ExternalLink className="w-3 h-3 opacity-50 flex-shrink-0" />
                     </span>
                   </div>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${
                     item.change >= 0 
                       ? 'bg-[#238636]/20 text-[#238636]' 
                       : 'bg-[#da3633]/20 text-[#da3633]'
@@ -200,9 +200,9 @@ export default function MarketCard() {
                 
                 <p className="text-xs text-[#8b949e] mb-3 truncate">{item.name}</p>
                 
-                <div className="flex items-baseline justify-between">
-                  <span className="metric-value text-xl">{formatPrice(item.price)}</span>
-                  <span className={`text-xs font-medium ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>
+                <div className="flex items-baseline justify-between min-w-0">
+                  <span className="metric-value text-lg sm:text-xl truncate">{formatPrice(item.price)}</span>
+                  <span className={`text-xs font-medium flex-shrink-0 ml-2 ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>
                     {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}
                   </span>
                 </div>
