@@ -251,7 +251,6 @@ export default function DailyReportsCard() {
   const sortedJobs = [...jobs]
     .filter(job => job.name !== 'Daily Motivational' 
       && job.name !== 'Daily Motivational Message'
-      && job.name !== 'Mid-Day Trading Check-in'
       && job.name !== 'Post-Market Trading Review'
       && job.name !== 'Evening Habit Check-in'
       && job.name !== 'GitHub PR Monitor')
