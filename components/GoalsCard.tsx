@@ -105,9 +105,9 @@ export default function GoalsCard() {
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<Goal | null>(null);
 
-  // Initialize active category from URL query param
+  // Initialize active category from URL query param (using 'goalTab' to avoid conflict with main page tabs)
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
+    const tabParam = searchParams.get('goalTab');
     if (tabParam && ['daily', 'weekly', 'yearly', 'collaborative'].includes(tabParam)) {
       setActiveCategory(tabParam as Category);
     }
@@ -117,7 +117,7 @@ export default function GoalsCard() {
   const handleCategoryChange = (category: Category) => {
     setActiveCategory(category);
     const params = new URLSearchParams(searchParams.toString());
-    params.set('tab', category);
+    params.set('goalTab', category);
     router.replace(`?${params.toString()}`, { scroll: false });
   };
 
