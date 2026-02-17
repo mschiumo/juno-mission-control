@@ -48,6 +48,41 @@ function getLastTradingDate(date: Date = new Date()): string {
   return prevDate.toISOString().split('T')[0];
 }
 
+// Market hours in EST (UTC-5, or UTC-4 during DST)
+// Pre-market: 4:00 AM - 9:30 AM EST
+// Market open: 9:30 AM - 4:00 PM EST
+// Post-market: 4:00 PM - 8:00 PM EST
+function getMarketSession(): {
+  session: 'pre-market' | 'market-open' | 'post-market' | 'closed';
+  isPreMarket: boolean;
+  marketStatus: 'open' | 'closed';
+} {
+  const now = new Date();
+  // Convert to EST (Eastern Time)
+  const estTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const hour = estTime.getHours();
+  const minute = estTime.getMinutes();
+  const timeInMinutes = hour * 60 + minute;
+  
+  // Pre-market: 4:00 AM (240 min) to 9:30 AM (570 min)
+  if (timeInMinutes >= 240 && timeInMinutes < 570) {
+    return { session: 'pre-market', isPreMarket: true, marketStatus: 'open' };
+  }
+  
+  // Market hours: 9:30 AM (570 min) to 4:00 PM (960 min)
+  if (timeInMinutes >= 570 && timeInMinutes < 960) {
+    return { session: 'market-open', isPreMarket: false, marketStatus: 'open' };
+  }
+  
+  // Post-market: 4:00 PM (960 min) to 8:00 PM (1200 min)
+  if (timeInMinutes >= 960 && timeInMinutes < 1200) {
+    return { session: 'post-market', isPreMarket: false, marketStatus: 'open' };
+  }
+  
+  // Closed (outside market hours)
+  return { session: 'closed', isPreMarket: false, marketStatus: 'closed' };
+}
+
 // Popular stocks to check for gaps (expanded universe)
 const STOCK_UNIVERSE = [
   // Mega caps
@@ -222,6 +257,9 @@ export async function GET() {
     
     console.log(`[GapScanner] Found ${gainers.length} gainers, ${losers.length} losers from ${scanned} stocks`);
     
+    // Determine actual market session
+    const marketSession = getMarketSession();
+    
     return NextResponse.json({
       success: true,
       data: {
@@ -235,9 +273,9 @@ export async function GET() {
       isWeekend: false,
       tradingDate: new Date().toISOString().split('T')[0],
       previousDate: getLastTradingDate(),
-      marketSession: 'pre-market',
-      marketStatus: 'open',
-      isPreMarket: true,
+      marketSession: marketSession.session,
+      marketStatus: marketSession.marketStatus,
+      isPreMarket: marketSession.isPreMarket,
       enriched: true,
       filters: {
         minGapPercent: 2,
