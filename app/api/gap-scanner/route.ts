@@ -17,6 +17,37 @@ if (!FINNHUB_API_KEY) {
   throw new Error('FINNHUB_API_KEY environment variable is required');
 }
 
+// US Market Holidays 2026
+const MARKET_HOLIDAYS_2026 = [
+  '2026-01-01', // New Year's Day
+  '2026-01-19', // Martin Luther King Jr. Day
+  '2026-02-16', // Presidents' Day
+  '2026-04-03', // Good Friday
+  '2026-05-25', // Memorial Day
+  '2026-06-19', // Juneteenth
+  '2026-07-03', // Independence Day (observed)
+  '2026-09-07', // Labor Day
+  '2026-11-26', // Thanksgiving
+  '2026-12-25', // Christmas Day
+];
+
+function isMarketHoliday(dateStr: string): boolean {
+  return MARKET_HOLIDAYS_2026.includes(dateStr);
+}
+
+function getLastTradingDate(date: Date = new Date()): string {
+  // Start with yesterday
+  const prevDate = new Date(date);
+  prevDate.setDate(prevDate.getDate() - 1);
+  
+  // Keep going back until we find a trading day (not weekend, not holiday)
+  while (prevDate.getDay() === 0 || prevDate.getDay() === 6 || isMarketHoliday(prevDate.toISOString().split('T')[0])) {
+    prevDate.setDate(prevDate.getDate() - 1);
+  }
+  
+  return prevDate.toISOString().split('T')[0];
+}
+
 // Popular stocks to check for gaps (expanded universe)
 const STOCK_UNIVERSE = [
   // Mega caps
@@ -203,7 +234,7 @@ export async function GET() {
       found: gainers.length + losers.length,
       isWeekend: false,
       tradingDate: new Date().toISOString().split('T')[0],
-      previousDate: new Date(Date.now() - 86400000).toISOString().split('T')[0],
+      previousDate: getLastTradingDate(),
       marketSession: 'pre-market',
       marketStatus: 'open',
       isPreMarket: true,
