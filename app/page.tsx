@@ -8,6 +8,7 @@ import HabitCard from "@/components/HabitCard";
 import MarketCard from "@/components/MarketCard";
 import MarketHoursBanner from "@/components/MarketHoursBanner";
 import GapScannerCard from "@/components/GapScannerCard";
+import NewsScreenerCard from "@/components/NewsScreenerCard";
 import ProjectsCard from "@/components/ProjectsCard";
 import ActivityLogCard from "@/components/ActivityLogCard";
 import DailyCronsCard from "@/components/DailyCronsCard";
@@ -167,7 +168,7 @@ function DashboardContent() {
           /* Trading View - Sidebar Layout */
           <div className="max-w-7xl mx-auto">
             {/* Two Column Layout: Sidebar (2/5) + Market (3/5) */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6 mb-6">
               {/* Left Sidebar: Market Hours + Gap Scanner (wider) */}
               <div className="lg:col-span-2 space-y-4">
                 <MarketHoursBanner compact />
@@ -178,6 +179,11 @@ function DashboardContent() {
               <div className="lg:col-span-3">
                 <MarketCard />
               </div>
+            </div>
+            
+            {/* News Screener - Full width below */}
+            <div className="grid grid-cols-1 gap-4 md:gap-6">
+              <NewsScreenerCard />
             </div>
           </div>
         ) : activeTab === 'goals' ? (
