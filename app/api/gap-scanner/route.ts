@@ -11,7 +11,11 @@ interface GapStock {
   status: 'gainer' | 'loser';
 }
 
-const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || 'd6802j9r01qobepji5i0d6802j9r01qobepji5ig';
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
+
+if (!FINNHUB_API_KEY) {
+  throw new Error('FINNHUB_API_KEY environment variable is required');
+}
 
 // Popular stocks to check for gaps (expanded universe)
 const STOCK_UNIVERSE = [
