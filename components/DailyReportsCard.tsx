@@ -196,6 +196,13 @@ export default function DailyReportsCard() {
     setSelectedReport(null);
   };
 
+  // Decode Unicode escape sequences (e.g., \u0027 → ')
+  const decodeUnicode = (str: string): string => {
+    return str.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => {
+      return String.fromCharCode(parseInt(hex, 16));
+    });
+  };
+
   const getStatusBadge = (status: JobStatus) => {
     switch (status) {
       case 'completed':
@@ -387,7 +394,7 @@ export default function DailyReportsCard() {
 
             <div className="p-5 overflow-y-auto max-h-[60vh]">
               <pre className="whitespace-pre-wrap text-sm text-[#e6edf3] font-sans leading-relaxed">
-                {selectedReport.content}
+                {selectedReport ? decodeUnicode(selectedReport.content) : ''}
               </pre>
             </div>
 
