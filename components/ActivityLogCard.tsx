@@ -157,14 +157,6 @@ export default function ActivityLogCard() {
     return label + 's';
   };
 
-  const getTypeCounts = () => {
-    const counts: Record<string, number> = {};
-    activities.forEach(a => {
-      counts[a.type] = (counts[a.type] || 0) + 1;
-    });
-    return counts;
-  };
-
   const handleFilterClick = (type: 'cron' | 'api' | 'user' | 'system') => {
     if (activeFilter === type) {
       setActiveFilter('all');
@@ -177,12 +169,50 @@ export default function ActivityLogCard() {
     setActiveFilter('all');
   };
 
+  // Filter out routine/noise entries
+  const isNoiseEntry = (activity: ActivityItem): boolean => {
+    // Filter out Auto-Respawn checks with no failures
+    if (activity.action.includes('Auto-Respawn')) {
+      const detailsLower = activity.details.toLowerCase();
+      if (detailsLower.includes('no failures') || detailsLower.includes('0 failed')) {
+        return true;
+      }
+    }
+    // Filter out routine cron checks with no issues
+    if (activity.type === 'cron') {
+      const detailsLower = activity.details.toLowerCase();
+      const actionLower = activity.action.toLowerCase();
+      // Hide routine health checks that report "ok" or "no issues"
+      if (
+        (detailsLower.includes('check completed') && detailsLower.includes('ok')) ||
+        (detailsLower.includes('health check') && detailsLower.includes('healthy')) ||
+        (actionLower.includes('heartbeat') && detailsLower.includes('ok')) ||
+        detailsLower.includes('no issues found') ||
+        detailsLower.includes('all systems operational')
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Get meaningful activities (excluding noise)
+  const meaningfulActivities = activities.filter(a => !isNoiseEntry(a));
+
+  const getTypeCounts = () => {
+    const counts: Record<string, number> = {};
+    meaningfulActivities.forEach(a => {
+      counts[a.type] = (counts[a.type] || 0) + 1;
+    });
+    return counts;
+  };
+
   const typeCounts = getTypeCounts();
 
-  // Filter and sort activities
+  // Filter and sort activities based on active filter
   const filteredActivities = activeFilter === 'all' 
-    ? activities 
-    : activities.filter(a => a.type === activeFilter);
+    ? meaningfulActivities 
+    : meaningfulActivities.filter(a => a.type === activeFilter);
   
   const sortedActivities = [...filteredActivities].sort((a, b) => 
     new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -190,7 +220,7 @@ export default function ActivityLogCard() {
 
   // Calculate filtered count for display
   const filteredCount = filteredActivities.length;
-  const totalCount = activities.length;
+  const totalCount = meaningfulActivities.length;
 
   return (
     <div className="card">
