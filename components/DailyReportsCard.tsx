@@ -76,6 +76,7 @@ export default function DailyReportsCard() {
     'Gap Scanner Pre-Market': ['Gap Scanner Pre-Market', 'Gap Scanner Monday Test'],
     'Morning Market Briefing': ['Morning Market Briefing'],
     'Mid-Day Trading Check-in': ['Mid-Day Trading Check-in'],
+    'Evening Habit Check-in': ['Evening Habit Check-in'],
     'Market Close Report': ['Market Close Report'],
     'Weekly Habit Review': ['Weekly Habit Review'],
     'Daily Token Usage Summary': ['Daily Token Usage Summary'],
