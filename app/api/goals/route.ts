@@ -131,7 +131,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { goalId, newPhase, category, notes, junoAssisted, actionItems } = body;
+    const { goalId, newPhase, category, notes, junoAssisted, actionItems, title } = body;
     
     if (!goalId || !category) {
       return NextResponse.json({
@@ -186,6 +186,11 @@ export async function POST(request: Request) {
     // Update actionItems if provided
     if (actionItems !== undefined) {
       goals[category][goalIndex].actionItems = actionItems;
+    }
+    
+    // Update title if provided
+    if (title !== undefined) {
+      goals[category][goalIndex].title = title;
     }
     
     // Save to Redis

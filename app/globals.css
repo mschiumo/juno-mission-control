@@ -76,14 +76,16 @@ body {
 /* Segmented Control - Tab navigation */
 .segmented-control {
   display: flex;
-  gap: 4px;
-  padding: 4px;
+  gap: 2px;
+  padding: 3px;
   background: #0F0F0F;
   border: 1px solid #262626;
   border-radius: 12px;
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
+  width: 100%;
+  max-width: 100%;
 }
 
 .segmented-control::-webkit-scrollbar {
@@ -140,10 +142,10 @@ body {
 
 /* Segmented Button - For MarketCard tabs */
 .segmented-btn {
-  flex: 0 0 auto;
-  padding: 8px 12px;
-  margin: 0 2px;
-  font-size: 13px;
+  flex: 1 0 auto;
+  padding: 6px 8px;
+  margin: 0 1px;
+  font-size: 12px;
   font-weight: 500;
   border-radius: 8px;
   cursor: pointer;
@@ -152,13 +154,32 @@ body {
   border: none;
   color: #737373;
   white-space: nowrap;
+  min-width: 60px;
+  text-align: center;
 }
 
 @media (min-width: 640px) {
   .segmented-btn {
     flex: 1;
     padding: 8px 16px;
+    font-size: 13px;
+    margin: 0 2px;
   }
+}
+
+.segmented-btn:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.segmented-btn.active {
+  background: #262626;
+  color: white;
+  font-weight: 600;
+}
+
+.segmented-btn.active:hover {
+  background: #303030;
 }
 
 /* Progress Bar */
