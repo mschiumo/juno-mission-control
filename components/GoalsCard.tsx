@@ -98,10 +98,8 @@ export default function GoalsCard() {
   const [actionItemsGoal, setActionItemsGoal] = useState<Goal | null>(null);
   const [newActionItem, setNewActionItem] = useState('');
 
-  // Inline title editing state
-  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  // Notes modal title editing state
   const [editingTitle, setEditingTitle] = useState('');
-  const [isSavingTitle, setIsSavingTitle] = useState(false);
 
   // Notification state
   const [notification, setNotification] = useState<Notification | null>(null);
@@ -375,11 +373,13 @@ export default function GoalsCard() {
   const openNotes = (goal: Goal) => {
     setNotesGoal(goal);
     setNotesContent(goal.notes || '');
+    setEditingTitle(goal.title);
   };
 
   const closeNotes = () => {
     setNotesGoal(null);
     setNotesContent('');
+    setEditingTitle('');
   };
 
   const saveNotes = async () => {
@@ -392,7 +392,8 @@ export default function GoalsCard() {
         body: JSON.stringify({
           goalId: notesGoal.id,
           category: notesGoal.category,
-          notes: notesContent
+          notes: notesContent,
+          title: editingTitle.trim() || notesGoal.title
         })
       });
 
@@ -400,99 +401,13 @@ export default function GoalsCard() {
         const data = await response.json();
         setGoals(data.data);
         closeNotes();
-        showNotification('Notes saved', 'success');
+        showNotification('Goal updated', 'success');
       } else {
-        showNotification('Failed to save notes', 'error');
+        showNotification('Failed to save changes', 'error');
       }
     } catch (error) {
-      console.error('Failed to save notes:', error);
-      showNotification('Failed to save notes', 'error');
-    }
-  };
-
-  // Inline title editing functions
-  const startEditingTitle = (goal: Goal, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingGoalId(goal.id);
-    setEditingTitle(goal.title);
-  };
-
-  const saveTitle = async () => {
-    if (!editingGoalId || !editingTitle.trim()) {
-      setEditingGoalId(null);
-      return;
-    }
-
-    // Find the goal being edited
-    let goalToUpdate: Goal | null = null;
-    for (const category of ['yearly', 'weekly', 'daily', 'collaborative'] as Category[]) {
-      const found = goals[category].find(g => g.id === editingGoalId);
-      if (found) {
-        goalToUpdate = found;
-        break;
-      }
-    }
-
-    if (!goalToUpdate || editingTitle.trim() === goalToUpdate.title) {
-      setEditingGoalId(null);
-      return;
-    }
-
-    setIsSavingTitle(true);
-
-    // Optimistically update UI
-    const updatedGoals = { ...goals };
-    for (const category of ['yearly', 'weekly', 'daily', 'collaborative'] as Category[]) {
-      const goalIndex = updatedGoals[category].findIndex(g => g.id === editingGoalId);
-      if (goalIndex > -1) {
-        updatedGoals[category][goalIndex].title = editingTitle.trim();
-        break;
-      }
-    }
-    setGoals(updatedGoals);
-
-    try {
-      const response = await fetch('/api/goals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          goalId: editingGoalId,
-          category: goalToUpdate.category,
-          title: editingTitle.trim()
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setGoals(data.data);
-        showNotification('Title updated', 'success');
-      } else {
-        // Revert on error
-        fetchGoals();
-        showNotification('Failed to update title', 'error');
-      }
-    } catch (error) {
-      console.error('Failed to update title:', error);
-      fetchGoals();
-      showNotification('Failed to update title', 'error');
-    } finally {
-      setIsSavingTitle(false);
-      setEditingGoalId(null);
-    }
-  };
-
-  const cancelEditingTitle = () => {
-    setEditingGoalId(null);
-    setEditingTitle('');
-  };
-
-  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      saveTitle();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      cancelEditingTitle();
+      console.error('Failed to save goal:', error);
+      showNotification('Failed to save changes', 'error');
     }
   };
 
@@ -682,27 +597,11 @@ export default function GoalsCard() {
                 <span>{sourceInfo.label}</span>
               </div>
             )}
-            {editingGoalId === goal.id ? (
-              <input
-                type="text"
-                value={editingTitle}
-                onChange={(e) => setEditingTitle(e.target.value)}
-                onBlur={saveTitle}
-                onKeyDown={handleTitleKeyDown}
-                disabled={isSavingTitle}
-                autoFocus
-                className="flex-1 text-sm bg-[#0F0F0F] border border-[#F97316] rounded px-2 py-1 text-white focus:outline-none focus:ring-1 focus:ring-[#F97316] disabled:opacity-50"
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              <p 
-                className="text-sm text-white flex-1 cursor-pointer hover:text-[#F97316] transition-colors"
-                onClick={(e) => startEditingTitle(goal, e)}
-                title="Click to edit title"
-              >
-                {goal.title}
-              </p>
-            )}
+            <p 
+              className="text-sm text-white flex-1"
+            >
+              {goal.title}
+            </p>
           </div>
           <div className="flex items-center gap-1">
             {/* Action items indicator */}
@@ -991,17 +890,35 @@ export default function GoalsCard() {
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
             <div className="card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl border-b-0 sm:border-b border-[#262626] h-[80vh] sm:h-auto flex flex-col">
               <div className="flex items-center justify-between mb-3 sticky top-0 bg-[#1a1a1a] pt-4 pb-2 px-4 -mx-4 border-b border-[#262626]">
-                <h3 className="text-base font-semibold text-white truncate pr-4">Notes: {notesGoal.title}</h3>
+                <h3 className="text-base font-semibold text-white truncate pr-4">Edit Goal</h3>
                 <button onClick={closeNotes} className="p-2 -mr-2 hover:bg-[#262626] rounded-lg flex-shrink-0">
                   <X className="w-5 h-5 text-[#737373]" />
                 </button>
               </div>
-              <textarea
-                value={notesContent}
-                onChange={(e) => setNotesContent(e.target.value)}
-                placeholder="Add notes about this goal..."
-                className="flex-1 min-h-[200px] w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm mb-3 resize-none overflow-y-auto"
-              />
+              
+              {/* Title input */}
+              <div className="px-4 sm:px-0 mb-3">
+                <label className="block text-xs text-[#737373] mb-1">Title</label>
+                <input
+                  type="text"
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  placeholder="Enter goal title..."
+                  className="w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm"
+                />
+              </div>
+              
+              {/* Notes textarea */}
+              <div className="flex-1 px-4 sm:px-0 mb-3">
+                <label className="block text-xs text-[#737373] mb-1">Notes</label>
+                <textarea
+                  value={notesContent}
+                  onChange={(e) => setNotesContent(e.target.value)}
+                  placeholder="Add notes about this goal..."
+                  className="w-full h-[200px] px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm resize-none overflow-y-auto"
+                />
+              </div>
+              
               <div className="flex gap-2 sticky bottom-0 bg-[#1a1a1a] pt-2 pb-4 px-4 -mx-4 border-t border-[#262626] sm:static sm:bg-transparent sm:p-0 sm:border-0">
                 <button
                   onClick={closeNotes}
@@ -1306,7 +1223,7 @@ export default function GoalsCard() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-[#F97316]" />
-                <h3 className="text-lg font-semibold text-white">Notes</h3>
+                <h3 className="text-lg font-semibold text-white">Edit Goal</h3>
               </div>
               <button
                 onClick={closeNotes}
@@ -1316,14 +1233,28 @@ export default function GoalsCard() {
               </button>
             </div>
             
-            <p className="text-sm text-[#737373] mb-4 truncate">{notesGoal.title}</p>
+            {/* Title input field */}
+            <div className="mb-4">
+              <label className="block text-xs text-[#737373] mb-2 uppercase tracking-wider">Title</label>
+              <input
+                type="text"
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                placeholder="Enter goal title..."
+                className="w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316]"
+              />
+            </div>
             
-            <textarea
-              value={notesContent}
-              onChange={(e) => setNotesContent(e.target.value)}
-              placeholder="Add notes, links, research, or any details about this goal..."
-              className="flex-1 min-h-[300px] sm:min-h-[400px] w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316] mb-4 resize-none overflow-y-auto"
-            />
+            {/* Notes textarea */}
+            <div className="flex-1 mb-4">
+              <label className="block text-xs text-[#737373] mb-2 uppercase tracking-wider">Notes</label>
+              <textarea
+                value={notesContent}
+                onChange={(e) => setNotesContent(e.target.value)}
+                placeholder="Add notes, links, research, or any details about this goal..."
+                className="w-full h-[300px] px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316] resize-none overflow-y-auto"
+              />
+            </div>
             
             <div className="flex gap-2">
               <button
@@ -1336,7 +1267,7 @@ export default function GoalsCard() {
                 onClick={saveNotes}
                 className="flex-1 px-4 py-3 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors font-medium min-h-[44px]"
               >
-                Save Notes
+                Save Changes
               </button>
             </div>
           </div>
