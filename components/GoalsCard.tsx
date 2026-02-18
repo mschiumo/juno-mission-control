@@ -98,6 +98,11 @@ export default function GoalsCard() {
   const [actionItemsGoal, setActionItemsGoal] = useState<Goal | null>(null);
   const [newActionItem, setNewActionItem] = useState('');
 
+  // Inline title editing state
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
+
   // Notification state
   const [notification, setNotification] = useState<Notification | null>(null);
   const [notificationTimeout, setNotificationTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -405,6 +410,92 @@ export default function GoalsCard() {
     }
   };
 
+  // Inline title editing functions
+  const startEditingTitle = (goal: Goal, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingGoalId(goal.id);
+    setEditingTitle(goal.title);
+  };
+
+  const saveTitle = async () => {
+    if (!editingGoalId || !editingTitle.trim()) {
+      setEditingGoalId(null);
+      return;
+    }
+
+    // Find the goal being edited
+    let goalToUpdate: Goal | null = null;
+    for (const category of ['yearly', 'weekly', 'daily', 'collaborative'] as Category[]) {
+      const found = goals[category].find(g => g.id === editingGoalId);
+      if (found) {
+        goalToUpdate = found;
+        break;
+      }
+    }
+
+    if (!goalToUpdate || editingTitle.trim() === goalToUpdate.title) {
+      setEditingGoalId(null);
+      return;
+    }
+
+    setIsSavingTitle(true);
+
+    // Optimistically update UI
+    const updatedGoals = { ...goals };
+    for (const category of ['yearly', 'weekly', 'daily', 'collaborative'] as Category[]) {
+      const goalIndex = updatedGoals[category].findIndex(g => g.id === editingGoalId);
+      if (goalIndex > -1) {
+        updatedGoals[category][goalIndex].title = editingTitle.trim();
+        break;
+      }
+    }
+    setGoals(updatedGoals);
+
+    try {
+      const response = await fetch('/api/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goalId: editingGoalId,
+          category: goalToUpdate.category,
+          title: editingTitle.trim()
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGoals(data.data);
+        showNotification('Title updated', 'success');
+      } else {
+        // Revert on error
+        fetchGoals();
+        showNotification('Failed to update title', 'error');
+      }
+    } catch (error) {
+      console.error('Failed to update title:', error);
+      fetchGoals();
+      showNotification('Failed to update title', 'error');
+    } finally {
+      setIsSavingTitle(false);
+      setEditingGoalId(null);
+    }
+  };
+
+  const cancelEditingTitle = () => {
+    setEditingGoalId(null);
+    setEditingTitle('');
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveTitle();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEditingTitle();
+    }
+  };
+
   // Juno-assisted functions
   const toggleJunoAssisted = async (goal: Goal) => {
     const newValue = !goal.junoAssisted;
@@ -591,7 +682,27 @@ export default function GoalsCard() {
                 <span>{sourceInfo.label}</span>
               </div>
             )}
-            <p className="text-sm text-white flex-1">{goal.title}</p>
+            {editingGoalId === goal.id ? (
+              <input
+                type="text"
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                onBlur={saveTitle}
+                onKeyDown={handleTitleKeyDown}
+                disabled={isSavingTitle}
+                autoFocus
+                className="flex-1 text-sm bg-[#0F0F0F] border border-[#F97316] rounded px-2 py-1 text-white focus:outline-none focus:ring-1 focus:ring-[#F97316] disabled:opacity-50"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <p 
+                className="text-sm text-white flex-1 cursor-pointer hover:text-[#F97316] transition-colors"
+                onClick={(e) => startEditingTitle(goal, e)}
+                title="Click to edit title"
+              >
+                {goal.title}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-1">
             {/* Action items indicator */}
