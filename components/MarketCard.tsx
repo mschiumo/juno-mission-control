@@ -125,28 +125,15 @@ export default function MarketCard() {
             <DollarSign className="w-5 h-5 text-[#ff6b35]" />
           </div>
           <div>
-            <div className="flex items-center gap-2 mb-0.5">
+            <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold text-white">Market</h2>
               <MarketCountdown />
             </div>
-            <div className="flex items-center gap-2">
-              {lastUpdated && !loading && (
-                <span className="text-[10px] text-[#238636]">
-                  updated {formatLastUpdated()}
-                </span>
-              )}
-              {!loading && (
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                  dataSource === 'live' 
-                    ? 'bg-[#238636]/20 text-[#238636]' 
-                    : dataSource === 'partial'
-                    ? 'bg-[#d29922]/20 text-[#d29922]'
-                    : 'bg-[#8b949e]/20 text-[#8b949e]'
-                }`}>
-                  {dataSource === 'live' ? 'LIVE' : dataSource === 'partial' ? 'PARTIAL' : 'MOCK'}
-                </span>
-              )}
-            </div>
+            {lastUpdated && !loading && (
+              <span className="text-[10px] text-[#8b949e]">
+                Updated {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+              </span>
+            )}
           </div>
         </div>
         <button 
@@ -240,17 +227,6 @@ export default function MarketCard() {
           </div>
         )}
       </div>
-
-      {data?.lastUpdated && (
-        <div className="mt-4 pt-4 border-t border-[#30363d] text-xs text-[#8b949e] text-center">
-          Last updated: {new Date(data.lastUpdated).toLocaleTimeString('en-US', {
-            timeZone: 'America/New_York',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-          })} (EST)
-        </div>
-      )}
     </div>
   );
 }
