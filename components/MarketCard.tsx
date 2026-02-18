@@ -119,7 +119,7 @@ export default function MarketCard() {
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-3">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-[#ff6b35]/10 rounded-xl">
             <DollarSign className="w-5 h-5 text-[#ff6b35]" />
@@ -129,14 +129,15 @@ export default function MarketCard() {
               <h2 className="text-lg font-semibold text-white">Market</h2>
               <MarketCountdown />
             </div>
-            {lastUpdated && !loading && (
-              <span className="text-[10px] text-[#8b949e]">
-                Updated {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-              </span>
-            )}
           </div>
         </div>
-        <button 
+        <div className="flex items-center justify-between sm:justify-end gap-3 pl-[52px] sm:pl-0">
+          {lastUpdated && !loading && (
+            <span className="text-[10px] text-[#8b949e]">
+              Updated {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+            </span>
+          )}
+          <button 
           onClick={fetchMarketData}
           disabled={loading}
           className="pill p-2"
@@ -144,6 +145,7 @@ export default function MarketCard() {
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
+      </div>
       </div>
 
       {/* Segmented Control Tabs - Mobile Responsive */}
