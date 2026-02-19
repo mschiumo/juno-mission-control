@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Bell, CheckCircle, AlertTriangle, XCircle, X, ExternalLink } from 'lucide-react';
+import { Bell, CheckCircle, AlertTriangle, XCircle, X, ExternalLink, BookOpen } from 'lucide-react';
 
 interface Notification {
   id: string;
-  type: 'approval' | 'blocker' | 'info';
+  type: 'approval' | 'blocker' | 'info' | 'journal-reminder';
   title: string;
   message: string;
-  action?: string;
+  action?: string | { label: string; href: string };
   priority: 'low' | 'normal' | 'high' | 'urgent';
   read: boolean;
   createdAt: string;
@@ -87,6 +87,8 @@ export default function NotificationsBell() {
         return priority === 'urgent' 
           ? <XCircle className="w-5 h-5 text-[#da3633]" />
           : <AlertTriangle className="w-5 h-5 text-[#d29922]" />;
+      case 'journal-reminder':
+        return <BookOpen className="w-5 h-5 text-[#a371f7]" />;
       default:
         return <Bell className="w-5 h-5 text-[#58a6ff]" />;
     }
@@ -217,23 +219,18 @@ export default function NotificationsBell() {
                           {formatTime(notification.createdAt)}
                         </span>
                         
-                        {notification.action && isValidUrl(notification.action) && (
+                        {notification.action && (
                           <a
-                            href={notification.action}
-                            className="flex items-center gap-1 text-xs text-[#58a6ff] hover:underline"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            View
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
-                        {notification.action && !isValidUrl(notification.action) && (
-                          <a
-                            href="https://juno-mission-control.vercel.app"
+                            href={typeof notification.action === 'string' 
+                              ? (isValidUrl(notification.action) ? notification.action : '/')
+                              : notification.action.href
+                            }
                             className="flex items-center gap-1 text-xs text-[#58a6ff] hover:underline"
                           >
-                            Open Dashboard
+                            {typeof notification.action === 'string' 
+                              ? 'View' 
+                              : notification.action.label
+                            }
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         )}
