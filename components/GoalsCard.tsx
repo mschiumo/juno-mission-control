@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Target, Plus, X, RefreshCw, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Target, Plus, X, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle } from 'lucide-react';
 
 interface Notification {
   message: string;
@@ -1065,14 +1065,6 @@ export default function GoalsCard() {
           >
             <Plus className="w-4 h-4" />
             Add {activeCategory === 'collaborative' ? 'Task' : 'Goal'}
-          </button>
-          
-          <button
-            onClick={fetchGoals}
-            disabled={loading}
-            className="p-2 hover:bg-[#262626] rounded-xl transition-colors"
-          >
-            <RefreshCw className={`w-5 h-5 text-[#737373] ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
