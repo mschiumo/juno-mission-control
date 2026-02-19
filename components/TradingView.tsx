@@ -5,7 +5,6 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
   List, 
-  Calendar, 
   BarChart3, 
   BookOpen,
   TrendingUp,
@@ -24,7 +23,7 @@ import TradeManagementView from '@/components/trading/TradeManagementView';
 import TradesListView from '@/components/trading/TradesListView';
 import AnalyticsView from '@/components/trading/AnalyticsView';
 
-type TradingSubTab = 'overview' | 'trades' | 'calendar' | 'analytics' | 'journal' | 'market' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'trades' | 'analytics' | 'journal' | 'market' | 'projection' | 'trade-management';
 
 export default function TradingView() {
   const router = useRouter();
@@ -34,7 +33,7 @@ export default function TradingView() {
   // Get subtab from URL or default to 'overview'
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
     const subtab = searchParams.get('subtab');
-    if (subtab === 'market' || subtab === 'trades' || subtab === 'calendar' || 
+    if (subtab === 'market' || subtab === 'trades' || 
         subtab === 'analytics' || subtab === 'journal' || subtab === 'projection' ||
         subtab === 'trade-management') {
       return subtab;
@@ -61,7 +60,6 @@ export default function TradingView() {
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
     { id: 'trades' as const, label: 'Trades', icon: List },
-    { id: 'calendar' as const, label: 'Calendar', icon: Calendar },
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { id: 'journal' as const, label: 'Journal', icon: BookOpen },
     { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
@@ -100,10 +98,6 @@ export default function TradingView() {
 
       {activeSubTab === 'trades' && (
         <TradesListView />
-      )}
-
-      {activeSubTab === 'calendar' && (
-        <CalendarView />
       )}
 
       {activeSubTab === 'analytics' && (
