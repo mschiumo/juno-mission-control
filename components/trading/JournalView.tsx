@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BookOpen, ChevronDown, ChevronUp, Plus, X, Calendar, Clock, Save, CheckCircle, Bell } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronUp, Plus, X, Calendar, Clock, Save, CheckCircle } from 'lucide-react';
 
 interface JournalPrompt {
   id: string;
@@ -150,8 +150,6 @@ export default function JournalView() {
         </div>
         
         <div className="flex items-center gap-3">
-          <TestNotificationButton />
-          
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg transition-colors"
@@ -329,66 +327,6 @@ export default function JournalView() {
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-// Test button component for manual notification trigger
-function TestNotificationButton() {
-  const [isCreating, setIsCreating] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-
-  const createTestNotification = async () => {
-    setIsCreating(true);
-    setResult(null);
-    
-    try {
-      const response = await fetch('/api/cron/journal-reminder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setResult('✅ Created! Check bell icon.');
-        // Wait a moment then navigate to test the link
-        setTimeout(() => {
-          window.location.href = '/?tab=trading&subtab=journal&openJournal=true';
-        }, 1500);
-      } else {
-        setResult('❌ Error: ' + data.error);
-      }
-    } catch (error) {
-      setResult('❌ Failed');
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  return (
-    <div className="flex items-center gap-2">
-      <button
-        onClick={createTestNotification}
-        disabled={isCreating}
-        className="flex items-center gap-2 px-3 py-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
-      >
-        {isCreating ? (
-          <>
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            Creating...
-          </>
-        ) : (
-          <>
-            <Bell className="w-4 h-4" />
-            Test Notification
-          </>
-        )}
-      </button>
-      
-      {result && (
-        <span className="text-xs text-[#8b949e]">{result}</span>
       )}
     </div>
   );
