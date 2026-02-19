@@ -1,33 +1,20 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calculator, TrendingUp, DollarSign, Target, Percent, Calendar } from 'lucide-react';
+import { Calculator, TrendingUp, DollarSign, Target, Percent, Calendar, Info } from 'lucide-react';
 
-interface RiskScenario {
-  label: string;
-  riskPerTrade: number;
+interface ProjectionParams {
   tradesPerDay: number;
+  riskPerTrade: number;
   rewardToRisk: number;
   winRate: number;
 }
 
-const DEFAULT_SCENARIOS: RiskScenario[] = [
-  { label: '$10 Risk', riskPerTrade: 10, tradesPerDay: 15, rewardToRisk: 2.0, winRate: 0.5 },
-  { label: '$50 Risk', riskPerTrade: 50, tradesPerDay: 15, rewardToRisk: 2.0, winRate: 0.5 },
-  { label: '$100 Risk', riskPerTrade: 100, tradesPerDay: 15, rewardToRisk: 2.0, winRate: 0.5 },
-];
-
 interface ProjectionResult {
   winningTrades: number;
   losingTrades: number;
-  rPerTradeWin: number;
-  rPerTradeLoss: number;
-  riskUnitWin: number;
-  riskUnitLoss: number;
   profitPerWin: number;
   lossPerLoss: number;
-  totalProfit: number;
-  totalLoss: number;
   netPerDay: number;
   netPerWeek: number;
   netPerMonth: number;
@@ -35,8 +22,8 @@ interface ProjectionResult {
   sharpeRatio: number;
 }
 
-function calculateProjection(scenario: RiskScenario): ProjectionResult {
-  const { riskPerTrade, tradesPerDay, rewardToRisk, winRate } = scenario;
+function calculateProjection(params: ProjectionParams): ProjectionResult {
+  const { riskPerTrade, tradesPerDay, rewardToRisk, winRate } = params;
   
   const winningTrades = tradesPerDay * winRate;
   const losingTrades = tradesPerDay * (1 - winRate);
@@ -52,22 +39,13 @@ function calculateProjection(scenario: RiskScenario): ProjectionResult {
   const netPerMonth = netPerDay * 21;
   const netPerYear = netPerDay * 252;
   
-  // Sharpe ratio approximation
-  const avgWin = profitPerWin;
-  const avgLoss = lossPerLoss;
-  const sharpeRatio = avgLoss > 0 ? avgWin / avgLoss : 0;
+  const sharpeRatio = lossPerLoss > 0 ? profitPerWin / lossPerLoss : 0;
   
   return {
     winningTrades,
     losingTrades,
-    rPerTradeWin: rewardToRisk,
-    rPerTradeLoss: 1,
-    riskUnitWin: winningTrades,
-    riskUnitLoss: -losingTrades,
     profitPerWin,
     lossPerLoss,
-    totalProfit,
-    totalLoss,
     netPerDay,
     netPerWeek,
     netPerMonth,
@@ -77,18 +55,25 @@ function calculateProjection(scenario: RiskScenario): ProjectionResult {
 }
 
 export default function ProfitProjectionView() {
-  const [activeScenario, setActiveScenario] = useState(0);
-  const [scenarios, setScenarios] = useState(DEFAULT_SCENARIOS);
-  
-  const currentScenario = scenarios[activeScenario];
-  const projection = useMemo(() => calculateProjection(currentScenario), [currentScenario]);
-  
-  const updateScenario = (field: keyof RiskScenario, value: number) => {
-    setScenarios(prev => {
-      const updated = [...prev];
-      updated[activeScenario] = { ...updated[activeScenario], [field]: value };
-      return updated;
-    });
+  const [params, setParams] = useState<ProjectionParams>({
+    tradesPerDay: 15,
+    riskPerTrade: 10,
+    rewardToRisk: 2.0,
+    winRate: 0.5,
+  });
+
+  const projection = useMemo(() => calculateProjection(params), [params]);
+
+  // Calculate for $10, $50, $100 scenarios
+  const scenarios = useMemo(() => {
+    return [10, 50, 100].map(risk => ({
+      risk,
+      ...calculateProjection({ ...params, riskPerTrade: risk })
+    }));
+  }, [params]);
+
+  const updateParam = (field: keyof ProjectionParams, value: number) => {
+    setParams(prev => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -101,27 +86,7 @@ export default function ProfitProjectionView() {
         </div>
       </div>
 
-      {/* Risk Tabs */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-2">
-        <div className="flex flex-wrap gap-1">
-          {scenarios.map((scenario, index) => (
-            <button
-              key={index}
-              onClick={() => setActiveScenario(index)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                activeScenario === index
-                  ? 'bg-[#F97316] text-white'
-                  : 'text-[#8b949e] hover:bg-[#262626] hover:text-white'
-              }`}
-            >
-              <DollarSign className="w-4 h-4" />
-              <span className="text-sm font-medium">{scenario.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Inputs */}
+      {/* Main Inputs - Like Excel Top Section */}
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
         <h3 className="text-sm font-medium text-[#8b949e] mb-4 flex items-center gap-2">
           <Target className="w-4 h-4" />
@@ -129,55 +94,111 @@ export default function ProfitProjectionView() {
         </h3>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <InputField
-            label="Trades/Day"
-            value={currentScenario.tradesPerDay}
-            onChange={(v) => updateScenario('tradesPerDay', v)}
-            min={1}
-            max={100}
-          />
-          <InputField
-            label="Risk/Trade ($)"
-            value={currentScenario.riskPerTrade}
-            onChange={(v) => updateScenario('riskPerTrade', v)}
-            min={1}
-            step={5}
-          />
-          <InputField
-            label="Reward:Risk"
-            value={currentScenario.rewardToRisk}
-            onChange={(v) => updateScenario('rewardToRisk', v)}
-            min={0.5}
-            step={0.5}
-          />
-          <InputField
-            label="Win Rate (%)"
-            value={currentScenario.winRate * 100}
-            onChange={(v) => updateScenario('winRate', v / 100)}
-            min={0}
-            max={100}
-            suffix="%"
-          />
+          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-4">
+            <label className="block text-xs text-[#fef08a] font-medium mb-1.5 uppercase tracking-wide">
+              Trades/Day
+            </label>
+            <input
+              type="number"
+              value={params.tradesPerDay}
+              onChange={(e) => updateParam('tradesPerDay', parseInt(e.target.value) || 0)}
+              min={1}
+              max={100}
+              className="w-full px-3 py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-[#F97316]"
+            />
+          </div>
+
+          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-4">
+            <label className="block text-xs text-[#fef08a] font-medium mb-1.5 uppercase tracking-wide">
+              Risk/Trade ($)
+            </label>
+            <input
+              type="number"
+              value={params.riskPerTrade}
+              onChange={(e) => updateParam('riskPerTrade', parseFloat(e.target.value) || 0)}
+              min={1}
+              step={5}
+              className="w-full px-3 py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-[#F97316]"
+            />
+          </div>
+
+          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-4">
+            <label className="block text-xs text-[#fef08a] font-medium mb-1.5 uppercase tracking-wide">
+              Reward to Risk
+            </label>
+            <input
+              type="number"
+              value={params.rewardToRisk}
+              onChange={(e) => updateParam('rewardToRisk', parseFloat(e.target.value) || 0)}
+              min={0.5}
+              step={0.5}
+              className="w-full px-3 py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-[#F97316]"
+            />
+          </div>
+
+          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-4">
+            <label className="block text-xs text-[#fef08a] font-medium mb-1.5 uppercase tracking-wide">
+              Win Rate (%)
+            </label>
+            <input
+              type="number"
+              value={Math.round(params.winRate * 100)}
+              onChange={(e) => updateParam('winRate', parseFloat(e.target.value) / 100 || 0)}
+              min={0}
+              max={100}
+              className="w-full px-3 py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-[#F97316]"
+            />
+          </div>
         </div>
       </div>
 
       {/* Results Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Trade Breakdown */}
+        {/* Current Scenario Breakdown */}
         <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-          <h3 className="text-sm font-medium text-[#8b949e] mb-4">Trade Breakdown</h3>
+          <h3 className="text-sm font-medium text-[#8b949e] mb-4">
+            Trade Breakdown (${params.riskPerTrade} Risk)
+          </h3>
           
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-4 text-sm">
+            <div className="grid grid-cols-3 gap-4 text-sm border-b border-[#30363d] pb-2">
               <div></div>
               <div className="text-center text-[#3fb950] font-medium">Winning Trades</div>
               <div className="text-center text-[#f85149] font-medium">Losing Trades</div>
             </div>
             
-            <BreakdownRow label="Trades per day" win={projection.winningTrades} loss={projection.losingTrades} />
-            <BreakdownRow label="R Per trade" win={projection.rPerTradeWin} loss={projection.rPerTradeLoss} />
-            <BreakdownRow label="Risk Unit" win={projection.riskUnitWin} loss={projection.riskUnitLoss} format="$" />
-            <BreakdownRow label="Profit (Gain/Loss)" win={projection.profitPerWin} loss={-projection.lossPerLoss} format="$" isCurrency />
+            <div className="grid grid-cols-3 gap-4 py-2 border-b border-[#21262d] text-sm">
+              <span className="text-[#8b949e]">Trades per day</span>
+              <span className="text-center text-white">{projection.winningTrades.toFixed(2)}</span>
+              <span className="text-center text-white">{projection.losingTrades.toFixed(2)}</span>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 py-2 border-b border-[#21262d] text-sm">
+              <span className="text-[#8b949e]">R Per trade</span>
+              <span className="text-center text-white">{params.rewardToRisk.toFixed(1)}</span>
+              <span className="text-center text-white">1.0</span>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 py-2 border-b border-[#21262d] text-sm">
+              <span className="text-[#8b949e]">Risk Unit</span>
+              <span className="text-center text-[#3fb950]">${(projection.winningTrades * params.riskPerTrade).toFixed(2)}</span>
+              <span className="text-center text-[#f85149]">${(projection.losingTrades * params.riskPerTrade).toFixed(2)}</span>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 py-2 text-sm">
+              <span className="text-[#8b949e]">Profit (Gain/Loss)</span>
+              <span className="text-center text-[#3fb950] font-semibold">${projection.profitPerWin.toFixed(2)}</span>
+              <span className="text-center text-[#f85149] font-semibold">-${projection.lossPerLoss.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-[#30363d]">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[#8b949e]">Sharpe Ratio</span>
+              <span className={`font-semibold ${projection.sharpeRatio >= 1 ? 'text-[#3fb950]' : 'text-[#8b949e]'}`}>
+                {projection.sharpeRatio.toFixed(2)}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -185,7 +206,7 @@ export default function ProfitProjectionView() {
         <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
           <h3 className="text-sm font-medium text-[#8b949e] mb-4 flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
-            Income Projection
+            Income Projection (${params.riskPerTrade} Risk)
           </h3>
           
           <div className="space-y-3">
@@ -194,15 +215,61 @@ export default function ProfitProjectionView() {
             <ProjectionRow label="Per month" value={projection.netPerMonth} />
             <ProjectionRow label="Per year" value={projection.netPerYear} isTotal />
           </div>
-          
-          <div className="mt-4 pt-4 border-t border-[#30363d]">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-[#8b949e]">Sharpe Ratio</span>
-              <span className={`font-semibold ${projection.sharpeRatio >= 1 ? 'text-[#3fb950]' : 'text-[#8b949e]'}`}>
-                {projection.sharpeRatio.toFixed(2)}
-              </span>
-            </div>
-          </div>
+        </div>
+      </div>
+
+      {/* Comparison Table - $10 vs $50 vs $100 */}
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+        <h3 className="text-sm font-medium text-[#8b949e] mb-4 flex items-center gap-2">
+          <DollarSign className="w-4 h-4" />
+          Risk Comparison ($10 / $50 / $100)
+        </h3>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#30363d]">
+                <th className="text-left py-3 text-[#8b949e] font-medium">Risk/Trade</th>
+                <th className="text-right py-3 text-[#8b949e] font-medium">Per Day</th>
+                <th className="text-right py-3 text-[#8b949e] font-medium">Per Week</th>
+                <th className="text-right py-3 text-[#8b949e] font-medium">Per Month</th>
+                <th className="text-right py-3 text-[#8b949e] font-medium">Per Year</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scenarios.map((scenario) => (
+                <tr 
+                  key={scenario.risk} 
+                  className={`border-b border-[#21262d] last:border-0 ${scenario.risk === params.riskPerTrade ? 'bg-[#F97316]/10' : ''}`}
+                >
+                  <td className="py-3">
+                    <button
+                      onClick={() => updateParam('riskPerTrade', scenario.risk)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                        scenario.risk === params.riskPerTrade 
+                          ? 'bg-[#F97316] text-white' 
+                          : 'bg-[#21262d] text-[#8b949e] hover:bg-[#30363d]'
+                      }`}
+                    >
+                      ${scenario.risk}
+                    </button>
+                  </td>
+                  <td className={`text-right py-3 ${scenario.netPerDay >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                    ${scenario.netPerDay.toFixed(2)}
+                  </td>
+                  <td className={`text-right py-3 ${scenario.netPerWeek >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                    ${scenario.netPerWeek.toFixed(2)}
+                  </td>
+                  <td className={`text-right py-3 ${scenario.netPerMonth >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                    ${scenario.netPerMonth.toFixed(2)}
+                  </td>
+                  <td className={`text-right py-3 font-semibold ${scenario.netPerYear >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                    ${scenario.netPerYear.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -210,85 +277,18 @@ export default function ProfitProjectionView() {
       <div className="bg-gradient-to-r from-[#F97316]/20 to-[#d97706]/20 border border-[#F97316]/30 rounded-xl p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-[#8b949e] mb-1">Total Yearly Income</p>
+            <p className="text-sm text-[#8b949e] mb-1">Total Yearly Income (${params.riskPerTrade} Risk/Trade)</p>
             <p className="text-3xl font-bold text-white">
               ${projection.netPerYear.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-[#8b949e] mb-1">Risk/Trade</p>
-            <p className="text-xl font-semibold text-[#F97316]">${currentScenario.riskPerTrade}</p>
+            <p className="text-sm text-[#8b949e] mb-1">Based on</p>
+            <p className="text-sm text-white">{params.tradesPerDay} trades/day @ {Math.round(params.winRate * 100)}% win rate</p>
+            <p className="text-sm text-[#8b949e]">{params.rewardToRisk}:1 Reward/Risk</p>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function InputField({ 
-  label, 
-  value, 
-  onChange, 
-  min = 0, 
-  max,
-  step = 1,
-  suffix = ''
-}: { 
-  label: string;
-  value: number;
-  onChange: (val: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-  suffix?: string;
-}) {
-  return (
-    <div>
-      <label className="block text-xs text-[#8b949e] mb-1.5">{label}</label>
-      <div className="relative">
-        <input
-          type="number"
-          value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-          min={min}
-          max={max}
-          step={step}
-          className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm focus:outline-none focus:border-[#F97316]"
-        />
-        {suffix && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b949e] text-xs">{suffix}</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function BreakdownRow({ 
-  label, 
-  win, 
-  loss, 
-  format = '',
-  isCurrency = false
-}: { 
-  label: string;
-  win: number;
-  loss: number;
-  format?: string;
-  isCurrency?: boolean;
-}) {
-  const formatNum = (n: number) => {
-    if (isCurrency) {
-      const absVal = Math.abs(n);
-      return `${n >= 0 ? '' : '-'}${format}${absVal.toFixed(2)}`;
-    }
-    return `${format}${n.toFixed(n % 1 === 0 ? 0 : 2)}`;
-  };
-
-  return (
-    <div className="grid grid-cols-3 gap-4 py-2 border-b border-[#21262d] last:border-0 text-sm">
-      <span className="text-[#8b949e]">{label}</span>
-      <span className="text-center text-[#3fb950]">{formatNum(win)}</span>
-      <span className="text-center text-[#f85149]">{formatNum(loss)}</span>
     </div>
   );
 }
@@ -306,7 +306,7 @@ function ProjectionRow({
     <div className={`flex items-center justify-between py-2 ${isTotal ? 'border-t border-[#30363d] pt-3' : 'border-b border-[#21262d] last:border-0'}`}>
       <div className="flex items-center gap-2">
         <Calendar className={`w-4 h-4 ${isTotal ? 'text-[#F97316]' : 'text-[#8b949e]'}`} />
-        <span className={isTotal ? 'text-white font-medium' : 'text-[#8b949e] text-sm'}>{label}</span>
+        <span className={isTotal ? 'text-white font-medium' : 'text-[#8b949e]'}>{label}</span>
       </div>
       <span className={`font-semibold ${value >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
         ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
