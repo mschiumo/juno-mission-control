@@ -27,8 +27,13 @@ export async function POST() {
     
     // Store notification (expires in 24 hours)
     await redis.hSet(`notification:${notification.id}`, {
-      ...notification,
-      action: JSON.stringify(notification.action)
+      id: notification.id,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      action: JSON.stringify(notification.action),
+      createdAt: notification.createdAt,
+      read: notification.read.toString()
     });
     await redis.expire(`notification:${notification.id}`, 86400); // 24 hours
     
