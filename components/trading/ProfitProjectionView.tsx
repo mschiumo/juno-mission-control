@@ -64,14 +64,6 @@ export default function ProfitProjectionView() {
 
   const projection = useMemo(() => calculateProjection(params), [params]);
 
-  // Calculate for all risk scenarios
-  const scenarios = useMemo(() => {
-    return [10, 50, 100, 250, 300, 400, 500].map(risk => ({
-      risk,
-      ...calculateProjection({ ...params, riskPerTrade: risk })
-    }));
-  }, [params]);
-
   const updateParam = (field: keyof ProjectionParams, value: number) => {
     setParams(prev => ({ ...prev, [field]: value }));
   };
@@ -215,54 +207,6 @@ export default function ProfitProjectionView() {
             <ProjectionRow label="Per month" value={projection.netPerMonth} />
             <ProjectionRow label="Per year" value={projection.netPerYear} isTotal />
           </div>
-        </div>
-      </div>
-
-      {/* Comparison Table */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-        <h3 className="text-sm font-medium text-[#8b949e] mb-4 flex items-center gap-2">
-          <DollarSign className="w-4 h-4" />
-          Risk Comparison ($10 - $500)
-        </h3>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#30363d]">
-                <th className="text-left py-3 text-[#8b949e] font-medium">Risk/Trade</th>
-                <th className="text-right py-3 text-[#8b949e] font-medium">Per Day</th>
-                <th className="text-right py-3 text-[#8b949e] font-medium">Per Week</th>
-                <th className="text-right py-3 text-[#8b949e] font-medium">Per Month</th>
-                <th className="text-right py-3 text-[#8b949e] font-medium">Per Year</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scenarios.map((scenario) => (
-                <tr 
-                  key={scenario.risk} 
-                  className={`border-b border-[#21262d] last:border-0 ${scenario.risk === params.riskPerTrade ? 'bg-[#F97316]/10' : ''}`}
-                >
-                  <td className="py-3">
-                    <span className={`text-sm font-medium ${scenario.risk === params.riskPerTrade ? 'text-[#F97316]' : 'text-white'}`}>
-                      ${scenario.risk}
-                    </span>
-                  </td>
-                  <td className={`text-right py-3 ${scenario.netPerDay >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-                    ${scenario.netPerDay.toFixed(2)}
-                  </td>
-                  <td className={`text-right py-3 ${scenario.netPerWeek >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-                    ${scenario.netPerWeek.toFixed(2)}
-                  </td>
-                  <td className={`text-right py-3 ${scenario.netPerMonth >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-                    ${scenario.netPerMonth.toFixed(2)}
-                  </td>
-                  <td className={`text-right py-3 font-semibold ${scenario.netPerYear >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-                    ${scenario.netPerYear.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
 

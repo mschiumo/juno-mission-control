@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
   List, 
@@ -23,8 +24,34 @@ import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 type TradingSubTab = 'overview' | 'trades' | 'calendar' | 'analytics' | 'journal' | 'market' | 'projection';
 
 export default function TradingView() {
-  const [activeSubTab, setActiveSubTab] = useState<TradingSubTab>('overview');
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  
+  // Get subtab from URL or default to 'overview'
+  const getSubTabFromUrl = useCallback((): TradingSubTab => {
+    const subtab = searchParams.get('subtab');
+    if (subtab === 'market' || subtab === 'trades' || subtab === 'calendar' || 
+        subtab === 'analytics' || subtab === 'journal' || subtab === 'projection') {
+      return subtab;
+    }
+    return 'overview';
+  }, [searchParams]);
+  
+  const [activeSubTab, setActiveSubTabState] = useState<TradingSubTab>(getSubTabFromUrl);
   const [showTradeModal, setShowTradeModal] = useState(false);
+
+  // Update URL when subtab changes
+  const setActiveSubTab = (subtab: TradingSubTab) => {
+    setActiveSubTabState(subtab);
+    const params = new URLSearchParams(searchParams);
+    if (subtab === 'overview') {
+      params.delete('subtab');
+    } else {
+      params.set('subtab', subtab);
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   const subTabs = [
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
