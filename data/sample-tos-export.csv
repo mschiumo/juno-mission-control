@@ -1,0 +1,37 @@
+Account Statement,,,,,,,,,
+Generated: 02/19/2024 4:00:00 PM ET,,,,,,,,,
+Account #123-456789,,,,,,,,,
+paperMoney,,,,,,,,,
+,,,,,,,,,
+Account Trade History,,,,,,,,,
+Symbol,Description,Qty,Trade Price,Mark,Close Price,P/L Day,P/L Open,P/L YTD,Order
+AAPL,100 AAPL,100,185.50,186.00,184.00,50.00,150.00,500.00,ORDER-001
+TSLA,50 TSLA,-50,210.00,209.50,211.00,-25.00,-75.00,250.00,ORDER-002
+NVDA,25 NVDA,25,520.00,525.00,515.00,125.00,125.00,125.00,ORDER-003
+META,40 META,-40,380.00,379.50,381.00,-20.00,180.00,450.00,ORDER-004
+AMD,200 AMD,200,145.00,148.00,144.00,600.00,600.00,600.00,ORDER-005
+MSFT,75 MSFT,-75,405.00,404.00,406.00,-75.00,225.00,800.00,ORDER-006
+AMZN,30 AMZN,30,175.00,176.00,174.00,30.00,90.00,350.00,ORDER-007
+GOOGL,20 GOOGL,-20,142.00,141.50,142.50,-10.00,50.00,150.00,ORDER-008
+,,,,,,,,,
+Cash and Sweep Vehicle,,,,,,,,,
+,,,,,,,,,
+Futures,,,,,,,,,
+Symbol,Description,Qty,Trade Price,Mark,Close Price,P/L Day,P/L Open,P/L YTD
+/ES,E-MINI S&P 500,1,5050.00,5055.00,5045.00,250.00,250.00,250.00
+/NQ,E-MINI NASDAQ,-1,17800.00,17790.00,17810.00,-200.00,-200.00,-200.00
+,,,,,,,,,
+Options,,,,,,,,,
+Symbol,Description,Qty,Trade Price,Mark,Close Price,Exp,Strike,Put/Call,Order
+AAPL 021624 190 CALL,AAPL FEB 16 2024 190 CALL,5,2.50,3.00,2.00,02/16/24,190,CALL,ORDER-009
+TSLA 021624 200 PUT,TSLA FEB 16 2024 200 PUT,-3,3.20,2.80,3.60,02/16/24,200,PUT,ORDER-010
+,,,,,,,,,
+Forex,,,,,,,,,
+Symbol,Description,Qty,Trade Price,Mark,Close Price,P/L Day,P/L Open
+EUR/USD,Euro/USD,10000,1.0850,1.0860,1.0840,100.00,100.00
+GBP/USD,British Pound/USD,-5000,1.2650,1.2640,1.2660,-50.00,-50.00
+,,,,,,,,,
+Crypto,,,,,,,,,
+Symbol,Description,Qty,Trade Price,Mark,Close Price,P/L Day,P/L Open
+BTC/USD,Bitcoin,0.5,52000.00,52500.00,51500.00,250.00,250.00
+ETH/USD,Ethereum,-2.0,3000.00,2980.00,3020.00,-40.00,-40.00

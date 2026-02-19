@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface DayData {
@@ -420,6 +420,93 @@ function DayDetailModal({ date, data, onClose }: { date: string; data: DayData; 
 }
 
 function ImportModal({ onClose }: { onClose: () => void }) {
+  const [dragOver, setDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<{success: boolean; message: string} | null>(null);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      await handleFileUpload(file);
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await handleFileUpload(file);
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!file.name.endsWith('.csv') && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      setUploadResult({ success: false, message: 'Please upload a CSV or Excel file' });
+      return;
+    }
+
+    setIsUploading(true);
+    
+    try {
+      const text = await file.text();
+      
+      const response = await fetch('/api/trades/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          csv: text,
+          userId: 'mj', // TODO: Get from auth context
+          format: 'auto',
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        const { imported, failed, format } = result.data;
+        setUploadResult({
+          success: true,
+          message: `Imported ${imported} trades${failed > 0 ? ` (${failed} failed)` : ''} from ${format === 'tos' ? 'ThinkOrSwim' : 'CSV'}`,
+        });
+        
+        // Close modal after success
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      } else {
+        setUploadResult({
+          success: false,
+          message: result.error || 'Failed to import trades',
+        });
+      }
+    } catch (error) {
+      setUploadResult({
+        success: false,
+        message: 'Error uploading file. Please try again.',
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const supportedFormats = [
+    { name: 'ThinkOrSwim (TOS)', desc: 'TD Ameritrade / Schwab' },
+    { name: 'Interactive Brokers', desc: 'Activity Statement' },
+    { name: 'Generic CSV', desc: 'Custom column mapping' },
+  ];
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-xl p-6">
@@ -428,19 +515,70 @@ function ImportModal({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="text-[#8b949e] hover:text-white">✕</button>
         </div>
         
-        <div className="border-2 border-dashed border-[#30363d] rounded-xl p-8 text-center mb-4">
+        {/* Supported Formats */}
+        <div className="mb-4 p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
+          <p className="text-xs text-[#8b949e] mb-2">Supported formats:</p>
+          <div className="flex flex-wrap gap-2">
+            {supportedFormats.map((format) => (
+              <span key={format.name} className="text-xs px-2 py-1 bg-[#21262d] text-[#c9d1d9] rounded">
+                {format.name}
+              </span>
+            ))}
+          </div>
+        </div>
+        
+        <div 
+          className={`
+            border-2 border-dashed rounded-xl p-8 text-center mb-4 transition-colors
+            ${dragOver ? 'border-[#F97316] bg-[#F97316]/10' : 'border-[#30363d]'}
+            ${isUploading ? 'opacity-50 pointer-events-none' : ''}
+          `}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <Upload className="w-12 h-12 text-[#8b949e] mx-auto mb-4" />
-          <p className="text-white font-medium mb-2">Drop CSV or Excel file here</p>
-          <p className="text-sm text-[#8b949e] mb-4">Supports ThinkOrSwim, Interactive Brokers, and generic formats</p>
-          <button className="px-4 py-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors">
-            Select File
-          </button>
+          <p className="text-white font-medium mb-2">Drop CSV file here</p>
+          <p className="text-sm text-[#8b949e] mb-4">
+            Auto-detects ThinkOrSwim, IBKR, and other broker formats
+          </p>
+          <label className="cursor-pointer">
+            <input
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              className="hidden"
+              onChange={handleFileSelect}
+              disabled={isUploading}
+            />
+            <span className="px-4 py-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors inline-block">
+              {isUploading ? 'Uploading...' : 'Select File'}
+            </span>
+          </label>
+        </div>
+
+        {/* Upload Result */}
+        {uploadResult && (
+          <div className={`mb-4 p-3 rounded-lg ${uploadResult.success ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#da3633]/20 text-[#f85149]'}`}>
+            {uploadResult.message}
+          </div>
+        )}
+        
+        {/* ThinkOrSwim Instructions */}
+        <div className="mb-4 p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
+          <p className="text-sm font-medium text-white mb-2">📊 ThinkOrSwim Export Instructions:</p>
+          <ol className="text-xs text-[#8b949e] space-y-1 list-decimal list-inside">
+            <li>Open ThinkOrSwim and go to the <strong>Monitor</strong> tab</li>
+            <li>Click <strong>Account Statement</strong> or <strong>Trade History</strong></li>
+            <li>Select your date range</li>
+            <li>Click the export button and save as CSV</li>
+            <li>Upload the file here</li>
+          </ol>
         </div>
         
         <div className="flex items-center gap-2 text-sm text-[#8b949e]">
           <span>Need a template?</span>
-          <a href="/templates/trades_import_template.xlsx" download className="text-[#F97316] hover:underline">
-            Download XLSX
+          <a href="/templates/trades_import_template.csv" download className="text-[#F97316] hover:underline">
+            Download CSV Template
           </a>
         </div>
         
