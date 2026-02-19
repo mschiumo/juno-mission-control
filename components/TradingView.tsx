@@ -10,7 +10,8 @@ import {
   TrendingUp,
   Newspaper,
   Calculator,
-  Settings
+  Settings,
+  ChevronDown
 } from 'lucide-react';
 import MarketHoursBanner from '@/components/MarketHoursBanner';
 import GapScannerCard from '@/components/GapScannerCard';
@@ -44,10 +45,12 @@ export default function TradingView() {
   
   const [activeSubTab, setActiveSubTabState] = useState<TradingSubTab>(getSubTabFromUrl);
   const [showTradeModal, setShowTradeModal] = useState(false);
+  const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
 
   // Update URL when subtab changes
   const setActiveSubTab = (subtab: TradingSubTab) => {
     setActiveSubTabState(subtab);
+    setMobileDropdownOpen(false);
     const params = new URLSearchParams(searchParams);
     if (subtab === 'overview') {
       params.delete('subtab');
@@ -67,11 +70,15 @@ export default function TradingView() {
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
   ];
 
+  const activeTabLabel = subTabs.find(t => t.id === activeSubTab)?.label || 'Overview';
+  const ActiveIcon = subTabs.find(t => t.id === activeSubTab)?.icon || LayoutDashboard;
+
   return (
     <div className="space-y-6">
-      {/* Sub-Navigation */}
+      {/* Sub-Navigation - Desktop: Buttons, Mobile: Dropdown */}
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-2">
-        <div className="flex flex-wrap gap-1">
+        {/* Desktop - Button Grid */}
+        <div className="hidden md:flex flex-wrap gap-1">
           {subTabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -89,6 +96,45 @@ export default function TradingView() {
               </button>
             );
           })}
+        </div>
+
+        {/* Mobile - Dropdown */}
+        <div className="md:hidden relative">
+          <button
+            onClick={() => setMobileDropdownOpen(!mobileDropdownOpen)}
+            className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg text-white"
+          >
+            <div className="flex items-center gap-2">
+              <ActiveIcon className="w-5 h-5 text-[#F97316]" />
+              <span className="font-medium">{activeTabLabel}</span>
+            </div>
+            <ChevronDown className={`w-5 h-5 text-[#8b949e] transition-transform ${mobileDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {mobileDropdownOpen && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-[#161b22] border border-[#30363d] rounded-xl shadow-xl z-50 overflow-hidden">
+              {subTabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveSubTab(tab.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
+                      activeSubTab === tab.id
+                        ? 'bg-[#F97316]/20 text-white'
+                        : 'text-[#8b949e] hover:bg-[#262626] hover:text-white'
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 ${activeSubTab === tab.id ? 'text-[#F97316]' : ''}`} />
+                    <span className="font-medium">{tab.label}</span>
+                    {activeSubTab === tab.id && (
+                      <div className="ml-auto w-2 h-2 bg-[#F97316] rounded-full" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
