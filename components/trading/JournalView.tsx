@@ -50,6 +50,7 @@ export default function JournalView() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Check for openJournal param on mount
   useEffect(() => {
@@ -89,6 +90,7 @@ export default function JournalView() {
     setSelectedDate(new Date().toISOString().split('T')[0]);
     setPrompts(DEFAULT_PROMPTS.map(p => ({ ...p })));
     setSaveStatus('idle');
+    setValidationErrors({});
     setShowModal(true);
   };
 
@@ -98,12 +100,33 @@ export default function JournalView() {
     setSelectedDate(entry.date);
     setPrompts(entry.prompts.length > 0 ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p })));
     setSaveStatus('idle');
+    setValidationErrors({});
     setShowModal(true);
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
     setSaveStatus('idle');
+    
+    // Validate
+    const errors: Record<string, string> = {};
+    
+    if (!selectedDate) {
+      errors.date = 'Date is required';
+    }
+    
+    prompts.forEach((prompt) => {
+      if (!prompt.answer || prompt.answer.trim() === '') {
+        errors[prompt.id] = 'This field is required';
+      }
+    });
+    
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+    
+    setValidationErrors({});
+    setIsSaving(true);
     
     try {
       const response = await fetch('/api/daily-journal', {
@@ -337,9 +360,14 @@ export default function JournalView() {
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                   disabled={modalMode === 'edit'}
-                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#F97316] disabled:opacity-50"
+                  className={`w-full px-3 py-2 bg-[#0d1117] border rounded-lg text-white focus:outline-none focus:border-[#F97316] disabled:opacity-50 ${
+                    validationErrors.date ? 'border-[#f85149]' : 'border-[#30363d]'
+                  }`}
                 />
-                {modalMode === 'edit' && (
+                {validationErrors.date && (
+                  <p className="text-xs text-[#f85149] mt-1">{validationErrors.date}</p>
+                )}
+                {modalMode === 'edit' && !validationErrors.date && (
                   <p className="text-xs text-[#8b949e] mt-1">Date cannot be changed when editing</p>
                 )}
               </div>
@@ -355,11 +383,22 @@ export default function JournalView() {
                       value={prompt.answer}
                       onChange={(e) => updatePromptAnswer(prompt.id, e.target.value)}
                       placeholder="Type your answer here..."
-                      className="w-full h-20 px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] resize-none focus:outline-none focus:border-[#F97316]"
+                      className={`w-full h-20 px-3 py-2 bg-[#0d1117] border rounded-lg text-white placeholder-[#8b949e] resize-none focus:outline-none focus:border-[#F97316] ${
+                        validationErrors[prompt.id] ? 'border-[#f85149]' : 'border-[#30363d]'
+                      }`}
                     />
+                    {validationErrors[prompt.id] && (
+                      <p className="text-xs text-[#f85149] mt-1">{validationErrors[prompt.id]}</p>
+                    )}
                   </div>
                 ))}
               </div>
+
+              {Object.keys(validationErrors).length > 0 && (
+                <div className="text-[#f85149] text-sm">
+                  Please fill in all required fields.
+                </div>
+              )}
 
               {saveStatus === 'success' && (
                 <div className="flex items-center gap-2 text-[#3fb950]">
@@ -378,7 +417,10 @@ export default function JournalView() {
             {/* Footer */}
             <div className="flex justify-end gap-3 p-4 border-t border-[#30363d] sticky bottom-0 bg-[#161b22]">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  setValidationErrors({});
+                }}
                 className="px-4 py-2 text-[#8b949e] hover:text-white"
               >
                 Cancel
