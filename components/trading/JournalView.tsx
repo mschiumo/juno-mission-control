@@ -353,8 +353,10 @@ function TestNotificationButton() {
       
       if (data.success) {
         setResult('✅ Created! Check bell icon.');
-        // Reload page after 2 seconds to show notification
-        setTimeout(() => window.location.reload(), 2000);
+        // Wait a moment then navigate to test the link
+        setTimeout(() => {
+          window.location.href = '/?tab=trading&subtab=journal&openJournal=true';
+        }, 1500);
       } else {
         setResult('❌ Error: ' + data.error);
       }

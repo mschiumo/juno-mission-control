@@ -19,7 +19,7 @@ export async function POST() {
       message: 'The market just closed. Take a moment to reflect on today\'s trading session.',
       action: {
         label: 'Add Journal Entry',
-        href: '/trading?subtab=journal&openJournal=true'
+        href: '/?tab=trading&subtab=journal&openJournal=true'
       },
       createdAt: new Date().toISOString(),
       read: false
