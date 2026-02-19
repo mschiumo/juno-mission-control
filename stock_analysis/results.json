@@ -1,0 +1,465 @@
+{
+  "timestamp": "2026-02-19T14:04:06Z",
+  "tickers": [
+    {
+      "symbol": "RUBI",
+      "category": "favorite",
+      "price": 2.24,
+      "previousClose": 2.3399999141693115,
+      "change": -.0999999141693115,
+      "changePercent": -4.2700,
+      "volume": 91536
+    }
+,
+    {
+      "symbol": "AGAE",
+      "category": "bullish",
+      "price": 0.3059,
+      "previousClose": 0.296999990940094,
+      "change": .008900009059906,
+      "changePercent": 2.9900,
+      "volume": 387536
+    }
+,
+    {
+      "symbol": "TRNR",
+      "category": "bullish",
+      "price": 0.409,
+      "previousClose": 0.3880000114440918,
+      "change": .0209999885559082,
+      "changePercent": 5.4100,
+      "volume": 23328214
+    }
+,
+    {
+      "symbol": "BOXL",
+      "category": "bullish",
+      "price": 1.3,
+      "previousClose": 1.2599999904632568,
+      "change": .0400000095367432,
+      "changePercent": 3.1700,
+      "volume": 685909
+    }
+,
+    {
+      "symbol": "YIBO",
+      "category": "bullish",
+      "price": 0.87,
+      "previousClose": 0.8149999976158142,
+      "change": .0550000023841858,
+      "changePercent": 6.7400,
+      "volume": 2525944
+    }
+,
+    {
+      "symbol": "ETSY",
+      "category": "bullish",
+      "price": 44.05,
+      "previousClose": 44.36000061035156,
+      "change": -.31000061035156,
+      "changePercent": -.6900,
+      "volume": 5988100
+    }
+,
+    {
+      "symbol": "RELY",
+      "category": "bullish",
+      "price": 13.61,
+      "previousClose": 13.079999923706055,
+      "change": .530000076293945,
+      "changePercent": 4.0500,
+      "volume": 8871342
+    }
+,
+    {
+      "symbol": "RBNE",
+      "category": "bullish",
+      "price": 4.25,
+      "previousClose": 3.8399999141693115,
+      "change": .4100000858306885,
+      "changePercent": 10.6700,
+      "volume": 884183
+    }
+,
+    {
+      "symbol": "ITGR",
+      "category": "favorite",
+      "price": 86.48,
+      "previousClose": 87.66000366210938,
+      "change": -1.18000366210938,
+      "changePercent": -1.3400,
+      "volume": 1167444
+    }
+,
+    {
+      "symbol": "HLF",
+      "category": "favorite",
+      "price": 16.54,
+      "previousClose": 15.9399995803833,
+      "change": .6000004196167,
+      "changePercent": 3.7600,
+      "volume": 3519338
+    }
+,
+    {
+      "symbol": "APPN",
+      "category": "bullish",
+      "price": 24.06,
+      "previousClose": 23.040000915527344,
+      "change": 1.019999084472656,
+      "changePercent": 4.4200,
+      "volume": 2367669
+    }
+,
+    {
+      "symbol": "LMND",
+      "category": "bullish",
+      "price": 65.73,
+      "previousClose": 64.58999633789062,
+      "change": 1.14000366210938,
+      "changePercent": 1.7600,
+      "volume": 3049313
+    }
+,
+    {
+      "symbol": "DASH",
+      "category": "bullish",
+      "price": 173.38,
+      "previousClose": 162.33999633789062,
+      "change": 11.04000366210938,
+      "changePercent": 6.8000,
+      "volume": 11059813
+    }
+,
+    {
+      "symbol": "EBAY",
+      "category": "bullish",
+      "price": 82.18,
+      "previousClose": 79.94999694824219,
+      "change": 2.23000305175781,
+      "changePercent": 2.7800,
+      "volume": 11144672
+    }
+,
+    {
+      "symbol": "OXY",
+      "category": "bullish",
+      "price": 47.11,
+      "previousClose": 45.939998626708984,
+      "change": 1.170001373291016,
+      "changePercent": 2.5400,
+      "volume": 11252925
+    }
+,
+    {
+      "symbol": "CHWY",
+      "category": "bullish",
+      "price": 24.17,
+      "previousClose": 23.799999237060547,
+      "change": .370000762939453,
+      "changePercent": 1.5500,
+      "volume": 6376078
+    }
+,
+    {
+      "symbol": "FFAI",
+      "category": "bullish",
+      "price": 0.5161,
+      "previousClose": 0.5440000295639038,
+      "change": -.0279000295639038,
+      "changePercent": -5.1200,
+      "volume": 21437926
+    }
+,
+    {
+      "symbol": "LINE",
+      "category": "bullish",
+      "price": 36.61,
+      "previousClose": 37.119998931884766,
+      "change": -.509998931884766,
+      "changePercent": -1.3700,
+      "volume": 1008863
+    }
+,
+    {
+      "symbol": "NAK",
+      "category": "bullish",
+      "price": 1.23,
+      "previousClose": 2.0299999713897705,
+      "change": -.7999999713897705,
+      "changePercent": -39.4000,
+      "volume": 56264812
+    }
+,
+    {
+      "symbol": "SOXS",
+      "category": "bullish",
+      "price": 1.71,
+      "previousClose": 1.7699999809265137,
+      "change": -.0599999809265137,
+      "changePercent": -3.3800,
+      "volume": 579308546
+    }
+,
+    {
+      "symbol": "MBRX",
+      "category": "favorite",
+      "price": 4.81,
+      "previousClose": 4.559999942779541,
+      "change": .250000057220459,
+      "changePercent": 5.4800,
+      "volume": 500523
+    }
+,
+    {
+      "symbol": "EPAM",
+      "category": "favorite",
+      "price": 167.69,
+      "previousClose": 162.1999969482422,
+      "change": 5.4900030517578,
+      "changePercent": 3.3800,
+      "volume": 1114552
+    }
+,
+    {
+      "symbol": "BJDX",
+      "category": "bearish",
+      "price": 2.53,
+      "previousClose": 2.690000057220459,
+      "change": -.160000057220459,
+      "changePercent": -5.9400,
+      "volume": 772380
+    }
+,
+    {
+      "symbol": "TRAW",
+      "category": "bearish",
+      "price": 1.97,
+      "previousClose": 1.9600000381469727,
+      "change": .0099999618530273,
+      "changePercent": .5100,
+      "volume": 50501
+    }
+,
+    {
+      "symbol": "BTDR",
+      "category": "bearish",
+      "price": 9.61,
+      "previousClose": 9.479999542236328,
+      "change": .130000457763672,
+      "changePercent": 1.3700,
+      "volume": 3710966
+    }
+,
+    {
+      "symbol": "TBI",
+      "category": "bearish",
+      "price": 4.52,
+      "previousClose": 4.420000076293945,
+      "change": .099999923706055,
+      "changePercent": 2.2600,
+      "volume": 239614
+    }
+,
+    {
+      "symbol": "W",
+      "category": "bearish",
+      "price": 91.48,
+      "previousClose": 85.2300033569336,
+      "change": 6.2499966430664,
+      "changePercent": 7.3300,
+      "volume": 5997729
+    }
+,
+    {
+      "symbol": "CAR",
+      "category": "favorite",
+      "price": 123.3,
+      "previousClose": 122.0999984741211,
+      "change": 1.2000015258789,
+      "changePercent": .9800,
+      "volume": 954427
+    }
+,
+    {
+      "symbol": "EPRX",
+      "category": "bearish",
+      "price": 8.16,
+      "previousClose": 8.229999542236328,
+      "change": -.069999542236328,
+      "changePercent": -.8500,
+      "volume": 82808
+    }
+,
+    {
+      "symbol": "GLOB",
+      "category": "bearish",
+      "price": 49.46,
+      "previousClose": 48.459999084472656,
+      "change": 1.000000915527344,
+      "changePercent": 2.0600,
+      "volume": 847035
+    }
+,
+    {
+      "symbol": "BTG",
+      "category": "bearish",
+      "price": 5.38,
+      "previousClose": 5.25,
+      "change": .13,
+      "changePercent": 2.4700,
+      "volume": 28424020
+    }
+,
+    {
+      "symbol": "RXT",
+      "category": "bearish",
+      "price": 1.37,
+      "previousClose": 0.4189999997615814,
+      "change": .9510000002384186,
+      "changePercent": 226.9600,
+      "volume": 520700427
+    }
+,
+    {
+      "symbol": "MD",
+      "category": "bearish",
+      "price": 21.97,
+      "previousClose": 21.709999084472656,
+      "change": .260000915527344,
+      "changePercent": 1.1900,
+      "volume": 762167
+    }
+,
+    {
+      "symbol": "CVNA",
+      "category": "bearish",
+      "price": 361.53,
+      "previousClose": 350.94000244140625,
+      "change": 10.58999755859375,
+      "changePercent": 3.0100,
+      "volume": 5301738
+    }
+,
+    {
+      "symbol": "POOL",
+      "category": "bearish",
+      "price": 255.33,
+      "previousClose": 255.4600067138672,
+      "change": -.1300067138672,
+      "changePercent": -.0500,
+      "volume": 725894
+    }
+,
+    {
+      "symbol": "TAP",
+      "category": "bearish",
+      "price": 50.82,
+      "previousClose": 50.900001525878906,
+      "change": -.080001525878906,
+      "changePercent": -.1500,
+      "volume": 4448396
+    }
+,
+    {
+      "symbol": "LKQ",
+      "category": "bearish",
+      "price": 33.22,
+      "previousClose": 32.5099983215332,
+      "change": .7100016784668,
+      "changePercent": 2.1800,
+      "volume": 2737001
+    }
+,
+    {
+      "symbol": "AEG",
+      "category": "bearish",
+      "price": 7.8,
+      "previousClose": 7.75,
+      "change": .05,
+      "changePercent": .6400,
+      "volume": 4473278
+    }
+,
+    {
+      "symbol": "CVI",
+      "category": "bearish",
+      "price": 22.36,
+      "previousClose": 22.520000457763672,
+      "change": -.160000457763672,
+      "changePercent": -.7100,
+      "volume": 1090615
+    }
+,
+    {
+      "symbol": "CAKE",
+      "category": "bearish",
+      "price": 64.07,
+      "previousClose": 62.560001373291016,
+      "change": 1.509998626708984,
+      "changePercent": 2.4100,
+      "volume": 2933240
+    }
+,
+    {
+      "symbol": "YETI",
+      "category": "bearish",
+      "price": 49.43,
+      "previousClose": 48.0099983215332,
+      "change": 1.4200016784668,
+      "changePercent": 2.9500,
+      "volume": 2923081
+    }
+,
+    {
+      "symbol": "SBSW",
+      "category": "bearish",
+      "price": 15.88,
+      "previousClose": 16.059999465942383,
+      "change": -.179999465942383,
+      "changePercent": -1.1200,
+      "volume": 6707522
+    }
+,
+    {
+      "symbol": "VC",
+      "category": "bearish",
+      "price": 106.14,
+      "previousClose": 104.26000213623047,
+      "change": 1.87999786376953,
+      "changePercent": 1.8000,
+      "volume": 1044557
+    }
+,
+    {
+      "symbol": "CTSH",
+      "category": "bearish",
+      "price": 66.81,
+      "previousClose": 65.18000030517578,
+      "change": 1.62999969482422,
+      "changePercent": 2.5000,
+      "volume": 5919437
+    }
+,
+    {
+      "symbol": "OWL",
+      "category": "bearish",
+      "price": 12.31,
+      "previousClose": 12.079999923706055,
+      "change": .230000076293945,
+      "changePercent": 1.9000,
+      "volume": 11175091
+    }
+,
+    {
+      "symbol": "BX",
+      "category": "bearish",
+      "price": 132.9,
+      "previousClose": 131.38999938964844,
+      "change": 1.51000061035156,
+      "changePercent": 1.1400,
+      "volume": 4483785
+    }
+
+  ]
+}
