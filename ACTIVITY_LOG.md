@@ -1,4 +1,49 @@
 
+[2026-02-19T17:30:00Z] FIX: Resolved TypeScript errors in PR #132 (API-Based Crons)
+- Fixed TypeScript enum assignment errors in trades API:
+  - app/api/trades/import/route.ts(252): Strategy.OTHER instead of 'OTHER' string
+  - app/api/trades/import/route.ts(265): TradeStatus.CLOSED instead of 'CLOSED' string
+  - app/api/trades/route.ts(192): Added userId property to CreateTradeRequest interface
+  - app/api/trades/route.ts(195): TradeStatus.OPEN instead of 'OPEN' string
+- Changed imports from `import type` to regular imports for Strategy and TradeStatus enums
+- Enums are runtime values, not just types - must be imported as values to use as defaults
+- Branch: feat/api-based-crons
+- Commit: 949e83a
+
+[2026-02-19T17:29:00Z] FEATURE: Added $AERO and $VIRTUALS to crypto tab
+- Added Aerodrome Finance (AERO) and Virtuals Protocol (VIRTUALS) to CoinGecko fetch
+- Updated fallback data with both tokens
+- CoinGecko IDs: aerodrome-finance, virtuals-protocol
+- Committed and pushed to feat/tradervue-trading-journal branch
+
+[2026-02-19T16:45:00Z] SYSTEM: Created API-based cron jobs feature branch (AI-Independent)
+- Created docs/CRON_MIGRATION.md with analysis of which crons to convert
+  - Convert to API: Token Usage, Market Close, Gap Scanner, GitHub PR, Habit Check-in, Market Briefing
+  - Keep as AI: Goals Audit, Task Approval, Trading Analysis (need reasoning)
+- Created lib/cron-helpers.ts with common utilities:
+  - postToCronResults() - Store job results in Redis
+  - sendTelegramIfNeeded() - Conditional Telegram notifications
+  - logToActivityLog() - Execution history tracking
+  - Helper functions for date formatting and market checks
+- Created 6 API-based cron job endpoints (no AI dependency):
+  - /api/cron-jobs/token-usage - Daily token usage reports from Redis
+  - /api/cron-jobs/market-close - SPY, QQQ, VIX end-of-day data
+  - /api/cron-jobs/market-briefing - Morning indices + key stocks + crypto
+  - /api/cron-jobs/github-pr-monitor - Open PRs and review requests
+  - /api/cron-jobs/gap-scanner-trigger - Triggers existing gap scanner
+  - /api/cron-jobs/habit-checkin - Evening habit reminder (static)
+- Created cron-api-based.yaml with new schedules:
+  - Token Usage: 11 PM daily
+  - Market Close: 5:30 PM ET M-F
+  - Gap Scanner: 8:30 AM ET M-F
+  - GitHub PR Check: Every 6 hours
+  - Habit Check-in: 8 PM daily
+  - Market Briefing: 8 AM ET M-F
+- All endpoints post results to /api/cron-results and log to Activity Log
+- Telegram notifications sent conditionally (significant events only)
+- Branch: feat/api-based-crons
+- PR: https://github.com/mschiumo/juno-mission-control/pull/new/feat/api-based-crons
+
 [2026-02-19T02:00:00Z] SYSTEM: Updated Gap Scanner for 5000 stocks, $100M+ market cap, 8:30 AM schedule
 - Scales from 50 stocks to 5000 (100x increase)
 - Filters by market cap > $100M (previously no filtering)
