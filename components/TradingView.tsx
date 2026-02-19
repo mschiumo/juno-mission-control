@@ -26,8 +26,12 @@ export default function TradingView() {
 
   const subTabs = [
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
+    { id: 'market' as const, label: 'Market', icon: TrendingUp },
     { id: 'trades' as const, label: 'Trades', icon: List },
     { id: 'calendar' as const, label: 'Calendar', icon: Calendar },
+    { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
+    { id: 'journal' as const, label: 'Journal', icon: BookOpen },
+  ];
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { id: 'journal' as const, label: 'Journal', icon: BookOpen },
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
