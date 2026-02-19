@@ -8,7 +8,8 @@ import {
   BarChart3, 
   BookOpen,
   TrendingUp,
-  Newspaper
+  Newspaper,
+  Calculator
 } from 'lucide-react';
 import MarketHoursBanner from '@/components/MarketHoursBanner';
 import GapScannerCard from '@/components/GapScannerCard';
@@ -17,8 +18,9 @@ import NewsScreenerCard from '@/components/NewsScreenerCard';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import DashboardStats from '@/components/trading/DashboardStats';
 import CalendarView from '@/components/trading/CalendarView';
+import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 
-type TradingSubTab = 'overview' | 'trades' | 'calendar' | 'analytics' | 'journal' | 'market';
+type TradingSubTab = 'overview' | 'trades' | 'calendar' | 'analytics' | 'journal' | 'market' | 'projection';
 
 export default function TradingView() {
   const [activeSubTab, setActiveSubTab] = useState<TradingSubTab>('overview');
@@ -29,6 +31,7 @@ export default function TradingView() {
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
     { id: 'trades' as const, label: 'Trades', icon: List },
     { id: 'calendar' as const, label: 'Calendar', icon: Calendar },
+    { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { id: 'journal' as const, label: 'Journal', icon: BookOpen },
   ];
@@ -104,6 +107,10 @@ export default function TradingView() {
           </div>
           <NewsScreenerCard />
         </div>
+      )}
+
+      {activeSubTab === 'projection' && (
+        <ProfitProjectionView />
       )}
 
       {/* Trade Entry Modal */}
