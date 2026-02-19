@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, Save } from 'lucide-react';
 
 interface DayData {
   date: string;
@@ -491,9 +491,9 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
   
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-lg max-h-[80vh] overflow-hidden">
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[#30363d]">
+        <div className="flex items-center justify-between p-4 border-b border-[#30363d] flex-shrink-0">
           <div>
             <h3 className="text-lg font-bold text-white">
               {dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
@@ -514,7 +514,7 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
         </div>
         
         {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-4 p-4 bg-[#0d1117] border-b border-[#30363d]">
+        <div className="grid grid-cols-3 gap-4 p-4 bg-[#0d1117] border-b border-[#30363d] flex-shrink-0">
           <div className="text-center">
             <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Symbols</div>
             <div className="text-white font-semibold">{Object.keys(tradesBySymbol).length}</div>
@@ -529,8 +529,8 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
           </div>
         </div>
         
-        {/* Content */}
-        <div className="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
           {/* Trades List with Details */}
           <div>
             <h4 className="text-sm font-medium text-[#8b949e] mb-2">Trades ({trades.length})</h4>
@@ -591,8 +591,29 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
           </div>
           
           {/* Daily Journal */}
-          <div>
-            <h4 className="text-sm font-medium text-[#8b949e] mb-2">Daily Journal</h4>
+          <div className="pb-2">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-[#8b949e]">Daily Journal</h4>
+              
+              {/* Save Button in Journal Header */}
+              <button 
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-3 py-1.5 bg-[#F97316] hover:bg-[#ea580c] text-white text-xs rounded-lg disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isSaving ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3 h-3" />
+                    Save
+                  </>
+                )}
+              </button>
+            </div>
             <textarea
               placeholder="How did today go? What did you learn?"
               className="w-full p-3 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] resize-none h-24 focus:outline-none focus:border-[#F97316]"
@@ -605,8 +626,8 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
           </div>
         </div>
         
-        {/* Footer */}
-        <div className="flex justify-end gap-3 p-4 border-t border-[#30363d]">
+        {/* Footer - Always visible */}
+        <div className="flex justify-end gap-3 p-4 border-t border-[#30363d] flex-shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-[#8b949e] hover:text-white">
             Close
           </button>
@@ -621,7 +642,10 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
                 Saving...
               </>
             ) : (
-              'Save Journal'
+              <>
+                <Save className="w-4 h-4" />
+                Save Journal
+              </>
             )}
           </button>
         </div>
