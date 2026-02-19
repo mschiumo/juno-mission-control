@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, UpdateTradeRequest } from '@/types/trading';
+import { TradeStatus } from '@/types/trading';
 
 // Reference to the trades store from parent route
 // In production, this would be a database connection
@@ -147,7 +148,7 @@ export async function PUT(
         
         // Auto-update status if exit is provided
         if (!body.status) {
-          updatedTrade.status = 'CLOSED';
+          updatedTrade.status = TradeStatus.CLOSED;
         }
       }
     }
