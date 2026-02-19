@@ -58,11 +58,21 @@ export default function CalendarView() {
 
   const fetchTradesForDate = async (date: string) => {
     try {
-      const response = await fetch(`/api/trades?date=${date}`);
-      const data = await response.json();
+      const [tradesRes, journalRes] = await Promise.all([
+        fetch(`/api/trades?date=${date}`),
+        fetch(`/api/trades/journal?date=${date}`)
+      ]);
       
-      if (data.success && data.trades) {
-        setSelectedDateTrades(data.trades);
+      const tradesData = await tradesRes.json();
+      const journalData = await journalRes.json();
+      
+      if (tradesData.success && tradesData.trades) {
+        setSelectedDateTrades(tradesData.trades);
+      }
+      
+      if (journalData.success && journalData.notes) {
+        // Pre-fill journal text if it exists
+        // This will be handled by the DayDetailModal component
       }
     } catch (error) {
       console.error('Error fetching trades for date:', error);
@@ -311,7 +321,8 @@ export default function CalendarView() {
           onClose={() => {
             setSelectedDate(null);
             setSelectedDateTrades([]);
-          }} 
+          }}
+          onSave={() => fetchDailyStats()}
         />
       )}
 
@@ -323,8 +334,38 @@ export default function CalendarView() {
   );
 }
 
-function DayDetailModal({ date, data, trades, onClose }: { date: string; data: DayData; trades: TOSTrade[]; onClose: () => void }) {
+function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string; data: DayData; trades: TOSTrade[]; onClose: () => void; onSave?: (date: string, notes: string) => void }) {
   const dateObj = new Date(date);
+  const [journalText, setJournalText] = useState(data.hasJournal ? "Followed my plan well today. Avoided FOMO on the midday chop." : "");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
+  
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveStatus(null);
+    
+    try {
+      const response = await fetch('/api/trades/journal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, notes: journalText })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setSaveStatus({ success: true, message: 'Journal saved!' });
+        if (onSave) onSave(date, journalText);
+        setTimeout(() => setSaveStatus(null), 2000);
+      } else {
+        setSaveStatus({ success: false, message: result.error || 'Failed to save' });
+      }
+    } catch (error) {
+      setSaveStatus({ success: false, message: 'Error saving journal' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
   
   // Group trades by symbol for display
   const tradesBySymbol = useMemo(() => {
@@ -466,8 +507,12 @@ function DayDetailModal({ date, data, trades, onClose }: { date: string; data: D
             <textarea
               placeholder="How did today go? What did you learn?"
               className="w-full p-3 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] resize-none h-24 focus:outline-none focus:border-[#F97316]"
-              defaultValue={data.hasJournal ? "Followed my plan well today. Avoided FOMO on the midday chop." : ""}
+              value={journalText}
+              onChange={(e) => setJournalText(e.target.value)}
             />
+            {saveStatus && (
+              <p className={`text-xs mt-1 ${saveStatus.success ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>{saveStatus.message}</p>
+            )}
           </div>
         </div>
         
@@ -476,8 +521,19 @@ function DayDetailModal({ date, data, trades, onClose }: { date: string; data: D
           <button onClick={onClose} className="px-4 py-2 text-[#8b949e] hover:text-white">
             Close
           </button>
-          <button className="px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg">
-            Save Journal
+          <button 
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
+          >
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Journal'
+            )}
           </button>
         </div>
       </div>

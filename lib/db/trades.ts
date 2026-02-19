@@ -81,7 +81,12 @@ export async function getTradesBySymbol(symbol: string): Promise<TOSTrade[]> {
 }
 
 export async function calculateDailyStats(): Promise<DayData[]> {
+  const redis = await getRedisClient();
   const trades = await getAllTrades();
+  
+  // Get all journal dates
+  const journalKeys = await redis.keys('journal:*');
+  const journalDates = new Set(journalKeys.map(k => k.replace('journal:', '')));
   
   const byDate: Record<string, TOSTrade[]> = {};
   
@@ -135,7 +140,7 @@ export async function calculateDailyStats(): Promise<DayData[]> {
       pnl: totalPnL,
       trades: dayTrades.length,
       winRate: totalTrades > 0 ? Math.round((wins / totalTrades) * 100) : undefined,
-      hasJournal: false
+      hasJournal: journalDates.has(date)
     };
   }).sort((a, b) => a.date.localeCompare(b.date));
 }
