@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseTOSCSV } from '@/lib/parsers/tos-parser';
+import { saveTrades, calculateDailyStats } from '@/lib/db/trades';
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,14 +41,18 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // TODO: Save trades to database
-    // For now, just return success with count
+    // Save trades to database
+    const savedCount = await saveTrades(trades);
+    
+    // Calculate daily stats
+    const dailyStats = await calculateDailyStats();
     
     return NextResponse.json({
       success: true,
-      count: trades.length,
-      message: `Successfully parsed ${trades.length} trades`,
-      sample: trades.slice(0, 3) // Return first 3 for verification
+      count: savedCount,
+      message: `Successfully imported ${savedCount} trades`,
+      trades: trades.slice(0, 3), // Return first 3 for verification
+      dailyStats: dailyStats.slice(-5) // Return last 5 days
     });
     
   } catch (error) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface DayData {
@@ -13,46 +13,66 @@ interface DayData {
   winRate?: number;
 }
 
-// Generate dummy data for demo
-const generateDummyData = (): DayData[] => {
-  const data: DayData[] = [];
-  const startDate = new Date(2024, 0, 1); // Jan 1, 2024
-  
-  for (let i = 0; i < 365; i++) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + i);
-    
-    // Random trading days (skip weekends mostly)
-    const dayOfWeek = date.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue; // Skip weekends
-    
-    // 70% chance of trading on a weekday
-    if (Math.random() > 0.3) {
-      const trades = Math.floor(Math.random() * 5) + 1; // 1-5 trades
-      const pnl = (Math.random() - 0.35) * 2000; // -$700 to +$1300 (slightly positive bias)
-      const wins = Math.floor(trades * (0.4 + Math.random() * 0.4));
-      
-      data.push({
-        date: date.toISOString().split('T')[0],
-        pnl: Math.round(pnl * 100) / 100,
-        trades,
-        hasJournal: Math.random() > 0.5,
-        sharpeRatio: Math.round((Math.random() * 3 - 0.5) * 100) / 100,
-        avgCost: Math.round(Math.random() * 500 + 50),
-        winRate: Math.round((wins / trades) * 100),
-      });
-    }
-  }
-  
-  return data;
-};
-
-const DUMMY_DATA = generateDummyData();
+interface TOSTrade {
+  id?: string;
+  symbol: string;
+  side: 'BUY' | 'SELL';
+  quantity: number;
+  price: number;
+  date: string;
+  time: string;
+  execTime: string;
+  posEffect?: string;
+  orderType?: string;
+  pnl?: number;
+}
 
 export default function CalendarView() {
-  const [currentMonth, setCurrentMonth] = useState(new Date(2024, 0, 1)); // Jan 2024
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [dailyStats, setDailyStats] = useState<DayData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedDateTrades, setSelectedDateTrades] = useState<TOSTrade[]>([]);
+
+  // Fetch real data from API
+  useEffect(() => {
+    fetchDailyStats();
+  }, []);
+
+  const fetchDailyStats = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/trades');
+      const data = await response.json();
+      
+      if (data.success && data.dailyStats) {
+        setDailyStats(data.dailyStats);
+      }
+    } catch (error) {
+      console.error('Error fetching trades:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchTradesForDate = async (date: string) => {
+    try {
+      const response = await fetch(`/api/trades?date=${date}`);
+      const data = await response.json();
+      
+      if (data.success && data.trades) {
+        setSelectedDateTrades(data.trades);
+      }
+    } catch (error) {
+      console.error('Error fetching trades for date:', error);
+    }
+  };
+
+  const handleDateClick = (date: string) => {
+    setSelectedDate(date);
+    fetchTradesForDate(date);
+  };
 
   const monthData = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -72,19 +92,19 @@ export default function CalendarView() {
     // Actual days
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const dayData = DUMMY_DATA.find(d => d.date === dateStr);
+      const dayData = dailyStats.find(d => d.date === dateStr);
       days.push(dayData || { date: dateStr, pnl: 0, trades: 0, hasJournal: false });
     }
     
     return days;
-  }, [currentMonth]);
+  }, [currentMonth, dailyStats]);
 
   const monthStats = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    const monthDays = DUMMY_DATA.filter(d => {
+    const monthDays = dailyStats.filter(d => {
       const date = new Date(d.date);
-      return date.getFullYear() === year && date.getMonth() === month;
+      return date.getFullYear() === year && date.getMonth() === month && d.trades > 0;
     });
     
     const totalPnl = monthDays.reduce((sum, d) => sum + d.pnl, 0);
@@ -96,7 +116,11 @@ export default function CalendarView() {
       : 0;
     
     return { totalPnl, totalTrades, winDays, lossDays, avgSharpe };
-  }, [currentMonth]);
+  }, [currentMonth, dailyStats]);
+
+  const handleImportSuccess = () => {
+    fetchDailyStats(); // Refresh data after import
+  };
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentMonth(prev => {
@@ -225,7 +249,7 @@ export default function CalendarView() {
             return (
               <div
                 key={dayData.date}
-                onClick={() => hasData && setSelectedDate(dayData.date)}
+                onClick={() => hasData && handleDateClick(dayData.date)}
                 className={`
                   aspect-square border-r border-b border-[#21262d] p-2 cursor-pointer
                   transition-all hover:brightness-110 relative
@@ -282,21 +306,58 @@ export default function CalendarView() {
       {selectedDate && (
         <DayDetailModal 
           date={selectedDate} 
-          data={DUMMY_DATA.find(d => d.date === selectedDate)!}
-          onClose={() => setSelectedDate(null)} 
+          data={dailyStats.find(d => d.date === selectedDate) || { date: selectedDate, pnl: 0, trades: 0, hasJournal: false }} 
+          trades={selectedDateTrades}
+          onClose={() => {
+            setSelectedDate(null);
+            setSelectedDateTrades([]);
+          }} 
         />
       )}
 
       {/* Import Modal */}
       {showImportModal && (
-        <ImportModal onClose={() => setShowImportModal(false)} />
+        <ImportModal onClose={() => setShowImportModal(false)} onSuccess={handleImportSuccess} />
       )}
     </div>
   );
 }
 
-function DayDetailModal({ date, data, onClose }: { date: string; data: DayData; onClose: () => void }) {
+function DayDetailModal({ date, data, trades, onClose }: { date: string; data: DayData; trades: TOSTrade[]; onClose: () => void }) {
   const dateObj = new Date(date);
+  
+  // Group trades by symbol for display
+  const tradesBySymbol = useMemo(() => {
+    const grouped: Record<string, TOSTrade[]> = {};
+    trades.forEach(trade => {
+      if (!grouped[trade.symbol]) grouped[trade.symbol] = [];
+      grouped[trade.symbol].push(trade);
+    });
+    return grouped;
+  }, [trades]);
+
+  // Calculate per-symbol PnL
+  const symbolPnLs = useMemo(() => {
+    return Object.entries(tradesBySymbol).map(([symbol, symbolTrades]) => {
+      const buys = symbolTrades.filter(t => t.side === 'BUY');
+      const sells = symbolTrades.filter(t => t.side === 'SELL');
+      
+      let pnl = 0;
+      if (buys.length > 0 && sells.length > 0) {
+        const buyValue = buys.reduce((sum, t) => sum + t.price * t.quantity, 0);
+        const buyQty = buys.reduce((sum, t) => sum + t.quantity, 0);
+        const avgBuy = buyQty > 0 ? buyValue / buyQty : 0;
+        
+        const sellValue = sells.reduce((sum, t) => sum + t.price * t.quantity, 0);
+        const sellQty = sells.reduce((sum, t) => sum + t.quantity, 0);
+        const avgSell = sellQty > 0 ? sellValue / sellQty : 0;
+        
+        pnl = (avgSell - avgBuy) * Math.min(buyQty, sellQty);
+      }
+      
+      return { symbol, trades: symbolTrades, pnl, isWin: pnl > 0 };
+    });
+  }, [tradesBySymbol]);
   
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -325,20 +386,16 @@ function DayDetailModal({ date, data, onClose }: { date: string; data: DayData; 
         {/* Stats Row */}
         <div className="grid grid-cols-3 gap-4 p-4 bg-[#0d1117] border-b border-[#30363d]">
           <div className="text-center">
-            <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Avg Cost</div>
-            <div className="text-white font-semibold">${data.avgCost || 0}</div>
+            <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Symbols</div>
+            <div className="text-white font-semibold">{Object.keys(tradesBySymbol).length}</div>
           </div>
           <div className="text-center">
-            <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Sharpe Ratio</div>
-            <div className={data.sharpeRatio && data.sharpeRatio >= 1 ? 'text-[#3fb950] font-semibold' : 'text-white font-semibold'}>
-              {data.sharpeRatio?.toFixed(2) || '0.00'}
-            </div>
+            <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Winning Trades</div>
+            <div className="text-[#3fb950] font-semibold">{symbolPnLs.filter(s => s.isWin).length}</div>
           </div>
           <div className="text-center">
-            <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Avg Trade</div>
-            <div className={data.pnl / data.trades >= 0 ? 'text-[#3fb950] font-semibold' : 'text-[#f85149] font-semibold'}>
-              {data.trades > 0 ? `${data.pnl / data.trades >= 0 ? '+' : ''}$${(data.pnl / data.trades).toFixed(2)}` : '$0.00'}
-            </div>
+            <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Losing Trades</div>
+            <div className="text-[#f85149] font-semibold">{symbolPnLs.filter(s => !s.isWin && s.pnl !== 0).length}</div>
           </div>
         </div>
         
@@ -346,51 +403,60 @@ function DayDetailModal({ date, data, onClose }: { date: string; data: DayData; 
         <div className="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
           {/* Trades List with Details */}
           <div>
-            <h4 className="text-sm font-medium text-[#8b949e] mb-2">Trades ({data.trades})</h4>
+            <h4 className="text-sm font-medium text-[#8b949e] mb-2">Trades ({trades.length})</h4>
             <div className="space-y-2">
-              {Array.from({ length: data.trades }).map((_, i) => {
-                const isWin = i % 2 === 0;
-                const pnl = isWin ? Math.floor(Math.random() * 400 + 100) : -Math.floor(Math.random() * 300 + 50);
-                const entryPrice = (Math.random() * 200 + 50).toFixed(2);
-                const exitPrice = (parseFloat(entryPrice) + (pnl > 0 ? 1 : -1) * Math.random() * 5).toFixed(2);
-                const shares = Math.floor(Math.random() * 100 + 10) * 10;
-                const avgCost = ((parseFloat(entryPrice) + parseFloat(exitPrice)) / 2).toFixed(2);
-                
-                return (
-                  <div key={i} className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-white font-medium">AAPL</span>
-                        <span className="text-xs px-2 py-0.5 bg-[#21262d] rounded text-[#8b949e]">Long</span>
+              {trades.length === 0 ? (
+                <div className="text-[#8b949e] text-sm">No trade details available</div>
+              ) : (
+                symbolPnLs.map(({ symbol, trades: symbolTrades, pnl }) => {
+                  const isWin = pnl > 0;
+                  const buy = symbolTrades.find(t => t.side === 'BUY');
+                  const sell = symbolTrades.find(t => t.side === 'SELL');
+                  
+                  return (
+                    <div key={symbol} className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-medium">{symbol}</span>
+                          <span className="text-xs px-2 py-0.5 bg-[#21262d] rounded text-[#8b949e]">
+                            {symbolTrades.length} fills
+                          </span>
+                        </div>
+                        <span className={isWin ? 'text-[#3fb950] font-semibold' : pnl < 0 ? 'text-[#f85149] font-semibold' : 'text-[#8b949e] font-semibold'}>
+                          {pnl > 0 ? '+' : ''}${pnl.toFixed(2)}
+                        </span>
                       </div>
-                      <span className={isWin ? 'text-[#3fb950] font-semibold' : 'text-[#f85149] font-semibold'}>
-                        {pnl >= 0 ? '+' : ''}${Math.abs(pnl).toFixed(2)}
-                      </span>
+                      <div className="grid grid-cols-4 gap-2 text-xs">
+                        {buy && (
+                          <div>
+                            <span className="text-[#8b949e]">Buy: </span>
+                            <span className="text-[#3fb950]">${buy.price.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {sell && (
+                          <div>
+                            <span className="text-[#8b949e]">Sell: </span>
+                            <span className="text-[#f85149]">${sell.price.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-[#8b949e]">Qty: </span>
+                          <span className="text-white">{symbolTrades[0]?.quantity}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#8b949e]">Time: </span>
+                          <span className="text-white">{symbolTrades[0]?.time.slice(0, 5)}</span>
+                        </div>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-[#21262d]">
+                        <span className="text-xs text-[#8b949e]">
+                          {symbolTrades.map(t => `${t.side} ${t.quantity} @ $${t.price.toFixed(2)}`).join(' → ')}
+                        </span>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-2 text-xs">
-                      <div>
-                        <span className="text-[#8b949e]">Entry: </span>
-                        <span className="text-white">${entryPrice}</span>
-                      </div>
-                      <div>
-                        <span className="text-[#8b949e]">Exit: </span>
-                        <span className="text-white">${exitPrice}</span>
-                      </div>
-                      <div>
-                        <span className="text-[#8b949e]">Shares: </span>
-                        <span className="text-white">{shares}</span>
-                      </div>
-                      <div>
-                        <span className="text-[#8b949e]">Avg: </span>
-                        <span className="text-white">${avgCost}</span>
-                      </div>
-                    </div>
-                    <div className="mt-2 pt-2 border-t border-[#21262d]">
-                      <span className="text-xs text-[#8b949e]">Breakout setup · 09:45-10:30</span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
           
@@ -419,7 +485,7 @@ function DayDetailModal({ date, data, onClose }: { date: string; data: DayData; 
   );
 }
 
-function ImportModal({ onClose }: { onClose: () => void }) {
+function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -468,7 +534,11 @@ function ImportModal({ onClose }: { onClose: () => void }) {
         });
         setTimeout(() => {
           onClose();
-          window.location.reload();
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            window.location.reload();
+          }
         }, 1500);
       } else {
         setUploadResult({ success: false, message: result.error || 'Import failed' });
