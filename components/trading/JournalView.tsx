@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BookOpen, ChevronDown, ChevronUp, Plus, X, Calendar, Clock, Save, CheckCircle } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronUp, Plus, X, Calendar, Clock, Save, CheckCircle, Bell } from 'lucide-react';
 
 interface JournalPrompt {
   id: string;
@@ -143,19 +143,23 @@ export default function JournalView() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <BookOpen className="w-6 h-6 text-[#F97316]" />
           <h2 className="text-xl font-bold text-white">Trading Journal</h2>
         </div>
         
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Entry
-        </button>
+        <div className="flex items-center gap-3">
+          <TestNotificationButton />
+          
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Entry
+          </button>
+        </div>
       </div>
 
       {/* Journal List */}
@@ -325,6 +329,64 @@ export default function JournalView() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// Test button component for manual notification trigger
+function TestNotificationButton() {
+  const [isCreating, setIsCreating] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const createTestNotification = async () => {
+    setIsCreating(true);
+    setResult(null);
+    
+    try {
+      const response = await fetch('/api/cron/journal-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setResult('✅ Created! Check bell icon.');
+        // Reload page after 2 seconds to show notification
+        setTimeout(() => window.location.reload(), 2000);
+      } else {
+        setResult('❌ Error: ' + data.error);
+      }
+    } catch (error) {
+      setResult('❌ Failed');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={createTestNotification}
+        disabled={isCreating}
+        className="flex items-center gap-2 px-3 py-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
+      >
+        {isCreating ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            Creating...
+          </>
+        ) : (
+          <>
+            <Bell className="w-4 h-4" />
+            Test Notification
+          </>
+        )}
+      </button>
+      
+      {result && (
+        <span className="text-xs text-[#8b949e]">{result}</span>
       )}
     </div>
   );
