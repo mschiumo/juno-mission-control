@@ -22,6 +22,7 @@ import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
 import TradesListView from '@/components/trading/TradesListView';
 import AnalyticsView from '@/components/trading/AnalyticsView';
+import JournalView from '@/components/trading/JournalView';
 
 type TradingSubTab = 'overview' | 'trades' | 'analytics' | 'journal' | 'market' | 'projection' | 'trade-management';
 
@@ -105,11 +106,7 @@ export default function TradingView() {
       )}
 
       {activeSubTab === 'journal' && (
-        <div className="p-8 bg-[#161b22] border border-[#30363d] rounded-xl text-center">
-          <BookOpen className="w-12 h-12 text-[#8b949e] mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-white mb-2">Trading Journal</h3>
-          <p className="text-[#8b949e]">Daily journal and trade notes coming soon...</p>
-        </div>
+        <JournalView />
       )}
 
       {activeSubTab === 'trade-management' && (
