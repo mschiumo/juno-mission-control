@@ -13,8 +13,12 @@ interface GapStock {
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
-if (!FINNHUB_API_KEY) {
-  throw new Error('FINNHUB_API_KEY environment variable is required');
+// Lazy check for API key - don't throw at module load time
+function getFinnhubApiKey(): string {
+  if (!FINNHUB_API_KEY) {
+    throw new Error('FINNHUB_API_KEY environment variable is required');
+  }
+  return FINNHUB_API_KEY;
 }
 
 // US Market Holidays 2026
@@ -121,8 +125,9 @@ function isETFOrDerivative(symbol: string): boolean {
 // Fetch real-time quote from Finnhub (includes pre-market)
 async function fetchFinnhubQuote(symbol: string): Promise<{ current: number; previous: number; volume: number } | null> {
   try {
+    const apiKey = getFinnhubApiKey();
     const response = await fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`,
+      `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`,
       { next: { revalidate: 0 } } // No cache - real-time data
     );
     
@@ -155,8 +160,9 @@ async function fetchFinnhubQuote(symbol: string): Promise<{ current: number; pre
 // Fetch company profile for name and market cap
 async function fetchFinnhubProfile(symbol: string): Promise<{ name: string; marketCap: number } | null> {
   try {
+    const apiKey = getFinnhubApiKey();
     const response = await fetch(
-      `https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_API_KEY}`,
+      `https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${apiKey}`,
       { next: { revalidate: 3600 } }
     );
     
@@ -179,9 +185,12 @@ export async function GET() {
   const errors: string[] = [];
   
   try {
+    // Lazy check for API key
+    const apiKey = getFinnhubApiKey();
+    
     console.log(`[GapScanner] Starting scan at ${timestamp}`);
-    console.log(`[GapScanner] API Key present: ${!!FINNHUB_API_KEY}`);
-    console.log(`[GapScanner] API Key length: ${FINNHUB_API_KEY?.length || 0}`);
+    console.log(`[GapScanner] API Key present: ${!!apiKey}`);
+    console.log(`[GapScanner] API Key length: ${apiKey?.length || 0}`);
     
     const gainers: GapStock[] = [];
     const losers: GapStock[] = [];
@@ -282,8 +291,8 @@ export async function GET() {
       marketStatus: marketSession.marketStatus,
       isPreMarket: marketSession.isPreMarket,
       debug: {
-        apiKeyPresent: !!FINNHUB_API_KEY,
-        apiKeyLength: FINNHUB_API_KEY?.length || 0,
+        apiKeyPresent: !!apiKey,
+        apiKeyLength: apiKey?.length || 0,
         universeSize: STOCK_UNIVERSE.length,
         skippedETF,
         skippedGap,
