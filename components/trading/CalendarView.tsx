@@ -191,19 +191,27 @@ export default function CalendarView() {
     return 'bg-[#da3633]/20 border-[#da3633]/50 text-[#f85149]';
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-2 border-[#F97316]/30 border-t-[#F97316] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      {/* Header - Mobile Optimized */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-4">
           <button
             onClick={() => navigateMonth('prev')}
             className="p-2 hover:bg-[#262626] rounded-lg transition-colors"
           >
             <ChevronLeft className="w-5 h-5 text-[#8b949e]" />
           </button>
-          <h2 className="text-xl font-bold text-white min-w-[150px] text-center">
-            {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          <h2 className="text-lg sm:text-xl font-bold text-white min-w-[120px] sm:min-w-[150px] text-center">
+            {currentMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
           </h2>
           <button
             onClick={() => navigateMonth('next')}
@@ -213,9 +221,9 @@ export default function CalendarView() {
           </button>
         </div>
         
-        <div className="flex items-center gap-3">
-          {/* Month Stats with Labels */}
-          <div className="hidden md:flex items-center gap-4 text-sm bg-[#161b22] border border-[#30363d] rounded-lg px-4 py-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+          {/* Month Stats - Hidden on small mobile */}
+          <div className="hidden sm:flex items-center gap-3 text-sm bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2">
             <div className="flex flex-col items-center">
               <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">PnL</span>
               <span className={monthStats.totalPnl >= 0 ? 'text-[#3fb950] font-semibold' : 'text-[#f85149] font-semibold'}>
@@ -223,41 +231,25 @@ export default function CalendarView() {
               </span>
             </div>
             
-            <div className="w-px h-8 bg-[#30363d]" />
+            <div className="w-px h-6 bg-[#30363d]" />
             
             <div className="flex flex-col items-center">
               <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">W/L</span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 text-xs">
                 <span className="text-[#3fb950] font-semibold">{monthStats.winDays}W</span>
                 <span className="text-[#8b949e]">/</span>
                 <span className="text-[#f85149] font-semibold">{monthStats.lossDays}L</span>
               </div>
-            </div>
-            
-            <div className="w-px h-8 bg-[#30363d]" />
-            
-            <div className="flex flex-col items-center">
-              <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Sharpe</span>
-              <span className={monthStats.avgSharpe >= 1 ? 'text-[#3fb950] font-semibold' : 'text-[#8b949e] font-semibold'}>
-                {monthStats.avgSharpe.toFixed(2)}
-              </span>
-            </div>
-            
-            <div className="w-px h-8 bg-[#30363d]" />
-            
-            <div className="flex flex-col items-center">
-              <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Trades</span>
-              <span className="text-white font-semibold">{monthStats.totalTrades}</span>
             </div>
           </div>
           
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors font-medium text-sm"
+              className="flex items-center gap-2 px-3 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors font-medium text-sm"
             >
               <Upload className="w-4 h-4" />
-              Import
+              <span className="hidden sm:inline">Import</span>
             </button>
             
             {/* Info Tooltip */}
@@ -269,8 +261,8 @@ export default function CalendarView() {
                 <Info className="w-4 h-4 text-[#8b949e] hover:text-[#58a6ff]" />
               </button>
               
-              {/* Tooltip */}
-              <div className="absolute right-0 top-full mt-2 w-80 p-4 bg-[#0d1117] border border-[#30363d] rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+              {/* Tooltip - Mobile optimized */}
+              <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 p-4 bg-[#0d1117] border border-[#30363d] rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                 <div className="text-sm font-medium text-white mb-2">How to Import Trades</div>
                 <div className="text-xs text-[#8b949e] space-y-2">
                   <p><strong className="text-[#F97316]">1.</strong> Open ThinkOrSwim (TOS)</p>
@@ -289,34 +281,33 @@ export default function CalendarView() {
               </div>
             </div>
           </div>
-          
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg transition-colors font-medium text-sm">
-            <Plus className="w-4 h-4" />
-            Add Trade
-          </button>
         </div>
       </div>
 
       {/* Calendar Grid */}
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-        {/* Day Headers */}
-        <div className="grid grid-cols-8 border-b border-[#30363d]">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Total'].map(day => (
-            <div key={day} className="p-3 text-center text-xs font-medium text-[#8b949e] bg-[#0d1117] border-r border-[#30363d] last:border-r-0">
-              {day}
+        {/* Day Headers - 7 days on mobile, 8 on desktop */}
+        <div className="grid grid-cols-7 md:grid-cols-8 border-b border-[#30363d]">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <div key={day} className="p-2 md:p-3 text-center text-[10px] md:text-xs font-medium text-[#8b949e] bg-[#0d1117] border-r border-[#30363d] last:border-r-0">
+              <span className="hidden md:inline">{day}</span>
+              <span className="md:hidden">{day.slice(0, 1)}</span>
             </div>
           ))}
+          <div className="hidden md:block p-3 text-center text-xs font-medium text-[#8b949e] bg-[#0d1117] border-r border-[#30363d] last:border-r-0">
+            Total
+          </div>
         </div>
         
         {/* Calendar Weeks */}
         <div>
           {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="grid grid-cols-8 border-b border-[#30363d] last:border-b-0">
+            <div key={weekIndex} className="grid grid-cols-7 md:grid-cols-8 border-b border-[#30363d] last:border-b-0">
               {/* Days */}
               {week.days.map((dayData, dayIndex) => {
                 if (!dayData) {
                   return (
-                    <div key={`empty-${weekIndex}-${dayIndex}`} className="aspect-[4/3] border-r border-[#21262d] bg-[#0d1117]/30" />
+                    <div key={`empty-${weekIndex}-${dayIndex}`} className="aspect-[3/4] md:aspect-[4/3] border-r border-[#21262d] bg-[#0d1117]/30" />
                   );
                 }
                 
@@ -329,7 +320,7 @@ export default function CalendarView() {
                     key={dayData.date}
                     onClick={() => hasData && handleDateClick(dayData.date)}
                     className={`
-                      aspect-[4/3] border-r border-[#21262d] p-2 cursor-pointer
+                      aspect-[3/4] md:aspect-[4/3] border-r border-[#21262d] p-1 md:p-2 cursor-pointer
                       transition-all hover:brightness-110 relative
                       ${getDayColor(dayData)}
                       ${hasData ? 'hover:ring-1 hover:ring-[#F97316] hover:z-10' : ''}
@@ -338,18 +329,18 @@ export default function CalendarView() {
                   >
                     <div className="flex flex-col h-full">
                       {/* Day number */}
-                      <span className={`text-sm font-semibold ${hasData ? 'text-white' : 'text-[#8b949e]'}`}>
+                      <span className={`text-xs md:text-sm font-semibold ${hasData ? 'text-white' : 'text-[#8b949e]'}`}>
                         {dayNumber}
                       </span>
                       
                       {/* P&L and trades */}
                       {hasData && (
                         <div className="mt-auto">
-                          <div className={`font-bold text-sm ${dayData.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                          <div className={`font-bold text-[10px] md:text-sm ${dayData.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
                             {dayData.pnl >= 0 ? '+' : ''}{formatCurrency(dayData.pnl)}
                           </div>
-                          <div className="text-xs text-[#8b949e]">
-                            {dayData.trades} trade{dayData.trades !== 1 ? 's' : ''}
+                          <div className="text-[8px] md:text-xs text-[#8b949e] truncate">
+                            {dayData.trades}t
                           </div>
                         </div>
                       )}
@@ -357,15 +348,15 @@ export default function CalendarView() {
                     
                     {/* Journal indicator */}
                     {dayData.hasJournal && (
-                      <div className="absolute top-2 right-2 w-2 h-2 bg-[#a371f7] rounded-full" />
+                      <div className="absolute top-1 right-1 md:top-2 md:right-2 w-1.5 h-1.5 md:w-2 md:h-2 bg-[#a371f7] rounded-full" />
                     )}
                   </div>
                 );
               })}
               
-              {/* Week Total */}
+              {/* Week Total - Desktop only */}
               <div className={`
-                aspect-[4/3] p-2 flex flex-col justify-center items-center
+                hidden md:flex aspect-[4/3] p-2 flex-col justify-center items-center
                 ${week.weekTotal.trades > 0 
                   ? (week.weekTotal.pnl >= 0 ? 'bg-[#238636]/10' : 'bg-[#da3633]/10')
                   : 'bg-[#0d1117]/30'
@@ -374,7 +365,7 @@ export default function CalendarView() {
                 {week.weekTotal.trades > 0 && (
                   <>
                     <div className={`text-xs font-medium text-[#8b949e] mb-1`}>Week {week.weekNum}</div>
-                    <div className={`font-bold ${week.weekTotal.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                    <div className={`font-bold text-sm ${week.weekTotal.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
                       {week.weekTotal.pnl >= 0 ? '+' : ''}{formatCurrency(week.weekTotal.pnl)}
                     </div>
                     <div className="text-xs text-[#8b949e]">{week.weekTotal.trades} trades</div>
@@ -385,32 +376,24 @@ export default function CalendarView() {
           ))}
         </div>
       </div>
-                {dayData.hasJournal && (
-                  <div className="absolute top-2 right-2 w-2 h-2 bg-[#a371f7] rounded-full" />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-6 text-sm">
+      <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-[#238636]/20 border border-[#238636]/50 rounded" />
-          <span className="text-[#8b949e]">Winning Day</span>
+          <div className="w-3 h-3 sm:w-4 sm:h-4 bg-[#238636]/20 border border-[#238636]/50 rounded" />
+          <span className="text-[#8b949e]">Win</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-[#da3633]/20 border border-[#da3633]/50 rounded" />
-          <span className="text-[#8b949e]">Losing Day</span>
+          <div className="w-3 h-3 sm:w-4 sm:h-4 bg-[#da3633]/20 border border-[#da3633]/50 rounded" />
+          <span className="text-[#8b949e]">Loss</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-[#21262d] rounded" />
+          <div className="w-3 h-3 sm:w-4 sm:h-4 bg-[#21262d] rounded" />
           <span className="text-[#8b949e]">No Trades</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-[#a371f7] rounded-full" />
-          <span className="text-[#8b949e]">Has Journal</span>
+          <span className="text-[#8b949e]">Journal</span>
         </div>
       </div>
 
