@@ -32,10 +32,6 @@ export default function TradingView() {
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { id: 'journal' as const, label: 'Journal', icon: BookOpen },
   ];
-    { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
-    { id: 'journal' as const, label: 'Journal', icon: BookOpen },
-    { id: 'market' as const, label: 'Market', icon: TrendingUp },
-  ];
 
   return (
     <div className="space-y-6">
