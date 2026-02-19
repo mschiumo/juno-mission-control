@@ -19,8 +19,21 @@ import {
   Sparkles,
   ArrowRight,
   Target,
-  Award
+  Award,
+  GitBranch,
+  CircleDot,
+  FileDiff
 } from 'lucide-react';
+
+interface PR {
+  url: string;
+  title: string;
+  number: number;
+  branch: string;
+  status: 'open' | 'draft' | 'ready';
+  author: string;
+  createdAt: string;
+}
 
 interface AgentTask {
   id: string;
@@ -51,6 +64,7 @@ interface Agent {
   avatar: string;
   currentTask: AgentTask | null;
   stats: AgentStats;
+  prs: PR[];
   isOnline: boolean;
 }
 
@@ -60,6 +74,7 @@ interface AgentStatusResponse {
   count: number;
   activeCount: number;
   workingCount: number;
+  prs?: PR[];
   isMockData?: boolean;
   error?: string;
 }
@@ -147,6 +162,48 @@ export default function ProjectsCard() {
       return `${diffHours}h ${diffMins % 60}m`;
     }
     return `${diffMins}m`;
+  };
+
+  const formatPRCreatedAt = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getPRStatusColor = (status: string) => {
+    switch (status) {
+      case 'ready':
+        return {
+          bg: 'bg-green-500/10',
+          text: 'text-green-400',
+          border: 'border-green-500/30',
+          icon: <CheckCircle2 className="w-3 h-3" />
+        };
+      case 'draft':
+        return {
+          bg: 'bg-gray-500/10',
+          text: 'text-gray-400',
+          border: 'border-gray-500/30',
+          icon: <FileDiff className="w-3 h-3" />
+        };
+      case 'open':
+      default:
+        return {
+          bg: 'bg-purple-500/10',
+          text: 'text-purple-400',
+          border: 'border-purple-500/30',
+          icon: <GitPullRequest className="w-3 h-3" />
+        };
+    }
   };
 
   const getModelColor = (model: string) => {
@@ -373,6 +430,8 @@ export default function ProjectsCard() {
                   formatTaskDuration={formatTaskDuration}
                   getStatusIcon={getStatusIcon}
                   getRoleLabel={getRoleLabel}
+                  getPRStatusColor={getPRStatusColor}
+                  formatPRCreatedAt={formatPRCreatedAt}
                   isLead
                 />
                 
@@ -402,6 +461,8 @@ export default function ProjectsCard() {
                           formatTaskDuration={formatTaskDuration}
                           getStatusIcon={getStatusIcon}
                           getRoleLabel={getRoleLabel}
+                          getPRStatusColor={getPRStatusColor}
+                          formatPRCreatedAt={formatPRCreatedAt}
                         />
                       </div>
                     ))}
@@ -489,6 +550,8 @@ interface AgentCardProps {
   formatTaskDuration: (startedAt?: string) => string;
   getStatusIcon: (status: string) => React.ReactNode;
   getRoleLabel: (role: string) => string;
+  getPRStatusColor: (status: string) => { bg: string; text: string; border: string; icon: React.ReactNode };
+  formatPRCreatedAt: (timestamp: string) => string;
   isLead?: boolean;
 }
 
@@ -502,6 +565,8 @@ function AgentCard({
   formatTaskDuration,
   getStatusIcon,
   getRoleLabel,
+  getPRStatusColor,
+  formatPRCreatedAt,
   isLead 
 }: AgentCardProps) {
   return (
@@ -646,6 +711,78 @@ function AgentCard({
               </div>
             </div>
           )}
+
+          {/* Active PRs */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <GitPullRequest className="w-3.5 h-3.5 text-purple-400" />
+                <span className="text-xs font-medium text-[#8b949e] uppercase tracking-wide">
+                  Active PRs
+                </span>
+              </div>
+              {agent.prs.length > 0 && (
+                <a 
+                  href="https://github.com/mschiumo/juno-mission-control/pulls"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-[#ff6b35] hover:text-[#ff8c5a] transition-colors flex items-center gap-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  View All
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+            
+            {agent.prs.length > 0 ? (
+              <div className="space-y-2">
+                {agent.prs.map((pr) => {
+                  const prStatus = getPRStatusColor(pr.status);
+                  return (
+                    <a
+                      key={pr.number}
+                      href={pr.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block bg-[#161b22] rounded-lg p-3 border border-[#30363d] hover:border-[#ff6b35]/30 transition-colors group"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-white truncate group-hover:text-[#ff6b35] transition-colors">
+                            #{pr.number} {pr.title}
+                          </h4>
+                          <div className="flex items-center gap-3 mt-2 text-[10px] text-[#8b949e]">
+                            <div className="flex items-center gap-1">
+                              <GitBranch className="w-3 h-3" />
+                              <span className="font-mono truncate max-w-[100px]">{pr.branch}</span>
+                            </div>
+                            <span className="text-[#484f58]">•</span>
+                            <span>@{pr.author}</span>
+                            <span className="text-[#484f58]">•</span>
+                            <span>{formatPRCreatedAt(pr.createdAt)}</span>
+                          </div>
+                        </div>
+                        <span className={`
+                          flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-medium
+                          ${prStatus.bg} ${prStatus.text} border ${prStatus.border}
+                        `}>
+                          {prStatus.icon}
+                          {pr.status.charAt(0).toUpperCase() + pr.status.slice(1)}
+                        </span>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-[#161b22] rounded-lg p-4 border border-[#30363d] text-center">
+                <CircleDot className="w-5 h-5 mx-auto mb-2 text-[#8b949e] opacity-50" />
+                <p className="text-xs text-[#8b949e]">No active PRs</p>
+              </div>
+            )}
+          </div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-3 mb-4">
