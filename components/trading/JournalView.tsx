@@ -250,16 +250,18 @@ export default function JournalView() {
               {/* Collapsible Header */}
               <button
                 onClick={() => toggleExpand(entry.id)}
-                className="w-full p-4 flex items-center justify-between hover:bg-[#1f242b] transition-colors"
+                className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-[#1f242b] transition-colors min-h-[72px]"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                  {/* Date */}
                   <div className="flex items-center gap-2 text-[#8b949e]">
-                    <Calendar className="w-4 h-4" />
-                    <span className="text-sm">{formatDate(entry.date)}</span>
+                    <Calendar className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm text-white">{formatDate(entry.date)}</span>
                   </div>
                   
-                  <div className="flex items-center gap-2 text-[#8b949e]">
-                    <Clock className="w-4 h-4" />
+                  {/* Time */}
+                  <div className="flex items-center gap-2 text-[#8b949e] sm:ml-2">
+                    <Clock className="w-4 h-4 flex-shrink-0" />
                     <span className="text-sm">
                       {new Date(entry.updatedAt).toLocaleTimeString('en-US', {
                         hour: '2-digit',
@@ -269,7 +271,7 @@ export default function JournalView() {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
                   {/* Edit Button */}
                   <button
                     onClick={(e) => {
@@ -294,9 +296,15 @@ export default function JournalView() {
                     <Trash2 className="w-4 h-4 text-[#8b949e] hover:text-[#f85149]" />
                   </button>
                   
-                  {expandedId === entry.id ? (
-                    <ChevronUp className="w-5 h-5 text-[#8b949e]" />
-                  ) : (
+                  <div className="w-6 flex items-center justify-center">
+                    {expandedId === entry.id ? (
+                      <ChevronUp className="w-5 h-5 text-[#8b949e]" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-[#8b949e]" />
+                    )}
+                  </div>
+                </div>
+              </button>
                     <ChevronDown className="w-5 h-5 text-[#8b949e]" />
                   )}
                 </div>
