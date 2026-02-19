@@ -243,16 +243,9 @@ export default function ProfitProjectionView() {
                   className={`border-b border-[#21262d] last:border-0 ${scenario.risk === params.riskPerTrade ? 'bg-[#F97316]/10' : ''}`}
                 >
                   <td className="py-3">
-                    <button
-                      onClick={() => updateParam('riskPerTrade', scenario.risk)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                        scenario.risk === params.riskPerTrade 
-                          ? 'bg-[#F97316] text-white' 
-                          : 'bg-[#21262d] text-[#8b949e] hover:bg-[#30363d]'
-                      }`}
-                    >
+                    <span className={`text-sm font-medium ${scenario.risk === params.riskPerTrade ? 'text-[#F97316]' : 'text-white'}`}>
                       ${scenario.risk}
-                    </button>
+                    </span>
                   </td>
                   <td className={`text-right py-3 ${scenario.netPerDay >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
                     ${scenario.netPerDay.toFixed(2)}

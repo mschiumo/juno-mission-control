@@ -31,9 +31,9 @@ export default function TradingView() {
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
     { id: 'trades' as const, label: 'Trades', icon: List },
     { id: 'calendar' as const, label: 'Calendar', icon: Calendar },
-    { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { id: 'journal' as const, label: 'Journal', icon: BookOpen },
+    { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
   ];
 
   return (
