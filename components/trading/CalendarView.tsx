@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info } from 'lucide-react';
 
 interface DayData {
   date: string;
@@ -218,13 +218,44 @@ export default function CalendarView() {
             </div>
           </div>
           
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors font-medium text-sm"
-          >
-            <Upload className="w-4 h-4" />
-            Import
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors font-medium text-sm"
+            >
+              <Upload className="w-4 h-4" />
+              Import
+            </button>
+            
+            {/* Info Tooltip */}
+            <div className="group relative">
+              <button
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+                aria-label="Import help"
+              >
+                <Info className="w-4 h-4 text-[#8b949e] hover:text-[#58a6ff]" />
+              </button>
+              
+              {/* Tooltip */}
+              <div className="absolute right-0 top-full mt-2 w-80 p-4 bg-[#0d1117] border border-[#30363d] rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="text-sm font-medium text-white mb-2">How to Import Trades</div>
+                <div className="text-xs text-[#8b949e] space-y-2">
+                  <p><strong className="text-[#F97316]">1.</strong> Open ThinkOrSwim (TOS)</p>
+                  <p><strong className="text-[#F97316]">2.</strong> Go to <span className="text-white">Monitor → Account Statement</span></p>
+                  <p><strong className="text-[#F97316]">3.</strong> Set date range and click <span className="text-white">Export</span></p>
+                  <p><strong className="text-[#F97316]">4.</strong> Select <span className="text-white">CSV</span> format</p>
+                  <p><strong className="text-[#F97316]">5.</strong> Upload the file here</p>
+                </div>
+                
+                <div className="mt-3 pt-3 border-t border-[#30363d] text-xs text-[#8b949e]">
+                  💡 We extract filled orders from "Today's Trade Activity" section
+                </div>
+                
+                {/* Arrow */}
+                <div className="absolute -top-1 right-4 w-2 h-2 bg-[#0d1117] border-l border-t border-[#30363d] transform -rotate-45"></div>
+              </div>
+            </div>
+          </div>
           
           <button className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg transition-colors font-medium text-sm">
             <Plus className="w-4 h-4" />
