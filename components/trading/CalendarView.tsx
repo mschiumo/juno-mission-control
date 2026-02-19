@@ -356,7 +356,11 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
       if (result.success) {
         setSaveStatus({ success: true, message: 'Journal saved!' });
         if (onSave) onSave(date, journalText);
-        setTimeout(() => setSaveStatus(null), 2000);
+        
+        // Close modal after short delay
+        setTimeout(() => {
+          onClose();
+        }, 1000);
       } else {
         setSaveStatus({ success: false, message: result.error || 'Failed to save' });
       }
