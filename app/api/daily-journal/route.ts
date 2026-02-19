@@ -3,19 +3,24 @@ import { getRedisClient } from '@/lib/redis';
 
 const DAILY_JOURNAL_PREFIX = 'daily-journal:';
 
+export interface JournalPrompt {
+  id: string;
+  question: string;
+  answer: string;
+}
+
 export interface DailyJournalEntry {
   id: string;
   date: string;
+  prompts: JournalPrompt[];
   createdAt: string;
   updatedAt: string;
-  // Will be expanded with prompt responses
-  content: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { date, content } = body;
+    const { date, prompts } = body;
     
     if (!date) {
       return NextResponse.json(
@@ -34,7 +39,7 @@ export async function POST(request: NextRequest) {
     const entry: DailyJournalEntry = {
       id,
       date,
-      content: content || '',
+      prompts: prompts || [],
       createdAt: existing.createdAt || now,
       updatedAt: now
     };
@@ -42,7 +47,7 @@ export async function POST(request: NextRequest) {
     await redis.hSet(id, {
       id: entry.id,
       date: entry.date,
-      content: entry.content,
+      prompts: JSON.stringify(entry.prompts),
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt
     });
@@ -89,7 +94,7 @@ export async function GET(request: NextRequest) {
         entry: {
           id: data.id,
           date: data.date,
-          content: data.content,
+          prompts: JSON.parse(data.prompts || '[]'),
           createdAt: data.createdAt,
           updatedAt: data.updatedAt
         } as DailyJournalEntry
@@ -106,7 +111,7 @@ export async function GET(request: NextRequest) {
         entries.push({
           id: data.id,
           date: data.date,
-          content: data.content,
+          prompts: JSON.parse(data.prompts || '[]'),
           createdAt: data.createdAt,
           updatedAt: data.updatedAt
         });

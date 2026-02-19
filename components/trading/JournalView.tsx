@@ -1,25 +1,49 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BookOpen, ChevronDown, ChevronUp, Plus, X, Calendar, Clock, Save } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronUp, Plus, X, Calendar, Clock, Save, CheckCircle } from 'lucide-react';
+
+interface JournalPrompt {
+  id: string;
+  question: string;
+  answer: string;
+}
 
 interface JournalEntry {
   id: string;
   date: string;
-  content: string;
+  prompts: JournalPrompt[];
   createdAt: string;
   updatedAt: string;
 }
+
+const DEFAULT_PROMPTS = [
+  {
+    id: 'went-well',
+    question: 'What went well today?',
+    answer: ''
+  },
+  {
+    id: 'improve',
+    question: 'What could you improve?',
+    answer: ''
+  },
+  {
+    id: 'followed-plan',
+    question: 'Did you follow your trading plan?',
+    answer: ''
+  }
+];
 
 export default function JournalView() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(
-003e(new Date().toISOString().split('T')[0]);
-  const [content, setContent] = useState('');
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [prompts, setPrompts] = useState<JournalPrompt[]>(DEFAULT_PROMPTS.map(p => ({ ...p })));
   const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   // Check for openJournal param on mount
   useEffect(() => {
@@ -54,6 +78,7 @@ export default function JournalView() {
 
   const handleSave = async () => {
     setIsSaving(true);
+    setSaveStatus('idle');
     
     try {
       const response = await fetch('/api/daily-journal', {
@@ -61,22 +86,35 @@ export default function JournalView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           date: selectedDate,
-          content
+          prompts
         })
       });
       
       const result = await response.json();
       
       if (result.success) {
-        setShowModal(false);
-        setContent('');
-        fetchEntries(); // Refresh list
+        setSaveStatus('success');
+        setTimeout(() => {
+          setShowModal(false);
+          setPrompts(DEFAULT_PROMPTS.map(p => ({ ...p }))); // Reset prompts
+          setSaveStatus('idle');
+          fetchEntries(); // Refresh list
+        }, 1000);
+      } else {
+        setSaveStatus('error');
       }
     } catch (error) {
       console.error('Error saving journal:', error);
+      setSaveStatus('error');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const updatePromptAnswer = (id: string, answer: string) => {
+    setPrompts(prev => prev.map(p => 
+      p.id === id ? { ...p, answer } : p
+    ));
   };
 
   const toggleExpand = (id: string) => {
@@ -173,14 +211,22 @@ export default function JournalView() {
               {expandedId === entry.id && (
                 <div className="px-4 pb-4 border-t border-[#30363d]">
                   <div className="pt-4 space-y-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-[#8b949e] mb-2">Daily Reflection</h4>
-                      <p className="text-white whitespace-pre-wrap">
-                        {entry.content || <span className="text-[#8b949e] italic">No content added...</span>}
-                      </p>
-                    </div>
+                    {entry.prompts && entry.prompts.length > 0 ? (
+                      entry.prompts.map((prompt) => (
+                        <div key={prompt.id} className="bg-[#0d1117] rounded-lg p-3">
+                          <h4 className="text-sm font-medium text-[#F97316] mb-1">
+                            {prompt.question}
+                          </h4>
+                          <p className="text-white text-sm">
+                            {prompt.answer || <span className="text-[#8b949e] italic">No answer provided...</span>}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-[#8b949e] italic">No prompts answered...</p>
+                    )}
                     
-                    <div className="text-xs text-[#8b949e]">
+                    <div className="text-xs text-[#8b949e] pt-2 border-t border-[#30363d]">
                       Created: {new Date(entry.createdAt).toLocaleString()}
                       <br />
                       Updated: {new Date(entry.updatedAt).toLocaleString()}
@@ -196,9 +242,9 @@ export default function JournalView() {
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-lg">
-            <!-- Header -->
-            <div className="flex items-center justify-between p-4 border-b border-[#30363d]">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-[#30363d] sticky top-0 bg-[#161b22]">
               <h3 className="text-lg font-bold text-white">Daily Journal Entry</h3>
               <button
                 onClick={() => setShowModal(false)}
@@ -208,8 +254,8 @@ export default function JournalView() {
               </button>
             </div>
             
-            <!-- Content -->
-            <div className="p-4 space-y-4">
+            {/* Content */}
+            <div className="p-4 space-y-6">
               <div>
                 <label className="block text-sm text-[#8b949e] mb-2">Date</label>
                 <input
@@ -220,23 +266,39 @@ export default function JournalView() {
                 />
               </div>
               
-              <div>
-                <label className="block text-sm text-[#8b949e] mb-2">Reflection</label>
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="How did your trading go today? What did you learn?"
-                  className="w-full h-32 px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] resize-none focus:outline-none focus:border-[#F97316]"
-                />
+              {/* Prompts */}
+              <div className="space-y-4">
+                {prompts.map((prompt) => (
+                  <div key={prompt.id}>
+                    <label className="block text-sm font-medium text-[#F97316] mb-2">
+                      {prompt.question}
+                    </label>
+                    <textarea
+                      value={prompt.answer}
+                      onChange={(e) => updatePromptAnswer(prompt.id, e.target.value)}
+                      placeholder="Type your answer here..."
+                      className="w-full h-20 px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] resize-none focus:outline-none focus:border-[#F97316]"
+                    />
+                  </div>
+                ))}
               </div>
-              
-              <p className="text-sm text-[#8b949e]">
-                More detailed prompts coming soon...
-              </p>
+
+              {saveStatus === 'success' && (
+                <div className="flex items-center gap-2 text-[#3fb950]">
+                  <CheckCircle className="w-5 h-5" />
+                  <span>Journal saved successfully!</span>
+                </div>
+              )}
+
+              {saveStatus === 'error' && (
+                <div className="text-[#f85149]">
+                  Failed to save journal. Please try again.
+                </div>
+              )}
             </div>
             
-            <!-- Footer -->
-            <div className="flex justify-end gap-3 p-4 border-t border-[#30363d]">
+            {/* Footer */}
+            <div className="flex justify-end gap-3 p-4 border-t border-[#30363d] sticky bottom-0 bg-[#161b22]">
               <button
                 onClick={() => setShowModal(false)}
                 className="px-4 py-2 text-[#8b949e] hover:text-white"
