@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BookOpen, ChevronDown, ChevronUp, Plus, X, Calendar, Clock, Save, CheckCircle } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronUp, Plus, X, Calendar, Clock, Save, CheckCircle, Edit2, Trash2, AlertTriangle } from 'lucide-react';
 
 interface JournalPrompt {
   id: string;
@@ -35,21 +35,28 @@ const DEFAULT_PROMPTS = [
   }
 ];
 
+type ModalMode = 'create' | 'edit';
+
 export default function JournalView() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState<ModalMode>('create');
+  const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [prompts, setPrompts] = useState<JournalPrompt[]>(DEFAULT_PROMPTS.map(p => ({ ...p })));
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Check for openJournal param on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('openJournal') === 'true') {
       setShowModal(true);
+      setModalMode('create');
       // Clean up URL
       params.delete('openJournal');
       window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
@@ -76,6 +83,24 @@ export default function JournalView() {
     }
   };
 
+  const openCreateModal = () => {
+    setModalMode('create');
+    setEditingEntry(null);
+    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setPrompts(DEFAULT_PROMPTS.map(p => ({ ...p })));
+    setSaveStatus('idle');
+    setShowModal(true);
+  };
+
+  const openEditModal = (entry: JournalEntry) => {
+    setModalMode('edit');
+    setEditingEntry(entry);
+    setSelectedDate(entry.date);
+    setPrompts(entry.prompts.length > 0 ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p })));
+    setSaveStatus('idle');
+    setShowModal(true);
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     setSaveStatus('idle');
@@ -96,9 +121,9 @@ export default function JournalView() {
         setSaveStatus('success');
         setTimeout(() => {
           setShowModal(false);
-          setPrompts(DEFAULT_PROMPTS.map(p => ({ ...p }))); // Reset prompts
+          setPrompts(DEFAULT_PROMPTS.map(p => ({ ...p })));
           setSaveStatus('idle');
-          fetchEntries(); // Refresh list
+          fetchEntries();
         }, 1000);
       } else {
         setSaveStatus('error');
@@ -108,6 +133,27 @@ export default function JournalView() {
       setSaveStatus('error');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (date: string) => {
+    setIsDeleting(true);
+    
+    try {
+      const response = await fetch(`/api/daily-journal?date=${date}`, {
+        method: 'DELETE'
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setShowDeleteConfirm(null);
+        fetchEntries();
+      }
+    } catch (error) {
+      console.error('Error deleting journal:', error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -149,15 +195,13 @@ export default function JournalView() {
           <h2 className="text-xl font-bold text-white">Trading Journal</h2>
         </div>
         
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add Entry
-          </button>
-        </div>
+        <button
+          onClick={openCreateModal}
+          className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Add Entry
+        </button>
       </div>
 
       {/* Journal List */}
@@ -168,7 +212,7 @@ export default function JournalView() {
             <h3 className="text-lg font-semibold text-white mb-2">No Journal Entries Yet</h3>
             <p className="text-[#8b949e] mb-4">Start tracking your daily trading reflections.</p>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={openCreateModal}
               className="px-4 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors"
             >
               Create First Entry
@@ -202,11 +246,37 @@ export default function JournalView() {
                   </div>
                 </div>
                 
-                {expandedId === entry.id ? (
-                  <ChevronUp className="w-5 h-5 text-[#8b949e]" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-[#8b949e]" />
-                )}
+                <div className="flex items-center gap-2">
+                  {/* Edit Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditModal(entry);
+                    }}
+                    className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+                    title="Edit entry"
+                  >
+                    <Edit2 className="w-4 h-4 text-[#8b949e] hover:text-[#F97316]" />
+                  </button>
+                  
+                  {/* Delete Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDeleteConfirm(entry.date);
+                    }}
+                    className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+                    title="Delete entry"
+                  >
+                    <Trash2 className="w-4 h-4 text-[#8b949e] hover:text-[#f85149]" />
+                  </button>
+                  
+                  {expandedId === entry.id ? (
+                    <ChevronUp className="w-5 h-5 text-[#8b949e]" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-[#8b949e]" />
+                  )}
+                </div>
               </button>
               
               {/* Expanded Content */}
@@ -241,13 +311,15 @@ export default function JournalView() {
         )}
       </div>
 
-      {/* Add/Edit Modal */}
+      {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-[#30363d] sticky top-0 bg-[#161b22]">
-              <h3 className="text-lg font-bold text-white">Daily Journal Entry</h3>
+              <h3 className="text-lg font-bold text-white">
+                {modalMode === 'create' ? 'Daily Journal Entry' : 'Edit Journal Entry'}
+              </h3>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-2 hover:bg-[#262626] rounded-lg"
@@ -264,8 +336,12 @@ export default function JournalView() {
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#F97316]"
+                  disabled={modalMode === 'edit'}
+                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#F97316] disabled:opacity-50"
                 />
+                {modalMode === 'edit' && (
+                  <p className="text-xs text-[#8b949e] mt-1">Date cannot be changed when editing</p>
+                )}
               </div>
               
               {/* Prompts */}
@@ -320,7 +396,54 @@ export default function JournalView() {
                 ) : (
                   <>
                     <Save className="w-4 h-4" />
-                    Save Entry
+                    {modalMode === 'create' ? 'Save Entry' : 'Update Entry'}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-8 h-8 text-[#f85149]" />
+              <h3 className="text-lg font-bold text-white">Delete Journal Entry?</h3>
+            </div>
+            
+            <p className="text-[#8b949e] mb-6">
+              Are you sure you want to delete the journal entry for{' '}
+              <span className="text-white font-medium">
+                {formatDate(showDeleteConfirm)}
+              </span>
+              ? This action cannot be undone.
+            </p>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-[#8b949e] hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(showDeleteConfirm)}
+                disabled={isDeleting}
+                className="flex items-center gap-2 px-4 py-2 bg-[#f85149] hover:bg-[#da3633] text-white rounded-lg disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete Entry
                   </>
                 )}
               </button>
