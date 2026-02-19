@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface DayData {
@@ -420,6 +420,66 @@ function DayDetailModal({ date, data, onClose }: { date: string; data: DayData; 
 }
 
 function ImportModal({ onClose }: { onClose: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; count?: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (selectedFile: File) => {
+    if (selectedFile.name.endsWith('.csv') || selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls')) {
+      setFile(selectedFile);
+      setUploadResult(null);
+    } else {
+      setUploadResult({ success: false, message: 'Please select a CSV or Excel file' });
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileSelect(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+    
+    setIsUploading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/trades/import', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setUploadResult({ 
+          success: true, 
+          message: `Successfully imported ${result.count || 0} trades`,
+          count: result.count 
+        });
+        setTimeout(() => {
+          onClose();
+          window.location.reload();
+        }, 1500);
+      } else {
+        setUploadResult({ success: false, message: result.error || 'Import failed' });
+      }
+    } catch (error) {
+      setUploadResult({ success: false, message: 'Upload failed. Please try again.' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-xl p-6">
@@ -428,25 +488,79 @@ function ImportModal({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="text-[#8b949e] hover:text-white">✕</button>
         </div>
         
-        <div className="border-2 border-dashed border-[#30363d] rounded-xl p-8 text-center mb-4">
+        <div 
+          className={`border-2 border-dashed rounded-xl p-8 text-center mb-4 transition-colors ${
+            isDragging ? 'border-[#F97316] bg-[#F97316]/10' : 'border-[#30363d]'
+          }`}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+        >
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".csv,.xlsx,.xls"
+            onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+            className="hidden"
+          />
+          
           <Upload className="w-12 h-12 text-[#8b949e] mx-auto mb-4" />
-          <p className="text-white font-medium mb-2">Drop CSV or Excel file here</p>
-          <p className="text-sm text-[#8b949e] mb-4">Supports ThinkOrSwim, Interactive Brokers, and generic formats</p>
-          <button className="px-4 py-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors">
-            Select File
+          
+          {file ? (
+            <div className="space-y-2">
+              <p className="text-[#3fb950] font-medium">{file.name}</p>
+              <p className="text-sm text-[#8b949e]">{(file.size / 1024).toFixed(1)} KB</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-white font-medium mb-2">Drop CSV or Excel file here</p>
+              <p className="text-sm text-[#8b949e] mb-4">Supports ThinkOrSwim, Interactive Brokers, and generic formats</p>
+            </>
+          )}
+          
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="px-4 py-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors disabled:opacity-50"
+          >
+            {file ? 'Change File' : 'Select File'}
           </button>
         </div>
         
-        <div className="flex items-center gap-2 text-sm text-[#8b949e]">
+        {uploadResult && (
+          <div className={`p-3 rounded-lg mb-4 ${uploadResult.success ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#da3633]/20 text-[#f85149]'}`}>
+            {uploadResult.message}
+          </div>
+        )}
+        
+        <div className="flex items-center gap-2 text-sm text-[#8b949e] mb-6">
           <span>Need a template?</span>
-          <a href="/templates/trades_import_template.xlsx" download className="text-[#F97316] hover:underline">
-            Download XLSX
+          <a href="/templates/trades_import_template.csv" download className="text-[#F97316] hover:underline">
+            Download CSV
           </a>
         </div>
         
-        <div className="flex justify-end gap-3 mt-6">
-          <button onClick={onClose} className="px-4 py-2 text-[#8b949e] hover:text-white">
+        <div className="flex justify-end gap-3">
+          <button 
+            onClick={onClose} 
+            disabled={isUploading}
+            className="px-4 py-2 text-[#8b949e] hover:text-white disabled:opacity-50"
+          >
             Cancel
+          </button>
+          <button 
+            onClick={handleUpload}
+            disabled={!file || isUploading}
+            className="px-4 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isUploading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Importing...
+              </>
+            ) : (
+              'Import Trades'
+            )}
           </button>
         </div>
       </div>
