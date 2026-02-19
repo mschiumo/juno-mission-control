@@ -10,7 +10,8 @@ import {
   BookOpen,
   TrendingUp,
   Newspaper,
-  Calculator
+  Calculator,
+  Settings
 } from 'lucide-react';
 import MarketHoursBanner from '@/components/MarketHoursBanner';
 import GapScannerCard from '@/components/GapScannerCard';
@@ -20,8 +21,9 @@ import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import DashboardStats from '@/components/trading/DashboardStats';
 import CalendarView from '@/components/trading/CalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
+import TradeManagementView from '@/components/trading/TradeManagementView';
 
-type TradingSubTab = 'overview' | 'trades' | 'calendar' | 'analytics' | 'journal' | 'market' | 'projection';
+type TradingSubTab = 'overview' | 'trades' | 'calendar' | 'analytics' | 'journal' | 'market' | 'projection' | 'trade-management';
 
 export default function TradingView() {
   const router = useRouter();
@@ -32,7 +34,8 @@ export default function TradingView() {
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
     const subtab = searchParams.get('subtab');
     if (subtab === 'market' || subtab === 'trades' || subtab === 'calendar' || 
-        subtab === 'analytics' || subtab === 'journal' || subtab === 'projection') {
+        subtab === 'analytics' || subtab === 'journal' || subtab === 'projection' ||
+        subtab === 'trade-management') {
       return subtab;
     }
     return 'overview';
@@ -60,6 +63,7 @@ export default function TradingView() {
     { id: 'calendar' as const, label: 'Calendar', icon: Calendar },
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { id: 'journal' as const, label: 'Journal', icon: BookOpen },
+    { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
   ];
 
@@ -90,7 +94,7 @@ export default function TradingView() {
 
       {/* Content */}
       {activeSubTab === 'overview' && (
-        <DashboardStats onAddTrade={() => setShowTradeModal(true)} />
+        <CalendarView />
       )}
 
       {activeSubTab === 'trades' && (
@@ -119,6 +123,10 @@ export default function TradingView() {
           <h3 className="text-lg font-semibold text-white mb-2">Trading Journal</h3>
           <p className="text-[#8b949e]">Daily journal and trade notes coming soon...</p>
         </div>
+      )}
+
+      {activeSubTab === 'trade-management' && (
+        <TradeManagementView />
       )}
 
       {activeSubTab === 'market' && (
