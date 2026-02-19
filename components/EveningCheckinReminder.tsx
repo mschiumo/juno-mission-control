@@ -72,7 +72,7 @@ export default function EveningCheckinReminder() {
         <div className="flex-1">
           <h3 className="font-semibold text-white">Evening Habit Check-in 🌙</h3>
           <p className="text-sm text-[#8b949e] mt-1">
-            Don&#39;t forget to check in on today&#39;s habits! Tap the moon icon in your Habits card.
+            Don&#39;t forget to check in on today&#39;s habits! Click the notebook icon on the habits card.
           </p>
           
           <div className="flex items-center gap-3 mt-3">
