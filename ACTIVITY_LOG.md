@@ -1,5 +1,34 @@
 
-[2026-02-19T02:00:00Z] SYSTEM: Updated Gap Scanner for 5000 stocks, $100M+ market cap, 8:30 AM schedule
+[2026-02-19T18:10:00Z] SYSTEM: Added ThinkOrSwim (TOS) CSV parser for trade imports
+- Created lib/parsers/tos-parser.ts with TOS format detection and parsing
+  - isTOSFormat(): Detects TOS exports via markers (TD Ameritrade, paperMoney, Account Trade History)
+  - parseTOSCSV(): Parses multi-section TOS exports into Trade objects
+  - Handles paperMoney and Live account exports
+  - Supports multiple asset classes: Cash/Equities, Futures, Forex, Crypto, Options
+  - Auto-detects buy/sell from quantity sign, side column, or description text
+  - Matches buy/sell pairs via FIFO to create completed trades with P&L calculations
+  - Parses various date formats: MM/DD/YYYY, YYYY-MM-DD, DD-MMM-YY
+  - Handles options trades with expiration, strike price, and put/call type
+  - Formats option symbols as SYMBOL MMDDYY STRIKE TYPE
+- Created lib/parsers/index.ts for centralized parser exports
+- Created app/api/trades/import/route.ts
+  - POST endpoint with auto-format detection (TOS vs Generic CSV)
+  - GET endpoint listing supported formats
+  - Deduplication logic (prevents importing same trade twice)
+  - Redis persistence for imported trades
+  - Generic CSV parser with auto-detected column mapping
+- Updated components/trading/CalendarView.tsx ImportModal
+  - Added drag-and-drop file upload with visual feedback
+  - Shows supported formats with badges (ThinkOrSwim, Interactive Brokers, Generic CSV)
+  - Added ThinkOrSwim export instructions
+  - File upload with progress state and result feedback
+  - Links to CSV template download
+- Created data/sample-tos-export.csv for testing
+  - Includes Equities, Futures, Options, Forex, and Crypto sections
+  - Realistic TOS export format
+- Branch: feat/tradervue-trading-journal
+- Commit: 29e653a
+
 - Scales from 50 stocks to 5000 (100x increase)
 - Filters by market cap > $100M (previously no filtering)
 - Schedule changed from 7:30 AM to 8:30 AM EST
