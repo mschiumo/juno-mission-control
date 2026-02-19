@@ -27,14 +27,14 @@ export default function NotificationsBell() {
     setMounted(true);
     // Fetch immediately then poll
     const doFetch = () => {
-      fetch('/api/notifications')
+      fetch('/api/notifications?unread=true')
         .then(r => r.json())
         .then(result => {
           if (result.success) {
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setNotifications(result.notifications);
             // eslint-disable-next-line react-hooks/set-state-in-effect
-            setUnreadCount(result.count);
+            setUnreadCount(result.unreadCount || result.notifications.length);
           }
         })
         .catch(console.error);
@@ -151,8 +151,8 @@ export default function NotificationsBell() {
       >
         <Bell className="w-5 h-5 text-[#8b949e] hover:text-white" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#da3633] text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
-            {unreadCount > 9 ? '9+' : unreadCount}
+          <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 bg-[#da3633] text-white text-xs font-bold rounded-full flex items-center justify-center px-1.5 border-2 border-[#161b22] animate-pulse">
+            {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
