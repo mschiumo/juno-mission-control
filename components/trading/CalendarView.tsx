@@ -8,6 +8,9 @@ interface DayData {
   pnl: number;
   trades: number;
   hasJournal: boolean;
+  sharpeRatio?: number;
+  avgCost?: number;
+  winRate?: number;
 }
 
 // Generate dummy data for demo
@@ -27,12 +30,16 @@ const generateDummyData = (): DayData[] => {
     if (Math.random() > 0.3) {
       const trades = Math.floor(Math.random() * 5) + 1; // 1-5 trades
       const pnl = (Math.random() - 0.35) * 2000; // -$700 to +$1300 (slightly positive bias)
+      const wins = Math.floor(trades * (0.4 + Math.random() * 0.4));
       
       data.push({
         date: date.toISOString().split('T')[0],
         pnl: Math.round(pnl * 100) / 100,
         trades,
         hasJournal: Math.random() > 0.5,
+        sharpeRatio: Math.round((Math.random() * 3 - 0.5) * 100) / 100,
+        avgCost: Math.round(Math.random() * 500 + 50),
+        winRate: Math.round((wins / trades) * 100),
       });
     }
   }
@@ -84,8 +91,11 @@ export default function CalendarView() {
     const totalTrades = monthDays.reduce((sum, d) => sum + d.trades, 0);
     const winDays = monthDays.filter(d => d.pnl > 0).length;
     const lossDays = monthDays.filter(d => d.pnl < 0).length;
+    const avgSharpe = monthDays.length > 0 
+      ? monthDays.reduce((sum, d) => sum + (d.sharpeRatio || 0), 0) / monthDays.length 
+      : 0;
     
-    return { totalPnl, totalTrades, winDays, lossDays };
+    return { totalPnl, totalTrades, winDays, lossDays, avgSharpe };
   }, [currentMonth]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -137,14 +147,41 @@ export default function CalendarView() {
         </div>
         
         <div className="flex items-center gap-3">
-          {/* Month Stats */}
-          <div className="hidden md:flex items-center gap-4 text-sm">
-            <span className={monthStats.totalPnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}>
-              {monthStats.totalPnl >= 0 ? '+' : ''}{formatCurrency(monthStats.totalPnl)}
-            </span>
-            <span className="text-[#8b949e]">{monthStats.totalTrades} trades</span>
-            <span className="text-[#3fb950]">{monthStats.winDays}W</span>
-            <span className="text-[#f85149]">{monthStats.lossDays}L</span>
+          {/* Month Stats with Labels */}
+          <div className="hidden md:flex items-center gap-4 text-sm bg-[#161b22] border border-[#30363d] rounded-lg px-4 py-2">
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">PnL</span>
+              <span className={monthStats.totalPnl >= 0 ? 'text-[#3fb950] font-semibold' : 'text-[#f85149] font-semibold'}>
+                {monthStats.totalPnl >= 0 ? '+' : ''}{formatCurrency(monthStats.totalPnl)}
+              </span>
+            </div>
+            
+            <div className="w-px h-8 bg-[#30363d]" />
+            
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">W/L</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[#3fb950] font-semibold">{monthStats.winDays}W</span>
+                <span className="text-[#8b949e]">/</span>
+                <span className="text-[#f85149] font-semibold">{monthStats.lossDays}L</span>
+              </div>
+            </div>
+            
+            <div className="w-px h-8 bg-[#30363d]" />
+            
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Sharpe</span>
+              <span className={monthStats.avgSharpe >= 1 ? 'text-[#3fb950] font-semibold' : 'text-[#8b949e] font-semibold'}>
+                {monthStats.avgSharpe.toFixed(2)}
+              </span>
+            </div>
+            
+            <div className="w-px h-8 bg-[#30363d]" />
+            
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Trades</span>
+              <span className="text-white font-semibold">{monthStats.totalTrades}</span>
+            </div>
           </div>
           
           <button
@@ -270,32 +307,90 @@ function DayDetailModal({ date, data, onClose }: { date: string; data: DayData; 
             <h3 className="text-lg font-bold text-white">
               {dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </h3>
-            <p className={`text-sm ${data.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-              {data.pnl >= 0 ? '+' : ''}${data.pnl.toFixed(2)} · {data.trades} trades
-            </p>
+            <div className="flex items-center gap-3 mt-1">
+              <span className={`text-sm font-semibold ${data.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                {data.pnl >= 0 ? '+' : ''}${data.pnl.toFixed(2)} PnL
+              </span>
+              <span className="text-[#8b949e] text-sm">{data.trades} trades</span>
+              {data.winRate && (
+                <span className="text-sm text-[#8b949e]">Win Rate: <span className={data.winRate >= 50 ? 'text-[#3fb950]' : 'text-[#f85149]'}>{data.winRate}%</span></span>
+              )}
+            </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-[#262626] rounded-lg">
             <span className="text-[#8b949e]">✕</span>
           </button>
         </div>
         
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-4 p-4 bg-[#0d1117] border-b border-[#30363d]">
+          <div className="text-center">
+            <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Avg Cost</div>
+            <div className="text-white font-semibold">${data.avgCost || 0}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Sharpe Ratio</div>
+            <div className={data.sharpeRatio && data.sharpeRatio >= 1 ? 'text-[#3fb950] font-semibold' : 'text-white font-semibold'}>
+              {data.sharpeRatio?.toFixed(2) || '0.00'}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Avg Trade</div>
+            <div className={data.pnl / data.trades >= 0 ? 'text-[#3fb950] font-semibold' : 'text-[#f85149] font-semibold'}>
+              {data.trades > 0 ? `${data.pnl / data.trades >= 0 ? '+' : ''}$${(data.pnl / data.trades).toFixed(2)}` : '$0.00'}
+            </div>
+          </div>
+        </div>
+        
         {/* Content */}
         <div className="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
-          {/* Trades List Placeholder */}
+          {/* Trades List with Details */}
           <div>
-            <h4 className="text-sm font-medium text-[#8b949e] mb-2">Trades</h4>
+            <h4 className="text-sm font-medium text-[#8b949e] mb-2">Trades ({data.trades})</h4>
             <div className="space-y-2">
-              {Array.from({ length: data.trades }).map((_, i) => (
-                <div key={i} className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-white font-medium">AAPL</span>
-                    <span className={i % 2 === 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}>
-                      {i % 2 === 0 ? '+$' : '-$'}{Math.floor(Math.random() * 500 + 100)}
-                    </span>
+              {Array.from({ length: data.trades }).map((_, i) => {
+                const isWin = i % 2 === 0;
+                const pnl = isWin ? Math.floor(Math.random() * 400 + 100) : -Math.floor(Math.random() * 300 + 50);
+                const entryPrice = (Math.random() * 200 + 50).toFixed(2);
+                const exitPrice = (parseFloat(entryPrice) + (pnl > 0 ? 1 : -1) * Math.random() * 5).toFixed(2);
+                const shares = Math.floor(Math.random() * 100 + 10) * 10;
+                const avgCost = ((parseFloat(entryPrice) + parseFloat(exitPrice)) / 2).toFixed(2);
+                
+                return (
+                  <div key={i} className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-medium">AAPL</span>
+                        <span className="text-xs px-2 py-0.5 bg-[#21262d] rounded text-[#8b949e]">Long</span>
+                      </div>
+                      <span className={isWin ? 'text-[#3fb950] font-semibold' : 'text-[#f85149] font-semibold'}>
+                        {pnl >= 0 ? '+' : ''}${Math.abs(pnl).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 text-xs">
+                      <div>
+                        <span className="text-[#8b949e]">Entry: </span>
+                        <span className="text-white">${entryPrice}</span>
+                      </div>
+                      <div>
+                        <span className="text-[#8b949e]">Exit: </span>
+                        <span className="text-white">${exitPrice}</span>
+                      </div>
+                      <div>
+                        <span className="text-[#8b949e]">Shares: </span>
+                        <span className="text-white">{shares}</span>
+                      </div>
+                      <div>
+                        <span className="text-[#8b949e]">Avg: </span>
+                        <span className="text-white">${avgCost}</span>
+                      </div>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-[#21262d]">
+                      <span className="text-xs text-[#8b949e]">Breakout setup · 09:45-10:30</span>
+                    </div>
                   </div>
-                  <p className="text-xs text-[#8b949e] mt-1">Long · Breakout setup</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
           
