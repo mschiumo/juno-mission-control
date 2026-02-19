@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { getStockUniverse, getStockInfoMap, refreshStockUniverse, StockInfo } from '@/lib/stock-universe';
+import { createClient } from 'redis';
 
 interface GapStock {
   symbol: string;
@@ -11,10 +13,54 @@ interface GapStock {
   status: 'gainer' | 'loser';
 }
 
+interface ScanResult {
+  success: boolean;
+  data: {
+    gainers: GapStock[];
+    losers: GapStock[];
+  };
+  timestamp: string;
+  source: string;
+  scanned: number;
+  found: number;
+  isWeekend: boolean;
+  tradingDate: string;
+  previousDate: string;
+  marketSession: string;
+  marketStatus: string;
+  isPreMarket: boolean;
+  durationMs: number;
+  debug: {
+    apiKeyPresent: boolean;
+    apiKeyLength: number;
+    universeSize: number;
+    skippedETF: number;
+    skippedGap: number;
+    skippedVolume: number;
+    skippedPrice: number;
+    skippedMarketCap: number;
+    quoteFailures: number;
+    profileFailures: number;
+    errors: string[];
+  };
+  filters: {
+    minGapPercent: number;
+    minVolume: number;
+    maxPrice: number;
+    minMarketCap: number;
+    excludeETFs: boolean;
+    excludeWarrants: boolean;
+  };
+}
+
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
-if (!FINNHUB_API_KEY) {
-  throw new Error('FINNHUB_API_KEY environment variable is required');
+// Lazy check for API key - don't throw at module load time
+function getFinnhubApiKey(): string {
+  if (!FINNHUB_API_KEY) {
+    throw new Error('FINNHUB_API_KEY environment variable is required');
+  }
+  return FINNHUB_API_KEY;
 }
 
 // US Market Holidays 2026
@@ -83,19 +129,6 @@ function getMarketSession(): {
   return { session: 'closed', isPreMarket: false, marketStatus: 'closed' };
 }
 
-// Popular stocks to check for gaps (top 50 liquid stocks for free tier)
-const STOCK_UNIVERSE = [
-  // Mega caps
-  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'BRK.B', 'UNH', 'JNJ',
-  'XOM', 'JPM', 'V', 'PG', 'HD', 'CVX', 'MA', 'LLY', 'BAC', 'ABBV',
-  // Tech
-  'AMD', 'NFLX', 'CRM', 'INTC', 'CSCO', 'VZ', 'QCOM', 'AMAT', 'TXN', 'INTU',
-  // Growth/Momentum
-  'PLTR', 'ABNB', 'UBER', 'COIN', 'HOOD', 'RBLX', 'SOFI', 'NET', 'DDOG', 'CRWD',
-  // Trading favorites
-  'FSLY', 'ENPH', 'SEDG', 'RUN', 'ARKK', 'ARKG', 'ARKW', 'ICLN', 'LIT', 'XBI'
-];
-
 // ETF patterns to exclude
 const ETF_PATTERNS = [
   'SPY', 'QQQ', 'IWM', 'VTI', 'VOO', 'IVV', 'VEA', 'VWO', 'BND', 'AGG',
@@ -118,129 +151,217 @@ function isETFOrDerivative(symbol: string): boolean {
   return false;
 }
 
-// Fetch real-time quote from Finnhub (includes pre-market)
-async function fetchFinnhubQuote(symbol: string): Promise<{ current: number; previous: number; volume: number } | null> {
-  try {
-    const response = await fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`,
-      { next: { revalidate: 0 } } // No cache - real-time data
-    );
-    
-    if (!response.ok) {
-      console.warn(`Finnhub quote error for ${symbol}:`, response.status);
-      return null;
-    }
-    
-    const data = await response.json();
-    
-    // Finnhub quote response:
-    // c: current price (includes pre-market)
-    // pc: previous close
-    // v: volume
-    if (!data || data.c === 0 || data.pc === 0) {
-      return null;
-    }
-    
-    return {
-      current: data.c,
-      previous: data.pc,
-      volume: data.v || 0
-    };
-  } catch (error) {
-    console.error(`Error fetching Finnhub quote for ${symbol}:`, error);
-    return null;
-  }
-}
+// Redis client for caching results
+let redisClient: ReturnType<typeof createClient> | null = null;
 
-// Fetch company profile for name and market cap
-async function fetchFinnhubProfile(symbol: string): Promise<{ name: string; marketCap: number } | null> {
-  try {
-    const response = await fetch(
-      `https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_API_KEY}`,
-      { next: { revalidate: 3600 } }
-    );
-    
-    if (!response.ok) return null;
-    
-    const data = await response.json();
-    if (!data || !data.name) return null;
-    
-    return {
-      name: data.name,
-      marketCap: (data.marketCapitalization || 0) * 1000000 // Convert from millions
-    };
-  } catch (error) {
-    return null;
+async function getRedisClient() {
+  if (redisClient?.isReady) {
+    return redisClient;
   }
-}
-
-export async function GET() {
-  const timestamp = new Date().toISOString();
-  const errors: string[] = [];
   
   try {
-    console.log(`[GapScanner] Starting scan at ${timestamp}`);
-    console.log(`[GapScanner] API Key present: ${!!FINNHUB_API_KEY}`);
-    console.log(`[GapScanner] API Key length: ${FINNHUB_API_KEY?.length || 0}`);
+    const client = createClient({
+      url: process.env.UPSTASH_REDIS_URL || process.env.REDIS_URL || undefined,
+    });
     
-    const gainers: GapStock[] = [];
-    const losers: GapStock[] = [];
-    let scanned = 0;
-    let quoteFailures = 0;
-    let profileFailures = 0;
-    let skippedETF = 0;
-    let skippedGap = 0;
-    let skippedVolume = 0;
-    let skippedPrice = 0;
-    let skippedMarketCap = 0;
+    client.on('error', (err) => {
+      console.error('Redis Client Error:', err);
+    });
     
-    // Check each stock in our universe
-    for (const symbol of STOCK_UNIVERSE) {
-      // Skip ETFs
-      if (isETFOrDerivative(symbol)) {
-        skippedETF++;
+    await client.connect();
+    redisClient = client;
+    return client;
+  } catch (error) {
+    console.error('Failed to connect to Redis:', error);
+    return null;
+  }
+}
+
+/**
+ * Fetch batch quotes from Finnhub
+ * Note: Finnhub doesn't support true batch quotes, but we can make parallel requests
+ * with rate limiting (60 calls/minute = 1 call per second)
+ */
+interface QuoteData {
+  symbol: string;
+  current: number;
+  previous: number;
+  volume: number;
+}
+
+async function fetchBatchQuotes(
+  symbols: string[], 
+  delayMs: number = 1000
+): Promise<Map<string, QuoteData>> {
+  const apiKey = getFinnhubApiKey();
+  const quotes = new Map<string, QuoteData>();
+  
+  // Process in batches - rate limited
+  for (let i = 0; i < symbols.length; i++) {
+    const symbol = symbols[i];
+    
+    try {
+      const response = await fetch(
+        `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`,
+        { next: { revalidate: 0 } } // No cache - real-time data
+      );
+      
+      if (!response.ok) {
+        console.warn(`Finnhub quote error for ${symbol}:`, response.status);
         continue;
       }
       
-      // Get real-time quote
-      const quote = await fetchFinnhubQuote(symbol);
-      if (!quote) {
-        quoteFailures++;
-        if (quoteFailures <= 5) {
-          errors.push(`Quote failed for ${symbol}`);
-        }
+      const data = await response.json();
+      
+      // Finnhub quote response: c: current, pc: previous close, v: volume
+      if (data && data.c !== 0 && data.pc !== 0) {
+        quotes.set(symbol, {
+          symbol,
+          current: data.c,
+          previous: data.pc,
+          volume: data.v || 0
+        });
+      }
+      
+    } catch (error) {
+      console.error(`Error fetching quote for ${symbol}:`, error);
+    }
+    
+    // Rate limiting between requests
+    if (i < symbols.length - 1) {
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  
+  return quotes;
+}
+
+/**
+ * Store scan results in Redis
+ */
+async function storeScanResults(results: ScanResult): Promise<void> {
+  try {
+    const redis = await getRedisClient();
+    if (redis) {
+      const key = `gap_scanner:${results.tradingDate}`;
+      await redis.setEx(key, 86400, JSON.stringify(results)); // TTL 24 hours
+      console.log(`[GapScanner] Results stored in Redis: ${key}`);
+    }
+  } catch (error) {
+    console.error('[GapScanner] Failed to store results:', error);
+  }
+}
+
+/**
+ * Get cached scan results from Redis
+ */
+async function getCachedResults(date: string): Promise<ScanResult | null> {
+  try {
+    const redis = await getRedisClient();
+    if (redis) {
+      const key = `gap_scanner:${date}`;
+      const data = await redis.get(key);
+      if (data) {
+        return JSON.parse(data);
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('[GapScanner] Failed to get cached results:', error);
+    return null;
+  }
+}
+
+/**
+ * Main scan function - processes stocks in batches
+ */
+async function scanForGaps(
+  symbols: string[],
+  stockInfo: Map<string, StockInfo>,
+  options: {
+    batchSize?: number;
+    delayMs?: number;
+    minGapPercent?: number;
+    minVolume?: number;
+    maxPrice?: number;
+    minMarketCap?: number;
+    dryRun?: boolean;
+  } = {}
+): Promise<Omit<ScanResult, 'success' | 'source' | 'isWeekend' | 'marketSession' | 'marketStatus' | 'isPreMarket'>> {
+  const startTime = Date.now();
+  const {
+    batchSize = 50,
+    delayMs = 1000,
+    minGapPercent = 5,
+    minVolume = 100000,
+    maxPrice = 1000,
+    minMarketCap = 100_000_000,
+    dryRun = false
+  } = options;
+  
+  const gainers: GapStock[] = [];
+  const losers: GapStock[] = [];
+  let scanned = 0;
+  let quoteFailures = 0;
+  let profileFailures = 0;
+  let skippedETF = 0;
+  let skippedGap = 0;
+  let skippedVolume = 0;
+  let skippedPrice = 0;
+  let skippedMarketCap = 0;
+  const errors: string[] = [];
+  
+  // Split into batches
+  const totalBatches = Math.ceil(symbols.length / batchSize);
+  console.log(`[GapScanner] Processing ${symbols.length} stocks in ${totalBatches} batches of ${batchSize}`);
+  
+  for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+    const start = batchIndex * batchSize;
+    const end = Math.min(start + batchSize, symbols.length);
+    const batch = symbols.slice(start, end);
+    
+    console.log(`[GapScanner] Batch ${batchIndex + 1}/${totalBatches}: ${batch.length} stocks`);
+    
+    // Fetch quotes for this batch
+    const quotes = await fetchBatchQuotes(batch, delayMs);
+    
+    // Process results
+    for (const [symbol, quote] of quotes) {
+      const info = stockInfo.get(symbol);
+      
+      // Check market cap filter
+      if (info && info.marketCap < minMarketCap) {
+        skippedMarketCap++;
         continue;
       }
       
       scanned++;
       
-      // Calculate gap from current price vs previous close
+      // Calculate gap
       const gapPercent = ((quote.current - quote.previous) / quote.previous) * 100;
       
-      // Apply filters with logging
-      if (Math.abs(gapPercent) < 2) {
+      // Apply filters
+      if (Math.abs(gapPercent) < minGapPercent) {
         skippedGap++;
         continue;
       }
-      if (quote.volume < 100000) {
+      if (quote.volume < minVolume) {
         skippedVolume++;
         continue;
       }
-      if (quote.current > 500) {
+      if (quote.current > maxPrice) {
         skippedPrice++;
         continue;
       }
       
-      // Skip profile call to save API rate limit - use symbol as name
-      // Profile call is 1 extra API call per stock, hitting rate limits
       const stock: GapStock = {
         symbol,
-        name: symbol,
+        name: info?.name || symbol,
         price: quote.current,
         previousClose: quote.previous,
         gapPercent: Number(gapPercent.toFixed(2)),
         volume: quote.volume,
-        marketCap: 0, // Skip market cap check to save API calls
+        marketCap: info?.marketCap || 0,
         status: gapPercent > 0 ? 'gainer' : 'loser'
       };
       
@@ -249,68 +370,169 @@ export async function GET() {
       } else {
         losers.push(stock);
       }
-      
-      // Rate limiting - 1000ms = max 60 calls/min (Finnhub free tier)
-      await new Promise(r => setTimeout(r, 1000));
     }
     
-    // Sort by gap magnitude
-    gainers.sort((a, b) => b.gapPercent - a.gapPercent);
-    losers.sort((a, b) => a.gapPercent - b.gapPercent);
+    // Log progress every 10 batches
+    if ((batchIndex + 1) % 10 === 0 || batchIndex === totalBatches - 1) {
+      const progress = Math.round(((batchIndex + 1) / totalBatches) * 100);
+      console.log(`[GapScanner] Progress: ${progress}% (${batchIndex + 1}/${totalBatches} batches)`);
+    }
+  }
+  
+  // Sort by gap magnitude
+  gainers.sort((a, b) => b.gapPercent - a.gapPercent);
+  losers.sort((a, b) => a.gapPercent - b.gapPercent);
+  
+  const durationMs = Date.now() - startTime;
+  
+  return {
+    data: {
+      gainers: gainers.slice(0, 20), // Top 20 gainers
+      losers: losers.slice(0, 20)    // Top 20 losers
+    },
+    timestamp: new Date().toISOString(),
+    scanned,
+    found: gainers.length + losers.length,
+    tradingDate: new Date().toISOString().split('T')[0],
+    previousDate: getLastTradingDate(),
+    durationMs,
+    debug: {
+      apiKeyPresent: !!getFinnhubApiKey(),
+      apiKeyLength: getFinnhubApiKey()?.length || 0,
+      universeSize: symbols.length,
+      skippedETF,
+      skippedGap,
+      skippedVolume,
+      skippedPrice,
+      skippedMarketCap,
+      quoteFailures,
+      profileFailures,
+      errors
+    },
+    filters: {
+      minGapPercent,
+      minVolume,
+      maxPrice,
+      minMarketCap,
+      excludeETFs: true,
+      excludeWarrants: true
+    }
+  };
+}
+
+export async function GET(request: Request) {
+  const startTime = Date.now();
+  const timestamp = new Date().toISOString();
+  const { searchParams } = new URL(request.url);
+  
+  // Parse options from query params
+  const dryRun = searchParams.get('dryRun') === 'true';
+  const limit = parseInt(searchParams.get('limit') || '5000', 10);
+  const forceRefresh = searchParams.get('refresh') === 'true';
+  const useCache = searchParams.get('cache') !== 'false';
+  const minGapPercent = parseFloat(searchParams.get('minGap') || '5');
+  
+  try {
+    // Check API key
+    const apiKey = getFinnhubApiKey();
+    console.log(`[GapScanner] Starting scan at ${timestamp}`);
+    console.log(`[GapScanner] Options: dryRun=${dryRun}, limit=${limit}, forceRefresh=${forceRefresh}`);
     
-    console.log(`[GapScanner] Results: ${gainers.length} gainers, ${losers.length} losers from ${scanned} stocks scanned`);
-    console.log(`[GapScanner] Skipped: ${skippedETF} ETFs, ${skippedGap} gap<2%, ${skippedVolume} vol<100K, ${skippedPrice} price>$500, ${skippedMarketCap} cap<$50M`);
-    console.log(`[GapScanner] Failures: ${quoteFailures} quotes, ${profileFailures} profiles`);
+    // Get stock universe
+    let symbols: string[];
+    let stockInfo: Map<string, StockInfo>;
     
-    // Determine actual market session
+    if (forceRefresh) {
+      console.log('[GapScanner] Refreshing stock universe...');
+      await refreshStockUniverse();
+    }
+    
+    // Try to get cached universe
+    symbols = await getStockUniverse();
+    stockInfo = await getStockInfoMap();
+    
+    // Limit symbols if requested (for testing)
+    if (limit < symbols.length) {
+      console.log(`[GapScanner] Limiting scan to ${limit} stocks for testing`);
+      symbols = symbols.slice(0, limit);
+    }
+    
+    // Check for cached results today
+    const today = new Date().toISOString().split('T')[0];
+    if (useCache && !forceRefresh && !dryRun) {
+      const cached = await getCachedResults(today);
+      if (cached) {
+        console.log('[GapScanner] Returning cached results');
+        return NextResponse.json({
+          ...cached,
+          source: 'cache'
+        });
+      }
+    }
+    
+    // Check market session
     const marketSession = getMarketSession();
     
-    return NextResponse.json({
+    // Run the scan
+    const scanResults = await scanForGaps(symbols, stockInfo, {
+      batchSize: 50,
+      delayMs: 1000, // 1 second between stocks = 60 calls/min
+      minGapPercent,
+      minVolume: 100000,
+      maxPrice: 1000,
+      minMarketCap: 100_000_000,
+      dryRun
+    });
+    
+    const totalDuration = Date.now() - startTime;
+    
+    // Build response
+    const response: ScanResult = {
       success: true,
-      data: {
-        gainers: gainers.slice(0, 10),
-        losers: losers.slice(0, 10)
-      },
-      timestamp,
+      ...scanResults,
       source: 'live',
-      scanned,
-      found: gainers.length + losers.length,
-      isWeekend: false,
-      tradingDate: new Date().toISOString().split('T')[0],
-      previousDate: getLastTradingDate(),
+      isWeekend: new Date().getDay() === 0 || new Date().getDay() === 6,
       marketSession: marketSession.session,
       marketStatus: marketSession.marketStatus,
-      isPreMarket: marketSession.isPreMarket,
-      debug: {
-        apiKeyPresent: !!FINNHUB_API_KEY,
-        apiKeyLength: FINNHUB_API_KEY?.length || 0,
-        universeSize: STOCK_UNIVERSE.length,
-        skippedETF,
-        skippedGap,
-        skippedVolume,
-        skippedPrice,
-        skippedMarketCap,
-        quoteFailures,
-        profileFailures,
-        errors: errors.slice(0, 10)
-      },
-      enriched: true,
-      filters: {
-        minGapPercent: 2,
-        minVolume: 100000,
-        maxPrice: 500,
-        minMarketCap: 50000000,
-        excludeETFs: true,
-        excludeWarrants: true
-      }
-    });
+      isPreMarket: marketSession.isPreMarket
+    };
+    
+    console.log(`[GapScanner] Completed in ${totalDuration}ms`);
+    console.log(`[GapScanner] Results: ${response.data.gainers.length} gainers, ${response.data.losers.length} losers from ${response.scanned} stocks scanned`);
+    
+    // Store results if not dry run
+    if (!dryRun) {
+      await storeScanResults(response);
+    }
+    
+    return NextResponse.json(response);
     
   } catch (error) {
     console.error('[GapScanner] Error:', error);
+    const totalDuration = Date.now() - startTime;
+    
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch gap data',
-      timestamp
+      timestamp,
+      durationMs: totalDuration,
+      message: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
+}
+
+// Also support POST for triggering scans with options
+export async function POST(request: Request) {
+  const body = await request.json();
+  const { action } = body;
+  
+  if (action === 'refresh-universe') {
+    const result = await refreshStockUniverse();
+    return NextResponse.json(result);
+  }
+  
+  return NextResponse.json({
+    success: false,
+    error: 'Unknown action'
+  }, { status: 400 });
 }
