@@ -64,9 +64,9 @@ export default function ProfitProjectionView() {
 
   const projection = useMemo(() => calculateProjection(params), [params]);
 
-  // Calculate for $10, $50, $100 scenarios
+  // Calculate for all risk scenarios
   const scenarios = useMemo(() => {
-    return [10, 50, 100].map(risk => ({
+    return [10, 50, 100, 250, 300, 400, 500].map(risk => ({
       risk,
       ...calculateProjection({ ...params, riskPerTrade: risk })
     }));
@@ -218,11 +218,11 @@ export default function ProfitProjectionView() {
         </div>
       </div>
 
-      {/* Comparison Table - $10 vs $50 vs $100 */}
+      {/* Comparison Table */}
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
         <h3 className="text-sm font-medium text-[#8b949e] mb-4 flex items-center gap-2">
           <DollarSign className="w-4 h-4" />
-          Risk Comparison ($10 / $50 / $100)
+          Risk Comparison ($10 - $500)
         </h3>
         
         <div className="overflow-x-auto">
