@@ -222,7 +222,8 @@ GET    /api/trades/export       - Export to CSV
 │   └── Strategy Performance
 ├── Calendar
 │   ├── Monthly View
-│   └── Daily Detail
+│   ├── Daily Detail
+│   └── Spreadsheet Import (drag-drop CSV/Excel)
 └── Journal
     ├── Daily Journal
     └── Trade Notes
@@ -267,6 +268,13 @@ GET    /api/trades/export       - Export to CSV
    - Rich text editor
    - Screenshot upload
    - Tag input
+
+8. **SpreadsheetImportModal**
+   - Drag-and-drop CSV/Excel upload
+   - Column mapping (match spreadsheet columns to trade fields)
+   - Preview before import
+   - Validation and error handling
+   - Populate calendar with imported trades
 
 ### Phase 3: Charts & Visualizations (Week 3-4)
 
@@ -316,6 +324,34 @@ GET    /api/trades/export       - Export to CSV
 - All trades export
 - Date range filter
 - Custom columns
+
+### Spreadsheet Calendar Import (Key Feature)
+
+**Drag-and-Drop Interface:**
+- CSV/Excel file upload zone in Calendar view
+- Support for .csv, .xlsx files
+- Template download for correct format
+
+**Column Mapping:**
+- Auto-detect common column names (Symbol, Entry, Exit, etc.)
+- Manual mapping for custom formats
+- Save mapping profiles for future imports
+
+**Data Preview:**
+- Show first 10 rows before import
+- Highlight errors/warnings
+- Option to skip or fix problematic rows
+
+**Calendar Population:**
+- Import populates both trades AND calendar days
+- Auto-calculate daily P&L totals
+- Color-code days based on imported results
+
+**Supported Formats:**
+- ThinkOrSwim export
+- Interactive Brokers
+- Generic CSV (template provided)
+- Manual spreadsheet entry
 
 ### Phase 5: Advanced Features (Future)
 
