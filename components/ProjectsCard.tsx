@@ -61,6 +61,7 @@ interface AgentStatusResponse {
   activeCount: number;
   workingCount: number;
   isMockData?: boolean;
+  error?: string;
 }
 
 export default function ProjectsCard() {
@@ -98,7 +99,7 @@ export default function ProjectsCard() {
           }
         }
       } else {
-        setError(data.error || 'Failed to fetch agent status');
+        setError((data as any).error || 'Failed to fetch agent status');
       }
     } catch (error) {
       console.error('Failed to fetch agent status:', error);
