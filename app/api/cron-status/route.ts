@@ -8,7 +8,7 @@ const CRON_JOBS = [
   { id: 'london-session', name: 'London Session Update', schedule: '3:00 AM EST', cronExpression: '0 3 * * 0-4', frequency: 'Sun-Thu', status: 'active' },
   { id: 'morning-wake', name: 'Morning Wake-up Check', schedule: '7:30 AM EST', cronExpression: '30 7 * * *', frequency: 'Daily', status: 'active' },
   { id: 'market-brief', name: 'Morning Market Briefing', schedule: '8:00 AM EST', cronExpression: '0 8 * * 0-4', frequency: 'Mon-Fri', status: 'active' },
-  { id: 'gap-scanner', name: 'Gap Scanner Pre-Market', schedule: 'Mon-Fri 7:30 AM EST', cronExpression: '30 7 * * 1-5', frequency: 'Mon-Fri', status: 'active' },
+  { id: 'gap-scanner', name: 'Gap Scanner Pre-Market', schedule: 'Mon-Fri 8:30 AM EST', cronExpression: '30 8 * * 1-5', frequency: 'Mon-Fri', status: 'active' },
   { id: 'midday-checkin', name: 'Mid-Day Trading Check-in', schedule: '12:30 PM EST', cronExpression: '30 12 * * 0-4', frequency: 'Mon-Fri', status: 'active' },
   { id: 'market-close', name: 'Market Close Report', schedule: '5:00 PM EST', cronExpression: '30 21 * * 0-4', frequency: 'Mon-Fri', status: 'active' },
   { id: 'asia-session', name: 'Asia Session Update', schedule: '7:00 PM EST', cronExpression: '0 19 * * 0-4', frequency: 'Sun-Thu', status: 'active' },

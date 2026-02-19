@@ -1,0 +1,53 @@
+# Gap Scanner Pre-Market
+# Runs weekdays at 8:30 AM EST (13:30 UTC)
+# Scans 5000 stocks for gaps > 5%, filters by market cap > $100M
+
+name: "Gap Scanner Pre-Market"
+sessionTarget: isolated
+enabled: true
+schedule:
+  kind: cron
+  expr: "30 13 * * 1-5"
+  tz: "UTC"
+payload:
+  kind: agentTurn
+  message: |
+    **Gap Scanner Pre-Market Run**
+    
+    Run the gap scanner to find pre-market gaps across 5000 stocks.
+    
+    STEPS:
+    1. Trigger gap scanner API: GET /api/gap-scanner?cache=false&minGap=5
+    2. Wait for completion (~2-3 minutes for full scan)
+    3. Process results
+    4. Send summary via Telegram
+    5. Log to Activity Log
+    
+    Expected results:
+    - Top 20 gainers (gap > 5%)
+    - Top 20 losers (gap < -5%)
+    - Filtered by: market cap > $100M, volume > 100K, price < $1000
+    
+    API Usage:
+    - ~5000 API calls (1 per stock)
+    - 1 second delay between calls = ~83 seconds
+    - Well within Finnhub free tier (60 calls/min)
+    
+    If scan fails, log error details and retry once after 30 seconds.
+    
+    FORMAT for Telegram:
+    📊 **Gap Scanner Pre-Market** — [Date]
+    
+    **Top Gainers (Pre-Market)**
+    • $SYMBOL: +X.XX% (Volume: X.XM)
+    • ...
+    
+    **Top Losers (Pre-Market)**
+    • $SYMBOL: -X.XX% (Volume: X.XM)
+    • ...
+    
+    **Summary**: X gainers, Y losers from Z stocks scanned
+    
+    Log to Activity Log via POST /api/activity-log with type: "cron"
+  timeoutSeconds: 300
+  thinking: off
