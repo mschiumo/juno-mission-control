@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, CSVImportResult, CSVImportError, CreateTradeRequest } from '@/types/trading';
+import { Strategy, TradeStatus } from '@/types/trading';
 
 // Reference to the trades store
 declare global {
@@ -248,8 +249,8 @@ function parseTradeRow(
     userId,
     symbol: symbol.toUpperCase(),
     side,
-    status: 'OPEN',
-    strategy: 'OTHER',
+    status: TradeStatus.OPEN,
+    strategy: Strategy.OTHER,
     entryDate: parsedEntryDate,
     entryPrice,
     shares,
@@ -262,7 +263,7 @@ function parseTradeRow(
     const exitPrice = parseFloat(exitPriceStr);
     if (!isNaN(exitPrice) && exitPrice > 0) {
       trade.exitPrice = exitPrice;
-      trade.status = 'CLOSED';
+      trade.status = TradeStatus.CLOSED;
       
       if (exitDate) {
         try {

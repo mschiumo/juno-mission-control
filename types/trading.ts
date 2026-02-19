@@ -292,6 +292,7 @@ export interface CSVImportError {
 // ============================================================================
 
 export interface CreateTradeRequest {
+  userId?: string;
   symbol: string;
   side: TradeSide;
   strategy: Strategy;

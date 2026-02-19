@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, CreateTradeRequest, TradeListResponse } from '@/types/trading';
+import { TradeStatus, Strategy } from '@/types/trading';
 
 // In-memory storage for development (replace with database in production)
 const tradesStore: Map<string, Trade> = new Map();
@@ -192,8 +193,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       userId: body.userId || 'default-user', // In production, get from auth
       symbol: body.symbol.toUpperCase(),
       side: body.side,
-      status: 'OPEN',
-      strategy: body.strategy || 'OTHER',
+      status: TradeStatus.OPEN,
+      strategy: body.strategy || Strategy.OTHER,
       entryDate: body.entryDate || now,
       entryPrice: body.entryPrice,
       shares: body.shares,
