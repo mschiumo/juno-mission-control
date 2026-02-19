@@ -225,6 +225,7 @@ export default function NotificationsBell() {
                               ? (isValidUrl(notification.action) ? notification.action : '/')
                               : notification.action.href
                             }
+                            onClick={() => markAsRead(notification.id)}
                             className="flex items-center gap-1 text-xs text-[#58a6ff] hover:underline"
                           >
                             {typeof notification.action === 'string' 

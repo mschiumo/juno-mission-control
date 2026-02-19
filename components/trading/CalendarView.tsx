@@ -109,6 +109,39 @@ export default function CalendarView() {
     return days;
   }, [currentMonth, dailyStats]);
 
+  // Group days by week for weekly totals
+  const weeks = useMemo(() => {
+    const weeksArray: { days: (DayData | null)[]; weekNum: number; weekTotal: { pnl: number; trades: number } }[] = [];
+    let currentWeek: (DayData | null)[] = [];
+    let weekNumber = 1;
+    
+    for (let i = 0; i < monthData.length; i++) {
+      currentWeek.push(monthData[i]);
+      
+      if (currentWeek.length === 7 || i === monthData.length - 1) {
+        // Calculate week totals
+        const weekTotal = currentWeek.reduce((acc, day) => {
+          if (day) {
+            acc.pnl += day.pnl;
+            acc.trades += day.trades;
+          }
+          return acc;
+        }, { pnl: 0, trades: 0 });
+        
+        weeksArray.push({
+          days: [...currentWeek],
+          weekNum: weekNumber,
+          weekTotal
+        });
+        
+        currentWeek = [];
+        weekNumber++;
+      }
+    }
+    
+    return weeksArray;
+  }, [monthData]);
+
   const monthStats = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -267,53 +300,91 @@ export default function CalendarView() {
       {/* Calendar Grid */}
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
         {/* Day Headers */}
-        <div className="grid grid-cols-7 border-b border-[#30363d]">
-          {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
-            <div key={day} className="p-3 text-center text-xs font-medium text-[#8b949e] bg-[#0d1117]">
+        <div className="grid grid-cols-8 border-b border-[#30363d]">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Total'].map(day => (
+            <div key={day} className="p-3 text-center text-xs font-medium text-[#8b949e] bg-[#0d1117] border-r border-[#30363d] last:border-r-0">
               {day}
             </div>
           ))}
         </div>
         
-        {/* Calendar Days */}
-        <div className="grid grid-cols-7">
-          {monthData.map((dayData, index) => {
-            if (!dayData) {
-              return (
-                <div key={`empty-${index}`} className="aspect-square border-r border-b border-[#21262d] bg-[#0d1117]/50" />
-              );
-            }
-            
-            const dayNumber = new Date(dayData.date).getDate();
-            const hasData = dayData.trades > 0;
-            
-            return (
-              <div
-                key={dayData.date}
-                onClick={() => hasData && handleDateClick(dayData.date)}
-                className={`
-                  aspect-square border-r border-b border-[#21262d] p-2 cursor-pointer
-                  transition-all hover:brightness-110 relative
-                  ${getDayColor(dayData)}
-                  ${hasData ? 'hover:ring-2 hover:ring-[#F97316]' : ''}
-                `}
-              >
-                <div className="flex flex-col h-full justify-between">
-                  <span className="text-sm font-medium opacity-70">{dayNumber}</span>
-                  
-                  {hasData && (
-                    <div className="text-right">
-                      <div className="font-bold text-sm">
-                        {dayData.pnl >= 0 ? '+' : ''}{formatCurrency(dayData.pnl)}
-                      </div>
-                      <div className="text-xs opacity-70">
-                        {dayData.trades} trade{dayData.trades !== 1 ? 's' : ''}
-                      </div>
-                    </div>
-                  )}
-                </div>
+        {/* Calendar Weeks */}
+        <div>
+          {weeks.map((week, weekIndex) => (
+            <div key={weekIndex} className="grid grid-cols-8 border-b border-[#30363d] last:border-b-0">
+              {/* Days */}
+              {week.days.map((dayData, dayIndex) => {
+                if (!dayData) {
+                  return (
+                    <div key={`empty-${weekIndex}-${dayIndex}`} className="aspect-[4/3] border-r border-[#21262d] bg-[#0d1117]/30" />
+                  );
+                }
                 
-                {/* Journal indicator */}
+                const dayNumber = new Date(dayData.date).getDate();
+                const hasData = dayData.trades > 0;
+                const isCurrentMonth = new Date(dayData.date).getMonth() === currentMonth.getMonth();
+                
+                return (
+                  <div
+                    key={dayData.date}
+                    onClick={() => hasData && handleDateClick(dayData.date)}
+                    className={`
+                      aspect-[4/3] border-r border-[#21262d] p-2 cursor-pointer
+                      transition-all hover:brightness-110 relative
+                      ${getDayColor(dayData)}
+                      ${hasData ? 'hover:ring-1 hover:ring-[#F97316] hover:z-10' : ''}
+                      ${!isCurrentMonth ? 'opacity-50' : ''}
+                    `}
+                  >
+                    <div className="flex flex-col h-full">
+                      {/* Day number */}
+                      <span className={`text-sm font-semibold ${hasData ? 'text-white' : 'text-[#8b949e]'}`}>
+                        {dayNumber}
+                      </span>
+                      
+                      {/* P&L and trades */}
+                      {hasData && (
+                        <div className="mt-auto">
+                          <div className={`font-bold text-sm ${dayData.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                            {dayData.pnl >= 0 ? '+' : ''}{formatCurrency(dayData.pnl)}
+                          </div>
+                          <div className="text-xs text-[#8b949e]">
+                            {dayData.trades} trade{dayData.trades !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Journal indicator */}
+                    {dayData.hasJournal && (
+                      <div className="absolute top-2 right-2 w-2 h-2 bg-[#a371f7] rounded-full" />
+                    )}
+                  </div>
+                );
+              })}
+              
+              {/* Week Total */}
+              <div className={`
+                aspect-[4/3] p-2 flex flex-col justify-center items-center
+                ${week.weekTotal.trades > 0 
+                  ? (week.weekTotal.pnl >= 0 ? 'bg-[#238636]/10' : 'bg-[#da3633]/10')
+                  : 'bg-[#0d1117]/30'
+                }
+              `}>
+                {week.weekTotal.trades > 0 && (
+                  <>
+                    <div className={`text-xs font-medium text-[#8b949e] mb-1`}>Week {week.weekNum}</div>
+                    <div className={`font-bold ${week.weekTotal.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                      {week.weekTotal.pnl >= 0 ? '+' : ''}{formatCurrency(week.weekTotal.pnl)}
+                    </div>
+                    <div className="text-xs text-[#8b949e]">{week.weekTotal.trades} trades</div>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
                 {dayData.hasJournal && (
                   <div className="absolute top-2 right-2 w-2 h-2 bg-[#a371f7] rounded-full" />
                 )}
