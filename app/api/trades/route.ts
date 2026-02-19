@@ -5,6 +5,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
+    const all = searchParams.get('all') === 'true';
     
     if (date) {
       // Get trades for specific date
@@ -13,6 +14,15 @@ export async function GET(request: Request) {
         success: true,
         trades,
         date
+      });
+    }
+    
+    if (all) {
+      // Get all trades
+      const trades = await getAllTrades();
+      return NextResponse.json({
+        success: true,
+        trades
       });
     }
     

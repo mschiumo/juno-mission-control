@@ -18,10 +18,11 @@ import GapScannerCard from '@/components/GapScannerCard';
 import MarketCard from '@/components/MarketCard';
 import NewsScreenerCard from '@/components/NewsScreenerCard';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
-import DashboardStats from '@/components/trading/DashboardStats';
 import CalendarView from '@/components/trading/CalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
+import TradesListView from '@/components/trading/TradesListView';
+import AnalyticsView from '@/components/trading/AnalyticsView';
 
 type TradingSubTab = 'overview' | 'trades' | 'calendar' | 'analytics' | 'journal' | 'market' | 'projection' | 'trade-management';
 
@@ -98,11 +99,7 @@ export default function TradingView() {
       )}
 
       {activeSubTab === 'trades' && (
-        <div className="p-8 bg-[#161b22] border border-[#30363d] rounded-xl text-center">
-          <List className="w-12 h-12 text-[#8b949e] mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-white mb-2">Trades List</h3>
-          <p className="text-[#8b949e]">Sortable, filterable trade table coming soon...</p>
-        </div>
+        <TradesListView />
       )}
 
       {activeSubTab === 'calendar' && (
@@ -110,11 +107,7 @@ export default function TradingView() {
       )}
 
       {activeSubTab === 'analytics' && (
-        <div className="p-8 bg-[#161b22] border border-[#30363d] rounded-xl text-center">
-          <BarChart3 className="w-12 h-12 text-[#8b949e] mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-white mb-2">Analytics</h3>
-          <p className="text-[#8b949e]">Performance by day/time/symbol/strategy coming soon...</p>
-        </div>
+        <AnalyticsView />
       )}
 
       {activeSubTab === 'journal' && (
