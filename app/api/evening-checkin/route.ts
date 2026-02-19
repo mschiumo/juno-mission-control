@@ -32,12 +32,15 @@ async function getRedisClient() {
 }
 
 function getToday() {
-  return new Date().toLocaleDateString('en-US', {
+  const dateStr = new Date().toLocaleDateString('en-US', {
     timeZone: 'America/New_York',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
-  }).split('/').reverse().join('-');
+  });
+  // Format: MM/DD/YYYY → YYYY-MM-DD
+  const [month, day, year] = dateStr.split('/');
+  return `${year}-${month}-${day}`;
 }
 
 export async function GET(request: Request) {
@@ -185,12 +188,15 @@ function calculateStats(checkins: any[], questions: any[]) {
   for (let i = 0; i < sortedDates.length; i++) {
     const expectedDate = new Date();
     expectedDate.setDate(expectedDate.getDate() - i);
-    const expectedDateStr = expectedDate.toLocaleDateString('en-US', {
+    const dateStr = expectedDate.toLocaleDateString('en-US', {
       timeZone: 'America/New_York',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
-    }).split('/').reverse().join('-');
+    });
+    // Format: MM/DD/YYYY → YYYY-MM-DD
+    const [month, day, year] = dateStr.split('/');
+    const expectedDateStr = `${year}-${month}-${day}`;
     
     if (sortedDates[i] === expectedDateStr) {
       streak++;
