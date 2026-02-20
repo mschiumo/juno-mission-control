@@ -89,7 +89,8 @@ export default function CalendarView() {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     
-    const firstDay = new Date(year, month, 1);
+    // Create first day in EST to avoid timezone shift
+    const firstDay = new Date(`${year}-${String(month + 1).padStart(2, '0')}-01T12:00:00-05:00`);
     const lastDay = new Date(year, month + 1, 0);
     const startPadding = firstDay.getDay(); // 0 = Sunday
     
