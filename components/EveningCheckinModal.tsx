@@ -88,7 +88,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white">Evening Habit Check-in</h2>
-                <p className="text-sm text-[#8b949e]">{new Date().toLocaleDateString('en-US', { 
+                <p className="text-sm text-[#8b949e]">{new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).toLocaleDateString('en-US', { 
                   weekday: 'long', 
                   month: 'short', 
                   day: 'numeric',
@@ -177,7 +177,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                         className="flex items-center justify-between p-3 bg-[#161b22] rounded-lg"
                       >
                         <span className="text-sm text-[#8b949e]">
-                          {new Date(checkin.date).toLocaleDateString('en-US', {
+                          {new Date(checkin.date + 'T12:00:00').toLocaleDateString('en-US', {
                             weekday: 'short',
                             month: 'short',
                             day: 'numeric',
