@@ -23,6 +23,11 @@ export interface DayData {
 }
 
 export function parseTOSCSV(csvText: string): TOSTrade[] {
+  // Check if this is a "Position Statement" format (has P/L per position)
+  if (csvText.includes('Position Statement for') && csvText.includes('P/L Day')) {
+    return parseTOSPositionStatement(csvText);
+  }
+  
   // Check if this is a "Today's Trade Activity" format
   if (csvText.includes("Today's Trade Activity") || csvText.includes('Filled Orders')) {
     return parseTOSTradeActivity(csvText);
@@ -127,6 +132,100 @@ function parseTOSTradeActivity(csvText: string): TOSTrade[] {
     }
   }
 
+  return trades;
+}
+
+function parseTOSPositionStatement(csvText: string): TOSTrade[] {
+  const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim());
+  const trades: TOSTrade[] = [];
+  
+  // Extract date from header: "Position Statement for D-69512502 (ira) on 2/20/26 15:49:23"
+  let statementDate = '';
+  for (const line of lines) {
+    const match = line.match(/Position Statement for.+on\s+(\d{1,2}\/\d{1,2}\/\d{2})/);
+    if (match) {
+      const [month, day, yearShort] = match[1].split('/');
+      const year = '20' + yearShort;
+      statementDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      break;
+    }
+  }
+  
+  // If no date found in header, use today
+  if (!statementDate) {
+    statementDate = new Date().toISOString().split('T')[0];
+  }
+  
+  let inDataSection = false;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Find header row
+    if (trimmed.includes('Instrument') && trimmed.includes('P/L Day')) {
+      inDataSection = true;
+      continue;
+    }
+    
+    // Stop at subtotals/totals
+    if (trimmed.includes('Subtotals:') || trimmed.includes('Overall Totals:')) {
+      inDataSection = false;
+      continue;
+    }
+    
+    if (inDataSection) {
+      // Parse position row
+      // Format: SYMBOL,Qty,Days,Trade Price,Mark,Mrk Chng,P/L Open,P/L Day,BP Effect
+      // Example: INDI,0,,.00,3.555,+.125,$0.00,($5.00),$0.00
+      
+      const parts = trimmed.split(',').map(p => p.trim());
+      
+      // Need at least symbol and P/L Day
+      if (parts.length >= 8) {
+        const symbol = parts[0];
+        const qtyStr = parts[1];
+        const plDayStr = parts[7];
+        
+        // Skip if no symbol or not a stock symbol (contains spaces = description line)
+        if (!symbol || symbol.includes(' ') || symbol === 'Instrument') {
+          continue;
+        }
+        
+        // Parse P/L Day: format is "$62.00" or "($5.00)" for negative
+        let pnl = 0;
+        if (plDayStr) {
+          const cleanPnL = plDayStr.replace('$', '').replace(/[()]/g, '').replace(/,/g, '');
+          pnl = parseFloat(cleanPnL) || 0;
+          // If wrapped in parentheses, it's negative
+          if (plDayStr.includes('(') && plDayStr.includes(')')) {
+            pnl = -Math.abs(pnl);
+          }
+        }
+        
+        // Only include if there's a PnL (position was closed today or had activity)
+        // Qty=0 means position is closed
+        const qty = parseInt(qtyStr, 10) || 0;
+        
+        if (pnl !== 0) {
+          // Create a synthetic trade representing the day's PnL for this position
+          trades.push({
+            id: `${symbol}-${statementDate}-${Math.random().toString(36).substr(2, 9)}`,
+            symbol,
+            side: pnl >= 0 ? 'SELL' : 'BUY', // Winner = sell profit, Loser = buy loss
+            quantity: 1, // Synthetic quantity for PnL tracking
+            price: Math.abs(pnl), // Use PnL as price for display
+            date: statementDate,
+            time: '16:00:00', // Market close time
+            execTime: `${statementDate} 16:00:00`,
+            posEffect: qty === 0 ? 'CLOSED' : 'OPEN',
+            orderType: 'POSITION_PNL',
+            pnl: pnl // Store the actual PnL
+          });
+        }
+      }
+    }
+  }
+  
   return trades;
 }
 
