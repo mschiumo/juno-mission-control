@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, CSVImportResult, CSVImportError, CreateTradeRequest } from '@/types/trading';
-import { Strategy, TradeStatus } from '@/types/trading';
+import { Strategy, TradeStatus, TradeSide } from '@/types/trading';
 
 // Reference to the trades store
 declare global {
@@ -204,12 +204,12 @@ function parseTradeRow(
   }
   
   // Parse side
-  let side: 'LONG' | 'SHORT' = 'LONG';
+  let side: TradeSide = TradeSide.LONG;
   if (sideValue) {
     if (sideValue === 'SHORT' || sideValue === 'SELL' || sideValue === 'S') {
-      side = 'SHORT';
+      side = TradeSide.SHORT;
     } else if (sideValue === 'LONG' || sideValue === 'BUY' || sideValue === 'B') {
-      side = 'LONG';
+      side = TradeSide.LONG;
     }
   }
   
@@ -279,7 +279,7 @@ function parseTradeRow(
       }
       
       // Calculate P&L
-      const priceDiff = side === 'LONG' 
+      const priceDiff = side === TradeSide.LONG 
         ? exitPrice - entryPrice 
         : entryPrice - exitPrice;
       const grossPnL = priceDiff * shares;
