@@ -21,6 +21,7 @@ interface Goal {
   actionItems?: ActionItem[];
   source?: 'mj' | 'juno' | 'subagent';  // Who created this goal
   dueDate?: string;  // ISO date string for goal deadline
+  createdAt?: string; // ISO timestamp when goal was created
 }
 
 interface GoalsData {
@@ -270,7 +271,8 @@ export async function PUT(request: Request) {
       junoAssisted: junoAssisted || goalSource !== 'mj',
       actionItems: actionItems || undefined,
       source: goalSource,
-      dueDate: dueDate || undefined
+      dueDate: dueDate || undefined,
+      createdAt: new Date().toISOString()
     };
     
     goals[finalCategory].push(newGoal);

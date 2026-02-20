@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Target, Plus, X, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle, Calendar } from 'lucide-react';
+import { Target, Plus, X, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle, Calendar, Clock } from 'lucide-react';
 
 interface Notification {
   message: string;
@@ -27,6 +27,7 @@ interface Goal {
   actionItems?: ActionItem[];
   source?: 'mj' | 'juno' | 'subagent';
   dueDate?: string;
+  createdAt?: string;
 }
 
 interface GoalsData {
@@ -609,14 +610,24 @@ export default function GoalsCard() {
               <p className="text-sm text-white">
                 {goal.title}
               </p>
-              {goal.dueDate && (
-                <div className="flex items-center gap-1 mt-1">
-                  <Calendar className="w-3 h-3 text-[#F97316]" />
-                  <span className="text-[10px] text-[#F97316]">
-                    {new Date(goal.dueDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' })}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center gap-3 mt-1">
+                {goal.dueDate && (
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-[#F97316]" />
+                    <span className="text-[10px] text-[#F97316]">
+                      {new Date(goal.dueDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' })}
+                    </span>
+                  </div>
+                )}
+                {goal.createdAt && (
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-[#737373]" />
+                    <span className="text-[10px] text-[#737373]">
+                      {new Date(goal.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' })}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1">
