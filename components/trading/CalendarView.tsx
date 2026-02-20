@@ -436,7 +436,9 @@ export default function CalendarView() {
 }
 
 function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string; data: DayData; trades: TOSTrade[]; onClose: () => void; onSave?: (date: string, notes: string) => void }) {
-  const dateObj = new Date(date);
+  // Parse date parts directly to avoid UTC shift
+  const [year, month, day] = date.split('-').map(Number);
+  const dateObj = new Date(year, month - 1, day); // month is 0-indexed
   const [journalText, setJournalText] = useState(data.hasJournal ? "Followed my plan well today. Avoided FOMO on the midday chop." : "");
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
@@ -513,7 +515,7 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
         <div className="flex items-center justify-between p-4 border-b border-[#30363d] flex-shrink-0">
           <div>
             <h3 className="text-lg font-bold text-white">
-              {dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' })}
+              {dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </h3>
             <div className="flex items-center gap-3 mt-1">
               <span className={`text-sm font-semibold ${data.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
