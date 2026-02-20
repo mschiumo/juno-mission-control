@@ -634,7 +634,7 @@ export default function GoalsCard() {
             )}
             <button
               onClick={(e) => { e.stopPropagation(); openNotes(goal); }}
-              className="text-[#737373] hover:text-[#F97316] transition-colors"
+              className="p-1.5 bg-[#262626] hover:bg-[#F97316]/20 text-[#737373] hover:text-[#F97316] rounded-lg transition-colors"
               title="View/Edit Notes"
             >
               <FileText className={`w-4 h-4 ${goal.notes ? 'text-[#F97316]' : ''}`} />
