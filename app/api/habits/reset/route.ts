@@ -64,11 +64,14 @@ export async function POST() {
       await redis.del(habitKeys);
     }
     
-    // Also delete evening check-in data
+    // Also delete evening check-in data (both formats)
     const checkinKeys = await redis.keys('evening_checkin:*');
     if (checkinKeys.length > 0) {
       await redis.del(checkinKeys);
     }
+    
+    // Delete the main evening_checkins key (plural)
+    await redis.del('evening_checkins');
     
     // Create fresh habits for today
     const today = getToday();
