@@ -7,16 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, CSVImportResult, CSVImportError, CreateTradeRequest } from '@/types/trading';
 import { Strategy, TradeStatus, TradeSide } from '@/types/trading';
-
-// Reference to the trades store
-declare global {
-  var tradesStore: Map<string, Trade> | undefined;
-}
-
-const tradesStore: Map<string, Trade> = global.tradesStore || new Map();
-if (!global.tradesStore) {
-  global.tradesStore = tradesStore;
-}
+import { saveTrades } from '@/lib/db/trades-v2';
 
 /**
  * POST /api/trades/import
@@ -137,7 +128,6 @@ async function importTradesFromCSV(
     try {
       const trade = parseTradeRow(row, columnMap, userId, i);
       if (trade) {
-        tradesStore.set(trade.id, trade);
         trades.push(trade);
       }
     } catch (error) {
@@ -147,6 +137,11 @@ async function importTradesFromCSV(
         data: rowData,
       });
     }
+  }
+  
+  // Save all trades to Redis
+  if (trades.length > 0) {
+    await saveTrades(trades);
   }
   
   return {

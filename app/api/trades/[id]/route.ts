@@ -9,17 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, UpdateTradeRequest } from '@/types/trading';
 import { TradeStatus, TradeSide } from '@/types/trading';
-
-// Reference to the trades store from parent route
-// In production, this would be a database connection
-declare global {
-  var tradesStore: Map<string, Trade> | undefined;
-}
-
-const tradesStore: Map<string, Trade> = global.tradesStore || new Map();
-if (!global.tradesStore) {
-  global.tradesStore = tradesStore;
-}
+import { getTradeById, updateTrade, deleteTrade } from '@/lib/db/trades-v2';
 
 interface RouteParams {
   params: Promise<{
@@ -41,7 +31,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     
-    const trade = tradesStore.get(id);
+    const trade = await getTradeById(id);
     
     if (!trade) {
       return NextResponse.json(
@@ -51,7 +41,7 @@ export async function GET(
     }
     
     // Verify user has access to this trade
-    if (userId && trade.userId !== userId) {
+    if (userId && trade.userId && trade.userId !== userId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 403 }
@@ -87,7 +77,7 @@ export async function PUT(
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     
-    const trade = tradesStore.get(id);
+    const trade = await getTradeById(id);
     
     if (!trade) {
       return NextResponse.json(
@@ -97,7 +87,7 @@ export async function PUT(
     }
     
     // Verify user has access to this trade
-    if (userId && trade.userId !== userId) {
+    if (userId && trade.userId && trade.userId !== userId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 403 }
@@ -105,65 +95,73 @@ export async function PUT(
     }
     
     const now = new Date().toISOString();
-    const updatedTrade: Trade = { ...trade, updatedAt: now };
+    const updates: Partial<Trade> = { updatedAt: now };
     
     // Update basic fields
-    if (body.symbol) updatedTrade.symbol = body.symbol.toUpperCase();
-    if (body.side) updatedTrade.side = body.side;
-    if (body.strategy) updatedTrade.strategy = body.strategy;
-    if (body.entryDate) updatedTrade.entryDate = body.entryDate;
-    if (body.entryPrice !== undefined) updatedTrade.entryPrice = body.entryPrice;
-    if (body.shares !== undefined) updatedTrade.shares = body.shares;
-    if (body.entryNotes !== undefined) updatedTrade.entryNotes = body.entryNotes;
-    if (body.exitNotes !== undefined) updatedTrade.exitNotes = body.exitNotes;
-    if (body.stopLoss !== undefined) updatedTrade.stopLoss = body.stopLoss;
-    if (body.takeProfit !== undefined) updatedTrade.takeProfit = body.takeProfit;
-    if (body.riskAmount !== undefined) updatedTrade.riskAmount = body.riskAmount;
-    if (body.emotion !== undefined) updatedTrade.emotion = body.emotion;
-    if (body.setupQuality !== undefined) updatedTrade.setupQuality = body.setupQuality;
-    if (body.mistakes !== undefined) updatedTrade.mistakes = body.mistakes;
-    if (body.lessons !== undefined) updatedTrade.lessons = body.lessons;
-    if (body.tags !== undefined) updatedTrade.tags = body.tags;
-    if (body.status) updatedTrade.status = body.status;
+    if (body.symbol) updates.symbol = body.symbol.toUpperCase();
+    if (body.side) updates.side = body.side;
+    if (body.strategy) updates.strategy = body.strategy;
+    if (body.entryDate) updates.entryDate = body.entryDate;
+    if (body.entryPrice !== undefined) updates.entryPrice = body.entryPrice;
+    if (body.shares !== undefined) updates.shares = body.shares;
+    if (body.entryNotes !== undefined) updates.entryNotes = body.entryNotes;
+    if (body.exitNotes !== undefined) updates.exitNotes = body.exitNotes;
+    if (body.stopLoss !== undefined) updates.stopLoss = body.stopLoss;
+    if (body.takeProfit !== undefined) updates.takeProfit = body.takeProfit;
+    if (body.riskAmount !== undefined) updates.riskAmount = body.riskAmount;
+    if (body.emotion !== undefined) updates.emotion = body.emotion;
+    if (body.setupQuality !== undefined) updates.setupQuality = body.setupQuality;
+    if (body.mistakes !== undefined) updates.mistakes = body.mistakes;
+    if (body.lessons !== undefined) updates.lessons = body.lessons;
+    if (body.tags !== undefined) updates.tags = body.tags;
+    if (body.status) updates.status = body.status;
     
     // Handle trade closure
-    if (body.exitDate !== undefined) updatedTrade.exitDate = body.exitDate;
+    if (body.exitDate !== undefined) updates.exitDate = body.exitDate;
     if (body.exitPrice !== undefined) {
-      updatedTrade.exitPrice = body.exitPrice;
+      updates.exitPrice = body.exitPrice;
       
       // Auto-calculate P&L if exit price provided and trade wasn't already closed
-      if (body.exitPrice > 0 && updatedTrade.entryPrice > 0) {
-        const isLong = updatedTrade.side === TradeSide.LONG;
+      if (body.exitPrice > 0 && trade.entryPrice > 0) {
+        const isLong = trade.side === TradeSide.LONG;
         const priceDiff = isLong 
-          ? body.exitPrice - updatedTrade.entryPrice
-          : updatedTrade.entryPrice - body.exitPrice;
+          ? body.exitPrice - trade.entryPrice
+          : trade.entryPrice - body.exitPrice;
         
-        const grossPnL = priceDiff * updatedTrade.shares;
+        const grossPnL = priceDiff * trade.shares;
         // Assume $0.01 per share commission + $1 base fee as default
-        const estimatedFees = 1 + (updatedTrade.shares * 0.01 * 2); // Entry + Exit
+        const estimatedFees = 1 + (trade.shares * 0.01 * 2); // Entry + Exit
         
-        updatedTrade.grossPnL = grossPnL;
-        updatedTrade.netPnL = grossPnL - estimatedFees;
-        updatedTrade.returnPercent = (priceDiff / updatedTrade.entryPrice) * 100;
+        updates.grossPnL = grossPnL;
+        updates.netPnL = grossPnL - estimatedFees;
+        updates.returnPercent = (priceDiff / trade.entryPrice) * 100;
         
         // Auto-update status if exit is provided
         if (!body.status) {
-          updatedTrade.status = TradeStatus.CLOSED;
+          updates.status = TradeStatus.CLOSED;
         }
       }
     }
     
     // Recalculate risk percent if risk amount or entry changed
     if (body.riskAmount !== undefined || body.entryPrice !== undefined) {
-      const riskAmount = body.riskAmount ?? updatedTrade.riskAmount;
-      const entryPrice = body.entryPrice ?? updatedTrade.entryPrice;
+      const riskAmount = body.riskAmount ?? trade.riskAmount;
+      const entryPrice = body.entryPrice ?? trade.entryPrice;
+      const shares = body.shares ?? trade.shares;
       if (riskAmount && entryPrice > 0) {
-        updatedTrade.riskPercent = (riskAmount / (entryPrice * updatedTrade.shares)) * 100;
+        updates.riskPercent = (riskAmount / (entryPrice * shares)) * 100;
       }
     }
     
-    // Store updated trade
-    tradesStore.set(id, updatedTrade);
+    // Update trade in Redis
+    const updatedTrade = await updateTrade(id, updates);
+    
+    if (!updatedTrade) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to update trade' },
+        { status: 500 }
+      );
+    }
     
     return NextResponse.json({ success: true, data: updatedTrade });
     
@@ -190,7 +188,7 @@ export async function DELETE(
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     
-    const trade = tradesStore.get(id);
+    const trade = await getTradeById(id);
     
     if (!trade) {
       return NextResponse.json(
@@ -200,14 +198,14 @@ export async function DELETE(
     }
     
     // Verify user has access to this trade
-    if (userId && trade.userId !== userId) {
+    if (userId && trade.userId && trade.userId !== userId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 403 }
       );
     }
     
-    tradesStore.delete(id);
+    await deleteTrade(id);
     
     return NextResponse.json({ 
       success: true, 

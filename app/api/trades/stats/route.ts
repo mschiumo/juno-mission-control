@@ -6,16 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, Metrics, DailySummary, TradeStatsResponse } from '@/types/trading';
-
-// Reference to the trades store
-declare global {
-  var tradesStore: Map<string, Trade> | undefined;
-}
-
-const tradesStore: Map<string, Trade> = global.tradesStore || new Map();
-if (!global.tradesStore) {
-  global.tradesStore = tradesStore;
-}
+import { getAllTrades } from '@/lib/db/trades-v2';
 
 /**
  * GET /api/trades/stats
@@ -79,9 +70,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const symbol = searchParams.get('symbol');
     const strategy = searchParams.get('strategy');
     
+    // Get all trades from Redis
+    const allTrades = await getAllTrades();
+    
     // Get all user trades in date range
-    let trades = Array.from(tradesStore.values()).filter((trade) => {
-      if (trade.userId !== userId) return false;
+    let trades = allTrades.filter((trade) => {
+      if (trade.userId && trade.userId !== userId) return false;
       
       const tradeDate = new Date(trade.entryDate);
       if (tradeDate < startDate || tradeDate > endDate) return false;
@@ -258,7 +252,7 @@ function calculateDailySummaries(trades: Trade[]): DailySummary[] {
     if (!summariesByDate.has(date)) {
       summariesByDate.set(date, {
         id: crypto.randomUUID(),
-        userId: trade.userId,
+        userId: trade.userId || 'default',
         date,
         totalTrades: 0,
         winningTrades: 0,

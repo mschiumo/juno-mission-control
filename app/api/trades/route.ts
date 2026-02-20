@@ -7,10 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, CreateTradeRequest, TradeListResponse } from '@/types/trading';
-import { TradeStatus, Strategy } from '@/types/trading';
-
-// In-memory storage for development (replace with database in production)
-const tradesStore: Map<string, Trade> = new Map();
+import { TradeStatus, Strategy, TradeSide } from '@/types/trading';
+import { getAllTrades, saveTrade, deleteTrade } from '@/lib/db/trades-v2';
 
 // Helper to generate UUID
 function generateId(): string {
@@ -21,7 +19,7 @@ function generateId(): string {
  * GET /api/trades
  * 
  * Query Parameters:
- * - userId: string (required)
+ * - userId: string (optional, defaults to 'default')
  * - symbol: string (optional filter)
  * - status: 'OPEN' | 'CLOSED' | 'PARTIAL' (optional filter)
  * - strategy: string (optional filter)
@@ -35,6 +33,9 @@ function generateId(): string {
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
+    
+    // Get all trades from Redis
+    const allTrades = await getAllTrades();
     
     // Required parameters
     const userId = searchParams.get('userId') || 'default';
@@ -56,8 +57,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     
     // Filter trades by user
-    let filteredTrades = Array.from(tradesStore.values()).filter(
-      (trade) => trade.userId === userId
+    let filteredTrades = allTrades.filter(
+      (trade) => trade.userId === userId || !trade.userId // Include trades without userId for backward compat
     );
     
     // Apply filters
@@ -183,7 +184,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Create trade object
     const newTrade: Trade = {
       id: generateId(),
-      userId: body.userId || 'default-user', // In production, get from auth
+      userId: body.userId || 'default',
       symbol: body.symbol.toUpperCase(),
       side: body.side,
       status: TradeStatus.OPEN,
@@ -206,8 +207,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       newTrade.riskPercent = (body.riskAmount / (body.entryPrice * body.shares)) * 100;
     }
     
-    // Store trade
-    tradesStore.set(newTrade.id, newTrade);
+    // Store trade in Redis
+    await saveTrade(newTrade);
     
     return NextResponse.json(
       { success: true, data: newTrade },

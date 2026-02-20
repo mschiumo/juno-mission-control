@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getAllTrades } from '@/lib/db/trades';
+import { getAllTrades } from '@/lib/db/trades-v2';
+import { Trade, TradeSide, TradeStatus } from '@/types/trading';
 
 export async function GET() {
   try {
@@ -15,116 +16,158 @@ export async function GET() {
     
     // Calculate analytics
     const totalTrades = trades.length;
+    const closedTrades = trades.filter(t => t.status === TradeStatus.CLOSED);
     
     // Group by symbol
-    const bySymbol: Record<string, { trades: typeof trades; wins: number; losses: number; pnl: number }> = {};
+    const bySymbol: Record<string, { 
+      trades: Trade[]; 
+      wins: number; 
+      losses: number; 
+      pnl: number;
+      longs: number;
+      shorts: number;
+    }> = {};
+    
     trades.forEach(trade => {
       if (!bySymbol[trade.symbol]) {
-        bySymbol[trade.symbol] = { trades: [], wins: 0, losses: 0, pnl: 0 };
+        bySymbol[trade.symbol] = { 
+          trades: [], 
+          wins: 0, 
+          losses: 0, 
+          pnl: 0,
+          longs: 0,
+          shorts: 0
+        };
       }
       bySymbol[trade.symbol].trades.push(trade);
-    });
-    
-    // Calculate PnL per symbol
-    Object.entries(bySymbol).forEach(([symbol, data]) => {
-      const buys = data.trades.filter(t => t.side === 'BUY');
-      const sells = data.trades.filter(t => t.side === 'SELL');
       
-      if (buys.length > 0 && sells.length > 0) {
-        const buyValue = buys.reduce((sum, t) => sum + t.price * t.quantity, 0);
-        const buyQty = buys.reduce((sum, t) => sum + t.quantity, 0);
-        const avgBuy = buyQty > 0 ? buyValue / buyQty : 0;
-        
-        const sellValue = sells.reduce((sum, t) => sum + t.price * t.quantity, 0);
-        const sellQty = sells.reduce((sum, t) => sum + t.quantity, 0);
-        const avgSell = sellQty > 0 ? sellValue / sellQty : 0;
-        
-        const matchedQty = Math.min(buyQty, sellQty);
-        data.pnl = (avgSell - avgBuy) * matchedQty;
-        
-        if (data.pnl > 0) data.wins = 1;
-        else if (data.pnl < 0) data.losses = 1;
+      if (trade.side === TradeSide.LONG) {
+        bySymbol[trade.symbol].longs++;
+      } else {
+        bySymbol[trade.symbol].shorts++;
+      }
+      
+      if (trade.netPnL !== undefined) {
+        bySymbol[trade.symbol].pnl += trade.netPnL;
+        if (trade.netPnL > 0) {
+          bySymbol[trade.symbol].wins++;
+        } else if (trade.netPnL < 0) {
+          bySymbol[trade.symbol].losses++;
+        }
       }
     });
     
     // Group by date
     const byDate: Record<string, number> = {};
     trades.forEach(trade => {
-      if (!byDate[trade.date]) byDate[trade.date] = 0;
+      const date = trade.entryDate.split('T')[0];
+      if (!byDate[date]) byDate[date] = 0;
+      byDate[date] += trade.netPnL || 0;
     });
     const uniqueDays = Object.keys(byDate).length;
     
     // Group by day of week
-    const byDayOfWeek: Record<string, { trades: number; pnl: number }> = {
-      'Sunday': { trades: 0, pnl: 0 },
-      'Monday': { trades: 0, pnl: 0 },
-      'Tuesday': { trades: 0, pnl: 0 },
-      'Wednesday': { trades: 0, pnl: 0 },
-      'Thursday': { trades: 0, pnl: 0 },
-      'Friday': { trades: 0, pnl: 0 },
-      'Saturday': { trades: 0, pnl: 0 },
+    const byDayOfWeek: Record<string, { trades: number; pnl: number; wins: number; losses: number }> = {
+      'Sunday': { trades: 0, pnl: 0, wins: 0, losses: 0 },
+      'Monday': { trades: 0, pnl: 0, wins: 0, losses: 0 },
+      'Tuesday': { trades: 0, pnl: 0, wins: 0, losses: 0 },
+      'Wednesday': { trades: 0, pnl: 0, wins: 0, losses: 0 },
+      'Thursday': { trades: 0, pnl: 0, wins: 0, losses: 0 },
+      'Friday': { trades: 0, pnl: 0, wins: 0, losses: 0 },
+      'Saturday': { trades: 0, pnl: 0, wins: 0, losses: 0 },
     };
     
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     
-    Object.entries(bySymbol).forEach(([symbol, data]) => {
-      // Get date from first trade of this symbol
-      const firstTrade = data.trades[0];
-      if (firstTrade) {
-        const date = new Date(firstTrade.date);
-        const dayName = dayNames[date.getDay()];
-        byDayOfWeek[dayName].trades += data.trades.length;
-        byDayOfWeek[dayName].pnl += data.pnl;
+    trades.forEach(trade => {
+      const date = new Date(trade.entryDate);
+      const dayName = dayNames[date.getDay()];
+      byDayOfWeek[dayName].trades++;
+      if (trade.netPnL !== undefined) {
+        byDayOfWeek[dayName].pnl += trade.netPnL;
+        if (trade.netPnL > 0) {
+          byDayOfWeek[dayName].wins++;
+        } else if (trade.netPnL < 0) {
+          byDayOfWeek[dayName].losses++;
+        }
       }
     });
     
     // Group by time of day (hour)
-    const byHour: Record<string, { trades: number; pnl: number }> = {};
+    const byHour: Record<string, { trades: number; pnl: number; wins: number; losses: number }> = {};
     trades.forEach(trade => {
-      const hour = parseInt(trade.time.split(':')[0]);
+      const date = new Date(trade.entryDate);
+      const hour = date.getHours();
       const hourKey = `${hour}:00`;
       if (!byHour[hourKey]) {
-        byHour[hourKey] = { trades: 0, pnl: 0 };
+        byHour[hourKey] = { trades: 0, pnl: 0, wins: 0, losses: 0 };
       }
       byHour[hourKey].trades++;
-    });
-    
-    // Add PnL to hours
-    Object.entries(bySymbol).forEach(([symbol, data]) => {
-      const firstTrade = data.trades[0];
-      if (firstTrade) {
-        const hour = parseInt(firstTrade.time.split(':')[0]);
-        const hourKey = `${hour}:00`;
-        if (byHour[hourKey]) {
-          byHour[hourKey].pnl += data.pnl;
+      if (trade.netPnL !== undefined) {
+        byHour[hourKey].pnl += trade.netPnL;
+        if (trade.netPnL > 0) {
+          byHour[hourKey].wins++;
+        } else if (trade.netPnL < 0) {
+          byHour[hourKey].losses++;
         }
       }
     });
     
     // Overall stats
-    const totalPnL = Object.values(bySymbol).reduce((sum, s) => sum + s.pnl, 0);
-    const totalWins = Object.values(bySymbol).reduce((sum, s) => sum + s.wins, 0);
-    const totalLosses = Object.values(bySymbol).reduce((sum, s) => sum + s.losses, 0);
+    const totalPnL = trades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
+    const totalWins = closedTrades.filter(t => (t.netPnL || 0) > 0).length;
+    const totalLosses = closedTrades.filter(t => (t.netPnL || 0) < 0).length;
+    const breakeven = closedTrades.filter(t => (t.netPnL || 0) === 0).length;
     const winRate = totalWins + totalLosses > 0 ? (totalWins / (totalWins + totalLosses)) * 100 : 0;
     
     // Best and worst symbols
     const sortedSymbols = Object.entries(bySymbol)
-      .map(([symbol, data]) => ({ symbol, ...data }))
+      .map(([symbol, data]) => ({ 
+        symbol, 
+        trades: data.trades.length,
+        wins: data.wins,
+        losses: data.losses,
+        pnl: data.pnl,
+        longs: data.longs,
+        shorts: data.shorts
+      }))
       .sort((a, b) => b.pnl - a.pnl);
+    
+    // Strategy performance
+    const byStrategy: Record<string, { trades: number; pnl: number; wins: number; losses: number }> = {};
+    trades.forEach(trade => {
+      const strategy = trade.strategy || 'OTHER';
+      if (!byStrategy[strategy]) {
+        byStrategy[strategy] = { trades: 0, pnl: 0, wins: 0, losses: 0 };
+      }
+      byStrategy[strategy].trades++;
+      if (trade.netPnL !== undefined) {
+        byStrategy[strategy].pnl += trade.netPnL;
+        if (trade.netPnL > 0) {
+          byStrategy[strategy].wins++;
+        } else if (trade.netPnL < 0) {
+          byStrategy[strategy].losses++;
+        }
+      }
+    });
     
     const analytics = {
       overview: {
         totalTrades,
+        closedTrades: closedTrades.length,
         uniqueDays,
         totalPnL,
-        winRate,
+        winRate: Number(winRate.toFixed(2)),
         wins: totalWins,
         losses: totalLosses,
-        avgTradesPerDay: uniqueDays > 0 ? totalTrades / uniqueDays : 0
+        breakeven,
+        avgTradesPerDay: uniqueDays > 0 ? totalTrades / uniqueDays : 0,
+        avgPnLPerTrade: closedTrades.length > 0 ? totalPnL / closedTrades.length : 0
       },
       bySymbol: sortedSymbols,
       byDayOfWeek,
-      byHour
+      byHour,
+      byStrategy
     };
     
     return NextResponse.json({

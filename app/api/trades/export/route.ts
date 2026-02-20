@@ -6,16 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade } from '@/types/trading';
-
-// Reference to the trades store
-declare global {
-  var tradesStore: Map<string, Trade> | undefined;
-}
-
-const tradesStore: Map<string, Trade> = global.tradesStore || new Map();
-if (!global.tradesStore) {
-  global.tradesStore = tradesStore;
-}
+import { getAllTrades } from '@/lib/db/trades-v2';
 
 /**
  * GET /api/trades/export
@@ -53,9 +44,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const symbol = searchParams.get('symbol');
     const includeJournal = searchParams.get('includeJournal') === 'true';
     
+    // Get all trades from Redis
+    const allTrades = await getAllTrades();
+    
     // Get filtered trades
-    let trades = Array.from(tradesStore.values()).filter(
-      (trade) => trade.userId === userId
+    let trades = allTrades.filter(
+      (trade) => !trade.userId || trade.userId === userId
     );
     
     // Apply filters
