@@ -43,7 +43,7 @@ export default function CalendarView() {
   const fetchDailyStats = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/trades');
+      const response = await fetch('/api/trades/daily-stats');
       const data = await response.json();
       
       if (data.success && data.dailyStats) {
