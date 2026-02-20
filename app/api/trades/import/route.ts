@@ -62,76 +62,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Check if this is a TOS format
-    if (csv.includes("Today's Trade Activity") || csv.includes('Filled Orders') || csv.includes('TO OPEN')) {
+    if (csv.includes("Today's Trade Activity") || csv.includes('Filled Orders') || csv.includes('TO OPEN') || csv.includes('Position Statement for')) {
       const tosTrades = parseTOSCSV(csv);
 
       if (tosTrades.length === 0) {
         return NextResponse.json(
-          { success: false, error: 'No trades found in TOS file. Make sure it contains Filled Orders.' },
+          { success: false, error: 'No trades found in TOS file. Make sure it contains Filled Orders or Position Statement data.' },
           { status: 400 }
         );
       }
 
-      // Group by symbol to pair buys/sells and calculate PnL
-      const bySymbol: Record<string, typeof tosTrades> = {};
-      tosTrades.forEach(t => {
-        if (!bySymbol[t.symbol]) bySymbol[t.symbol] = [];
-        bySymbol[t.symbol].push(t);
-      });
+      // Check if this is Position Statement format (already has PnL calculated)
+      const isPositionStatement = csv.includes('Position Statement for');
 
       const trades: Trade[] = [];
       const now = new Date().toISOString();
 
-      Object.entries(bySymbol).forEach(([symbol, symbolTrades]) => {
-        const buys = symbolTrades.filter(t => t.side === 'BUY').sort((a, b) => 
-          new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()
-        );
-        const sells = symbolTrades.filter(t => t.side === 'SELL').sort((a, b) => 
-          new Date(a.date + 'T' + b.time).getTime() - new Date(b.date + 'T' + b.time).getTime()
-        );
-
-        // Calculate PnL for completed round trips
-        const minPairs = Math.min(buys.length, sells.length);
-        for (let i = 0; i < minPairs; i++) {
-          const buy = buys[i];
-          const sell = sells[i];
-          const shares = Math.min(buy.quantity, sell.quantity);
-          const netPnL = (sell.price - buy.price) * shares;
-
-          // Create entryDate with explicit EST timezone
-          const [year, month, day] = buy.date.split('-');
-          const [hours, minutes, seconds] = buy.time.split(':');
-          const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
-
-          // Create exitDate
-          const [sYear, sMonth, sDay] = sell.date.split('-');
-          const [sHours, sMinutes, sSeconds] = sell.time.split(':');
-          const exitDate = `${sYear}-${sMonth}-${sDay}T${sHours}:${sMinutes}:${sSeconds}-05:00`;
-
-          trades.push({
-            id: crypto.randomUUID(),
-            userId,
-            symbol,
-            side: TradeSide.LONG,
-            status: TradeStatus.CLOSED,
-            strategy: Strategy.DAY_TRADE,
-            entryDate,
-            entryPrice: buy.price,
-            exitDate,
-            exitPrice: sell.price,
-            shares,
-            netPnL,
-            createdAt: now,
-            updatedAt: now,
-            entryNotes: `Imported from TOS - Buy: ${buy.posEffect}, Sell: ${sell.posEffect}`
-          });
-        }
-
-        // Handle unmatched orders (remaining buys or sells)
-        const unmatchedBuys = buys.slice(minPairs);
-        const unmatchedSells = sells.slice(minPairs);
-        
-        [...unmatchedBuys, ...unmatchedSells].forEach(t => {
+      if (isPositionStatement) {
+        // Position Statement: trades already have PnL, use them directly
+        tosTrades.forEach(t => {
           const [year, month, day] = t.date.split('-');
           const [hours, minutes, seconds] = t.time.split(':');
           const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
@@ -139,19 +88,100 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           trades.push({
             id: crypto.randomUUID(),
             userId,
-            symbol,
-            side: t.side === 'BUY' ? TradeSide.LONG : TradeSide.SHORT,
-            status: TradeStatus.OPEN,
+            symbol: t.symbol,
+            side: t.pnl && t.pnl >= 0 ? TradeSide.LONG : TradeSide.SHORT,
+            status: TradeStatus.CLOSED,
             strategy: Strategy.DAY_TRADE,
             entryDate,
-            entryPrice: t.price,
-            shares: t.quantity,
+            entryPrice: Math.abs(t.pnl || 0), // Use PnL as entry for display
+            exitDate: entryDate, // Same day close
+            exitPrice: 0,
+            shares: 1,
+            netPnL: t.pnl || 0,
             createdAt: now,
             updatedAt: now,
-            entryNotes: `Imported from TOS - ${t.posEffect} (unmatched)`
+            entryNotes: `Imported from TOS Position Statement - ${t.posEffect}`
           });
         });
-      });
+      } else {
+        // Trade Activity format: pair buys/sells to calculate PnL
+        const bySymbol: Record<string, typeof tosTrades> = {};
+        tosTrades.forEach(t => {
+          if (!bySymbol[t.symbol]) bySymbol[t.symbol] = [];
+          bySymbol[t.symbol].push(t);
+        });
+
+        Object.entries(bySymbol).forEach(([symbol, symbolTrades]) => {
+          const buys = symbolTrades.filter(t => t.side === 'BUY').sort((a, b) => 
+            new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()
+          );
+          const sells = symbolTrades.filter(t => t.side === 'SELL').sort((a, b) => 
+            new Date(a.date + 'T' + b.time).getTime() - new Date(b.date + 'T' + b.time).getTime()
+          );
+
+          // Calculate PnL for completed round trips
+          const minPairs = Math.min(buys.length, sells.length);
+          for (let i = 0; i < minPairs; i++) {
+            const buy = buys[i];
+            const sell = sells[i];
+            const shares = Math.min(buy.quantity, sell.quantity);
+            const netPnL = (sell.price - buy.price) * shares;
+
+            // Create entryDate with explicit EST timezone
+            const [year, month, day] = buy.date.split('-');
+            const [hours, minutes, seconds] = buy.time.split(':');
+            const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
+
+            // Create exitDate
+            const [sYear, sMonth, sDay] = sell.date.split('-');
+            const [sHours, sMinutes, sSeconds] = sell.time.split(':');
+            const exitDate = `${sYear}-${sMonth}-${sDay}T${sHours}:${sMinutes}:${sSeconds}-05:00`;
+
+            trades.push({
+              id: crypto.randomUUID(),
+              userId,
+              symbol,
+              side: TradeSide.LONG,
+              status: TradeStatus.CLOSED,
+              strategy: Strategy.DAY_TRADE,
+              entryDate,
+              entryPrice: buy.price,
+              exitDate,
+              exitPrice: sell.price,
+              shares,
+              netPnL,
+              createdAt: now,
+              updatedAt: now,
+              entryNotes: `Imported from TOS - Buy: ${buy.posEffect}, Sell: ${sell.posEffect}`
+            });
+          }
+
+          // Handle unmatched orders (remaining buys or sells)
+          const unmatchedBuys = buys.slice(minPairs);
+          const unmatchedSells = sells.slice(minPairs);
+          
+          [...unmatchedBuys, ...unmatchedSells].forEach(t => {
+            const [year, month, day] = t.date.split('-');
+            const [hours, minutes, seconds] = t.time.split(':');
+            const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
+
+            trades.push({
+              id: crypto.randomUUID(),
+              userId,
+              symbol,
+              side: t.side === 'BUY' ? TradeSide.LONG : TradeSide.SHORT,
+              status: TradeStatus.OPEN,
+              strategy: Strategy.DAY_TRADE,
+              entryDate,
+              entryPrice: t.price,
+              shares: t.quantity,
+              createdAt: now,
+              updatedAt: now,
+              entryNotes: `Imported from TOS - ${t.posEffect} (unmatched)`
+            });
+          });
+        });
+      }
 
       // Save to Redis
       await saveTrades(trades);
