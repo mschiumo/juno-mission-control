@@ -43,7 +43,7 @@ export default function CalendarView() {
   const fetchDailyStats = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/trades/daily-stats');
+      const response = await fetch(`/api/trades/daily-stats?_t=${Date.now()}`);
       const data = await response.json();
       
       if (data.success && data.dailyStats) {
@@ -60,8 +60,8 @@ export default function CalendarView() {
     try {
       // Use startDate and endDate for the specific day
       const [tradesRes, journalRes] = await Promise.all([
-        fetch(`/api/trades?userId=default&startDate=${date}&endDate=${date}&perPage=100`),
-        fetch(`/api/trades/journal?date=${date}`)
+        fetch(`/api/trades?userId=default&startDate=${date}&endDate=${date}&perPage=100&_t=${Date.now()}`),
+        fetch(`/api/trades/journal?date=${date}&_t=${Date.now()}`)
       ]);
       
       const tradesData = await tradesRes.json();
