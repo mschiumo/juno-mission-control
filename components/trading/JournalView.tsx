@@ -305,10 +305,6 @@ export default function JournalView() {
                   </div>
                 </div>
               </button>
-                    <ChevronDown className="w-5 h-5 text-[#8b949e]" />
-                  )}
-                </div>
-              </button>
               
               {/* Expanded Content */}
               {expandedId === entry.id && (
