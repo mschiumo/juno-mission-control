@@ -61,12 +61,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Apply filters
     if (startDate) {
       const start = new Date(startDate);
-      trades = trades.filter((t) => new Date(t.entryDate) >= start);
+      trades = trades.filter((t) => t.entryDate && new Date(t.entryDate) >= start);
     }
     
     if (endDate) {
       const end = new Date(endDate);
-      trades = trades.filter((t) => new Date(t.entryDate) <= end);
+      trades = trades.filter((t) => t.entryDate && new Date(t.entryDate) <= end);
     }
     
     if (status) {
@@ -81,7 +81,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     
     // Sort by entry date
     trades.sort(
-      (a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime()
+      (a, b) => {
+        const dateA = a.entryDate ? new Date(a.entryDate).getTime() : 0;
+        const dateB = b.entryDate ? new Date(b.entryDate).getTime() : 0;
+        return dateA - dateB;
+      }
     );
     
     if (format === 'json') {
@@ -218,10 +222,10 @@ function generateCSV(trades: Trade[], includeJournal: boolean): string {
           value = trade.setupQuality || '';
           break;
         case 'mistakes':
-          value = trade.mistakes ? trade.mistakes.join(';') : '';
+          value = trade.mistakes || '';
           break;
         case 'lessons':
-          value = trade.lessons ? trade.lessons.join(';') : '';
+          value = trade.lessons || '';
           break;
         case 'tags':
           value = trade.tags ? trade.tags.join(';') : '';

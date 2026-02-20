@@ -133,7 +133,7 @@ export async function PUT(
       
       // Auto-calculate P&L if exit price provided and trade wasn't already closed
       if (body.exitPrice > 0 && updatedTrade.entryPrice > 0) {
-        const isLong = updatedTrade.side === 'LONG';
+        const isLong = updatedTrade.side === 'long';
         const priceDiff = isLong 
           ? body.exitPrice - updatedTrade.entryPrice
           : updatedTrade.entryPrice - body.exitPrice;

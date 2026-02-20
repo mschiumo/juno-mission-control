@@ -2,6 +2,12 @@
 
 export type TradeSide = 'long' | 'short';
 
+export enum TradeStatus {
+  OPEN = 'open',
+  CLOSED = 'closed',
+  PENDING = 'pending'
+}
+
 export type TradeStrategy = 
   | 'breakout' 
   | 'pullback' 
@@ -30,19 +36,54 @@ export interface Trade {
   shares: number;
   entryTime: string;
   exitTime: string | null;
+  entryDate?: string;
+  exitDate?: string;
   pnl: number | null;
   fees: number;
-  netPnl: number | null;
+  netPnL: number | null;
+  grossPnL?: number;
+  returnPercent?: number;
+  riskPercent?: number;
   strategy: TradeStrategy;
   setupType: string;
+  setupQuality?: number;
   tags: string[];
   emotion: TradeEmotion;
   mistakes: string;
+  lessons?: string;
   notes: string;
+  entryNotes?: string;
+  exitNotes?: string;
+  stopLoss?: number;
+  takeProfit?: number;
+  riskAmount?: number;
   screenshots: string[];
   chartUrl: string | null;
+  status?: TradeStatus;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UpdateTradeRequest {
+  symbol?: string;
+  side?: TradeSide;
+  strategy?: TradeStrategy;
+  entryDate?: string;
+  entryPrice?: number;
+  shares?: number;
+  entryNotes?: string;
+  exitNotes?: string;
+  stopLoss?: number;
+  takeProfit?: number;
+  riskAmount?: number;
+  emotion?: TradeEmotion;
+  setupQuality?: number;
+  mistakes?: string;
+  lessons?: string;
+  tags?: string[];
+  status?: TradeStatus;
+  exitDate?: string;
+  exitPrice?: number;
 }
 
 export interface TradeJournal {
