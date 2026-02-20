@@ -75,6 +75,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Convert TOSTrade to Trade format
       const trades: Trade[] = tosTrades.map(tosTrade => {
         const now = new Date().toISOString();
+        // Create entryDate with explicit EST timezone to avoid UTC shift
+        // TOS dates are in the format MM/DD/YY from the user's local time (EST)
+        const [year, month, day] = tosTrade.date.split('-');
+        const [hours, minutes, seconds] = tosTrade.time.split(':');
+        
+        // Create date in EST: YYYY-MM-DDTHH:MM:SS-05:00
+        const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
+        
         return {
           id: crypto.randomUUID(),
           userId,
@@ -82,7 +90,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           side: tosTrade.side === 'BUY' ? TradeSide.LONG : TradeSide.SHORT,
           status: TradeStatus.CLOSED, // Assume closed for TOS imports
           strategy: Strategy.DAY_TRADE,
-          entryDate: `${tosTrade.date}T${tosTrade.time}`,
+          entryDate: entryDate,
           entryPrice: tosTrade.price,
           shares: tosTrade.quantity,
           createdAt: now,
