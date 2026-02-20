@@ -5,12 +5,15 @@ import { getAllTrades } from '@/lib/db/trades-v2';
 function getESTDate(isoTimestamp: string): string {
   // Parse the timestamp and convert to EST
   const date = new Date(isoTimestamp);
-  return date.toLocaleDateString('en-US', {
+  const estDate = date.toLocaleDateString('en-US', {
     timeZone: 'America/New_York',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
-  }).split('/').reverse().join('-'); // MM/DD/YYYY → YYYY-MM-DD
+  });
+  // Convert MM/DD/YYYY to YYYY-MM-DD
+  const [month, day, year] = estDate.split('/');
+  return `${year}-${month}-${day}`;
 }
 
 export async function GET() {
