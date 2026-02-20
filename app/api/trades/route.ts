@@ -37,14 +37,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const { searchParams } = new URL(request.url);
     
     // Required parameters
-    const userId = searchParams.get('userId');
-    
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'userId is required' },
-        { status: 400 }
-      );
-    }
+    const userId = searchParams.get('userId') || 'default';
     
     // Optional filters
     const symbol = searchParams.get('symbol');
