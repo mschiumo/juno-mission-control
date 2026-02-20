@@ -12,30 +12,66 @@ import { saveTrades } from '@/lib/db/trades-v2';
 /**
  * POST /api/trades/import
  * 
- * Import trades from CSV data
+ * Import trades from CSV data (JSON or FormData with file)
  * 
- * Body:
+ * Body (JSON):
  * - csv: string (CSV content)
  * - userId: string (required)
  * - mapping: CSVImportMapping (column mapping configuration)
  * - delimiter: string (default: ',')
+ * 
+ * Body (FormData):
+ * - file: File (CSV file)
+ * - userId: string (default: 'default')
  */
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body = await request.json();
-    const { csv, userId, mapping, delimiter = ',' } = body;
-    
-    if (!csv || !userId) {
-      return NextResponse.json(
-        { success: false, error: 'CSV data and userId are required' },
-        { status: 400 }
-      );
+    const contentType = request.headers.get('content-type') || '';
+    let csv: string;
+    let userId: string;
+    let mapping: Record<string, string> = {};
+    let delimiter = ',';
+
+    if (contentType.includes('multipart/form-data')) {
+      // Handle FormData (file upload)
+      const formData = await request.formData();
+      const file = formData.get('file') as File | null;
+      userId = (formData.get('userId') as string) || 'default';
+
+      if (!file) {
+        return NextResponse.json(
+          { success: false, error: 'File is required' },
+          { status: 400 }
+        );
+      }
+
+      // Read file content
+      csv = await file.text();
+    } else {
+      // Handle JSON
+      const body = await request.json();
+      csv = body.csv;
+      userId = body.userId || 'default';
+      mapping = body.mapping || {};
+      delimiter = body.delimiter || ',';
+
+      if (!csv) {
+        return NextResponse.json(
+          { success: false, error: 'CSV data is required' },
+          { status: 400 }
+        );
+      }
     }
-    
+
     const result = await importTradesFromCSV(csv, userId, mapping, delimiter);
-    
-    return NextResponse.json({ success: true, data: result });
-    
+
+    return NextResponse.json({
+      success: true,
+      data: result,
+      count: result.imported
+    });
+
   } catch (error) {
     console.error('Error importing trades:', error);
     return NextResponse.json(
