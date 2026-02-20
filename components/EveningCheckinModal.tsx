@@ -116,18 +116,18 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
           ) : (
             <div className="space-y-6">
               {/* Summary Cards */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] text-center">
-                  <div className="text-3xl font-bold text-[#a371f7]">{data?.stats.totalCheckins || 0}</div>
-                  <div className="text-[10px] sm:text-xs text-[#8b949e] uppercase mt-1 leading-tight">Total Check-ins</div>
+              <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                <div className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] text-center">
+                  <div className="text-2xl sm:text-3xl font-bold text-[#a371f7]">{data?.stats.totalCheckins || 0}</div>
+                  <div className="text-[9px] sm:text-xs text-[#8b949e] uppercase mt-1 leading-tight">Total</div>
                 </div>
-                <div className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] text-center">
-                  <div className="text-3xl font-bold text-[#ff6b35]">{data?.stats.averageCompletion || 0}%</div>
-                  <div className="text-[10px] sm:text-xs text-[#8b949e] uppercase mt-1 leading-tight">Avg Completion</div>
+                <div className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] text-center">
+                  <div className="text-2xl sm:text-3xl font-bold text-[#ff6b35]">{data?.stats.averageCompletion || 0}%</div>
+                  <div className="text-[9px] sm:text-xs text-[#8b949e] uppercase mt-1 leading-tight">Avg</div>
                 </div>
-                <div className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] text-center">
-                  <div className="text-3xl font-bold text-[#238636]">{data?.stats.streak || 0}</div>
-                  <div className="text-[10px] sm:text-xs text-[#8b949e] uppercase mt-1 leading-tight">Day Streak</div>
+                <div className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] text-center">
+                  <div className="text-2xl sm:text-3xl font-bold text-[#238636]">{data?.stats.streak || 0}</div>
+                  <div className="text-[9px] sm:text-xs text-[#8b949e] uppercase mt-1 leading-tight">Streak</div>
                 </div>
               </div>
 
