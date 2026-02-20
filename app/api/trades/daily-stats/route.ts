@@ -1,6 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getAllTrades } from '@/lib/db/trades-v2';
 
+// Extract date in EST from ISO timestamp
+function getESTDate(isoTimestamp: string): string {
+  // Parse the timestamp and convert to EST
+  const date = new Date(isoTimestamp);
+  return date.toLocaleDateString('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).split('/').reverse().join('-'); // MM/DD/YYYY → YYYY-MM-DD
+}
+
 export async function GET() {
   try {
     const trades = await getAllTrades();
@@ -12,11 +24,11 @@ export async function GET() {
       });
     }
     
-    // Group trades by date
+    // Group trades by date (in EST)
     const byDate: Record<string, typeof trades> = {};
     
     trades.forEach(trade => {
-      const date = trade.entryDate.split('T')[0];
+      const date = getESTDate(trade.entryDate);
       if (!byDate[date]) byDate[date] = [];
       byDate[date].push(trade);
     });
