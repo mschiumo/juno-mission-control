@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
 
 const STORAGE_KEY = 'evening_checkins';
+const HABITS_KEY_PREFIX = 'habits_data';
 
 // Evening habit check-in questions
 const DEFAULT_QUESTIONS = [
@@ -13,6 +14,17 @@ const DEFAULT_QUESTIONS = [
   { id: 'made-bed', question: 'Did you make your bed today?', label: 'Make Bed', category: 'discipline' },
   { id: 'took-meds', question: 'Did you take your meds today?', label: 'Take Meds', category: 'health' },
 ];
+
+// Map habit IDs to evening check-in question IDs
+const HABIT_TO_QUESTION_MAP: Record<string, string> = {
+  'exercise': 'worked-out',
+  'market-brief': 'traded',  // Market brief implies trading activity
+  'read': 'read',
+  'journal': 'journaled',
+  'trade-journal': 'traded',
+  'make-bed': 'made-bed',
+  'take-meds': 'took-meds',
+};
 
 let redisClient: ReturnType<typeof createClient> | null = null;
 
@@ -41,6 +53,41 @@ function getToday() {
   // Format: MM/DD/YYYY → YYYY-MM-DD
   const [month, day, year] = date.split('/');
   return `${year}-${month}-${day}`;
+}
+
+interface HabitData {
+  id: string;
+  name: string;
+  completedToday: boolean;
+  history: boolean[];
+}
+
+/**
+ * Get habit completions for a specific date
+ */
+async function getHabitCompletionsForDate(redis: ReturnType<typeof createClient>, date: string): Promise<Record<string, boolean>> {
+  try {
+    const habitsData = await redis.get(`${HABITS_KEY_PREFIX}:${date}`);
+    if (!habitsData) return {};
+    
+    const habits: HabitData[] = JSON.parse(habitsData);
+    const completions: Record<string, boolean> = {};
+    
+    for (const habit of habits) {
+      const questionId = HABIT_TO_QUESTION_MAP[habit.id];
+      if (questionId) {
+        // If habit is completed, mark the corresponding question as yes
+        if (habit.completedToday) {
+          completions[questionId] = true;
+        }
+      }
+    }
+    
+    return completions;
+  } catch (error) {
+    console.error('Error fetching habit completions:', error);
+    return {};
+  }
 }
 
 export async function GET(request: Request) {
@@ -73,14 +120,38 @@ export async function GET(request: Request) {
 
     // Get today's checkin if exists
     const todayCheckin = allCheckins.find((c: { date: string }) => c.date === date);
+    
+    // Get habit completions for today
+    const habitCompletions = await getHabitCompletionsForDate(redis, date);
+    
+    // Merge habit completions with checkin responses
+    const mergedResponses = {
+      ...habitCompletions,
+      ...(todayCheckin?.responses || {})
+    };
+    
+    // Create merged checkin data
+    const mergedCheckin = todayCheckin ? {
+      ...todayCheckin,
+      responses: mergedResponses,
+      completionRate: calculateCompletionRate(mergedResponses, DEFAULT_QUESTIONS),
+      habitCompletions // Track which came from habits
+    } : {
+      date,
+      responses: mergedResponses,
+      completionRate: calculateCompletionRate(mergedResponses, DEFAULT_QUESTIONS),
+      notes: '',
+      habitCompletions
+    };
 
     return NextResponse.json({
       success: true,
       data: {
         questions: DEFAULT_QUESTIONS,
-        todayCheckin: todayCheckin || null,
+        todayCheckin: mergedCheckin,
         history: filteredCheckins,
-        stats: calculateStats(filteredCheckins, DEFAULT_QUESTIONS)
+        stats: calculateStats(filteredCheckins, DEFAULT_QUESTIONS),
+        habitCompletions // Show which questions are pre-filled from habits
       }
     });
   } catch (error) {
