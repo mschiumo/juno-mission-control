@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, Save } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, Save, RefreshCw } from 'lucide-react';
 
 interface DayData {
   date: string;
@@ -162,8 +162,14 @@ export default function CalendarView() {
   }, [currentMonth, dailyStats]);
 
   const handleImportSuccess = () => {
+    console.log('Import success - refreshing data');
     fetchDailyStats(); // Refresh data after import
   };
+
+  // Debug: Log current state
+  useEffect(() => {
+    console.log('dailyStats:', dailyStats);
+  }, [dailyStats]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentMonth(prev => {
@@ -250,6 +256,15 @@ export default function CalendarView() {
             >
               <Upload className="w-4 h-4" />
               <span className="hidden sm:inline">Import</span>
+            </button>
+            
+            <button
+              onClick={fetchDailyStats}
+              disabled={isLoading}
+              className="p-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors disabled:opacity-50"
+              title="Refresh data"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
             
             {/* Info Tooltip */}
