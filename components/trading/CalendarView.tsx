@@ -14,17 +14,17 @@ interface DayData {
 }
 
 interface TOSTrade {
-  id?: string;
+  id: string;
   symbol: string;
-  side: 'BUY' | 'SELL';
-  quantity: number;
-  price: number;
-  date: string;
-  time: string;
-  execTime: string;
-  posEffect?: string;
+  side: 'LONG' | 'SHORT';
+  shares: number;
+  entryPrice: number;
+  entryDate: string;
+  exitPrice?: number;
+  exitDate?: string;
+  netPnL?: number;
+  status: 'OPEN' | 'CLOSED';
   orderType?: string;
-  pnl?: number;
 }
 
 export default function CalendarView() {
@@ -58,16 +58,17 @@ export default function CalendarView() {
 
   const fetchTradesForDate = async (date: string) => {
     try {
+      // Use startDate and endDate for the specific day
       const [tradesRes, journalRes] = await Promise.all([
-        fetch(`/api/trades?date=${date}`),
+        fetch(`/api/trades?userId=default&startDate=${date}&endDate=${date}&perPage=100`),
         fetch(`/api/trades/journal?date=${date}`)
       ]);
       
       const tradesData = await tradesRes.json();
       const journalData = await journalRes.json();
       
-      if (tradesData.success && tradesData.trades) {
-        setSelectedDateTrades(tradesData.trades);
+      if (tradesData.success && tradesData.data && tradesData.data.trades) {
+        setSelectedDateTrades(tradesData.data.trades);
       }
       
       if (journalData.success && journalData.notes) {
@@ -484,20 +485,21 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
   // Calculate per-symbol PnL
   const symbolPnLs = useMemo(() => {
     return Object.entries(tradesBySymbol).map(([symbol, symbolTrades]) => {
-      const buys = symbolTrades.filter(t => t.side === 'BUY');
-      const sells = symbolTrades.filter(t => t.side === 'SELL');
+      const longs = symbolTrades.filter(t => t.side === 'LONG');
+      const shorts = symbolTrades.filter(t => t.side === 'SHORT');
       
       let pnl = 0;
-      if (buys.length > 0 && sells.length > 0) {
-        const buyValue = buys.reduce((sum, t) => sum + t.price * t.quantity, 0);
-        const buyQty = buys.reduce((sum, t) => sum + t.quantity, 0);
-        const avgBuy = buyQty > 0 ? buyValue / buyQty : 0;
+      if (longs.length > 0 && shorts.length > 0) {
+        const longValue = longs.reduce((sum, t) => sum + t.entryPrice * t.shares, 0);
+        const longQty = longs.reduce((sum, t) => sum + t.shares, 0);
+        const avgLong = longQty > 0 ? longValue / longQty : 0;
         
-        const sellValue = sells.reduce((sum, t) => sum + t.price * t.quantity, 0);
-        const sellQty = sells.reduce((sum, t) => sum + t.quantity, 0);
-        const avgSell = sellQty > 0 ? sellValue / sellQty : 0;
+        const shortValue = shorts.reduce((sum, t) => sum + t.entryPrice * t.shares, 0);
+        const shortQty = shorts.reduce((sum, t) => sum + t.shares, 0);
+        const avgShort = shortQty > 0 ? shortValue / shortQty : 0;
         
-        pnl = (avgSell - avgBuy) * Math.min(buyQty, sellQty);
+        // For shorts: profit when sell price > buy price (cover)
+        pnl = (avgShort - avgLong) * Math.min(longQty, shortQty);
       }
       
       return { symbol, trades: symbolTrades, pnl, isWin: pnl > 0 };
@@ -555,8 +557,8 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
               ) : (
                 symbolPnLs.map(({ symbol, trades: symbolTrades, pnl }) => {
                   const isWin = pnl > 0;
-                  const buy = symbolTrades.find(t => t.side === 'BUY');
-                  const sell = symbolTrades.find(t => t.side === 'SELL');
+                  const long = symbolTrades.find(t => t.side === 'LONG');
+                  const short = symbolTrades.find(t => t.side === 'SHORT');
                   
                   return (
                     <div key={symbol} className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
@@ -572,30 +574,30 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
                         </span>
                       </div>
                       <div className="grid grid-cols-4 gap-2 text-xs">
-                        {buy && (
+                        {long && (
                           <div>
-                            <span className="text-[#8b949e]">Buy: </span>
-                            <span className="text-[#3fb950]">${buy.price.toFixed(2)}</span>
+                            <span className="text-[#8b949e]">Long: </span>
+                            <span className="text-[#3fb950]">${long.entryPrice.toFixed(2)}</span>
                           </div>
                         )}
-                        {sell && (
+                        {short && (
                           <div>
-                            <span className="text-[#8b949e]">Sell: </span>
-                            <span className="text-[#f85149]">${sell.price.toFixed(2)}</span>
+                            <span className="text-[#8b949e]">Short: </span>
+                            <span className="text-[#f85149]">${short.entryPrice.toFixed(2)}</span>
                           </div>
                         )}
                         <div>
-                          <span className="text-[#8b949e]">Qty: </span>
-                          <span className="text-white">{symbolTrades[0]?.quantity}</span>
+                          <span className="text-[#8b949e]">Shares: </span>
+                          <span className="text-white">{symbolTrades[0]?.shares}</span>
                         </div>
                         <div>
                           <span className="text-[#8b949e]">Time: </span>
-                          <span className="text-white">{symbolTrades[0]?.time.slice(0, 5)}</span>
+                          <span className="text-white">{symbolTrades[0]?.entryDate?.split('T')[1]?.substring(0, 5)}</span>
                         </div>
                       </div>
                       <div className="mt-2 pt-2 border-t border-[#21262d]">
                         <span className="text-xs text-[#8b949e]">
-                          {symbolTrades.map(t => `${t.side} ${t.quantity} @ $${t.price.toFixed(2)}`).join(' → ')}
+                          {symbolTrades.map(t => `${t.side} ${t.shares} @ $${t.entryPrice.toFixed(2)}`).join(' → ')}
                         </span>
                       </div>
                     </div>
