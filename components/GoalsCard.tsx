@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Target, Plus, X, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Target, Plus, X, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle, Calendar } from 'lucide-react';
 
 interface Notification {
   message: string;
@@ -610,9 +610,12 @@ export default function GoalsCard() {
                 {goal.title}
               </p>
               {goal.dueDate && (
-                <span className="text-[10px] text-[#737373] mt-0.5">
-                  Due: {new Date(goal.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                </span>
+                <div className="flex items-center gap-1 mt-1">
+                  <Calendar className="w-3 h-3 text-[#F97316]" />
+                  <span className="text-[10px] text-[#F97316]">
+                    {new Date(goal.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
               )}
             </div>
           </div>
@@ -880,12 +883,15 @@ export default function GoalsCard() {
                 />
                 <div className="mb-3">
                   <label className="block text-xs text-[#737373] mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    value={newGoalDueDate}
-                    onChange={(e) => setNewGoalDueDate(e.target.value)}
-                    className="w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm"
-                  />
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={newGoalDueDate}
+                      onChange={(e) => setNewGoalDueDate(e.target.value)}
+                      className="w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm appearance-none"
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] pointer-events-none" />
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -933,12 +939,15 @@ export default function GoalsCard() {
               {/* Due Date */}
               <div className="px-4 sm:px-0 mb-3">
                 <label className="block text-xs text-[#737373] mb-1">Due Date</label>
-                <input
-                  type="date"
-                  value={editingDueDate}
-                  onChange={(e) => setEditingDueDate(e.target.value)}
-                  className="w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm"
-                />
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={editingDueDate}
+                    onChange={(e) => setEditingDueDate(e.target.value)}
+                    className="w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm appearance-none"
+                  />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] pointer-events-none" />
+                </div>
               </div>
               
               {/* Notes textarea */}
@@ -1225,12 +1234,15 @@ export default function GoalsCard() {
             {/* Due Date */}
             <div className="mb-4">
               <label className="block text-xs text-[#737373] mb-2 uppercase tracking-wider">Due Date (Optional)</label>
-              <input
-                type="date"
-                value={newGoalDueDate}
-                onChange={(e) => setNewGoalDueDate(e.target.value)}
-                className="w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white focus:outline-none focus:border-[#F97316]"
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  value={newGoalDueDate}
+                  onChange={(e) => setNewGoalDueDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white focus:outline-none focus:border-[#F97316] appearance-none"
+                />
+                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#737373] pointer-events-none" />
+              </div>
             </div>
             
             <div className="flex gap-2">
@@ -1284,12 +1296,15 @@ export default function GoalsCard() {
             {/* Due Date */}
             <div className="mb-4">
               <label className="block text-xs text-[#737373] mb-2 uppercase tracking-wider">Due Date</label>
-              <input
-                type="date"
-                value={editingDueDate}
-                onChange={(e) => setEditingDueDate(e.target.value)}
-                className="w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white focus:outline-none focus:border-[#F97316]"
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  value={editingDueDate}
+                  onChange={(e) => setEditingDueDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white focus:outline-none focus:border-[#F97316] appearance-none"
+                />
+                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#737373] pointer-events-none" />
+              </div>
             </div>
             
             {/* Notes textarea */}
