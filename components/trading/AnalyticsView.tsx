@@ -6,22 +6,28 @@ import { TrendingUp, TrendingDown, Calendar, Clock, DollarSign, Percent, BarChar
 interface AnalyticsData {
   overview: {
     totalTrades: number;
+    closedTrades: number;
     uniqueDays: number;
     totalPnL: number;
     winRate: number;
     wins: number;
     losses: number;
+    breakeven: number;
     avgTradesPerDay: number;
+    avgPnLPerTrade: number;
   };
   bySymbol: Array<{
     symbol: string;
-    trades: Array<unknown>;
+    trades: number;
     wins: number;
     losses: number;
     pnl: number;
+    longs: number;
+    shorts: number;
   }>;
-  byDayOfWeek: Record<string, { trades: number; pnl: number }>;
-  byHour: Record<string, { trades: number; pnl: number }>;
+  byDayOfWeek: Record<string, { trades: number; pnl: number; wins: number; losses: number }>;
+  byHour: Record<string, { trades: number; pnl: number; wins: number; losses: number }>;
+  byStrategy: Record<string, { trades: number; pnl: number; wins: number; losses: number }>;
 }
 
 export default function AnalyticsView() {
@@ -108,7 +114,7 @@ export default function AnalyticsView() {
             <div key={symbol} className="flex items-center justify-between p-3 bg-[#0d1117] rounded-lg">
               <div className="flex items-center gap-4">
                 <span className="font-semibold text-white w-16">{symbol}</span>
-                <span className="text-sm text-[#8b949e]">{trades.length} trades</span>
+                <span className="text-sm text-[#8b949e]">{trades} trades</span>
                 <span className="text-sm">
                   <span className="text-[#3fb950]">{wins}W</span>
                   <span className="text-[#8b949e]"> / </span>

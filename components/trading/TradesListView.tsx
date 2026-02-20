@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowUpDown, TrendingUp, TrendingDown, Filter, Download, RefreshCw } from 'lucide-react';
+import { ArrowUpDown, TrendingUp, TrendingDown, Filter, Download, RefreshCw, Trash2 } from 'lucide-react';
 
 interface Trade {
   id: string;
@@ -47,6 +47,26 @@ export default function TradesListView() {
       console.error('Error fetching trades:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const deleteTrade = async (tradeId: string) => {
+    if (!confirm('Are you sure you want to delete this trade?')) return;
+    
+    try {
+      const response = await fetch(`/api/trades/${tradeId}?userId=default`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        // Remove from local state
+        setTrades(prev => prev.filter(t => t.id !== tradeId));
+      } else {
+        alert('Failed to delete trade');
+      }
+    } catch (error) {
+      console.error('Error deleting trade:', error);
+      alert('Failed to delete trade');
     }
   };
 
@@ -235,6 +255,7 @@ export default function TradesListView() {
               </th>
               <th className="text-right py-3 px-4 text-[#8b949e] font-medium">PnL</th>
               <th className="text-left py-3 px-4 text-[#8b949e] font-medium">Status</th>
+              <th className="text-center py-3 px-4 text-[#8b949e] font-medium">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -269,6 +290,15 @@ export default function TradesListView() {
                   <span className={`text-xs px-2 py-1 rounded-full ${trade.status === 'CLOSED' ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#d29922]/20 text-[#d29922]'}`}>
                     {trade.status}
                   </span>
+                </td>
+                <td className="py-3 px-4">
+                  <button
+                    onClick={() => deleteTrade(trade.id)}
+                    className="p-1.5 text-[#737373] hover:text-[#da3633] hover:bg-[#da3633]/10 rounded-lg transition-colors"
+                    title="Delete trade"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </td>
               </tr>
             ))}
