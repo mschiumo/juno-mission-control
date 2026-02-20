@@ -33,68 +33,100 @@ export function parseTOSCSV(csvText: string): TOSTrade[] {
 }
 
 function parseTOSTradeActivity(csvText: string): TOSTrade[] {
-  const lines = csvText.split('\n').filter(line => line.trim());
+  // Normalize line endings and split
+  const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim());
   const trades: TOSTrade[] = [];
   let inFilledOrders = false;
-  
-  for (const line of lines) {
+  let filledOrdersHeaderFound = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
     // Enter Filled Orders section
-    if (line === 'Filled Orders') {
+    if (line.includes('Filled Orders') && !line.includes('Exec Time')) {
       inFilledOrders = true;
+      filledOrdersHeaderFound = false;
       continue;
     }
-    
+
     // Exit Filled Orders section
-    if (line === 'Canceled Orders' || line === 'Working Orders') {
+    if (line.includes('Canceled Orders') || line.includes('Working Orders') || line.includes('Rolling Strategies')) {
       inFilledOrders = false;
       continue;
     }
-    
+
     if (inFilledOrders) {
-      // Header row - skip
+      // Header row - skip (contains "Exec Time", "Spread", etc.)
       if (line.includes('Exec Time') && line.includes('Spread')) {
+        filledOrdersHeaderFound = true;
         continue;
       }
-      
-      const parts = line.split(',').map(p => p.trim());
-      
-      // Filled order format: ,,Exec Time,Spread,Side,Qty,Pos Effect,Symbol,Exp,Strike,Type,Price,Net Price,Price Improvement,Order Type
-      if (parts.length >= 12 && parts[2] && parts[2].includes('/')) {
-        const execTime = parts[2];
-        const side = parts[4] as 'BUY' | 'SELL';
-        const qtyStr = parts[5];
-        const posEffect = parts[6];
-        const symbol = parts[7];
-        const priceStr = parts[11];
-        const orderType = parts[13];
-        
-        const quantity = parseInt(qtyStr, 10);
-        const price = parseFloat(priceStr);
-        
-        if (!isNaN(quantity) && !isNaN(price) && symbol) {
+
+      // Skip if we haven't found the header yet
+      if (!filledOrdersHeaderFound) {
+        continue;
+      }
+
+      // Parse filled order
+      // Format: ,,2/19/26 10:01:46,STOCK,SELL,-300,TO CLOSE,BTG,,,STOCK,4.92,4.92,.00,LMT
+      // Or:   ,,Exec Time,Spread,Side,Qty,Pos Effect,Symbol,Exp,Strike,Type,Price,Net Price,Price Improvement,Order Type
+
+      // Remove leading empty fields (commas at start)
+      const cleanLine = line.replace(/^,+,*/, '');
+      const parts = cleanLine.split(',').map(p => p.trim());
+
+      // Need at least: Exec Time, Spread, Side, Qty, Pos Effect, Symbol, Type, Price
+      if (parts.length >= 8) {
+        const execTime = parts[0];
+        const spread = parts[1];
+        const side = parts[2] as 'BUY' | 'SELL';
+        const qtyStr = parts[3];
+        const posEffect = parts[4];
+        const symbol = parts[5];
+        const type = parts[8]; // STOCK, etc.
+        const priceStr = parts[9]; // Price column
+
+        // Validate we have a real trade (not a header or empty)
+        if (!execTime || !execTime.includes('/')) {
+          continue;
+        }
+
+        // Skip if missing critical fields
+        if (!symbol || !side || !qtyStr) {
+          continue;
+        }
+
+        const quantity = Math.abs(parseInt(qtyStr.replace(/[+,]/g, ''), 10) || 0);
+        const price = parseFloat(priceStr) || 0;
+
+        if (quantity > 0 && price > 0 && symbol && symbol !== 'Symbol') {
           // Parse date from exec time (2/19/26 10:01:46)
           const [datePart, timePart] = execTime.split(' ');
+          if (!datePart || !timePart) continue;
+
           const [month, day, yearShort] = datePart.split('/');
+          if (!month || !day || !yearShort) continue;
+
           const year = '20' + yearShort;
           const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-          
+
           trades.push({
-            id: `${symbol}-${isoDate}-${timePart}-${Math.random().toString(36).substr(2, 9)}`,
+            id: `${symbol}-${isoDate}-${timePart.replace(/:/g, '-')}-${Math.random().toString(36).substr(2, 9)}`,
             symbol,
             side,
-            quantity: Math.abs(quantity),
+            quantity,
             price,
             date: isoDate,
             time: timePart,
             execTime,
             posEffect,
-            orderType
+            orderType: parts[13] || 'MKT'
           });
         }
       }
     }
   }
-  
+
   return trades;
 }
 
