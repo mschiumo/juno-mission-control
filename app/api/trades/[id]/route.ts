@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, UpdateTradeRequest } from '@/types/trading';
-import { TradeStatus } from '@/types/trading';
+import { TradeStatus, TradeSide } from '@/types/trading';
 
 // Reference to the trades store from parent route
 // In production, this would be a database connection
@@ -133,7 +133,7 @@ export async function PUT(
       
       // Auto-calculate P&L if exit price provided and trade wasn't already closed
       if (body.exitPrice > 0 && updatedTrade.entryPrice > 0) {
-        const isLong = updatedTrade.side === 'long';
+        const isLong = updatedTrade.side === TradeSide.LONG;
         const priceDiff = isLong 
           ? body.exitPrice - updatedTrade.entryPrice
           : updatedTrade.entryPrice - body.exitPrice;
