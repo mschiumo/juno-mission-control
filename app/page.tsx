@@ -19,6 +19,7 @@ import NotificationsBell from "@/components/NotificationsBell";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import DocumentationCard from "@/components/DocumentationCard";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
+import TradingView from "@/components/TradingView";
 import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
 
 type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'activity';
@@ -165,26 +166,9 @@ function DashboardContent() {
             <ProjectsCard />
           </div>
         ) : activeTab === 'trading' ? (
-          /* Trading View - Sidebar Layout */
+          /* Trading View - New Trading Journal */
           <div className="max-w-7xl mx-auto">
-            {/* Two Column Layout: Sidebar (2/5) + Market (3/5) */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6 mb-6">
-              {/* Left Sidebar: Market Hours + Gap Scanner (wider) */}
-              <div className="lg:col-span-2 space-y-4">
-                <MarketHoursBanner compact />
-                <GapScannerCard />
-              </div>
-              
-              {/* Right Column: Market Card (spans 3 columns) */}
-              <div className="lg:col-span-3">
-                <MarketCard />
-              </div>
-            </div>
-            
-            {/* News Screener - Full width below */}
-            <div className="grid grid-cols-1 gap-4 md:gap-6">
-              <NewsScreenerCard />
-            </div>
+            <TradingView />
           </div>
         ) : activeTab === 'goals' ? (
           /* Goals View */

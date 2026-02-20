@@ -20,6 +20,7 @@ interface Goal {
   junoAssisted?: boolean;
   actionItems?: ActionItem[];
   source?: 'mj' | 'juno' | 'subagent';  // Who created this goal
+  dueDate?: string;  // ISO date string for goal deadline
 }
 
 interface GoalsData {
@@ -131,7 +132,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { goalId, newPhase, category, notes, junoAssisted, actionItems, title } = body;
+    const { goalId, newPhase, category, notes, junoAssisted, actionItems, title, dueDate } = body;
     
     if (!goalId || !category) {
       return NextResponse.json({
@@ -192,6 +193,11 @@ export async function POST(request: Request) {
     if (title !== undefined) {
       goals[category][goalIndex].title = title;
     }
+
+    // Update dueDate if provided
+    if (dueDate !== undefined) {
+      goals[category][goalIndex].dueDate = dueDate;
+    }
     
     // Save to Redis
     if (redis) {
@@ -215,7 +221,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { title, category, notes, phase, junoAssisted, actionItems, id, source } = body;
+    const { title, category, notes, phase, junoAssisted, actionItems, id, source, dueDate } = body;
     
     if (!title || !category) {
       return NextResponse.json({
@@ -263,7 +269,8 @@ export async function PUT(request: Request) {
       notes: notes || undefined,
       junoAssisted: junoAssisted || goalSource !== 'mj',
       actionItems: actionItems || undefined,
-      source: goalSource
+      source: goalSource,
+      dueDate: dueDate || undefined
     };
     
     goals[finalCategory].push(newGoal);

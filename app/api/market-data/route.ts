@@ -148,27 +148,27 @@ async function fetchYahooFinance(symbols: string[]): Promise<MarketItem[]> {
 
 /**
  * Fetches cryptocurrency prices from CoinGecko API
- * Includes HYPE (Hyperliquid token)
+ * Includes HYPE (Hyperliquid token), AERO (Aerodrome Finance), and VIRTUALS (Virtuals Protocol)
  */
 async function fetchCryptoPrices(): Promise<MarketItem[]> {
   try {
     // Fetch major cryptos from CoinGecko
     const response = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,hyperliquid&vs_currencies=usd&include_24hr_change=true',
-      { 
+      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,hyperliquid,aerodrome-finance,virtuals-protocol&vs_currencies=usd&include_24hr_change=true',
+      {
         headers: { 'Accept': 'application/json' },
         next: { revalidate: 60 }
       }
     );
-    
+
     if (!response.ok) {
       console.warn(`CoinGecko error: ${response.status}`);
       return [];
     }
-    
+
     const data = await response.json();
     const cryptos: MarketItem[] = [];
-    
+
     if (data.bitcoin?.usd) {
       const change = data.bitcoin.usd_24h_change || 0;
       cryptos.push({
@@ -180,7 +180,7 @@ async function fetchCryptoPrices(): Promise<MarketItem[]> {
         status: change >= 0 ? 'up' : 'down'
       });
     }
-    
+
     if (data.ethereum?.usd) {
       const change = data.ethereum.usd_24h_change || 0;
       cryptos.push({
@@ -192,7 +192,7 @@ async function fetchCryptoPrices(): Promise<MarketItem[]> {
         status: change >= 0 ? 'up' : 'down'
       });
     }
-    
+
     if (data.solana?.usd) {
       const change = data.solana.usd_24h_change || 0;
       cryptos.push({
@@ -204,7 +204,7 @@ async function fetchCryptoPrices(): Promise<MarketItem[]> {
         status: change >= 0 ? 'up' : 'down'
       });
     }
-    
+
     // Add HYPE (Hyperliquid)
     if (data.hyperliquid?.usd) {
       const change = data.hyperliquid.usd_24h_change || 0;
@@ -217,7 +217,33 @@ async function fetchCryptoPrices(): Promise<MarketItem[]> {
         status: change >= 0 ? 'up' : 'down'
       });
     }
-    
+
+    // Add AERO (Aerodrome Finance)
+    if (data['aerodrome-finance']?.usd) {
+      const change = data['aerodrome-finance'].usd_24h_change || 0;
+      cryptos.push({
+        symbol: 'AERO',
+        name: 'Aerodrome Finance',
+        price: data['aerodrome-finance'].usd,
+        change: Number((data['aerodrome-finance'].usd * (change / 100)).toFixed(2)),
+        changePercent: Number(change.toFixed(2)),
+        status: change >= 0 ? 'up' : 'down'
+      });
+    }
+
+    // Add VIRTUALS (Virtuals Protocol)
+    if (data['virtuals-protocol']?.usd) {
+      const change = data['virtuals-protocol'].usd_24h_change || 0;
+      cryptos.push({
+        symbol: 'VIRTUALS',
+        name: 'Virtuals Protocol',
+        price: data['virtuals-protocol'].usd,
+        change: Number((data['virtuals-protocol'].usd * (change / 100)).toFixed(2)),
+        changePercent: Number(change.toFixed(2)),
+        status: change >= 0 ? 'up' : 'down'
+      });
+    }
+
     return cryptos;
   } catch (error) {
     console.error('CoinGecko error:', error);
@@ -257,7 +283,9 @@ function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commo
       { symbol: 'BTC', name: 'Bitcoin', price: 68229.47, change: 3125.80, changePercent: 4.79, status: 'up' },
       { symbol: 'ETH', name: 'Ethereum', price: 2054.38, change: 132.80, changePercent: 6.92, status: 'up' },
       { symbol: 'SOL', name: 'Solana', price: 83.97, change: 6.72, changePercent: 8.72, status: 'up' },
-      { symbol: 'HYPE', name: 'Hyperliquid', price: 15.42, change: 0.85, changePercent: 5.83, status: 'up' }
+      { symbol: 'HYPE', name: 'Hyperliquid', price: 15.42, change: 0.85, changePercent: 5.83, status: 'up' },
+      { symbol: 'AERO', name: 'Aerodrome Finance', price: 1.25, change: 0.08, changePercent: 6.84, status: 'up' },
+      { symbol: 'VIRTUALS', name: 'Virtuals Protocol', price: 3.45, change: 0.22, changePercent: 6.81, status: 'up' }
     ]
   };
 }

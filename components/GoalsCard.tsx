@@ -26,6 +26,7 @@ interface Goal {
   junoAssisted?: boolean;
   actionItems?: ActionItem[];
   source?: 'mj' | 'juno' | 'subagent';
+  dueDate?: string;
 }
 
 interface GoalsData {
@@ -86,6 +87,7 @@ export default function GoalsCard() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalNotes, setNewGoalNotes] = useState('');
+  const [newGoalDueDate, setNewGoalDueDate] = useState('');
   const [draggedGoal, setDraggedGoal] = useState<Goal | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   
@@ -100,6 +102,7 @@ export default function GoalsCard() {
 
   // Notes modal title editing state
   const [editingTitle, setEditingTitle] = useState('');
+  const [editingDueDate, setEditingDueDate] = useState('');
 
   // Notification state
   const [notification, setNotification] = useState<Notification | null>(null);
@@ -269,7 +272,8 @@ export default function GoalsCard() {
         body: JSON.stringify({
           title: newGoalTitle,
           category: activeCategory,
-          notes: newGoalNotes
+          notes: newGoalNotes,
+          dueDate: newGoalDueDate || undefined
         })
       });
 
@@ -278,6 +282,7 @@ export default function GoalsCard() {
         setGoals(data.data);
         setNewGoalTitle('');
         setNewGoalNotes('');
+        setNewGoalDueDate('');
         setShowAddModal(false);
         showNotification('Goal added', 'success');
       } else {
@@ -374,12 +379,14 @@ export default function GoalsCard() {
     setNotesGoal(goal);
     setNotesContent(goal.notes || '');
     setEditingTitle(goal.title);
+    setEditingDueDate(goal.dueDate || '');
   };
 
   const closeNotes = () => {
     setNotesGoal(null);
     setNotesContent('');
     setEditingTitle('');
+    setEditingDueDate('');
   };
 
   const saveNotes = async () => {
@@ -393,7 +400,8 @@ export default function GoalsCard() {
           goalId: notesGoal.id,
           category: notesGoal.category,
           notes: notesContent,
-          title: editingTitle.trim() || notesGoal.title
+          title: editingTitle.trim() || notesGoal.title,
+          dueDate: editingDueDate || undefined
         })
       });
 
@@ -597,11 +605,16 @@ export default function GoalsCard() {
                 <span>{sourceInfo.label}</span>
               </div>
             )}
-            <p 
-              className="text-sm text-white flex-1"
-            >
-              {goal.title}
-            </p>
+            <div className="flex flex-col flex-1">
+              <p className="text-sm text-white">
+                {goal.title}
+              </p>
+              {goal.dueDate && (
+                <span className="text-[10px] text-[#737373] mt-0.5">
+                  Due: {new Date(goal.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1">
             {/* Action items indicator */}
@@ -865,6 +878,15 @@ export default function GoalsCard() {
                   className="w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm mb-3 resize-none"
                   rows={3}
                 />
+                <div className="mb-3">
+                  <label className="block text-xs text-[#737373] mb-1">Due Date</label>
+                  <input
+                    type="date"
+                    value={newGoalDueDate}
+                    onChange={(e) => setNewGoalDueDate(e.target.value)}
+                    className="w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm"
+                  />
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setShowAddModal(false)}
@@ -904,6 +926,17 @@ export default function GoalsCard() {
                   value={editingTitle}
                   onChange={(e) => setEditingTitle(e.target.value)}
                   placeholder="Enter goal title..."
+                  className="w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm"
+                />
+              </div>
+
+              {/* Due Date */}
+              <div className="px-4 sm:px-0 mb-3">
+                <label className="block text-xs text-[#737373] mb-1">Due Date</label>
+                <input
+                  type="date"
+                  value={editingDueDate}
+                  onChange={(e) => setEditingDueDate(e.target.value)}
                   className="w-full px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm"
                 />
               </div>
@@ -1188,6 +1221,17 @@ export default function GoalsCard() {
               className="w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316] mb-4 resize-none"
               rows={4}
             />
+
+            {/* Due Date */}
+            <div className="mb-4">
+              <label className="block text-xs text-[#737373] mb-2 uppercase tracking-wider">Due Date (Optional)</label>
+              <input
+                type="date"
+                value={newGoalDueDate}
+                onChange={(e) => setNewGoalDueDate(e.target.value)}
+                className="w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white focus:outline-none focus:border-[#F97316]"
+              />
+            </div>
             
             <div className="flex gap-2">
               <button
@@ -1234,6 +1278,17 @@ export default function GoalsCard() {
                 onChange={(e) => setEditingTitle(e.target.value)}
                 placeholder="Enter goal title..."
                 className="w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316]"
+              />
+            </div>
+
+            {/* Due Date */}
+            <div className="mb-4">
+              <label className="block text-xs text-[#737373] mb-2 uppercase tracking-wider">Due Date</label>
+              <input
+                type="date"
+                value={editingDueDate}
+                onChange={(e) => setEditingDueDate(e.target.value)}
+                className="w-full px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white focus:outline-none focus:border-[#F97316]"
               />
             </div>
             

@@ -1,97 +1,107 @@
-import { NextResponse } from 'next/server';
-import { createClient } from 'redis';
+import { NextRequest, NextResponse } from 'next/server';
+import { getRedisClient } from '@/lib/redis';
 
-interface Notification {
+const NOTIFICATION_PREFIX = 'notification:';
+
+export interface Notification {
   id: string;
+  type: string;
+  title: string;
+  message: string;
+  action?: {
+    label: string;
+    href: string;
+  };
+  createdAt: string;
   read: boolean;
-  readAt?: string;
 }
 
-const redis = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
-
-export async function GET() {
-  const timestamp = new Date().toISOString();
-  
+export async function GET(request: NextRequest) {
   try {
-    await redis.connect();
+    const { searchParams } = new URL(request.url);
+    const unreadOnly = searchParams.get('unread') === 'true';
     
-    // Fetch pending notifications
-    const notificationsJson = await redis.get('juno:notifications');
-    const notifications = notificationsJson ? JSON.parse(notificationsJson) : [];
+    const redis = await getRedisClient();
+    const keys = await redis.keys(`${NOTIFICATION_PREFIX}*`);
+    const notifications: Notification[] = [];
     
-    // Filter unread notifications
-    const unread = notifications.filter((n: Notification) => !n.read);
+    for (const key of keys) {
+      const data = await redis.hGetAll(key);
+      if (data && data.id) {
+        const notification: Notification = {
+          id: data.id,
+          type: data.type,
+          title: data.title,
+          message: data.message,
+          action: data.action ? JSON.parse(data.action) : undefined,
+          createdAt: data.createdAt,
+          read: data.read === 'true'
+        };
+        
+        if (!unreadOnly || !notification.read) {
+          notifications.push(notification);
+        }
+      }
+    }
     
-    await redis.disconnect();
+    // Sort by createdAt descending
+    notifications.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
     
     return NextResponse.json({
       success: true,
-      notifications: unread,
-      count: unread.length,
-      timestamp,
+      notifications,
+      unreadCount: notifications.filter(n => !n.read).length
     });
     
   } catch (error) {
-    console.error('Notifications fetch error:', error);
-    
-    return NextResponse.json({
-      success: true,
-      notifications: [],
-      count: 0,
-      timestamp,
-      error: 'Failed to fetch notifications',
-    });
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { type, title, message, action, priority = 'normal' } = body;
-    
-    await redis.connect();
-    
-    // Get existing notifications
-    const notificationsJson = await redis.get('juno:notifications');
-    const notifications = notificationsJson ? JSON.parse(notificationsJson) : [];
-    
-    // Add new notification
-    const newNotification = {
-      id: `notif_${Date.now()}`,
-      type, // 'approval', 'blocker', 'info'
-      title,
-      message,
-      action, // URL or action description
-      priority, // 'low', 'normal', 'high', 'urgent'
-      read: false,
-      createdAt: new Date().toISOString(),
-    };
-    
-    notifications.unshift(newNotification);
-    
-    // Keep only last 50 notifications
-    const trimmed = notifications.slice(0, 50);
-    
-    await redis.set('juno:notifications', JSON.stringify(trimmed));
-    await redis.disconnect();
-    
-    return NextResponse.json({
-      success: true,
-      notification: newNotification,
-    });
-    
-  } catch (error) {
-    console.error('Notification create error:', error);
+    console.error('Error fetching notifications:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to create notification' },
+      { success: false, error: 'Failed to fetch notifications' },
       { status: 500 }
     );
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const markAll = searchParams.get('all') === 'true';
+    
+    const redis = await getRedisClient();
+    
+    if (markAll) {
+      // Mark all as read
+      const keys = await redis.keys(`${NOTIFICATION_PREFIX}*`);
+      for (const key of keys) {
+        await redis.hSet(key, 'read', 'true');
+      }
+      return NextResponse.json({ success: true, message: 'All notifications marked as read' });
+    }
+    
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'Notification ID required' },
+        { status: 400 }
+      );
+    }
+    
+    await redis.hSet(`${NOTIFICATION_PREFIX}${id}`, 'read', 'true');
+    
+    return NextResponse.json({ success: true, message: 'Notification marked as read' });
+    
+  } catch (error) {
+    console.error('Error updating notification:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to update notification' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -103,25 +113,15 @@ export async function PATCH(request: Request) {
       );
     }
     
-    await redis.connect();
+    const redis = await getRedisClient();
+    await redis.del(`${NOTIFICATION_PREFIX}${id}`);
     
-    const notificationsJson = await redis.get('juno:notifications');
-    const notifications = notificationsJson ? JSON.parse(notificationsJson) : [];
-    
-    // Mark as read
-    const updated = notifications.map((n: Notification) => 
-      n.id === id ? { ...n, read: true, readAt: new Date().toISOString() } : n
-    );
-    
-    await redis.set('juno:notifications', JSON.stringify(updated));
-    await redis.disconnect();
-    
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: 'Notification deleted' });
     
   } catch (error) {
-    console.error('Notification update error:', error);
+    console.error('Error deleting notification:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to update notification' },
+      { success: false, error: 'Failed to delete notification' },
       { status: 500 }
     );
   }
