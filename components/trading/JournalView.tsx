@@ -196,7 +196,8 @@ export default function JournalView() {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'America/New_York'
     });
   };
 
@@ -265,7 +266,8 @@ export default function JournalView() {
                     <span className="text-sm">
                       {new Date(entry.updatedAt).toLocaleTimeString('en-US', {
                         hour: '2-digit',
-                        minute: '2-digit'
+                        minute: '2-digit',
+                        timeZone: 'America/New_York'
                       })}
                     </span>
                   </div>
@@ -326,9 +328,9 @@ export default function JournalView() {
                     )}
                     
                     <div className="text-xs text-[#8b949e] pt-2 border-t border-[#30363d]">
-                      Created: {new Date(entry.createdAt).toLocaleString()}
+                      Created: {new Date(entry.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })}
                       <br />
-                      Updated: {new Date(entry.updatedAt).toLocaleString()}
+                      Updated: {new Date(entry.updatedAt).toLocaleString('en-US', { timeZone: 'America/New_York' })}
                     </div>
                   </div>
                 </div>

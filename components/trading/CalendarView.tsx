@@ -496,7 +496,7 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
         <div className="flex items-center justify-between p-4 border-b border-[#30363d] flex-shrink-0">
           <div>
             <h3 className="text-lg font-bold text-white">
-              {dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              {dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' })}
             </h3>
             <div className="flex items-center gap-3 mt-1">
               <span className={`text-sm font-semibold ${data.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>

@@ -613,7 +613,7 @@ export default function GoalsCard() {
                 <div className="flex items-center gap-1 mt-1">
                   <Calendar className="w-3 h-3 text-[#F97316]" />
                   <span className="text-[10px] text-[#F97316]">
-                    {new Date(goal.dueDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {new Date(goal.dueDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' })}
                   </span>
                 </div>
               )}

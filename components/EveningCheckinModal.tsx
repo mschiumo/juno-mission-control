@@ -91,7 +91,8 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                 <p className="text-sm text-[#8b949e]">{new Date().toLocaleDateString('en-US', { 
                   weekday: 'long', 
                   month: 'short', 
-                  day: 'numeric' 
+                  day: 'numeric',
+                  timeZone: 'America/New_York'
                 })}</p>
               </div>
             </div>
@@ -179,7 +180,8 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                           {new Date(checkin.date).toLocaleDateString('en-US', {
                             weekday: 'short',
                             month: 'short',
-                            day: 'numeric'
+                            day: 'numeric',
+                            timeZone: 'America/New_York'
                           })}
                         </span>
                         <div className="flex items-center gap-3">

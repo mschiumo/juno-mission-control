@@ -64,6 +64,7 @@ export default function DailyCronsCard() {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      timeZone: 'America/New_York'
     });
   };
 
@@ -76,6 +77,7 @@ export default function DailyCronsCard() {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      timeZone: 'America/New_York'
     }).replace(',', ' @');
   };
 
