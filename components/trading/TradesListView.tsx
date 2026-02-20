@@ -1,22 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowUpDown, TrendingUp, TrendingDown, Filter, Download } from 'lucide-react';
+import { ArrowUpDown, TrendingUp, TrendingDown, Filter, Download, RefreshCw } from 'lucide-react';
 
 interface Trade {
   id: string;
   symbol: string;
-  side: 'BUY' | 'SELL';
-  quantity: number;
-  price: number;
-  date: string;
-  time: string;
-  execTime: string;
-  posEffect?: string;
-  orderType?: string;
+  side: 'LONG' | 'SHORT';
+  shares: number;
+  entryPrice: number;
+  entryDate: string;
+  exitPrice?: number;
+  exitDate?: string;
+  netPnL?: number;
+  status: 'OPEN' | 'CLOSED';
+  strategy?: string;
 }
 
-type SortField = 'date' | 'symbol' | 'side' | 'price' | 'quantity';
+type SortField = 'date' | 'symbol' | 'side' | 'entryPrice' | 'shares';
 type SortDirection = 'asc' | 'desc';
 
 export default function TradesListView() {
@@ -25,7 +26,7 @@ export default function TradesListView() {
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [filterSymbol, setFilterSymbol] = useState('');
-  const [filterSide, setFilterSide] = useState<'' | 'BUY' | 'SELL'>('');
+  const [filterSide, setFilterSide] = useState<'' | 'LONG' | 'SHORT'>('');
 
   useEffect(() => {
     fetchTrades();
@@ -34,21 +35,13 @@ export default function TradesListView() {
   const fetchTrades = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/trades');
+      const response = await fetch('/api/trades?userId=default&perPage=100');
       const data = await response.json();
       
-      if (data.success) {
-        // Flatten trades from all days
-        const allTrades: Trade[] = [];
-        if (data.dailyStats) {
-          // Fetch all trades separately since /api/trades returns dailyStats
-          const tradesResponse = await fetch('/api/trades?all=true');
-          const tradesData = await tradesResponse.json();
-          if (tradesData.trades) {
-            allTrades.push(...tradesData.trades);
-          }
-        }
-        setTrades(allTrades);
+      if (data.success && data.data && data.data.trades) {
+        setTrades(data.data.trades);
+      } else {
+        setTrades([]);
       }
     } catch (error) {
       console.error('Error fetching trades:', error);
@@ -76,7 +69,7 @@ export default function TradesListView() {
     let comparison = 0;
     switch (sortField) {
       case 'date':
-        comparison = new Date(a.date + ' ' + a.time).getTime() - new Date(b.date + ' ' + b.time).getTime();
+        comparison = new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime();
         break;
       case 'symbol':
         comparison = a.symbol.localeCompare(b.symbol);
@@ -84,26 +77,27 @@ export default function TradesListView() {
       case 'side':
         comparison = a.side.localeCompare(b.side);
         break;
-      case 'price':
-        comparison = a.price - b.price;
+      case 'entryPrice':
+        comparison = a.entryPrice - b.entryPrice;
         break;
-      case 'quantity':
-        comparison = a.quantity - b.quantity;
+      case 'shares':
+        comparison = a.shares - b.shares;
         break;
     }
     return sortDirection === 'asc' ? comparison : -comparison;
   });
 
   const exportToCSV = () => {
-    const headers = ['Date', 'Time', 'Symbol', 'Side', 'Quantity', 'Price', 'Order Type'];
+    const headers = ['Date', 'Symbol', 'Side', 'Shares', 'Entry Price', 'Exit Price', 'PnL', 'Status'];
     const rows = sortedTrades.map(t => [
-      t.date,
-      t.time,
+      t.entryDate,
       t.symbol,
       t.side,
-      t.quantity,
-      t.price.toFixed(2),
-      t.orderType || ''
+      t.shares,
+      t.entryPrice.toFixed(2),
+      t.exitPrice?.toFixed(2) || '',
+      t.netPnL?.toFixed(2) || '',
+      t.status
     ]);
     
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -152,13 +146,22 @@ export default function TradesListView() {
           
           <select
             value={filterSide}
-            onChange={(e) => setFilterSide(e.target.value as '' | 'BUY' | 'SELL')}
+            onChange={(e) => setFilterSide(e.target.value as '' | 'LONG' | 'SHORT')}
             className="px-3 py-1.5 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm focus:outline-none focus:border-[#F97316]"
           >
             <option value="">All Sides</option>
-            <option value="BUY">Buy</option>
-            <option value="SELL">Sell</option>
+            <option value="LONG">Long</option>
+            <option value="SHORT">Short</option>
           </select>
+          
+          <button
+            onClick={fetchTrades}
+            disabled={isLoading}
+            className="p-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors disabled:opacity-50"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
         
         <button
@@ -210,55 +213,63 @@ export default function TradesListView() {
               </th>
               <th 
                 className="text-right py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
-                onClick={() => handleSort('quantity')}
+                onClick={() => handleSort('shares')}
               >
                 <div className="flex items-center justify-end gap-1">
-                  Qty
-                  {sortField === 'quantity' && (
+                  Shares
+                  {sortField === 'shares' && (
                     <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                   )}
                 </div>
               </th>
               <th 
                 className="text-right py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
-                onClick={() => handleSort('price')}
+                onClick={() => handleSort('entryPrice')}
               >
                 <div className="flex items-center justify-end gap-1">
-                  Price
-                  {sortField === 'price' && (
+                  Entry
+                  {sortField === 'entryPrice' && (
                     <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                   )}
                 </div>
               </th>
-              <th className="text-left py-3 px-4 text-[#8b949e] font-medium">Type</th>
+              <th className="text-right py-3 px-4 text-[#8b949e] font-medium">PnL</th>
+              <th className="text-left py-3 px-4 text-[#8b949e] font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
             {sortedTrades.map((trade) => (
               <tr key={trade.id} className="border-b border-[#21262d] hover:bg-[#21262d]/50">
                 <td className="py-3 px-4 text-white">
-                  <div className="text-xs text-[#8b949e]">{trade.date}</div>
-                  <div>{trade.time}</div>
+                  <div className="text-xs text-[#8b949e]">{trade.entryDate?.split('T')[0]}</div>
+                  <div>{trade.entryDate?.split('T')[1]?.substring(0, 5)}</div>
                 </td>
                 <td className="py-3 px-4 font-medium text-white">{trade.symbol}</td>
                 <td className="py-3 px-4">
-                  <span className={`flex items-center gap-1 ${trade.side === 'BUY' ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-                    {trade.side === 'BUY' ? (
+                  <span className={`flex items-center gap-1 ${trade.side === 'LONG' ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                    {trade.side === 'LONG' ? (
                       <>
                         <TrendingUp className="w-3 h-3" />
-                        BUY
+                        LONG
                       </>
                     ) : (
                       <>
                         <TrendingDown className="w-3 h-3" />
-                        SELL
+                        SHORT
                       </>
                     )}
                   </span>
                 </td>
-                <td className="py-3 px-4 text-right text-white">{trade.quantity}</td>
-                <td className="py-3 px-4 text-right text-white">${trade.price.toFixed(2)}</td>
-                <td className="py-3 px-4 text-[#8b949e]">{trade.orderType || '-'}</td>
+                <td className="py-3 px-4 text-right text-white">{trade.shares}</td>
+                <td className="py-3 px-4 text-right text-white">${trade.entryPrice?.toFixed(2)}</td>
+                <td className={`py-3 px-4 text-right ${trade.netPnL && trade.netPnL >= 0 ? 'text-[#3fb950]' : trade.netPnL && trade.netPnL < 0 ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
+                  {trade.netPnL ? `${trade.netPnL >= 0 ? '+' : ''}$${trade.netPnL.toFixed(2)}` : '-'}
+                </td>
+                <td className="py-3 px-4">
+                  <span className={`text-xs px-2 py-1 rounded-full ${trade.status === 'CLOSED' ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#d29922]/20 text-[#d29922]'}`}>
+                    {trade.status}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
