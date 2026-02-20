@@ -610,24 +610,14 @@ export default function GoalsCard() {
               <p className="text-sm text-white">
                 {goal.title}
               </p>
-              <div className="flex items-center gap-3 mt-1">
-                {goal.dueDate && (
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-[#F97316]" />
-                    <span className="text-[10px] text-[#F97316]">
-                      {new Date(goal.dueDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' })}
-                    </span>
-                  </div>
-                )}
-                {goal.createdAt && (
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-[#737373]" />
-                    <span className="text-[10px] text-[#737373]">
-                      {new Date(goal.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' })}
-                    </span>
-                  </div>
-                )}
-              </div>
+              {goal.dueDate && (
+                <div className="flex items-center gap-1 mt-1">
+                  <Calendar className="w-3 h-3 text-[#F97316]" />
+                  <span className="text-[10px] text-[#F97316]">
+                    {new Date(goal.dueDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' })}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -960,6 +950,23 @@ export default function GoalsCard() {
                   <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] pointer-events-none" />
                 </div>
               </div>
+
+              {/* Created At - Read Only */}
+              {notesGoal?.createdAt && (
+                <div className="px-4 sm:px-0 mb-3">
+                  <label className="block text-xs text-[#737373] mb-1">Created</label>
+                  <div className="flex items-center gap-2 px-3 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-[#737373] text-sm">
+                    <Clock className="w-4 h-4" />
+                    {new Date(notesGoal.createdAt).toLocaleDateString('en-US', { 
+                      weekday: 'short', 
+                      month: 'short', 
+                      day: 'numeric',
+                      year: 'numeric',
+                      timeZone: 'America/New_York' 
+                    })}
+                  </div>
+                </div>
+              )}
               
               {/* Notes textarea */}
               <div className="flex-1 px-4 sm:px-0 mb-3">
