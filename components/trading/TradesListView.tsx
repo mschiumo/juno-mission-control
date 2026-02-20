@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowUpDown, TrendingUp, TrendingDown, Filter, Download, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowUpDown, TrendingUp, TrendingDown, Filter, Download, RefreshCw, Trash2, X, CheckSquare, Square } from 'lucide-react';
 
 interface Trade {
   id: string;
@@ -27,6 +27,11 @@ export default function TradesListView() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [filterSymbol, setFilterSymbol] = useState('');
   const [filterSide, setFilterSide] = useState<'' | 'LONG' | 'SHORT'>('');
+  
+  // Selection state
+  const [selectedTrades, setSelectedTrades] = useState<Set<string>>(new Set());
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchTrades();
@@ -40,6 +45,8 @@ export default function TradesListView() {
       
       if (data.success && data.data && data.data.trades) {
         setTrades(data.data.trades);
+        // Clear selection when data refreshes
+        setSelectedTrades(new Set());
       } else {
         setTrades([]);
       }
@@ -47,26 +54,6 @@ export default function TradesListView() {
       console.error('Error fetching trades:', error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const deleteTrade = async (tradeId: string) => {
-    if (!confirm('Are you sure you want to delete this trade?')) return;
-    
-    try {
-      const response = await fetch(`/api/trades/${tradeId}?userId=default`, {
-        method: 'DELETE'
-      });
-      
-      if (response.ok) {
-        // Remove from local state
-        setTrades(prev => prev.filter(t => t.id !== tradeId));
-      } else {
-        alert('Failed to delete trade');
-      }
-    } catch (error) {
-      console.error('Error deleting trade:', error);
-      alert('Failed to delete trade');
     }
   };
 
@@ -106,6 +93,50 @@ export default function TradesListView() {
     }
     return sortDirection === 'asc' ? comparison : -comparison;
   });
+
+  // Selection handlers
+  const toggleSelection = (tradeId: string) => {
+    const newSelected = new Set(selectedTrades);
+    if (newSelected.has(tradeId)) {
+      newSelected.delete(tradeId);
+    } else {
+      newSelected.add(tradeId);
+    }
+    setSelectedTrades(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTrades.size === sortedTrades.length) {
+      // Deselect all
+      setSelectedTrades(new Set());
+    } else {
+      // Select all
+      setSelectedTrades(new Set(sortedTrades.map(t => t.id)));
+    }
+  };
+
+  const deleteSelectedTrades = async () => {
+    setIsDeleting(true);
+    const idsToDelete = Array.from(selectedTrades);
+    
+    try {
+      // Delete trades one by one
+      for (const tradeId of idsToDelete) {
+        await fetch(`/api/trades/${tradeId}?userId=default`, {
+          method: 'DELETE'
+        });
+      }
+      
+      // Refresh the list
+      await fetchTrades();
+      setShowDeleteModal(false);
+    } catch (error) {
+      console.error('Error deleting trades:', error);
+      alert('Failed to delete some trades');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const exportToCSV = () => {
     const headers = ['Date', 'Symbol', 'Side', 'Shares', 'Entry Price', 'Exit Price', 'PnL', 'Status'];
@@ -184,13 +215,25 @@ export default function TradesListView() {
           </button>
         </div>
         
-        <button
-          onClick={exportToCSV}
-          className="flex items-center gap-2 px-3 py-1.5 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg text-sm transition-colors"
-        >
-          <Download className="w-4 h-4" />
-          Export CSV
-        </button>
+        <div className="flex items-center gap-2">
+          {selectedTrades.size > 0 && (
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-[#da3633]/20 hover:bg-[#da3633]/30 text-[#f85149] rounded-lg text-sm transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete ({selectedTrades.size})
+            </button>
+          )}
+          
+          <button
+            onClick={exportToCSV}
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg text-sm transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -198,6 +241,26 @@ export default function TradesListView() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#30363d] bg-[#0d1117]">
+              <th className="py-3 px-2 text-center w-10">
+                <button
+                  onClick={toggleSelectAll}
+                  className="text-[#8b949e] hover:text-white transition-colors"
+                  title={selectedTrades.size === sortedTrades.length ? "Deselect all" : "Select all"}
+                >
+                  {selectedTrades.size === sortedTrades.length ? (
+                    <CheckSquare className="w-5 h-5" />
+                  ) : selectedTrades.size > 0 ? (
+                    <div className="relative">
+                      <Square className="w-5 h-5" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-2 h-2 bg-[#F97316] rounded-sm" />
+                      </div>
+                    </div>
+                  ) : (
+                    <Square className="w-5 h-5" />
+                  )}
+                </button>
+              </th>
               <th 
                 className="text-left py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
                 onClick={() => handleSort('date')}
@@ -255,12 +318,26 @@ export default function TradesListView() {
               </th>
               <th className="text-right py-3 px-4 text-[#8b949e] font-medium">PnL</th>
               <th className="text-left py-3 px-4 text-[#8b949e] font-medium">Status</th>
-              <th className="text-center py-3 px-4 text-[#8b949e] font-medium">Action</th>
             </tr>
           </thead>
           <tbody>
             {sortedTrades.map((trade) => (
-              <tr key={trade.id} className="border-b border-[#21262d] hover:bg-[#21262d]/50">
+              <tr 
+                key={trade.id} 
+                className={`border-b border-[#21262d] hover:bg-[#21262d]/50 ${selectedTrades.has(trade.id) ? 'bg-[#F97316]/10' : ''}`}
+              >
+                <td className="py-3 px-2 text-center">
+                  <button
+                    onClick={() => toggleSelection(trade.id)}
+                    className="text-[#8b949e] hover:text-[#F97316] transition-colors"
+                  >
+                    {selectedTrades.has(trade.id) ? (
+                      <CheckSquare className="w-5 h-5 text-[#F97316]" />
+                    ) : (
+                      <Square className="w-5 h-5" />
+                    )}
+                  </button>
+                </td>
                 <td className="py-3 px-4 text-white">
                   <div className="text-xs text-[#8b949e]">{trade.entryDate?.split('T')[0]}</div>
                   <div>{trade.entryDate?.split('T')[1]?.substring(0, 5)}</div>
@@ -291,15 +368,6 @@ export default function TradesListView() {
                     {trade.status}
                   </span>
                 </td>
-                <td className="py-3 px-4">
-                  <button
-                    onClick={() => deleteTrade(trade.id)}
-                    className="p-1.5 text-[#737373] hover:text-[#da3633] hover:bg-[#da3633]/10 rounded-lg transition-colors"
-                    title="Delete trade"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </td>
               </tr>
             ))}
           </tbody>
@@ -307,9 +375,71 @@ export default function TradesListView() {
       </div>
       
       {/* Footer */}
-      <div className="p-4 border-t border-[#30363d] text-sm text-[#8b949e]">
-        Showing {sortedTrades.length} of {trades.length} trades
+      <div className="p-4 border-t border-[#30363d] text-sm text-[#8b949e] flex items-center justify-between">
+        <span>Showing {sortedTrades.length} of {trades.length} trades</span>
+        {selectedTrades.size > 0 && (
+          <span className="text-[#F97316]">{selectedTrades.size} selected</span>
+        )}
       </div>
+
+      {/* Custom Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Delete Trades</h3>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-[#8b949e]" />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-[#da3633]/20 rounded-full">
+                  <Trash2 className="w-6 h-6 text-[#f85149]" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">
+                    Delete {selectedTrades.size} trade{selectedTrades.size !== 1 ? 's' : ''}?
+                  </p>
+                  <p className="text-sm text-[#8b949e]">
+                    This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 px-4 py-3 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteSelectedTrades}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-3 bg-[#da3633] hover:bg-[#f85149] text-white rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
