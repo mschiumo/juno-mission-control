@@ -598,16 +598,16 @@ export default function GoalsCard() {
     const cardContent = (
       <>
         {/* Header with source badge */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 flex-1">
+        <div className="flex items-start justify-between gap-2 overflow-hidden">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
             {isCollaborative && (
-              <div className={`flex items-center gap-1 px-1.5 py-0.5 bg-purple-500/20 rounded text-[10px] ${sourceInfo.color}`}>
+              <div className={`flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 bg-purple-500/20 rounded text-[10px] ${sourceInfo.color}`}>
                 <span>{sourceInfo.icon}</span>
-                <span>{sourceInfo.label}</span>
+                <span className="hidden sm:inline">{sourceInfo.label}</span>
               </div>
             )}
-            <div className="flex flex-col flex-1">
-              <p className="text-sm text-white">
+            <div className="flex flex-col flex-1 min-w-0">
+              <p className="text-sm text-white truncate">
                 {goal.title}
               </p>
               {goal.dueDate && (
@@ -620,7 +620,7 @@ export default function GoalsCard() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className={`flex items-center gap-1 ${isMobileView ? 'flex-shrink-0' : ''}`}>
             {/* Action items indicator */}
             {pendingActions > 0 && (
               <button
@@ -641,7 +641,7 @@ export default function GoalsCard() {
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); deleteGoal(goal); }}
-              className="text-[#737373] hover:text-[#da3633] transition-colors"
+              className="p-1.5 bg-[#262626] hover:bg-[#da3633]/20 text-[#737373] hover:text-[#da3633] rounded-lg transition-colors"
               title="Delete goal"
             >
               <X className="w-4 h-4" />
