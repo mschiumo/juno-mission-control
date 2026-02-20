@@ -1,0 +1,108 @@
+# API-Based Cron Jobs Configuration
+# These cron jobs trigger API endpoints that run without AI
+# They are faster, more reliable, and don't require Juno
+
+apiVersion: v1
+kind: CronConfig
+metadata:
+  name: api-based-crons
+  description: API-based cron jobs that run without AI assistance
+
+crons:
+  - name: "API-Daily Token Usage"
+    description: "Generate daily token usage summary"
+    schedule: "0 23 * * *"  # 11 PM daily
+    endpoint: "/api/cron-jobs/token-usage"
+    method: "GET"
+    timezone: "UTC"
+    enabled: true
+    timeout: 30
+    
+  - name: "API-Market Close Report"
+    description: "Fetch and report market close data"
+    schedule: "30 21 * * 1-5"  # 5:30 PM ET M-F (21:30 UTC)
+    endpoint: "/api/cron-jobs/market-close"
+    method: "GET"
+    timezone: "UTC"
+    enabled: true
+    timeout: 60
+    
+  - name: "API-Gap Scanner"
+    description: "Trigger pre-market gap scanner"
+    schedule: "30 13 * * 1-5"  # 8:30 AM ET M-F (13:30 UTC)
+    endpoint: "/api/cron-jobs/gap-scanner-trigger"
+    method: "POST"
+    timezone: "UTC"
+    enabled: true
+    timeout: 300  # 5 minutes for full scan
+    
+  - name: "API-GitHub PR Check"
+    description: "Check for open PRs and review requests"
+    schedule: "0 */6 * * *"  # Every 6 hours
+    endpoint: "/api/cron-jobs/github-pr-monitor"
+    method: "GET"
+    timezone: "UTC"
+    enabled: true
+    timeout: 30
+    
+  - name: "API-Evening Habit Check-in"
+    description: "Send evening habit check-in reminder"
+    schedule: "0 20 * * *"  # 8 PM daily (20:00 UTC)
+    endpoint: "/api/cron-jobs/habit-checkin"
+    method: "GET"
+    timezone: "UTC"
+    enabled: true
+    timeout: 30
+    
+  - name: "API-Morning Market Briefing"
+    description: "Generate morning market briefing"
+    schedule: "0 13 * * 1-5"  # 8:00 AM ET M-F (13:00 UTC)
+    endpoint: "/api/cron-jobs/market-briefing"
+    method: "GET"
+    timezone: "UTC"
+    enabled: true
+    timeout: 60
+
+---
+# Legacy AI-Based Cron Jobs (kept for reference)
+# These jobs still require AI and should remain as agentTurn payloads
+
+legacy_crons:
+  - name: "Nightly Goals Audit"
+    description: "AI-powered goals audit with analysis"
+    schedule: "0 3 * * *"  # 3:00 AM UTC
+    type: "agentTurn"
+    enabled: true
+    reason: "Requires goal analysis and pattern recognition"
+    
+  - name: "Task Approval Request"
+    description: "AI-powered task review and approval"
+    schedule: "0 14 * * *"  # 2:00 PM UTC
+    type: "agentTurn"
+    enabled: true
+    reason: "Requires user interaction and negotiation"
+    
+  - name: "Trading Analysis"
+    description: "AI-powered trading insights"
+    schedule: "as_needed"
+    type: "agentTurn"
+    enabled: true
+    reason: "Requires interpretation of market data"
+
+---
+# Migration Notes
+# 
+# To use these API-based cron jobs:
+# 
+# 1. Deploy the new endpoints to your Vercel/Next.js app
+# 2. Configure your cron service to call these endpoints
+# 3. Set up authentication (API key or similar) for production
+# 4. Monitor the /api/cron-results endpoint for job outputs
+# 5. Check Activity Log for execution history
+#
+# Environment Variables Required:
+# - UPSTASH_REDIS_URL or REDIS_URL
+# - FINNHUB_API_KEY (for market data)
+# - GITHUB_TOKEN (for PR monitoring)
+# - TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID (for notifications)
+# - NEXT_PUBLIC_APP_URL (for internal API calls)
