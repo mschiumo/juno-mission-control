@@ -328,9 +328,11 @@ export default function CalendarView() {
                   );
                 }
                 
-                const dayNumber = new Date(dayData.date).getDate();
+                // Parse date components directly to avoid timezone shift
+                const [y, m, d] = dayData.date.split('-').map(Number);
+                const dayNumber = d;
                 const hasData = dayData.trades > 0;
-                const isCurrentMonth = new Date(dayData.date).getMonth() === currentMonth.getMonth();
+                const isCurrentMonth = m - 1 === currentMonth.getMonth();
                 
                 return (
                   <div
