@@ -39,12 +39,14 @@ function getStorageKey(date: string) {
 
 function getToday() {
   // Use EST (America/New_York) for date
-  return new Date().toLocaleDateString('en-US', {
+  const dateStr = new Date().toLocaleDateString('en-US', {
     timeZone: 'America/New_York',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
-  }).split('/').reverse().join('-'); // Convert MM/DD/YYYY to YYYY-MM-DD
+  });
+  const [month, day, year] = dateStr.split('/');
+  return `${year}-${month}-${day}`; // Convert MM/DD/YYYY to YYYY-MM-DD
 }
 
 function getPreviousDate(dateStr: string, daysBack: number) {
@@ -52,13 +54,15 @@ function getPreviousDate(dateStr: string, daysBack: number) {
   const [year, month, day] = dateStr.split('-').map(Number);
   const date = new Date(year, month - 1, day); // Month is 0-indexed
   date.setDate(date.getDate() - daysBack);
-  
+
   // Return in YYYY-MM-DD format
-  return date.toLocaleDateString('en-US', {
+  const prevDateStr = date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
-  }).split('/').reverse().join('-');
+  });
+  const [prevMonth, prevDay, prevYear] = prevDateStr.split('/');
+  return `${prevYear}-${prevMonth}-${prevDay}`;
 }
 
 interface HabitData {
