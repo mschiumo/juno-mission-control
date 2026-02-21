@@ -5,6 +5,7 @@ const STORAGE_KEY = 'cron_results';
 
 // Cron job definitions with their schedules - sorted chronologically (earliest to latest)
 const CRON_JOBS = [
+  { id: 'daily-motivational', name: 'Daily Motivational Message', schedule: '7:00 AM EST', cronExpression: '0 12 * * *', frequency: 'Daily', status: 'active' },
   { id: 'morning-wake', name: 'Morning Wake-up Check', schedule: '7:30 AM EST', cronExpression: '30 7 * * *', frequency: 'Daily', status: 'active' },
   { id: 'gap-scanner', name: 'Gap Scanner Pre-Market', schedule: 'Mon-Fri 8:30 AM EST', cronExpression: '30 8 * * 1-5', frequency: 'Mon-Fri', status: 'active' },
   { id: 'midday-checkin', name: 'Mid-Day Trading Check-in', schedule: '12:30 PM EST', cronExpression: '30 12 * * 0-4', frequency: 'Mon-Fri', status: 'active' },
@@ -17,6 +18,7 @@ const CRON_JOBS = [
 
 // Map job names to cron result jobNames for matching
 const JOB_NAME_MAP: Record<string, string[]> = {
+  'daily-motivational': ['Daily Motivational Message'],
   'morning-wake': ['Morning Wake-up Check'],
   'gap-scanner': ['Gap Scanner Pre-Market', 'Gap Scanner Monday Test'],
   'midday-checkin': ['Mid-Day Trading Check-in'],

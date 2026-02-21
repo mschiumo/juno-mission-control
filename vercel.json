@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "app/api/cron/daily-motivational/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron-results/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/cron-status/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}
