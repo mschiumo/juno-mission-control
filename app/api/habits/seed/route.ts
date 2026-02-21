@@ -32,7 +32,7 @@ const DEFAULT_HABITS = [
   { id: 'trade-journal', name: 'Trade Journal', icon: '📊', target: 'Trading days', category: 'trading' }
 ];
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || '2026-02-20';
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     await redis.set(storageKey, JSON.stringify(habitsData));
     
     // Also check for custom habits in wrong date format
-    const wrongDate = date.replace(/(\d{4})-(\d{2})-(\d{2})/, '$1-$3-$2'); // 2026-02-20 -> 2026-20-02
+    const wrongDate = date.replace(/(\d{4})-(\d{2})-(\d{2})/, '$1-$3-$2');
     const wrongKey = `${STORAGE_KEY_PREFIX}:${wrongDate}`;
     const wrongData = await redis.get(wrongKey);
     
@@ -66,7 +66,6 @@ export async function POST(request: Request) {
         !DEFAULT_HABITS.map(dh => dh.id).includes(h.id)
       );
       if (customHabits.length > 0) {
-        // Add custom habits to the correct date
         habitsData.push(...customHabits);
         await redis.set(storageKey, JSON.stringify(habitsData));
         recoveredHabits = customHabits.map((h: {name: string}) => h.name);
