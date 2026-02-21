@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, Save, RefreshCw } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw } from 'lucide-react';
 
 interface DayData {
   date: string;
@@ -426,7 +426,6 @@ export default function CalendarView() {
             setSelectedDate(null);
             setSelectedDateTrades([]);
           }}
-          onSave={() => fetchDailyStats()}
         />
       )}
 
@@ -438,44 +437,10 @@ export default function CalendarView() {
   );
 }
 
-function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string; data: DayData; trades: TOSTrade[]; onClose: () => void; onSave?: (date: string, notes: string) => void }) {
+function DayDetailModal({ date, data, trades, onClose }: { date: string; data: DayData; trades: TOSTrade[]; onClose: () => void }) {
   // Parse date parts directly to avoid UTC shift
   const [year, month, day] = date.split('-').map(Number);
   const dateObj = new Date(year, month - 1, day); // month is 0-indexed
-  const [journalText, setJournalText] = useState(data.hasJournal ? "Followed my plan well today. Avoided FOMO on the midday chop." : "");
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
-  
-  const handleSave = async () => {
-    setIsSaving(true);
-    setSaveStatus(null);
-    
-    try {
-      const response = await fetch('/api/trades/journal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, notes: journalText })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setSaveStatus({ success: true, message: 'Journal saved!' });
-        if (onSave) onSave(date, journalText);
-        
-        // Close modal after short delay
-        setTimeout(() => {
-          onClose();
-        }, 1000);
-      } else {
-        setSaveStatus({ success: false, message: result.error || 'Failed to save' });
-      }
-    } catch (error) {
-      setSaveStatus({ success: false, message: 'Error saving journal' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
   
   // Group trades by symbol for display
   const tradesBySymbol = useMemo(() => {
@@ -510,6 +475,11 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
       return { symbol, trades: symbolTrades, pnl, isWin: pnl > 0 };
     });
   }, [tradesBySymbol]);
+  
+  // Redirect to Journal tab
+  const openJournal = () => {
+    window.location.href = `/?tab=trading&subtab=journal&date=${date}`;
+  };
   
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -612,63 +582,20 @@ function DayDetailModal({ date, data, trades, onClose, onSave }: { date: string;
             </div>
           </div>
           
-          {/* Daily Journal */}
-          <div className="pb-2">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-[#8b949e]">Daily Journal</h4>
-              
-              {/* Save Button in Journal Header */}
-              <button 
-                onClick={handleSave}
-                disabled={isSaving}
-                className="px-3 py-1.5 bg-[#F97316] hover:bg-[#ea580c] text-white text-xs rounded-lg disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {isSaving ? (
-                  <>
-                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-3 h-3" />
-                    Save
-                  </>
-                )}
-              </button>
-            </div>
-            <textarea
-              placeholder="How did today go? What did you learn?"
-              className="w-full p-3 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] resize-none h-24 focus:outline-none focus:border-[#F97316]"
-              value={journalText}
-              onChange={(e) => setJournalText(e.target.value)}
-            />
-            {saveStatus && (
-              <p className={`text-xs mt-1 ${saveStatus.success ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>{saveStatus.message}</p>
-            )}
-          </div>
+          {/* Daily Journal - Removed */}
         </div>
         
         {/* Footer - Always visible */}
-        <div className="flex justify-end gap-3 p-4 border-t border-[#30363d] flex-shrink-0">
+        <div className="flex justify-between items-center gap-3 p-4 border-t border-[#30363d] flex-shrink-0">
+          <button 
+            onClick={openJournal}
+            className="px-4 py-2 bg-[#F97316]/10 hover:bg-[#F97316]/20 text-[#F97316] rounded-lg transition-colors flex items-center gap-2 text-sm"
+          >
+            <span>📓</span>
+            Open Journal
+          </button>
           <button onClick={onClose} className="px-4 py-2 text-[#8b949e] hover:text-white">
             Close
-          </button>
-          <button 
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
-          >
-            {isSaving ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Save Journal
-              </>
-            )}
           </button>
         </div>
       </div>

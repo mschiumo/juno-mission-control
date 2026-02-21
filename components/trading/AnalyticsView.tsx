@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Calendar, Clock, DollarSign, Percent, BarChart3 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, DollarSign, Percent, BarChart3 } from 'lucide-react';
 
 interface AnalyticsData {
   overview: {
@@ -157,44 +157,6 @@ export default function AnalyticsView() {
               </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* By Hour */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Clock className="w-5 h-5" />
-          Performance by Time of Day
-        </h3>
-        
-        <div className="space-y-2">
-          {Object.entries(byHour)
-            .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
-            .map(([hour, data]) => {
-              const hourNum = parseInt(hour);
-              const ampm = hourNum >= 12 ? 'PM' : 'AM';
-              const displayHour = hourNum % 12 || 12;
-              const timeLabel = `${displayHour} ${ampm}`;
-              
-              return (
-                <div key={hour} className="flex items-center gap-4">
-                  <span className="text-sm text-[#8b949e] w-16">{timeLabel}</span>
-                  <div className="flex-1 h-6 bg-[#0d1117] rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full ${data.pnl >= 0 ? 'bg-[#238636]' : 'bg-[#da3633]'}`}
-                      style={{ 
-                        width: `${Math.min(Math.abs(data.pnl) / 50 * 100, 100)}%`,
-                        opacity: data.trades > 0 ? 1 : 0
-                      }}
-                    />
-                  </div>
-                  <span className={`text-sm font-medium w-20 text-right ${data.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-                    {data.pnl >= 0 ? '+' : ''}${data.pnl.toFixed(0)}
-                  </span>
-                  <span className="text-xs text-[#8b949e] w-12 text-right">{data.trades} trades</span>
-                </div>
-              );
-            })}
         </div>
       </div>
     </div>
