@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
+import { getNowInEST } from '@/lib/date-utils';
 
 const JOURNAL_KEY_PREFIX = 'journal:';
 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     await redis.hSet(key, {
       date,
       notes: notes || '',
-      updatedAt: new Date().toISOString()
+      updatedAt: getNowInEST()
     });
     
     return NextResponse.json({

@@ -9,6 +9,7 @@ import type { Trade, CSVImportResult, CSVImportError, CreateTradeRequest } from 
 import { Strategy, TradeStatus, TradeSide } from '@/types/trading';
 import { saveTrades } from '@/lib/db/trades-v2';
 import { parseTOSCSV } from '@/lib/parsers/tos-parser';
+import { getNowInEST } from '@/lib/date-utils';
 
 /**
  * POST /api/trades/import
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const isPositionStatement = csv.includes('Position Statement for');
 
       const trades: Trade[] = [];
-      const now = new Date().toISOString();
+      const now = getNowInEST();
 
       if (isPositionStatement) {
         // Position Statement: trades already have PnL, use them directly
@@ -396,19 +397,32 @@ function parseTradeRow(
   try {
     const date = entryDate ? new Date(entryDate) : new Date();
     if (isNaN(date.getTime())) {
-      parsedEntryDate = new Date().toISOString();
+      parsedEntryDate = getNowInEST();
     } else {
-      parsedEntryDate = date.toISOString();
+      // Convert parsed date to EST
+      const estDateStr = date.toLocaleString('en-US', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      const [datePart, timePart] = estDateStr.split(', ');
+      const [month, day, year] = datePart.split('/');
+      parsedEntryDate = `${year}-${month}-${day}T${timePart}-05:00`;
     }
   } catch {
-    parsedEntryDate = new Date().toISOString();
+    parsedEntryDate = getNowInEST();
   }
 
   // Optional fields
   const exitPriceStr = columnMap.exitPrice !== undefined ? row[columnMap.exitPrice]?.trim() : '';
   const exitDate = columnMap.exitDate !== undefined ? row[columnMap.exitDate]?.trim() : '';
 
-  const now = new Date().toISOString();
+  const now = getNowInEST();
 
   const trade: Trade = {
     id: crypto.randomUUID(),
@@ -435,7 +449,20 @@ function parseTradeRow(
         try {
           const parsedExitDate = new Date(exitDate);
           if (!isNaN(parsedExitDate.getTime())) {
-            trade.exitDate = parsedExitDate.toISOString();
+            // Convert to EST
+            const estDateStr = parsedExitDate.toLocaleString('en-US', {
+              timeZone: 'America/New_York',
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: false
+            });
+            const [datePart, timePart] = estDateStr.split(', ');
+            const [month, day, year] = datePart.split('/');
+            trade.exitDate = `${year}-${month}-${day}T${timePart}-05:00`;
           }
         } catch {
           trade.exitDate = now;

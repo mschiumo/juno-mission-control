@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, CreateTradeRequest, TradeListResponse } from '@/types/trading';
 import { TradeStatus, Strategy, TradeSide } from '@/types/trading';
 import { getAllTrades, saveTrade, deleteTrade } from '@/lib/db/trades-v2';
+import { getNowInEST } from '@/lib/date-utils';
 
 // Helper to generate UUID
 function generateId(): string {
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
     
-    const now = new Date().toISOString();
+    const now = getNowInEST();
     
     // Create trade object
     const newTrade: Trade = {

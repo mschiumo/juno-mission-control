@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw } from 'lucide-react';
+import { getTodayInEST, parseDateToEST } from '@/lib/date-utils';
 
 interface DayData {
   date: string;

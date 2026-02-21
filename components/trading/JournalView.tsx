@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { BookOpen, ChevronDown, ChevronUp, Plus, X, Calendar, Clock, Save, CheckCircle, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+import { getTodayInEST } from '@/lib/date-utils';
 
 interface JournalPrompt {
   id: string;
@@ -44,7 +45,7 @@ export default function JournalView() {
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>('create');
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getTodayInEST);
   const [prompts, setPrompts] = useState<JournalPrompt[]>(DEFAULT_PROMPTS.map(p => ({ ...p })));
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -156,7 +157,7 @@ export default function JournalView() {
   const openCreateModal = () => {
     setModalMode('create');
     setEditingEntry(null);
-    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSelectedDate(getTodayInEST());
     setPrompts(DEFAULT_PROMPTS.map(p => ({ ...p })));
     setSaveStatus('idle');
     setValidationErrors({});

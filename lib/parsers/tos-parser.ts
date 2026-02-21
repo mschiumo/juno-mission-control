@@ -4,7 +4,7 @@ export interface TOSTrade {
   side: 'BUY' | 'SELL';
   quantity: number;
   price: number;
-  date: string; // ISO date YYYY-MM-DD
+  date: string; // ISO date YYYY-MM-DD in EST
   time: string; // HH:MM:SS
   execTime: string; // Original format
   posEffect?: string; // TO OPEN / TO CLOSE
@@ -20,6 +20,58 @@ export interface DayData {
   hasJournal?: boolean;
   avgCost?: number;
   sharpeRatio?: number;
+}
+
+const EST_TIMEZONE = 'America/New_York';
+const EST_OFFSET = '-05:00';
+
+/**
+ * Get current date in EST as YYYY-MM-DD
+ */
+function getTodayInEST(): string {
+  const now = new Date();
+  const estDateStr = now.toLocaleDateString('en-US', {
+    timeZone: EST_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const [month, day, year] = estDateStr.split('/');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Get current time in EST as HH:MM:SS
+ */
+function getCurrentTimeInEST(): string {
+  const now = new Date();
+  return now.toLocaleTimeString('en-US', {
+    timeZone: EST_TIMEZONE,
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+
+/**
+ * Get current date/time in EST as ISO string with -05:00 offset
+ */
+function getNowInEST(): string {
+  const now = new Date();
+  const estDateStr = now.toLocaleString('en-US', {
+    timeZone: EST_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  const [datePart, timePart] = estDateStr.split(', ');
+  const [month, day, year] = datePart.split('/');
+  return `${year}-${month}-${day}T${timePart}${EST_OFFSET}`;
 }
 
 export function parseTOSCSV(csvText: string): TOSTrade[] {
@@ -151,9 +203,9 @@ function parseTOSPositionStatement(csvText: string): TOSTrade[] {
     }
   }
   
-  // If no date found in header, use today
+  // If no date found in header, use today in EST
   if (!statementDate) {
-    statementDate = new Date().toISOString().split('T')[0];
+    statementDate = getTodayInEST();
   }
   
   let inDataSection = false;
@@ -264,7 +316,9 @@ function parseTOSStatement(csvText: string): TOSTrade[] {
         const price = parseFloat(priceStr);
         
         if (!isNaN(quantity) && !isNaN(price) && symbol !== 'Symbol') {
-          const today = new Date().toISOString().split('T')[0];
+          const today = getTodayInEST();
+          const currentTime = getCurrentTimeInEST();
+          const nowEST = getNowInEST();
           
           trades.push({
             id: `${symbol}-${today}-${Math.random().toString(36).substr(2, 9)}`,
@@ -273,8 +327,8 @@ function parseTOSStatement(csvText: string): TOSTrade[] {
             quantity: Math.abs(quantity),
             price,
             date: today,
-            time: new Date().toTimeString().split(' ')[0],
-            execTime: new Date().toLocaleString()
+            time: currentTime,
+            execTime: nowEST
           });
         }
       }
