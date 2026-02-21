@@ -93,22 +93,26 @@ export async function GET() {
       }
     });
     
-    // Group by time of day (hour)
+    // Group by time of day (hour) - extract hour from ISO timestamp with timezone
     const byHour: Record<string, { trades: number; pnl: number; wins: number; losses: number }> = {};
     trades.forEach(trade => {
-      const date = new Date(trade.entryDate);
-      const hour = date.getHours();
-      const hourKey = `${hour}:00`;
-      if (!byHour[hourKey]) {
-        byHour[hourKey] = { trades: 0, pnl: 0, wins: 0, losses: 0 };
-      }
-      byHour[hourKey].trades++;
-      if (trade.netPnL !== undefined) {
-        byHour[hourKey].pnl += trade.netPnL;
-        if (trade.netPnL > 0) {
-          byHour[hourKey].wins++;
-        } else if (trade.netPnL < 0) {
-          byHour[hourKey].losses++;
+      // Parse the ISO timestamp to extract hour in the original timezone
+      // Format: 2026-02-20T16:00:00-05:00
+      const timeMatch = trade.entryDate.match(/T(\d{2}):\d{2}:\d{2}/);
+      if (timeMatch) {
+        const hour = parseInt(timeMatch[1], 10);
+        const hourKey = `${hour}:00`;
+        if (!byHour[hourKey]) {
+          byHour[hourKey] = { trades: 0, pnl: 0, wins: 0, losses: 0 };
+        }
+        byHour[hourKey].trades++;
+        if (trade.netPnL !== undefined) {
+          byHour[hourKey].pnl += trade.netPnL;
+          if (trade.netPnL > 0) {
+            byHour[hourKey].wins++;
+          } else if (trade.netPnL < 0) {
+            byHour[hourKey].losses++;
+          }
         }
       }
     });
