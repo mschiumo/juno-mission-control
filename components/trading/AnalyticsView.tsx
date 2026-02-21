@@ -136,8 +136,8 @@ export default function AnalyticsView() {
           Performance by Day of Week
         </h3>
         
-        <div className="grid grid-cols-7 gap-2">
-          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
+        <div className="grid grid-cols-5 gap-2">
+          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => {
             const data = byDayOfWeek[day];
             const hasTrades = data.trades > 0;
             
