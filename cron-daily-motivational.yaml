@@ -3,6 +3,7 @@
 # OPTIMIZED: Uses static quotes instead of web search to avoid timeouts
 
 name: "Daily Motivational Message"
+jobId: "73d12d70-c138-477e-bc3a-9a419a48d1a0"
 sessionTarget: isolated
 enabled: true
 schedule:
@@ -14,9 +15,14 @@ payload:
   message: |
     Send a daily motivational message to MJ via Telegram.
     
-    IMPORTANT: Do NOT use web_search for this task. Use one of these static quotes instead:
+    IMPORTANT: Do NOT use web_search for this task. Use the quote corresponding to today's date.
     
-    QUOTE OPTIONS (pick one randomly):
+    QUOTE SELECTION (use day-of-month to pick, ensuring daily variety):
+    Day 1-10: Use quote at index = (day_of_month - 1) from quotes 1-10
+    Day 11-20: Use quote at index = (day_of_month - 11) from quotes 1-10  
+    Day 21-31: Use quote at index = (day_of_month - 21) from quotes 1-10
+    
+    QUOTE OPTIONS:
     1. "The future belongs to those who believe in the beauty of their dreams." — Eleanor Roosevelt
     2. "Success is not final, failure is not fatal: it is the courage to continue that counts." — Winston Churchill
     3. "The only way to do great work is to love what you do." — Steve Jobs
@@ -35,6 +41,13 @@ payload:
     
     Make today count! 💪"
     
+    AFTER SENDING MESSAGE:
+    POST the result to https://juno-mission-control.vercel.app/api/cron-results with:
+    - jobName: "Daily Motivational Message"
+    - content: The formatted message
+    - type: "motivational"
+    - jobId: "73d12d70-c138-477e-bc3a-9a419a48d1a0"
+    
     Log this to Activity Log via POST /api/activity-log with type: "cron"
-  timeoutSeconds: 30
+  timeoutSeconds: 120
   thinking: off

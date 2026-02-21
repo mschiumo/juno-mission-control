@@ -216,6 +216,11 @@ function getDailyQuote(): { quote: string; author: string; index: number } {
 }
 
 /**
+ * Dashboard API endpoint for external cron tracking
+ */
+const DASHBOARD_URL = 'https://juno-mission-control.vercel.app/api/cron-results';
+
+/**
  * Post result directly to Redis
  * Bypasses HTTP call to avoid timeout issues
  */
@@ -263,6 +268,43 @@ async function postToCronResults(
     return { success: true, id: newResult.id };
   } catch (error) {
     console.error('[DailyMotivational] Failed to post cron results:', error);
+    return { success: false, error: String(error) };
+  }
+}
+
+/**
+ * Post result to external dashboard
+ */
+async function postToDashboard(
+  jobName: string,
+  content: string,
+  type: 'market' | 'motivational' | 'check-in' | 'review' | 'error' = 'motivational'
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(DASHBOARD_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jobName,
+        content,
+        type,
+        jobId: '73d12d70-c138-477e-bc3a-9a419a48d1a0',
+        timestamp: new Date().toISOString()
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[DailyMotivational] Dashboard POST failed:', errorText);
+      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
+    }
+
+    console.log('[DailyMotivational] Posted to dashboard successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('[DailyMotivational] Failed to post to dashboard:', error);
     return { success: false, error: String(error) };
   }
 }
@@ -336,6 +378,12 @@ export async function GET() {
       throw new Error(`Failed to post results: ${postResult.error}`);
     }
     
+    // Also post to external dashboard
+    const dashboardResult = await postToDashboard(JOB_NAME, content, 'motivational');
+    if (!dashboardResult.success) {
+      console.warn('[DailyMotivational] Dashboard post failed but continuing:', dashboardResult.error);
+    }
+    
     // Log success
     await logActivity(
       'Daily Motivational Message Generated',
@@ -352,7 +400,8 @@ export async function GET() {
         author,
         quoteIndex: index + 1,
         totalQuotes: QUOTES.length,
-        durationMs: duration
+        durationMs: duration,
+        dashboardPosted: dashboardResult.success
       }
     });
     
