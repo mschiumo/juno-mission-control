@@ -52,7 +52,76 @@ export default function JournalView() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  // Check for openJournal param on mount
+  // Check for URL params on mount (date and action from CalendarView)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const dateParam = params.get('date');
+    const actionParam = params.get('action');
+    
+    if (dateParam && actionParam) {
+      // Fetch the journal entry for this date to determine if it exists
+      fetchJournalEntryForDate(dateParam).then(entry => {
+        if (actionParam === 'edit' && entry) {
+          // Open existing entry in edit mode
+          setModalMode('edit');
+          setEditingEntry(entry);
+          setSelectedDate(entry.date);
+          setPrompts(entry.prompts.length > 0 ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p })));
+          setSaveStatus('idle');
+          setValidationErrors({});
+          setShowModal(true);
+        } else if (actionParam === 'create' && !entry) {
+          // Open create modal for new entry
+          setModalMode('create');
+          setEditingEntry(null);
+          setSelectedDate(dateParam);
+          setPrompts(DEFAULT_PROMPTS.map(p => ({ ...p })));
+          setSaveStatus('idle');
+          setValidationErrors({});
+          setShowModal(true);
+        } else if (actionParam === 'create' && entry) {
+          // Entry already exists, open in edit mode instead
+          setModalMode('edit');
+          setEditingEntry(entry);
+          setSelectedDate(entry.date);
+          setPrompts(entry.prompts.length > 0 ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p })));
+          setSaveStatus('idle');
+          setValidationErrors({});
+          setShowModal(true);
+        }
+        
+        // Clean up URL params
+        params.delete('date');
+        params.delete('action');
+        window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+      });
+    }
+  }, []);
+  
+  // Fetch a specific journal entry by date
+  const fetchJournalEntryForDate = async (date: string): Promise<JournalEntry | null> => {
+    try {
+      const response = await fetch(`/api/trades/journal?date=${date}`);
+      const data = await response.json();
+      
+      if (data.success && data.notes) {
+        // Convert API response to JournalEntry format
+        return {
+          id: `${date}-entry`,
+          date: date,
+          prompts: data.prompts || DEFAULT_PROMPTS.map(p => ({ ...p, answer: '' })),
+          createdAt: data.createdAt || new Date().toISOString(),
+          updatedAt: data.updatedAt || new Date().toISOString()
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching journal entry for date:', error);
+      return null;
+    }
+  };
+
+  // Legacy support: Check for openJournal param on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('openJournal') === 'true') {
