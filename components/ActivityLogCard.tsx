@@ -169,7 +169,7 @@ export default function ActivityLogCard() {
     setActiveFilter('all');
   };
 
-  // Filter out routine/noise entries
+  // Filter out routine/noise entries - v2 defensive
   const isNoiseEntry = (activity: ActivityItem): boolean => {
     // Safety check for null/undefined activity
     if (!activity) return false;
