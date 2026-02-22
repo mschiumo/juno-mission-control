@@ -13,7 +13,13 @@ interface ActivityItem {
 }
 
 // Helper to render text with PR links
-function renderWithPRLinks(text: string, repoUrl: string = 'https://github.com/mschiumo/juno-mission-control') {
+function renderWithPRLinks(text: unknown, repoUrl: string = 'https://github.com/mschiumo/juno-mission-control') {
+  // Handle non-string inputs
+  if (!text) return '';
+  if (typeof text !== 'string') {
+    text = JSON.stringify(text);
+  }
+  
   // Match PR #XXX patterns
   const prPattern = /#(\d+)/g;
   const parts: React.ReactNode[] = [];
@@ -169,15 +175,21 @@ export default function ActivityLogCard() {
     setActiveFilter('all');
   };
 
-  // Filter out routine/noise entries - v3 bulletproof
+  // Filter out routine/noise entries - v4 handles object details
   const isNoiseEntry = (activity: ActivityItem): boolean => {
     try {
       // Safety check for null/undefined activity
       if (!activity || typeof activity !== 'object') return false;
       
-      const action = activity?.action || '';
-      const details = activity?.details || '';
-      const type = activity?.type || '';
+      // Handle both string and object details
+      let action = activity?.action || '';
+      let details = activity?.details || '';
+      let type = activity?.type || '';
+      
+      // Convert to strings if they're objects
+      if (typeof action !== 'string') action = JSON.stringify(action);
+      if (typeof details !== 'string') details = JSON.stringify(details);
+      if (typeof type !== 'string') type = JSON.stringify(type);
       
       // Filter out Auto-Respawn checks with no failures
       if (action && action.includes('Auto-Respawn')) {
