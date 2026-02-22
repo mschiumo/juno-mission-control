@@ -169,39 +169,45 @@ export default function ActivityLogCard() {
     setActiveFilter('all');
   };
 
-  // Filter out routine/noise entries - v2 defensive
+  // Filter out routine/noise entries - v3 bulletproof
   const isNoiseEntry = (activity: ActivityItem): boolean => {
-    // Safety check for null/undefined activity
-    if (!activity) return false;
-    
-    const action = activity.action || '';
-    const details = activity.details || '';
-    const type = activity.type || '';
-    
-    // Filter out Auto-Respawn checks with no failures
-    if (action.includes('Auto-Respawn')) {
-      const detailsLower = details.toLowerCase();
-      if (detailsLower.includes('no failures') || detailsLower.includes('0 failed')) {
-        return true;
+    try {
+      // Safety check for null/undefined activity
+      if (!activity || typeof activity !== 'object') return false;
+      
+      const action = activity?.action || '';
+      const details = activity?.details || '';
+      const type = activity?.type || '';
+      
+      // Filter out Auto-Respawn checks with no failures
+      if (action && action.includes('Auto-Respawn')) {
+        const detailsLower = details?.toLowerCase?.() || '';
+        if (detailsLower.includes('no failures') || detailsLower.includes('0 failed')) {
+          return true;
+        }
       }
-    }
-    
-    // Filter out routine cron checks with no issues
-    if (type === 'cron') {
-      const detailsLower = details.toLowerCase();
-      const actionLower = action.toLowerCase();
-      // Hide routine health checks that report "ok" or "no issues"
-      if (
-        (detailsLower.includes('check completed') && detailsLower.includes('ok')) ||
-        (detailsLower.includes('health check') && detailsLower.includes('healthy')) ||
-        (actionLower.includes('heartbeat') && detailsLower.includes('ok')) ||
-        detailsLower.includes('no issues found') ||
-        detailsLower.includes('all systems operational')
-      ) {
-        return true;
+      
+      // Filter out routine cron checks with no issues
+      if (type === 'cron') {
+        const detailsLower = details?.toLowerCase?.() || '';
+        const actionLower = action?.toLowerCase?.() || '';
+        // Hide routine health checks that report "ok" or "no issues"
+        if (
+          (detailsLower.includes('check completed') && detailsLower.includes('ok')) ||
+          (detailsLower.includes('health check') && detailsLower.includes('healthy')) ||
+          (actionLower.includes('heartbeat') && detailsLower.includes('ok')) ||
+          detailsLower.includes('no issues found') ||
+          detailsLower.includes('all systems operational')
+        ) {
+          return true;
+        }
       }
+      return false;
+    } catch (err) {
+      // If anything goes wrong, don't filter it out
+      console.error('Error in isNoiseEntry:', err);
+      return false;
     }
-    return false;
   };
 
   // Get meaningful activities (excluding noise)
