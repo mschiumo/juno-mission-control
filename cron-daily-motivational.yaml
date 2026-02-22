@@ -1,6 +1,6 @@
 # Daily Motivational Message
 # Runs daily at 7:00 AM EST (12:00 PM UTC)
-# OPTIMIZED: Uses static quotes instead of web search to avoid timeouts
+# API-based: Direct endpoint call for reliability and speed
 
 name: "Daily Motivational Message"
 jobId: "73d12d70-c138-477e-bc3a-9a419a48d1a0"
@@ -10,12 +10,20 @@ schedule:
   kind: cron
   expr: "0 12 * * *"
   tz: "UTC"
+# API-based approach - faster and more reliable than AI
+api:
+  endpoint: "https://juno-mission-control.vercel.app/api/cron/daily-motivational"
+  method: "POST"
+  timeout: 30
+  headers:
+    Content-Type: "application/json"
+# Fallback AI configuration (if API fails)
 payload:
   kind: agentTurn
   message: |
     Send a daily motivational message to MJ via Telegram.
     
-    IMPORTANT: Do NOT use web_search for this task. Use the quote corresponding to today's date.
+    IMPORTANT: Use the API endpoint first. This AI fallback is only if the API fails.
     
     QUOTE SELECTION (use day-of-month to pick, ensuring daily variety):
     Day 1-10: Use quote at index = (day_of_month - 1) from quotes 1-10
@@ -49,5 +57,5 @@ payload:
     - jobId: "73d12d70-c138-477e-bc3a-9a419a48d1a0"
     
     Log this to Activity Log via POST /api/activity-log with type: "cron"
-  timeoutSeconds: 120
+  timeoutSeconds: 60
   thinking: off
