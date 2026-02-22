@@ -451,7 +451,7 @@ export default function AnalyticsView() {
                 <div className="text-xs text-[#8b949e] mb-1">{day.slice(0, 3)}</div>
                 {hasTrades ? (
                   <>
-                    <div className="text-lg font-semibold text-white">{data.trades}</div>
+                    <div className="text-lg font-semibold text-white">{data.trades} <span className="text-xs font-normal">trade{data.trades !== 1 ? 's' : ''}</span></div>
                     <div className={`text-xs ${data.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
                       {data.pnl >= 0 ? '+' : ''}${data.pnl.toFixed(0)}
                     </div>
