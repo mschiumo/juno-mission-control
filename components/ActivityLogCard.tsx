@@ -57,6 +57,14 @@ function renderWithPRLinks(text: unknown, repoUrl: string = 'https://github.com/
   return parts.length > 0 ? parts : text;
 }
 
+// Helper to safely convert any value to a string
+function safeString(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') return JSON.stringify(value, null, 2);
+  return String(value);
+}
+
 export default function ActivityLogCard() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,19 +189,14 @@ export default function ActivityLogCard() {
       // Safety check for null/undefined activity
       if (!activity || typeof activity !== 'object') return false;
       
-      // Handle both string and object details
-      let action = activity?.action || '';
-      let details = activity?.details || '';
-      let type = activity?.type || '';
-      
-      // Convert to strings if they're objects
-      if (typeof action !== 'string') action = JSON.stringify(action);
-      if (typeof details !== 'string') details = JSON.stringify(details);
-      if (typeof type !== 'string') type = JSON.stringify(type);
+      // Use safeString to handle both string and object values
+      const action = safeString(activity?.action);
+      const details = safeString(activity?.details);
+      const type = safeString(activity?.type);
       
       // Filter out Auto-Respawn checks with no failures
-      if (action && action.includes('Auto-Respawn')) {
-        const detailsLower = details?.toLowerCase?.() || '';
+      if (action.includes('Auto-Respawn')) {
+        const detailsLower = details.toLowerCase();
         if (detailsLower.includes('no failures') || detailsLower.includes('0 failed')) {
           return true;
         }
@@ -201,8 +204,8 @@ export default function ActivityLogCard() {
       
       // Filter out routine cron checks with no issues
       if (type === 'cron') {
-        const detailsLower = details?.toLowerCase?.() || '';
-        const actionLower = action?.toLowerCase?.() || '';
+        const detailsLower = details.toLowerCase();
+        const actionLower = action.toLowerCase();
         // Hide routine health checks that report "ok" or "no issues"
         if (
           (detailsLower.includes('check completed') && detailsLower.includes('ok')) ||
@@ -354,7 +357,7 @@ export default function ActivityLogCard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-white text-sm">{renderWithPRLinks(activity.action)}</span>
+                    <span className="font-medium text-white text-sm">{renderWithPRLinks(safeString(activity.action))}</span>
                     {activity.url ? (
                       <a 
                         href={activity.url}
@@ -370,7 +373,7 @@ export default function ActivityLogCard() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-[#8b949e] mt-2 leading-relaxed">{renderWithPRLinks(activity.details)}</p>
+                  <p className="text-xs text-[#8b949e] mt-2 leading-relaxed">{renderWithPRLinks(safeString(activity.details))}</p>
                   <div className="flex items-center gap-1 text-[10px] text-[#8b949e]/70 mt-3">
                     <Clock className="w-3 h-3" />
                     {formatTime(activity.timestamp)} EST
