@@ -225,8 +225,8 @@ export default function ActivityLogCard() {
     }
   };
 
-  // Get meaningful activities (excluding noise)
-  const meaningfulActivities = activities.filter(a => !isNoiseEntry(a));
+  // Get meaningful activities (excluding noise) - DISABLED for now due to object type issues
+  const meaningfulActivities = activities;
 
   const getTypeCounts = () => {
     const counts: Record<string, number> = {};
