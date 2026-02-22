@@ -476,9 +476,24 @@ function DayDetailModal({ date, data, trades, onClose }: { date: string; data: D
     });
   }, [tradesBySymbol]);
   
-  // Redirect to Journal tab
-  const openJournal = () => {
-    window.location.href = `/?tab=trading&subtab=journal&date=${date}`;
+  // Redirect to Journal tab - check if entry exists first
+  const openJournal = async () => {
+    try {
+      const response = await fetch(`/api/trades/journal?date=${date}&_t=${Date.now()}`);
+      const data = await response.json();
+      
+      if (data.success && data.notes) {
+        // Entry exists - open in edit mode
+        window.location.href = `/?tab=trading&subtab=journal&date=${date}&action=edit`;
+      } else {
+        // No entry exists - open create modal
+        window.location.href = `/?tab=trading&subtab=journal&date=${date}&action=create`;
+      }
+    } catch (error) {
+      console.error('Error checking journal entry:', error);
+      // Default to create if API fails
+      window.location.href = `/?tab=trading&subtab=journal&date=${date}&action=create`;
+    }
   };
   
   return (
