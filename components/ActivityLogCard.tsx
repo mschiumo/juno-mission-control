@@ -13,13 +13,7 @@ interface ActivityItem {
 }
 
 // Helper to render text with PR links
-function renderWithPRLinks(text: unknown, repoUrl: string = 'https://github.com/mschiumo/juno-mission-control') {
-  // Handle non-string inputs
-  if (!text) return '';
-  if (typeof text !== 'string') {
-    text = JSON.stringify(text);
-  }
-  
+function renderWithPRLinks(text: string, repoUrl: string = 'https://github.com/mschiumo/juno-mission-control') {
   // Match PR #XXX patterns
   const prPattern = /#(\d+)/g;
   const parts: React.ReactNode[] = [];
