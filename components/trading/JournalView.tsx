@@ -261,7 +261,12 @@ export default function JournalView() {
   };
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    // Date strings like "2026-02-22" are stored without timezone.
+    // If we parse them with new Date(), JS treats them as UTC midnight,
+    // then toLocaleDateString with America/New_York shifts them back 5 hours,
+    // displaying the wrong date (previous day).
+    // Solution: Parse as EST by appending the timezone offset before creating Date.
+    const date = new Date(`${dateStr}T00:00:00-05:00`);
     return date.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
