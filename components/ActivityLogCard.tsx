@@ -171,17 +171,25 @@ export default function ActivityLogCard() {
 
   // Filter out routine/noise entries
   const isNoiseEntry = (activity: ActivityItem): boolean => {
+    // Safety check for null/undefined activity
+    if (!activity) return false;
+    
+    const action = activity.action || '';
+    const details = activity.details || '';
+    const type = activity.type || '';
+    
     // Filter out Auto-Respawn checks with no failures
-    if (activity.action?.includes('Auto-Respawn')) {
-      const detailsLower = activity.details?.toLowerCase() || '';
+    if (action.includes('Auto-Respawn')) {
+      const detailsLower = details.toLowerCase();
       if (detailsLower.includes('no failures') || detailsLower.includes('0 failed')) {
         return true;
       }
     }
+    
     // Filter out routine cron checks with no issues
-    if (activity.type === 'cron') {
-      const detailsLower = activity.details?.toLowerCase() || '';
-      const actionLower = activity.action?.toLowerCase() || '';
+    if (type === 'cron') {
+      const detailsLower = details.toLowerCase();
+      const actionLower = action.toLowerCase();
       // Hide routine health checks that report "ok" or "no issues"
       if (
         (detailsLower.includes('check completed') && detailsLower.includes('ok')) ||
