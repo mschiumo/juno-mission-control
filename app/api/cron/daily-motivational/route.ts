@@ -4,7 +4,7 @@
  * GET: Generate and store a daily motivational quote
  * - Uses date-based randomness for consistent daily selection
  * - Posts to /api/cron-results for display in the dashboard
- * - Runs every morning at 6:00 AM EST
+ * - Runs every morning at 8:00 AM EST
  */
 
 import { NextResponse } from 'next/server';
@@ -159,9 +159,9 @@ const QUOTES = [
   { quote: "Every morning we are born again. What we do today matters most.", author: "Buddha" },
 ];
 
+const JOB_NAME = 'Daily Motivational Message';
 const STORAGE_KEY = 'cron_results';
 const MAX_RESULTS = 100;
-const JOB_NAME = 'Daily Motivational Message';
 
 // Redis client - lazy initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
@@ -170,58 +170,57 @@ async function getRedisClient() {
   if (redisClient?.isReady) {
     return redisClient;
   }
-  
+
   try {
     const client = createClient({
       url: process.env.UPSTASH_REDIS_URL || process.env.REDIS_URL || undefined,
     });
-    
+
     client.on('error', (err) => {
-      console.error('[DailyMotivational] Redis Client Error:', err);
+      // Silently handle connection errors to avoid spam
+      if ((err as any).code !== 'ECONNREFUSED') {
+        console.error('[DailyMotivational] Redis Client Error:', (err as Error).message);
+      }
     });
-    
-    await client.connect();
+
+    // Add connection timeout - 3 seconds max
+    const connectPromise = client.connect();
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Redis connection timeout')), 3000)
+    );
+
+    await Promise.race([connectPromise, timeoutPromise]);
     redisClient = client;
     return client;
   } catch (error) {
-    console.error('[DailyMotivational] Failed to connect to Redis:', error);
+    console.error('[DailyMotivational] Failed to connect to Redis:', error instanceof Error ? error.message : error);
     return null;
   }
 }
 
 /**
- * Get a deterministic daily quote based on the current date
- * Uses a seeded random approach for variety while ensuring
- * the same quote is returned throughout the day
+ * Get a deterministic quote based on the current date
+ * Uses days since epoch to ensure:
+ * - Same quote for everyone on the same day
+ * - Different quote each day
+ * - Continues cycling through quotes regardless of year boundaries
  */
 function getDailyQuote(): { quote: string; author: string; index: number } {
-  const now = new Date();
-  
-  // Create a date string YYYYMMDD for consistent daily seeding
-  const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
-  const dateNum = parseInt(dateStr, 10);
-  
-  // Simple pseudo-random generator seeded by date
-  // This ensures the same quote is selected all day, but different each day
-  const seed = dateNum * 9301 + 49297;
-  const randomIndex = seed % QUOTES.length;
-  
-  const selected = QUOTES[Math.abs(randomIndex)];
-  
+  const today = new Date();
+  // Use days since epoch for consistent daily progression across years
+  const daysSinceEpoch = Math.floor(today.getTime() / (1000 * 60 * 60 * 24));
+  const quoteIndex = daysSinceEpoch % QUOTES.length;
+
+  console.log(`[DailyMotivational] Date: ${today.toISOString().split('T')[0]}, DaysSinceEpoch: ${daysSinceEpoch}, QuoteIndex: ${quoteIndex}`);
+
   return {
-    quote: selected.quote,
-    author: selected.author,
-    index: Math.abs(randomIndex)
+    ...QUOTES[quoteIndex],
+    index: quoteIndex
   };
 }
 
 /**
- * Dashboard API endpoint for external cron tracking
- */
-const DASHBOARD_URL = 'https://juno-mission-control.vercel.app/api/cron-results';
-
-/**
- * Post result directly to Redis
+ * Post result directly to Redis (cron-results storage)
  * Bypasses HTTP call to avoid timeout issues
  */
 async function postToCronResults(
@@ -231,13 +230,18 @@ async function postToCronResults(
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
     const redis = await getRedisClient();
-    
+
     if (!redis) {
       return { success: false, error: 'Redis unavailable' };
     }
 
-    // Get existing results
-    const data = await redis.get(STORAGE_KEY);
+    // Get existing results with timeout
+    const getPromise = redis.get(STORAGE_KEY);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Redis GET timeout')), 3000)
+    );
+    const data = await Promise.race([getPromise, timeoutPromise]);
+
     const results: Array<{
       id: string;
       jobName: string;
@@ -261,8 +265,12 @@ async function postToCronResults(
       results.shift();
     }
 
-    // Save to Redis
-    await redis.set(STORAGE_KEY, JSON.stringify(results));
+    // Save to Redis with timeout
+    const setPromise = redis.set(STORAGE_KEY, JSON.stringify(results));
+    const setTimeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Redis SET timeout')), 3000)
+    );
+    await Promise.race([setPromise, setTimeoutPromise]);
 
     console.log(`[DailyMotivational] Posted results for job: ${jobName}`);
     return { success: true, id: newResult.id };
@@ -273,55 +281,29 @@ async function postToCronResults(
 }
 
 /**
- * Post result to external dashboard
- */
-async function postToDashboard(
-  jobName: string,
-  content: string,
-  type: 'market' | 'motivational' | 'check-in' | 'review' | 'error' = 'motivational'
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const response = await fetch(DASHBOARD_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jobName,
-        content,
-        type,
-        jobId: '73d12d70-c138-477e-bc3a-9a419a48d1a0',
-        timestamp: new Date().toISOString()
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[DailyMotivational] Dashboard POST failed:', errorText);
-      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
-    }
-
-    console.log('[DailyMotivational] Posted to dashboard successfully');
-    return { success: true };
-  } catch (error) {
-    console.error('[DailyMotivational] Failed to post to dashboard:', error);
-    return { success: false, error: String(error) };
-  }
-}
-
-/**
  * Log activity to activity log
  */
 async function logActivity(
   action: string,
-  details: string
+  details: string,
+  type: 'cron' | 'api' | 'user' | 'system' = 'cron'
 ): Promise<void> {
   try {
     const redis = await getRedisClient();
-    if (!redis) return;
+    if (!redis) {
+      console.warn('[DailyMotivational] Redis unavailable, skipping activity log');
+      return;
+    }
 
     const ACTIVITY_KEY = 'activity_log';
-    const data = await redis.get(ACTIVITY_KEY);
+
+    // Get existing activities with timeout
+    const getPromise = redis.get(ACTIVITY_KEY);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Redis GET timeout')), 3000)
+    );
+    const data = await Promise.race([getPromise, timeoutPromise]);
+
     const activities: Array<{
       id: string;
       timestamp: string;
@@ -335,7 +317,7 @@ async function logActivity(
       timestamp: new Date().toISOString(),
       action,
       details,
-      type: 'cron'
+      type
     };
 
     activities.push(newActivity);
@@ -343,21 +325,32 @@ async function logActivity(
       activities.shift();
     }
 
-    await redis.set(ACTIVITY_KEY, JSON.stringify(activities));
+    // Save with timeout
+    const setPromise = redis.set(ACTIVITY_KEY, JSON.stringify(activities));
+    const setTimeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Redis SET timeout')), 3000)
+    );
+    await Promise.race([setPromise, setTimeoutPromise]);
   } catch (error) {
     console.error('[DailyMotivational] Failed to log activity:', error);
+    // Non-critical: don't throw
   }
 }
 
+/**
+ * Cron job to create daily motivational notification
+ * Runs every day at 8:00 AM EST
+ * Stores notification in Redis for in-app display
+ */
 export async function GET() {
   const startTime = Date.now();
-  
+
   try {
     console.log('[DailyMotivational] Generating daily motivational message...');
-    
+
     // Get today's quote using date-based selection
     const { quote, author, index } = getDailyQuote();
-    
+
     // Format the message
     const content = `💡 **Daily Motivational Message** — ${new Date().toLocaleDateString('en-US', {
       weekday: 'long',
@@ -373,26 +366,22 @@ export async function GET() {
 
     // Post to cron results (direct Redis write, no HTTP timeout risk)
     const postResult = await postToCronResults(JOB_NAME, content, 'motivational');
-    
+
     if (!postResult.success) {
-      throw new Error(`Failed to post results: ${postResult.error}`);
+      console.warn('[DailyMotivational] Failed to post results (non-critical):', postResult.error);
+      // Continue anyway - we still return the quote
     }
-    
-    // Also post to external dashboard
-    const dashboardResult = await postToDashboard(JOB_NAME, content, 'motivational');
-    if (!dashboardResult.success) {
-      console.warn('[DailyMotivational] Dashboard post failed but continuing:', dashboardResult.error);
-    }
-    
-    // Log success
+
+    // Log success (non-critical)
     await logActivity(
       'Daily Motivational Message Generated',
-      `Quote #${index + 1} by ${author}`
+      `Quote #${index + 1} by ${author}`,
+      'cron'
     );
-    
+
     const duration = Date.now() - startTime;
     console.log(`[DailyMotivational] Message generated in ${duration}ms`);
-    
+
     return NextResponse.json({
       success: true,
       data: {
@@ -401,21 +390,22 @@ export async function GET() {
         quoteIndex: index + 1,
         totalQuotes: QUOTES.length,
         durationMs: duration,
-        dashboardPosted: dashboardResult.success
+        redisStored: postResult.success
       }
     });
-    
+
   } catch (error) {
-    console.error('[DailyMotivational] Error:', error);
-    
+    console.error('[DailyMotivational] Error generating message:', error);
+
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    // Log failure
+
+    // Log failure (non-critical)
     await logActivity(
       'Daily Motivational Message Failed',
-      errorMessage
+      errorMessage,
+      'cron'
     );
-    
+
     return NextResponse.json({
       success: false,
       error: 'Failed to generate motivational message',
