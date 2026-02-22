@@ -18,6 +18,56 @@ interface JournalEntry {
   updatedAt: string;
 }
 
+// ============================================================================
+// Timezone Helper Functions (EST)
+// ============================================================================
+
+/**
+ * Parse a YYYY-MM-DD date string as EST to prevent UTC shift issues.
+ * Appends EST offset (-05:00 or -04:00 depending on DST) to ensure
+ * the date is parsed correctly for display in America/New_York timezone.
+ */
+const parseDateAsEST = (dateStr: string): Date => {
+  return new Date(`${dateStr}T00:00:00-05:00`);
+};
+
+/**
+ * Format a YYYY-MM-DD date string for display in EST.
+ * Returns a full date string like "Monday, January 1, 2024"
+ */
+const formatDateEST = (dateStr: string): string => {
+  const date = parseDateAsEST(dateStr);
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'America/New_York'
+  });
+};
+
+/**
+ * Format an ISO timestamp for time display in EST.
+ * Returns a time string like "02:30 PM"
+ */
+const formatTimeEST = (isoString: string): string => {
+  return new Date(isoString).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/New_York'
+  });
+};
+
+/**
+ * Format an ISO timestamp for full datetime display in EST.
+ * Returns a full datetime string like "1/1/2024, 02:30:00 PM"
+ */
+const formatDateTimeEST = (isoString: string): string => {
+  return new Date(isoString).toLocaleString('en-US', {
+    timeZone: 'America/New_York'
+  });
+};
+
 const DEFAULT_PROMPTS = [
   {
     id: 'went-well',
@@ -260,22 +310,6 @@ export default function JournalView() {
     setExpandedId(expandedId === id ? null : id);
   };
 
-  const formatDate = (dateStr: string) => {
-    // Date strings like "2026-02-22" are stored without timezone.
-    // If we parse them with new Date(), JS treats them as UTC midnight,
-    // then toLocaleDateString with America/New_York shifts them back 5 hours,
-    // displaying the wrong date (previous day).
-    // Solution: Parse as EST by appending the timezone offset before creating Date.
-    const date = new Date(`${dateStr}T00:00:00-05:00`);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      timeZone: 'America/New_York'
-    });
-  };
-
   if (isLoading) {
     return (
       <div className="p-8 bg-[#161b22] border border-[#30363d] rounded-xl text-center">
@@ -332,18 +366,14 @@ export default function JournalView() {
                   {/* Date */}
                   <div className="flex items-center gap-2 text-[#8b949e]">
                     <Calendar className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-sm text-white">{formatDate(entry.date)}</span>
+                    <span className="text-sm text-white">{formatDateEST(entry.date)}</span>
                   </div>
                   
                   {/* Time */}
                   <div className="flex items-center gap-2 text-[#8b949e] sm:ml-2">
                     <Clock className="w-4 h-4 flex-shrink-0" />
                     <span className="text-sm">
-                      {new Date(entry.updatedAt).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        timeZone: 'America/New_York'
-                      })}
+                      {formatTimeEST(entry.updatedAt)}
                     </span>
                   </div>
                 </div>
@@ -403,9 +433,9 @@ export default function JournalView() {
                     )}
                     
                     <div className="text-xs text-[#8b949e] pt-2 border-t border-[#30363d]">
-                      Created: {new Date(entry.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })}
+                      Created: {formatDateTimeEST(entry.createdAt)}
                       <br />
-                      Updated: {new Date(entry.updatedAt).toLocaleString('en-US', { timeZone: 'America/New_York' })}
+                      Updated: {formatDateTimeEST(entry.updatedAt)}
                     </div>
                   </div>
                 </div>
@@ -540,7 +570,7 @@ export default function JournalView() {
             <p className="text-[#8b949e] mb-6">
               Are you sure you want to delete the journal entry for{' '}
               <span className="text-white font-medium">
-                {formatDate(showDeleteConfirm)}
+                {formatDateEST(showDeleteConfirm)}
               </span>
               ? This action cannot be undone.
             </p>
