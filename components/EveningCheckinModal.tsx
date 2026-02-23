@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ClipboardList, X, TrendingUp, Calendar } from 'lucide-react';
+import { ClipboardList, X, TrendingUp, Calendar, Trash2 } from 'lucide-react';
 
 interface Question {
   id: string;
@@ -40,6 +40,7 @@ interface EveningCheckinModalProps {
 export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: EveningCheckinModalProps) {
   const [data, setData] = useState<CheckinData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -59,6 +60,35 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
       console.error('Failed to fetch checkin data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!confirm('Are you sure you want to reset all habit check-in data? This cannot be undone.')) {
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const response = await fetch('/api/evening-checkin/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Refresh data to show cleared state
+        await fetchData();
+        onSuccess?.();
+      } else {
+        alert('Failed to reset data: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to reset data:', error);
+      alert('Failed to reset data. Please try again.');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -97,6 +127,14 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
               </div>
             </div>
             
+            <button
+              onClick={handleReset}
+              disabled={isResetting}
+              className="p-2 hover:bg-[#da3633]/20 rounded-lg transition-colors mr-2"
+              title="Reset all data"
+            >
+              <Trash2 className={`w-5 h-5 text-[#8b949e] hover:text-[#f85149] ${isResetting ? 'animate-pulse' : ''}`} />
+            </button>
             <button
               onClick={onClose}
               className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
