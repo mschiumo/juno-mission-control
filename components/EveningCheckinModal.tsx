@@ -41,6 +41,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
   const [data, setData] = useState<CheckinData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -64,10 +65,6 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
   };
 
   const handleReset = async () => {
-    if (!confirm('Are you sure you want to reset all habit check-in data? This cannot be undone.')) {
-      return;
-    }
-
     setIsResetting(true);
     try {
       const response = await fetch('/api/evening-checkin/clear', {
@@ -78,7 +75,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
       const result = await response.json();
       
       if (result.success) {
-        // Refresh data to show cleared state
+        setShowResetConfirm(false);
         await fetchData();
         onSuccess?.();
       } else {
@@ -236,7 +233,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                     <p className="text-xs text-[#8b949e]">Clear all habit check-in history</p>
                   </div>
                   <button
-                    onClick={handleReset}
+                    onClick={() => setShowResetConfirm(true)}
                     disabled={isResetting}
                     className="flex items-center gap-2 px-4 py-2 bg-[#f85149]/10 hover:bg-[#f85149]/20 text-[#f85149] border border-[#f85149]/30 rounded-lg transition-colors disabled:opacity-50"
                   >
@@ -245,6 +242,50 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                   </button>
                 </div>
               </div>
+              {/* Reset Confirmation Modal */}
+              {showResetConfirm && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+                  <div className="bg-[#161b22] border border-[#f85149]/50 rounded-xl w-full max-w-md p-6 shadow-2xl">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-[#f85149]/10 rounded-xl">
+                        <Trash2 className="w-6 h-6 text-[#f85149]" />
+                      </div>
+                      <h3 className="text-lg font-bold text-white">Reset All Data?</h3>
+                    </div>
+                    
+                    <p className="text-[#8b949e] mb-6">
+                      This will permanently delete all your habit check-in history. This action cannot be undone.
+                    </p>
+                    
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setShowResetConfirm(false)}
+                        disabled={isResetting}
+                        className="flex-1 px-4 py-2 bg-[#30363d] hover:bg-[#484f58] text-white rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleReset}
+                        disabled={isResetting}
+                        className="flex-1 px-4 py-2 bg-[#f85149] hover:bg-[#da3633] text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isResetting ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Resetting...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-4 h-4" />
+                            Reset
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
