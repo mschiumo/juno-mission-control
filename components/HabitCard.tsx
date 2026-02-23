@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, ClipboardList, GripVertical } from 'lucide-react';
-import EveningCheckinModal from './EveningCheckinModal';
+import { useState, useEffect, useCallback } from 'react';
+import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -22,6 +21,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+// Types
 interface Habit {
   id: string;
   name: string;
@@ -30,7 +30,7 @@ interface Habit {
   completedToday: boolean;
   target: string;
   category: string;
-  history: boolean[];
+  history: boolean[]; // Last 7 days (oldest to newest)
   order: number;
 }
 
@@ -41,7 +41,10 @@ interface HabitStats {
   weeklyCompletion: number;
 }
 
+// Constants
 const EMOJI_OPTIONS = ['💪', '🏃', '📚', '💧', '🧘', '🛏️', '💊', '📝', '📊', '🎯', '🔥', '⭐', '🌟', '✨', '🎨', '🎵', '🌱', '☀️', '🌙', '🍎', '🥗', '💤', '🧠', '❤️', '🌈'];
+const LOCALSTORAGE_KEY = 'juno_habits_cache';
+const LAST_FETCH_KEY = 'juno_habits_last_fetch';
 
 // Sortable habit item component
 interface SortableHabitItemProps {
@@ -49,9 +52,10 @@ interface SortableHabitItemProps {
   onToggle: (habitId: string) => void;
   onDelete: (habitId: string) => void;
   dayLabels: string[];
+  disabled?: boolean;
 }
 
-function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHabitItemProps) {
+function SortableHabitItem({ habit, onToggle, onDelete, dayLabels, disabled }: SortableHabitItemProps) {
   const {
     attributes,
     listeners,
@@ -73,9 +77,9 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHab
       style={style}
       className={`p-4 rounded-xl border transition-all ${
         habit.completedToday
-          ? 'bg-[#22c55e]/10 border-[#22c55e]/30'
-          : 'bg-[#0F0F0F] border-[#262626] hover:border-[#F97316]/50'
-      } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''}`}
+          ? 'bg-green-500/10 border-green-500/30'
+          : 'bg-[#0F0F0F] border-[#262626] hover:border-orange-500/50'
+      } ${isDragging ? 'shadow-lg ring-2 ring-orange-500/50' : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
     >
       <div className="flex items-center gap-3">
         <button
@@ -83,16 +87,18 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHab
           {...listeners}
           className="p-1.5 hover:bg-[#262626] rounded-lg cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
           title="Drag to reorder"
+          disabled={disabled}
         >
           <GripVertical className="w-4 h-4 text-[#737373]" />
         </button>
 
         <button
           onClick={() => onToggle(habit.id)}
+          disabled={disabled}
           className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center ${
             habit.completedToday
-              ? 'bg-[#22c55e] border-[#22c55e]'
-              : 'border-[#737373] hover:border-[#F97316]'
+              ? 'bg-green-500 border-green-500'
+              : 'border-[#737373] hover:border-orange-500'
           }`}
         >
           {habit.completedToday && <Check className="w-4 h-4 text-white" />}
@@ -107,8 +113,8 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHab
           </div>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             <div className="flex items-center gap-1 flex-shrink-0">
-              <Flame className={`w-3 h-3 ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#737373]'}`} />
-              <span className={`text-xs ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#737373]'}`}>
+              <Flame className={`w-3 h-3 ${habit.streak > 0 ? 'text-orange-500' : 'text-[#737373]'}`} />
+              <span className={`text-xs ${habit.streak > 0 ? 'text-orange-500' : 'text-[#737373]'}`}>
                 {habit.streak} day{habit.streak !== 1 ? 's' : ''}
               </span>
             </div>
@@ -121,22 +127,64 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHab
             {habit.history.map((completed, idx) => (
               <div
                 key={idx}
-                className={`w-2 h-2 rounded-full ${completed ? 'bg-[#22c55e]' : 'bg-[#262626]'}`}
+                className={`w-2 h-2 rounded-full ${completed ? 'bg-green-500' : 'bg-[#262626]'}`}
                 title={dayLabels[idx]}
               />
             ))}
           </div>
           <button
             onClick={() => onDelete(habit.id)}
-            className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors"
+            disabled={disabled}
+            className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors"
             title="Delete habit"
           >
-            <Trash2 className="w-4 h-4 text-[#737373] hover:text-[#da3633]" />
+            <Trash2 className="w-4 h-4 text-[#737373] hover:text-red-500" />
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+// Calculate stats from habits
+function calculateStats(habits: Habit[]): HabitStats {
+  const totalHabits = habits.length;
+  const completedToday = habits.filter(h => h.completedToday).length;
+  const longestStreak = Math.max(...habits.map(h => h.streak), 0);
+  
+  // Weekly completion: sum of all history completions + today / (habits * 7 days)
+  const totalPossibleCompletions = totalHabits * 7;
+  const actualCompletions = habits.reduce((acc, h) => 
+    acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
+  );
+  const weeklyCompletion = totalPossibleCompletions > 0 
+    ? Math.round((actualCompletions / totalPossibleCompletions) * 100)
+    : 0;
+
+  return { totalHabits, completedToday, longestStreak, weeklyCompletion };
+}
+
+// Save to localStorage
+function saveToCache(habits: Habit[], stats: HabitStats) {
+  try {
+    localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify({ habits, stats }));
+    localStorage.setItem(LAST_FETCH_KEY, Date.now().toString());
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
+// Load from localStorage
+function loadFromCache(): { habits: Habit[]; stats: HabitStats } | null {
+  try {
+    const cached = localStorage.getItem(LOCALSTORAGE_KEY);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch {
+    // Ignore localStorage errors
+  }
+  return null;
 }
 
 export default function HabitCard() {
@@ -148,78 +196,87 @@ export default function HabitCard() {
     weeklyCompletion: 0
   });
   const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showEveningCheckin, setShowEveningCheckin] = useState(false);
-  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitIcon, setNewHabitIcon] = useState('⭐');
   const [newHabitTarget, setNewHabitTarget] = useState('Daily');
 
   // Sensors for drag and drop
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 250,
-        tolerance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Fetch habits on mount
   useEffect(() => {
+    // Load from cache first for instant UI
+    const cached = loadFromCache();
+    if (cached) {
+      setHabits(cached.habits);
+      setStats(cached.stats);
+      setLoading(false);
+    }
+    
+    // Then fetch fresh data
     fetchHabits();
-    const interval = setInterval(fetchHabits, 300000);
-    return () => clearInterval(interval);
   }, []);
 
-  const fetchHabits = async () => {
+  // Auto-save to localStorage when habits change
+  useEffect(() => {
+    if (habits.length > 0) {
+      saveToCache(habits, stats);
+    }
+  }, [habits, stats]);
+
+  const fetchHabits = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const response = await fetch('/api/habit-status');
       const data = await response.json();
       if (data.success) {
         setHabits(data.data.habits);
         setStats(data.data.stats);
-        setLastUpdated(new Date());
+        saveToCache(data.data.habits, data.data.stats);
+      } else {
+        setError('Failed to load habits');
       }
-    } catch (error) {
-      console.error('Failed to fetch habits:', error);
+    } catch (err) {
+      console.error('Failed to fetch habits:', err);
+      setError('Network error - using cached data');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      setHabits((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-        const newItems = arrayMove(items, oldIndex, newIndex);
-        
-        // Save the new order to the server
+      const oldIndex = habits.findIndex((item) => item.id === active.id);
+      const newIndex = habits.findIndex((item) => item.id === over.id);
+      const newItems = arrayMove(habits, oldIndex, newIndex);
+      
+      // Optimistic update
+      setHabits(newItems);
+      setStats(calculateStats(newItems));
+      
+      // Save to server (fire and forget, will sync on next fetch if fails)
+      try {
         const habitIds = newItems.map(h => h.id);
-        fetch('/api/habit-status', {
+        await fetch('/api/habit-status', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ habitIds })
-        }).catch(error => {
-          console.error('Failed to save habit order:', error);
         });
-        
-        return newItems;
-      });
+      } catch (error) {
+        console.error('Failed to save habit order:', error);
+      }
     }
   };
 
@@ -229,41 +286,44 @@ export default function HabitCard() {
     
     const newCompletedState = !habit.completedToday;
     
+    // Optimistic update
     const updatedHabits = habits.map(h => 
       h.id === habitId 
         ? { ...h, completedToday: newCompletedState }
         : h
     );
     setHabits(updatedHabits);
-    
-    const completedToday = updatedHabits.filter(h => h.completedToday).length;
-    const totalHabits = updatedHabits.length;
-    const longestStreak = Math.max(...updatedHabits.map(h => h.streak), 0);
-    
-    const totalPossibleCompletions = totalHabits * 7;
-    const actualCompletions = updatedHabits.reduce((acc, h) => 
-      acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
-    );
-    const weeklyCompletion = totalPossibleCompletions > 0 
-      ? Math.round((actualCompletions / totalPossibleCompletions) * 100)
-      : 0;
-    
-    setStats({ totalHabits, completedToday, longestStreak, weeklyCompletion });
+    setStats(calculateStats(updatedHabits));
+    setSyncing(true);
     
     try {
-      await fetch('/api/habit-status', {
+      const response = await fetch('/api/habit-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ habitId, completed: newCompletedState })
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update');
+      }
+      
+      // Refresh to get server-calculated streaks/stats
+      await fetchHabits();
     } catch (error) {
       console.error('Failed to persist habit:', error);
+      // Revert on error
+      setHabits(habits);
+      setStats(calculateStats(habits));
+      setError('Failed to save - please try again');
+    } finally {
+      setSyncing(false);
     }
   };
 
   const addHabit = async () => {
     if (!newHabitName.trim()) return;
 
+    setSyncing(true);
     try {
       const response = await fetch('/api/habit-status', {
         method: 'PUT',
@@ -284,15 +344,22 @@ export default function HabitCard() {
         setNewHabitIcon('⭐');
         setNewHabitTarget('Daily');
         setShowAddModal(false);
+        saveToCache(data.data.habits, data.data.stats);
+      } else {
+        setError('Failed to add habit');
       }
     } catch (error) {
       console.error('Failed to add habit:', error);
+      setError('Network error - please try again');
+    } finally {
+      setSyncing(false);
     }
   };
 
   const deleteHabit = async (habitId: string) => {
     if (!confirm('Are you sure you want to delete this habit?')) return;
 
+    setSyncing(true);
     try {
       const response = await fetch(`/api/habit-status?habitId=${habitId}`, {
         method: 'DELETE'
@@ -302,19 +369,16 @@ export default function HabitCard() {
         const data = await response.json();
         setHabits(data.data.habits);
         setStats(data.data.stats);
+        saveToCache(data.data.habits, data.data.stats);
+      } else {
+        setError('Failed to delete habit');
       }
     } catch (error) {
       console.error('Failed to delete habit:', error);
+      setError('Network error - please try again');
+    } finally {
+      setSyncing(false);
     }
-  };
-
-  const formatLastUpdated = () => {
-    if (!lastUpdated) return '';
-    return lastUpdated.toLocaleString('en-US', {
-      month: '2-digit', day: '2-digit', year: 'numeric',
-      hour: 'numeric', minute: '2-digit', hour12: true,
-      timeZone: 'America/New_York'
-    }).replace(',', ' @');
   };
 
   const completionRate = stats.totalHabits > 0 
@@ -332,55 +396,47 @@ export default function HabitCard() {
     return labels;
   };
 
-  const handleEveningCheckinSuccess = () => {
-    setShowSuccessBanner(true);
-    setTimeout(() => setShowSuccessBanner(false), 3000);
-  };
-
   const dayLabels = getDayLabels();
 
   return (
     <div className="card">
-      {/* Success Banner */}
-      {showSuccessBanner && (
-        <div className="mb-4 p-3 bg-[#22c55e]/20 border border-[#22c55e] rounded-xl flex items-center gap-2">
-          <Check className="w-5 h-5 text-[#22c55e]" />
-          <span className="text-[#22c55e] font-medium">Evening check-in saved!</span>
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-xl flex items-center justify-between">
+          <span className="text-red-500 text-sm">{error}</span>
+          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-400">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Sync Indicator */}
+      {syncing && (
+        <div className="mb-4 flex items-center gap-2 text-orange-500 text-xs">
+          <RefreshCw className="w-3 h-3 animate-spin" />
+          <span>Saving...</span>
         </div>
       )}
       
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#F97316]/10 rounded-xl">
-            <Activity className="w-5 h-5 text-[#F97316]" />
+          <div className="p-2 bg-orange-500/10 rounded-xl">
+            <Activity className="w-5 h-5 text-orange-500" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">Habits</h2>
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-[#737373]">
-                {stats.completedToday} of {stats.totalHabits} completed today
-              </p>
-              {lastUpdated && !loading && (
-                <span className="text-[10px] text-[#22c55e]">
-                  updated {formatLastUpdated()}
-                </span>
-              )}
-            </div>
+            <p className="text-xs text-[#737373]">
+              {stats.completedToday} of {stats.totalHabits} completed today
+            </p>
           </div>
         </div>
         
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowEveningCheckin(true)}
-            className="p-2 bg-[#a371f7] text-white rounded-xl hover:bg-[#8957e5] transition-colors"
-            title="See Report"
-          >
-            <ClipboardList className="w-4 h-4" />
-          </button>
-          <button
             onClick={() => setShowAddModal(true)}
-            className="p-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors"
+            disabled={syncing}
+            className="p-2 bg-orange-500 text-white rounded-xl hover:bg-orange-400 transition-colors disabled:opacity-50"
             title="Add new habit"
           >
             <Plus className="w-4 h-4" />
@@ -390,12 +446,12 @@ export default function HabitCard() {
             disabled={loading}
             className="p-2 hover:bg-[#262626] rounded-xl transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`w-5 h-5 text-[#737373] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 text-[#737373] hover:text-orange-500 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Stats Grid with metric classes */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-4 gap-3 mb-6">
         {[
           { value: `${completionRate}%`, label: 'Today' },
@@ -404,25 +460,25 @@ export default function HabitCard() {
           { value: habits.length, label: 'Total' }
         ].map((stat, i) => (
           <div key={i} className="bg-[#0F0F0F] rounded-xl p-3 text-center border border-[#262626]">
-            <div className="metric-value text-[#F97316]">{stat.value}</div>
-            <div className="metric-label mt-1">{stat.label}</div>
+            <div className="text-xl font-bold text-orange-500">{stat.value}</div>
+            <div className="text-xs text-[#737373] mt-1">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Weekly Progress with new progress bar */}
-      {habits.length > 0 && !loading && (
+      {/* Weekly Progress */}
+      {habits.length > 0 && (
         <div className="mb-6 p-4 bg-[#0F0F0F] rounded-xl border border-[#262626]">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[#737373]" />
               <span className="text-xs text-[#737373] uppercase tracking-wider font-medium">Weekly Progress</span>
             </div>
-            <span className="text-xs text-[#22c55e] font-medium">{stats.weeklyCompletion}% avg</span>
+            <span className="text-xs text-green-500 font-medium">{stats.weeklyCompletion}% avg</span>
           </div>
-          <div className="progress-bar">
+          <div className="h-2 bg-[#262626] rounded-full overflow-hidden">
             <div 
-              className="progress-fill"
+              className="h-full bg-gradient-to-r from-orange-500 to-orange-400 transition-all duration-300"
               style={{ width: `${stats.weeklyCompletion}%` }}
             />
           </div>
@@ -438,7 +494,7 @@ export default function HabitCard() {
         <div className="space-y-3">
           {loading && habits.length === 0 ? (
             <div className="text-center py-8 text-[#737373]">
-              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#F97316]" />
+              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-orange-500" />
               <p>Loading habits...</p>
             </div>
           ) : habits.length === 0 ? (
@@ -447,7 +503,7 @@ export default function HabitCard() {
               <p className="text-[#737373] mb-2">No habits configured</p>
               <button 
                 onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#F97316]/10 text-[#F97316] rounded-xl text-sm hover:bg-[#F97316]/20 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500/10 text-orange-500 rounded-xl text-sm hover:bg-orange-500/20 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Your First Habit
@@ -465,6 +521,7 @@ export default function HabitCard() {
                   onToggle={toggleHabit}
                   onDelete={deleteHabit}
                   dayLabels={dayLabels}
+                  disabled={syncing}
                 />
               ))}
             </SortableContext>
@@ -473,11 +530,11 @@ export default function HabitCard() {
       </DndContext>
       
       {/* Legend */}
-      {habits.length > 0 && !loading && (
+      {habits.length > 0 && (
         <div className="mt-4 pt-4 border-t border-[#262626]">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-3">
-              <span className="metric-label">Last 7 Days</span>
+              <span className="text-xs text-[#737373] uppercase tracking-wider">Last 7 Days</span>
               <div className="flex items-center gap-1">
                 {dayLabels.map((day, i) => (
                   <span key={i} className="text-[10px] text-[#737373] w-2 text-center">{day}</span>
@@ -485,7 +542,7 @@ export default function HabitCard() {
               </div>
             </div>
             <div className="flex items-center gap-3 text-[10px] text-[#737373]">
-              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#22c55e]" /><span>Done</span></div>
+              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" /><span>Done</span></div>
               <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#262626]" /><span>Missed</span></div>
             </div>
           </div>
@@ -514,21 +571,21 @@ export default function HabitCard() {
                 value={newHabitName}
                 onChange={(e) => setNewHabitName(e.target.value)}
                 placeholder="e.g., Morning Meditation"
-                className="w-full px-4 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316]"
+                className="w-full px-4 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-orange-500"
               />
             </div>
             
             {/* Icon Selector */}
             <div className="mb-4">
               <label className="block text-sm text-[#737373] mb-2">Icon</label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                 {EMOJI_OPTIONS.map((emoji) => (
                   <button
                     key={emoji}
                     onClick={() => setNewHabitIcon(emoji)}
                     className={`text-2xl p-2 rounded-lg border transition-all ${
                       newHabitIcon === emoji
-                        ? 'border-[#F97316] bg-[#F97316]/20'
+                        ? 'border-orange-500 bg-orange-500/20'
                         : 'border-[#262626] hover:border-[#737373]'
                     }`}
                   >
@@ -546,7 +603,7 @@ export default function HabitCard() {
                 value={newHabitTarget}
                 onChange={(e) => setNewHabitTarget(e.target.value)}
                 placeholder="e.g., Daily, 3x/week, 30 min"
-                className="w-full px-4 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316]"
+                className="w-full px-4 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-orange-500"
               />
             </div>
             
@@ -559,22 +616,15 @@ export default function HabitCard() {
               </button>
               <button
                 onClick={addHabit}
-                disabled={!newHabitName.trim()}
-                className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors disabled:opacity-50"
+                disabled={!newHabitName.trim() || syncing}
+                className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-400 transition-colors disabled:opacity-50"
               >
-                Add Habit
+                {syncing ? 'Adding...' : 'Add Habit'}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Evening Check-in Modal */}
-      <EveningCheckinModal 
-        isOpen={showEveningCheckin} 
-        onClose={() => setShowEveningCheckin(false)}
-        onSuccess={handleEveningCheckinSuccess}
-      />
     </div>
   );
 }

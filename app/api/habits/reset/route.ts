@@ -1,23 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from 'redis';
-
-// Lazy Redis client initialization
-let redisClient: ReturnType<typeof createClient> | null = null;
-
-async function getRedisClient() {
-  if (redisClient) return redisClient;
-  
-  try {
-    const client = createClient({ url: process.env.REDIS_URL || undefined });
-    client.on('error', (err) => console.error('Redis Client Error:', err));
-    await client.connect();
-    redisClient = client;
-    return client;
-  } catch (error) {
-    console.error('Failed to connect to Redis:', error);
-    return null;
-  }
-}
+import { getRedisClient } from '@/lib/redis';
+import { getTodayInEST } from '@/lib/date-utils';
 
 // MJ's default habits (for reference/ordering)
 const DEFAULT_HABIT_IDS = new Set([
@@ -30,15 +13,6 @@ const DEFAULT_HABIT_IDS = new Set([
   'journal',
   'trade-journal'
 ]);
-
-function getToday() {
-  return new Date().toLocaleDateString('en-US', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).split('/').reverse().join('-');
-}
 
 interface HabitData {
   id: string;
@@ -103,15 +77,8 @@ export async function POST() {
       await redis.del(habitKeys);
     }
     
-    // Also delete evening check-in data (both formats)
-    const checkinKeys = await redis.keys('evening_checkin:*');
-    if (checkinKeys.length > 0) {
-      await redis.del(checkinKeys);
-    }
-    await redis.del('evening_checkins');
-    
     // Create fresh habits for today - PRESERVE custom ones, reset history only
-    const today = getToday();
+    const today = getTodayInEST();
     const freshHabits = allHabits.map((h, index) => ({
       ...h,
       completedToday: false,
@@ -127,7 +94,7 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       message: 'Habit history wiped successfully (custom habits preserved)',
-      deletedKeys: habitKeys.length + checkinKeys.length,
+      deletedKeys: habitKeys.length,
       totalHabits: freshHabits.length,
       defaultHabits: DEFAULT_HABIT_IDS.size,
       customHabits: customHabitsCount > 0 ? customHabitsCount : 0,

@@ -18,7 +18,6 @@ import LiveClock from "@/components/LiveClock";
 import NotificationsBell from "@/components/NotificationsBell";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import DocumentationCard from "@/components/DocumentationCard";
-import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
 import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
 
@@ -154,7 +153,6 @@ function DashboardContent() {
           /* Dashboard Grid - Single column for better spacing */
           <div className="space-y-4">
             <MotivationalBanner compact variant="orange" />
-            <EveningCheckinReminder />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <HabitCard />
               <DailyReportsCard />

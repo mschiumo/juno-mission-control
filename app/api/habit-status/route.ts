@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createClient } from 'redis';
+import { getRedisClient } from '@/lib/redis';
+import { getTodayInEST, getESTDateFromTimestamp } from '@/lib/date-utils';
 
 const STORAGE_KEY_PREFIX = 'habits_data';
 
-// MJ's specific habits with rolling history
+// MJ's default habits
 const DEFAULT_HABITS = [
   { id: 'make-bed', name: 'Make Bed', icon: '🛏️', target: 'Daily', category: 'productivity' },
   { id: 'take-meds', name: 'Take Meds (Morning)', icon: '💊', target: 'Daily', category: 'health' },
@@ -14,56 +15,6 @@ const DEFAULT_HABITS = [
   { id: 'journal', name: 'Journal', icon: '📝', target: 'Daily', category: 'mindfulness' },
   { id: 'trade-journal', name: 'Trade Journal', icon: '📊', target: 'Trading days', category: 'trading' }
 ];
-
-// Lazy Redis client initialization
-let redisClient: ReturnType<typeof createClient> | null = null;
-
-async function getRedisClient() {
-  if (redisClient) return redisClient;
-  
-  try {
-    const client = createClient({ url: process.env.REDIS_URL || undefined });
-    client.on('error', (err) => console.error('Redis Client Error:', err));
-    await client.connect();
-    redisClient = client;
-    return client;
-  } catch (error) {
-    console.error('Failed to connect to Redis:', error);
-    return null;
-  }
-}
-
-function getStorageKey(date: string) {
-  return `${STORAGE_KEY_PREFIX}:${date}`;
-}
-
-function getToday() {
-  // Use EST (America/New_York) for date
-  const dateStr = new Date().toLocaleDateString('en-US', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
-  const [month, day, year] = dateStr.split('/');
-  return `${year}-${month}-${day}`; // Convert MM/DD/YYYY to YYYY-MM-DD
-}
-
-function getPreviousDate(dateStr: string, daysBack: number) {
-  // Parse the EST date string
-  const [year, month, day] = dateStr.split('-').map(Number);
-  const date = new Date(year, month - 1, day); // Month is 0-indexed
-  date.setDate(date.getDate() - daysBack);
-
-  // Return in YYYY-MM-DD format
-  const prevDateStr = date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
-  const [prevMonth, prevDay, prevYear] = prevDateStr.split('/');
-  return `${prevYear}-${prevMonth}-${prevDay}`;
-}
 
 interface HabitData {
   id: string;
@@ -77,10 +28,74 @@ interface HabitData {
   order: number;
 }
 
-// Initialize or shift history for a new day
-function initializeHabits(previousData: HabitData[] | null): HabitData[] {
+function getStorageKey(date: string) {
+  return `${STORAGE_KEY_PREFIX}:${date}`;
+}
+
+function getPreviousDate(dateStr: string, daysBack: number): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() - daysBack);
+  
+  const prevYear = date.getFullYear();
+  const prevMonth = String(date.getMonth() + 1).padStart(2, '0');
+  const prevDay = String(date.getDate()).padStart(2, '0');
+  return `${prevYear}-${prevMonth}-${prevDay}`;
+}
+
+/**
+ * Calculate streak by counting consecutive completions from today backwards
+ * through the history array.
+ * 
+ * History is [oldest, ..., yesterday] (7 days)
+ * completedToday is for today
+ */
+function calculateStreak(completedToday: boolean, history: boolean[]): number {
+  let streak = 0;
+  
+  // Count today if completed
+  if (completedToday) {
+    streak = 1;
+  }
+  
+  // Walk backwards through history (newest to oldest)
+  // history[6] = yesterday, history[5] = day before, etc.
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]) {
+      streak++;
+    } else {
+      break; // Streak broken
+    }
+  }
+  
+  return streak;
+}
+
+/**
+ * Shift history for a new day:
+ * - Drop oldest day
+ * - Add yesterday's completion as newest
+ * - Reset completedToday to false
+ * - Recalculate streak
+ */
+function shiftHistoryForNewDay(previousHabit: HabitData): HabitData {
+  const yesterdayCompleted = previousHabit.completedToday;
+  const newHistory = [...previousHabit.history.slice(1), yesterdayCompleted];
+  
+  return {
+    ...previousHabit,
+    completedToday: false,
+    history: newHistory,
+    streak: calculateStreak(false, newHistory)
+  };
+}
+
+/**
+ * Initialize habits for a new day
+ */
+function initializeHabitsForNewDay(previousData: HabitData[] | null, today: string): HabitData[] {
   if (!previousData) {
-    // First time - create fresh habits with order
+    // First time - create fresh habits with empty history
     return DEFAULT_HABITS.map((h, index) => ({
       ...h,
       completedToday: false,
@@ -90,33 +105,22 @@ function initializeHabits(previousData: HabitData[] | null): HabitData[] {
     }));
   }
 
-  // Shift history: drop oldest, add yesterday's completion as newest
-  return previousData.map(h => {
-    const yesterdayCompleted = h.completedToday;
-    const newHistory = [...h.history.slice(1), yesterdayCompleted];
-
-    // Calculate streak
-    let streak = h.streak;
-    if (yesterdayCompleted) {
-      streak += 1;
-    } else {
-      streak = 0; // Reset streak if missed yesterday
-    }
-
-    return {
-      ...h,
-      completedToday: false, // Reset for new day
-      streak,
-      history: newHistory
-    };
-  });
+  // Shift history for each habit
+  return previousData.map(h => shiftHistoryForNewDay(h));
 }
 
+/**
+ * GET /api/habit-status
+ * 
+ * Returns today's habits with stats.
+ * If no data for today, initializes from yesterday's data.
+ */
 export async function GET() {
   try {
-    const redis = await getRedisClient();
-    const today = getToday();
+    const today = getTodayInEST();
     const storageKey = getStorageKey(today);
+    
+    const redis = await getRedisClient();
     
     let habits: HabitData[];
     
@@ -125,21 +129,29 @@ export async function GET() {
       const stored = await redis.get(storageKey);
       
       if (stored) {
-        // Today's data exists
+        // Today's data exists - parse and ensure streaks are correct
         habits = JSON.parse(stored);
+        // Recalculate streaks in case of any corruption
+        habits = habits.map(h => ({
+          ...h,
+          streak: calculateStreak(h.completedToday, h.history)
+        }));
       } else {
         // No data for today - check yesterday to initialize
         const yesterday = getPreviousDate(today, 1);
         const yesterdayKey = getStorageKey(yesterday);
         const yesterdayData = await redis.get(yesterdayKey);
         
-        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null);
+        habits = initializeHabitsForNewDay(
+          yesterdayData ? JSON.parse(yesterdayData) : null,
+          today
+        );
         
         // Save initialized habits for today
         await redis.set(storageKey, JSON.stringify(habits));
       }
     } else {
-      // No Redis - use defaults
+      // Fallback without Redis
       habits = DEFAULT_HABITS.map((h, index) => ({
         ...h,
         completedToday: false,
@@ -152,16 +164,18 @@ export async function GET() {
     // Sort habits by order
     habits.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-    // Calculate stats from history
+    // Calculate stats
     const completedToday = habits.filter(h => h.completedToday).length;
     const totalHabits = habits.length;
     const longestStreak = Math.max(...habits.map(h => h.streak), 0);
 
-    // Weekly completion: sum of all history completions / (habits * 7 days)
+    // Weekly completion: sum of all history completions + today / (habits * 7 days)
     const totalCompletions = habits.reduce((acc, h) =>
       acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
     );
-    const weeklyCompletion = Math.round((totalCompletions / (totalHabits * 7)) * 100);
+    const weeklyCompletion = totalHabits > 0 
+      ? Math.round((totalCompletions / (totalHabits * 7)) * 100)
+      : 0;
 
     return NextResponse.json({
       success: true,
@@ -179,7 +193,7 @@ export async function GET() {
   } catch (error) {
     console.error('Habit status error:', error);
     
-    // Fallback
+    // Return defaults on error
     const habits = DEFAULT_HABITS.map((h, index) => ({
       ...h,
       completedToday: false,
@@ -198,42 +212,62 @@ export async function GET() {
   }
 }
 
+/**
+ * POST /api/habit-status
+ * 
+ * Toggle habit completion for today
+ */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { habitId, completed } = body;
     
-    if (!habitId) {
-      return NextResponse.json({ success: false, error: 'habitId is required' }, { status: 400 });
+    if (!habitId || typeof completed !== 'boolean') {
+      return NextResponse.json(
+        { success: false, error: 'habitId and completed are required' },
+        { status: 400 }
+      );
     }
 
     const redis = await getRedisClient();
-    const today = getToday();
+    
+    if (!redis) {
+      return NextResponse.json(
+        { success: false, error: 'Redis not available' },
+        { status: 503 }
+      );
+    }
+    
+    const today = getTodayInEST();
     const storageKey = getStorageKey(today);
     
     // Load current habits
     let habits: HabitData[];
-    if (redis) {
-      const stored = await redis.get(storageKey);
-      if (stored) {
-        habits = JSON.parse(stored);
-      } else {
-        // Initialize from yesterday if needed
-        const yesterday = getPreviousDate(today, 1);
-        const yesterdayData = await redis.get(getStorageKey(yesterday));
-        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null);
-      }
+    const stored = await redis.get(storageKey);
+    
+    if (stored) {
+      habits = JSON.parse(stored);
     } else {
-      return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
+      // Initialize from yesterday if needed
+      const yesterday = getPreviousDate(today, 1);
+      const yesterdayData = await redis.get(getStorageKey(yesterday));
+      habits = initializeHabitsForNewDay(
+        yesterdayData ? JSON.parse(yesterdayData) : null,
+        today
+      );
     }
     
     // Update the habit
     const habitIndex = habits.findIndex(h => h.id === habitId);
     if (habitIndex === -1) {
-      return NextResponse.json({ success: false, error: 'Habit not found' }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: 'Habit not found' },
+        { status: 404 }
+      );
     }
     
     habits[habitIndex].completedToday = completed;
+    habits[habitIndex].streak = calculateStreak(completed, habits[habitIndex].history);
     
     // Save back to Redis
     await redis.set(storageKey, JSON.stringify(habits));
@@ -258,49 +292,65 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Habit update error:', error);
-    return NextResponse.json({ success: false, error: 'Failed to update habit' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Failed to update habit' },
+      { status: 500 }
+    );
   }
 }
 
+/**
+ * PUT /api/habit-status
+ * 
+ * Add a new habit
+ */
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
     const { name, icon, target, category } = body;
     
     if (!name || !icon || !target) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'name, icon, and target are required' 
+      return NextResponse.json({
+        success: false,
+        error: 'name, icon, and target are required'
       }, { status: 400 });
     }
 
     const redis = await getRedisClient();
-    const today = getToday();
+    
+    if (!redis) {
+      return NextResponse.json(
+        { success: false, error: 'Redis not available' },
+        { status: 503 }
+      );
+    }
+    
+    const today = getTodayInEST();
     const storageKey = getStorageKey(today);
     
     // Load current habits
     let habits: HabitData[];
-    if (redis) {
-      const stored = await redis.get(storageKey);
-      if (stored) {
-        habits = JSON.parse(stored);
-      } else {
-        // Initialize from yesterday if needed
-        const yesterday = getPreviousDate(today, 1);
-        const yesterdayData = await redis.get(getStorageKey(yesterday));
-        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null);
-      }
+    const stored = await redis.get(storageKey);
+    
+    if (stored) {
+      habits = JSON.parse(stored);
     } else {
-      return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
+      // Initialize from yesterday if needed
+      const yesterday = getPreviousDate(today, 1);
+      const yesterdayData = await redis.get(getStorageKey(yesterday));
+      habits = initializeHabitsForNewDay(
+        yesterdayData ? JSON.parse(yesterdayData) : null,
+        today
+      );
     }
     
-    // Create new habit with order at the end
+    // Create new habit
     const maxOrder = habits.length > 0 ? Math.max(...habits.map(h => h.order ?? 0)) : -1;
     const newHabit: HabitData = {
       id: `habit_${Date.now()}`,
-      name,
+      name: name.trim(),
       icon,
-      target,
+      target: target.trim(),
       category: category || 'other',
       completedToday: false,
       streak: 0,
@@ -333,41 +383,61 @@ export async function PUT(request: Request) {
     });
   } catch (error) {
     console.error('Habit create error:', error);
-    return NextResponse.json({ success: false, error: 'Failed to create habit' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Failed to create habit' },
+      { status: 500 }
+    );
   }
 }
 
+/**
+ * DELETE /api/habit-status?habitId=xxx
+ * 
+ * Delete a habit
+ */
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const habitId = searchParams.get('habitId');
     
     if (!habitId) {
-      return NextResponse.json({ success: false, error: 'habitId is required' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'habitId is required' },
+        { status: 400 }
+      );
     }
 
     const redis = await getRedisClient();
-    const today = getToday();
+    
+    if (!redis) {
+      return NextResponse.json(
+        { success: false, error: 'Redis not available' },
+        { status: 503 }
+      );
+    }
+    
+    const today = getTodayInEST();
     const storageKey = getStorageKey(today);
     
     // Load current habits
-    let habits: HabitData[];
-    if (redis) {
-      const stored = await redis.get(storageKey);
-      if (stored) {
-        habits = JSON.parse(stored);
-      } else {
-        return NextResponse.json({ success: false, error: 'No habits found' }, { status: 404 });
-      }
-    } else {
-      return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
+    const stored = await redis.get(storageKey);
+    if (!stored) {
+      return NextResponse.json(
+        { success: false, error: 'No habits found' },
+        { status: 404 }
+      );
     }
+    
+    let habits: HabitData[] = JSON.parse(stored);
     
     // Remove the habit
     const filteredHabits = habits.filter(h => h.id !== habitId);
     
     if (filteredHabits.length === habits.length) {
-      return NextResponse.json({ success: false, error: 'Habit not found' }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: 'Habit not found' },
+        { status: 404 }
+      );
     }
     
     // Reorder remaining habits
@@ -392,44 +462,60 @@ export async function DELETE(request: Request) {
           totalHabits: reorderedHabits.length,
           completedToday,
           longestStreak: Math.max(...reorderedHabits.map(h => h.streak), 0),
-          weeklyCompletion: reorderedHabits.length > 0 ? Math.round((totalCompletions / (reorderedHabits.length * 7)) * 100) : 0
+          weeklyCompletion: reorderedHabits.length > 0 
+            ? Math.round((totalCompletions / (reorderedHabits.length * 7)) * 100)
+            : 0
         }
       }
     });
   } catch (error) {
     console.error('Habit delete error:', error);
-    return NextResponse.json({ success: false, error: 'Failed to delete habit' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete habit' },
+      { status: 500 }
+    );
   }
 }
 
+/**
+ * PATCH /api/habit-status
+ * 
+ * Reorder habits
+ */
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
     const { habitIds } = body;
     
     if (!habitIds || !Array.isArray(habitIds)) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'habitIds array is required' 
+      return NextResponse.json({
+        success: false,
+        error: 'habitIds array is required'
       }, { status: 400 });
     }
 
     const redis = await getRedisClient();
-    const today = getToday();
+    
+    if (!redis) {
+      return NextResponse.json(
+        { success: false, error: 'Redis not available' },
+        { status: 503 }
+      );
+    }
+    
+    const today = getTodayInEST();
     const storageKey = getStorageKey(today);
     
     // Load current habits
-    let habits: HabitData[];
-    if (redis) {
-      const stored = await redis.get(storageKey);
-      if (stored) {
-        habits = JSON.parse(stored);
-      } else {
-        return NextResponse.json({ success: false, error: 'No habits found' }, { status: 404 });
-      }
-    } else {
-      return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
+    const stored = await redis.get(storageKey);
+    if (!stored) {
+      return NextResponse.json(
+        { success: false, error: 'No habits found' },
+        { status: 404 }
+      );
     }
+    
+    let habits: HabitData[] = JSON.parse(stored);
     
     // Update order based on the new habitIds array
     const updatedHabits = habits.map(habit => {
@@ -466,6 +552,9 @@ export async function PATCH(request: Request) {
     });
   } catch (error) {
     console.error('Habit reorder error:', error);
-    return NextResponse.json({ success: false, error: 'Failed to reorder habits' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Failed to reorder habits' },
+      { status: 500 }
+    );
   }
 }
