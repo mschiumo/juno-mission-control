@@ -77,8 +77,98 @@ interface HabitData {
   order: number;
 }
 
+/**
+ * Calculate the current streak by walking backwards through history
+ * Streak = consecutive days of completion, ending with today/yesterday
+ * 
+ * Logic:
+ * - If completedToday: streak includes today, then walk backwards through history
+ * - If not completedToday: streak only counts completed days in history (consecutive from yesterday back)
+ * - Streak breaks on first false value when walking backwards
+ */
+function calculateStreak(completedToday: boolean, history: boolean[]): number {
+  let streak = 0;
+  
+  if (completedToday) {
+    streak = 1; // Count today
+    // Walk backwards through history (newest first = end of array)
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i]) {
+        streak++;
+      } else {
+        break; // Streak broken
+      }
+    }
+  } else {
+    // Not completed today - count consecutive true values from yesterday back
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i]) {
+        streak++;
+      } else {
+        break; // Streak broken
+      }
+    }
+  }
+  
+  return streak;
+}
+
+/**
+ * Fetch historical completion data for a habit
+ * Walks backwards through dates to build a complete picture
+ */
+async function fetchHistoricalData(redis: ReturnType<typeof createClient> | null, startDate: string, daysToFetch: number): Promise<Map<string, HabitData[]>> {
+  const historicalData = new Map<string, HabitData[]>();
+  
+  if (!redis) return historicalData;
+  
+  for (let i = 0; i < daysToFetch; i++) {
+    const date = getPreviousDate(startDate, i);
+    const key = getStorageKey(date);
+    const data = await redis.get(key);
+    if (data) {
+      historicalData.set(date, JSON.parse(data));
+    }
+  }
+  
+  return historicalData;
+}
+
+/**
+ * Build complete history by looking at actual historical data
+ * This handles gaps in the rolling 7-day window stored in Redis
+ */
+function buildCompleteHistory(
+  habitId: string, 
+  currentHistory: boolean[], 
+  historicalData: Map<string, HabitData[]>, 
+  today: string
+): boolean[] {
+  const completeHistory: boolean[] = [];
+  
+  // Walk backwards through dates
+  for (let i = 1; i <= 7; i++) {
+    const date = getPreviousDate(today, i);
+    const dayData = historicalData.get(date);
+    
+    if (dayData) {
+      const habit = dayData.find(h => h.id === habitId);
+      if (habit) {
+        completeHistory.unshift(habit.completedToday); // Add to front (oldest first)
+      } else {
+        completeHistory.unshift(false);
+      }
+    } else {
+      // No data for this date - assume false
+      completeHistory.unshift(false);
+    }
+  }
+  
+  return completeHistory;
+}
+
 // Initialize or shift history for a new day
-function initializeHabits(previousData: HabitData[] | null): HabitData[] {
+function initializeHabits(previousData: HabitData[] | null, today: string): HabitData[] {
   if (!previousData) {
     // First time - create fresh habits with order
     return DEFAULT_HABITS.map((h, index) => ({
@@ -94,14 +184,9 @@ function initializeHabits(previousData: HabitData[] | null): HabitData[] {
   return previousData.map(h => {
     const yesterdayCompleted = h.completedToday;
     const newHistory = [...h.history.slice(1), yesterdayCompleted];
-
-    // Calculate streak
-    let streak = h.streak;
-    if (yesterdayCompleted) {
-      streak += 1;
-    } else {
-      streak = 0; // Reset streak if missed yesterday
-    }
+    
+    // Calculate streak using the new history
+    const streak = calculateStreak(false, newHistory);
 
     return {
       ...h,
@@ -125,21 +210,39 @@ export async function GET() {
       const stored = await redis.get(storageKey);
       
       if (stored) {
-        // Today's data exists
+        // Today's data exists - recalculate streaks to ensure accuracy
         habits = JSON.parse(stored);
+        
+        // Fetch historical data for accurate streak calculation
+        const historicalData = await fetchHistoricalData(redis, today, 30);
+        
+        habits = habits.map(habit => {
+          // Build complete history from historical data
+          const completeHistory = buildCompleteHistory(habit.id, habit.history, historicalData, today);
+          
+          // Recalculate streak based on complete history
+          const streak = calculateStreak(habit.completedToday, completeHistory);
+          
+          return {
+            ...habit,
+            history: completeHistory,
+            streak
+          };
+        });
       } else {
         // No data for today - check yesterday to initialize
         const yesterday = getPreviousDate(today, 1);
         const yesterdayKey = getStorageKey(yesterday);
         const yesterdayData = await redis.get(yesterdayKey);
         
-        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null);
+        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today);
         
         // Save initialized habits for today
         await redis.set(storageKey, JSON.stringify(habits));
       }
     } else {
-      // No Redis - use defaults
+      // No Redis - check localStorage fallback via client (handled in HabitCard)
+      // Return defaults but indicate server is unavailable
       habits = DEFAULT_HABITS.map((h, index) => ({
         ...h,
         completedToday: false,
@@ -174,12 +277,13 @@ export async function GET() {
           weeklyCompletion
         }
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      serverAvailable: !!redis
     });
   } catch (error) {
     console.error('Habit status error:', error);
     
-    // Fallback
+    // Fallback - still return defaults but with error indication
     const habits = DEFAULT_HABITS.map((h, index) => ({
       ...h,
       completedToday: false,
@@ -193,7 +297,9 @@ export async function GET() {
       data: {
         habits,
         stats: { totalHabits: habits.length, completedToday: 0, longestStreak: 0, weeklyCompletion: 0 }
-      }
+      },
+      serverAvailable: false,
+      error: 'Server error, using defaults'
     });
   }
 }
@@ -221,7 +327,7 @@ export async function POST(request: Request) {
         // Initialize from yesterday if needed
         const yesterday = getPreviousDate(today, 1);
         const yesterdayData = await redis.get(getStorageKey(yesterday));
-        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null);
+        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today);
       }
     } else {
       return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
@@ -234,6 +340,9 @@ export async function POST(request: Request) {
     }
     
     habits[habitIndex].completedToday = completed;
+    
+    // Recalculate streak based on new state
+    habits[habitIndex].streak = calculateStreak(completed, habits[habitIndex].history);
     
     // Save back to Redis
     await redis.set(storageKey, JSON.stringify(habits));
@@ -288,7 +397,7 @@ export async function PUT(request: Request) {
         // Initialize from yesterday if needed
         const yesterday = getPreviousDate(today, 1);
         const yesterdayData = await redis.get(getStorageKey(yesterday));
-        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null);
+        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today);
       }
     } else {
       return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });

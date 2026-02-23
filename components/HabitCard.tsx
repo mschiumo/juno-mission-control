@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, ClipboardList, GripVertical } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, ClipboardList, GripVertical, Cloud, CloudOff, Loader2 } from 'lucide-react';
 import EveningCheckinModal from './EveningCheckinModal';
 import {
   DndContext,
@@ -30,7 +30,7 @@ interface Habit {
   completedToday: boolean;
   target: string;
   category: string;
-  history: boolean[];
+  history: boolean[]; // Last 7 days (oldest to newest)
   order: number;
 }
 
@@ -41,7 +41,18 @@ interface HabitStats {
   weeklyCompletion: number;
 }
 
+interface PendingChange {
+  habitId: string;
+  previousState: boolean;
+}
+
+type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
+
 const EMOJI_OPTIONS = ['💪', '🏃', '📚', '💧', '🧘', '🛏️', '💊', '📝', '📊', '🎯', '🔥', '⭐', '🌟', '✨', '🎨', '🎵', '🌱', '☀️', '🌙', '🍎', '🥗', '💤', '🧠', '❤️', '🌈'];
+
+const STORAGE_KEY = 'juno_habits_cache';
+const STORAGE_STATS_KEY = 'juno_habits_stats_cache';
+const STORAGE_TIMESTAMP_KEY = 'juno_habits_timestamp';
 
 // Sortable habit item component
 interface SortableHabitItemProps {
@@ -49,9 +60,10 @@ interface SortableHabitItemProps {
   onToggle: (habitId: string) => void;
   onDelete: (habitId: string) => void;
   dayLabels: string[];
+  disabled?: boolean;
 }
 
-function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHabitItemProps) {
+function SortableHabitItem({ habit, onToggle, onDelete, dayLabels, disabled }: SortableHabitItemProps) {
   const {
     attributes,
     listeners,
@@ -75,7 +87,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHab
         habit.completedToday
           ? 'bg-[#22c55e]/10 border-[#22c55e]/30'
           : 'bg-[#0F0F0F] border-[#262626] hover:border-[#F97316]/50'
-      } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''}`}
+      } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''} ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
     >
       <div className="flex items-center gap-3">
         <button
@@ -89,7 +101,8 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHab
 
         <button
           onClick={() => onToggle(habit.id)}
-          className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center ${
+          disabled={disabled}
+          className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center disabled:opacity-50 ${
             habit.completedToday
               ? 'bg-[#22c55e] border-[#22c55e]'
               : 'border-[#737373] hover:border-[#F97316]'
@@ -128,7 +141,8 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels }: SortableHab
           </div>
           <button
             onClick={() => onDelete(habit.id)}
-            className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors"
+            disabled={disabled}
+            className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors disabled:opacity-50"
             title="Delete habit"
           >
             <Trash2 className="w-4 h-4 text-[#737373] hover:text-[#da3633]" />
@@ -149,6 +163,9 @@ export default function HabitCard() {
   });
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('syncing');
+  const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map());
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -176,28 +193,94 @@ export default function HabitCard() {
     })
   );
 
+  // Load from localStorage on mount
   useEffect(() => {
-    fetchHabits();
-    const interval = setInterval(fetchHabits, 300000);
-    return () => clearInterval(interval);
+    const loadFromCache = () => {
+      try {
+        const cachedHabits = localStorage.getItem(STORAGE_KEY);
+        const cachedStats = localStorage.getItem(STORAGE_STATS_KEY);
+        const cachedTimestamp = localStorage.getItem(STORAGE_TIMESTAMP_KEY);
+
+        if (cachedHabits) {
+          setHabits(JSON.parse(cachedHabits));
+        }
+        if (cachedStats) {
+          setStats(JSON.parse(cachedStats));
+        }
+        if (cachedTimestamp) {
+          setLastUpdated(new Date(cachedTimestamp));
+        }
+        
+        // If we have cached data, we're in offline mode until server confirms
+        if (cachedHabits) {
+          setSyncStatus('offline');
+        }
+      } catch (error) {
+        console.error('Failed to load from localStorage:', error);
+      }
+    };
+
+    loadFromCache();
   }, []);
 
-  const fetchHabits = async () => {
-    setLoading(true);
+  // Save to localStorage whenever habits/stats change
+  useEffect(() => {
+    try {
+      if (habits.length > 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
+        localStorage.setItem(STORAGE_STATS_KEY, JSON.stringify(stats));
+        localStorage.setItem(STORAGE_TIMESTAMP_KEY, new Date().toISOString());
+      }
+    } catch (error) {
+      console.error('Failed to save to localStorage:', error);
+    }
+  }, [habits, stats]);
+
+  // Fetch habits from server
+  const fetchHabits = useCallback(async () => {
+    setSyncStatus('syncing');
     try {
       const response = await fetch('/api/habit-status');
       const data = await response.json();
+      
       if (data.success) {
         setHabits(data.data.habits);
         setStats(data.data.stats);
         setLastUpdated(new Date());
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus('error');
       }
     } catch (error) {
       console.error('Failed to fetch habits:', error);
+      setSyncStatus('offline');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchHabits();
+    const interval = setInterval(fetchHabits, 300000); // 5 minutes
+    return () => clearInterval(interval);
+  }, [fetchHabits]);
+
+  // Clear sync status after a delay
+  useEffect(() => {
+    if (syncStatus === 'synced') {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+      syncTimeoutRef.current = setTimeout(() => {
+        // Keep synced status but visually fade it
+      }, 2000);
+    }
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [syncStatus]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -225,10 +308,16 @@ export default function HabitCard() {
 
   const toggleHabit = async (habitId: string) => {
     const habit = habits.find(h => h.id === habitId);
-    if (!habit) return;
+    if (!habit || pendingChanges.has(habitId)) return;
     
     const newCompletedState = !habit.completedToday;
+    const previousState = habit.completedToday;
     
+    // Track pending change for revert
+    setPendingChanges(prev => new Map(prev.set(habitId, { habitId, previousState })));
+    setSyncStatus('syncing');
+    
+    // Optimistic update - update UI immediately
     const updatedHabits = habits.map(h => 
       h.id === habitId 
         ? { ...h, completedToday: newCompletedState }
@@ -236,6 +325,7 @@ export default function HabitCard() {
     );
     setHabits(updatedHabits);
     
+    // Recalculate stats optimistically
     const completedToday = updatedHabits.filter(h => h.completedToday).length;
     const totalHabits = updatedHabits.length;
     const longestStreak = Math.max(...updatedHabits.map(h => h.streak), 0);
@@ -251,19 +341,71 @@ export default function HabitCard() {
     setStats({ totalHabits, completedToday, longestStreak, weeklyCompletion });
     
     try {
-      await fetch('/api/habit-status', {
+      const response = await fetch('/api/habit-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ habitId, completed: newCompletedState })
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        // Server confirmed - update with server data to ensure consistency
+        setHabits(data.data.habits);
+        setStats(data.data.stats);
+        setLastUpdated(new Date());
+        setSyncStatus('synced');
+      } else {
+        throw new Error(data.error || 'Server returned error');
+      }
     } catch (error) {
       console.error('Failed to persist habit:', error);
+      
+      // REVERT: Restore previous state on error
+      const revertedHabits = habits.map(h => 
+        h.id === habitId 
+          ? { ...h, completedToday: previousState }
+          : h
+      );
+      setHabits(revertedHabits);
+      
+      // Recalculate stats with reverted state
+      const revertedCompletedToday = revertedHabits.filter(h => h.completedToday).length;
+      const revertedTotalHabits = revertedHabits.length;
+      const revertedLongestStreak = Math.max(...revertedHabits.map(h => h.streak), 0);
+      
+      const revertedTotalPossibleCompletions = revertedTotalHabits * 7;
+      const revertedActualCompletions = revertedHabits.reduce((acc, h) => 
+        acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
+      );
+      const revertedWeeklyCompletion = revertedTotalPossibleCompletions > 0 
+        ? Math.round((revertedActualCompletions / revertedTotalPossibleCompletions) * 100)
+        : 0;
+      
+      setStats({ 
+        totalHabits: revertedTotalHabits, 
+        completedToday: revertedCompletedToday, 
+        longestStreak: revertedLongestStreak, 
+        weeklyCompletion: revertedWeeklyCompletion 
+      });
+      
+      setSyncStatus('error');
+    } finally {
+      setPendingChanges(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(habitId);
+        return newMap;
+      });
     }
   };
 
   const addHabit = async () => {
     if (!newHabitName.trim()) return;
 
+    setSyncStatus('syncing');
     try {
       const response = await fetch('/api/habit-status', {
         method: 'PUT',
@@ -284,15 +426,20 @@ export default function HabitCard() {
         setNewHabitIcon('⭐');
         setNewHabitTarget('Daily');
         setShowAddModal(false);
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus('error');
       }
     } catch (error) {
       console.error('Failed to add habit:', error);
+      setSyncStatus('error');
     }
   };
 
   const deleteHabit = async (habitId: string) => {
     if (!confirm('Are you sure you want to delete this habit?')) return;
 
+    setSyncStatus('syncing');
     try {
       const response = await fetch(`/api/habit-status?habitId=${habitId}`, {
         method: 'DELETE'
@@ -302,9 +449,13 @@ export default function HabitCard() {
         const data = await response.json();
         setHabits(data.data.habits);
         setStats(data.data.stats);
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus('error');
       }
     } catch (error) {
       console.error('Failed to delete habit:', error);
+      setSyncStatus('error');
     }
   };
 
@@ -337,7 +488,41 @@ export default function HabitCard() {
     setTimeout(() => setShowSuccessBanner(false), 3000);
   };
 
+  const getSyncIndicator = () => {
+    switch (syncStatus) {
+      case 'syncing':
+        return (
+          <span className="flex items-center gap-1 text-[10px] text-[#F97316]" title="Syncing...">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Syncing
+          </span>
+        );
+      case 'synced':
+        return (
+          <span className="flex items-center gap-1 text-[10px] text-[#22c55e]" title="All changes saved">
+            <Cloud className="w-3 h-3" />
+            Saved
+          </span>
+        );
+      case 'offline':
+        return (
+          <span className="flex items-center gap-1 text-[10px] text-[#737373]" title="Using cached data - will sync when online">
+            <CloudOff className="w-3 h-3" />
+            Offline
+          </span>
+        );
+      case 'error':
+        return (
+          <span className="flex items-center gap-1 text-[10px] text-[#da3633]" title="Sync failed - click refresh to retry">
+            <CloudOff className="w-3 h-3" />
+            Error
+          </span>
+        );
+    }
+  };
+
   const dayLabels = getDayLabels();
+  const hasPendingChanges = pendingChanges.size > 0;
 
   return (
     <div className="card">
@@ -361,11 +546,7 @@ export default function HabitCard() {
               <p className="text-xs text-[#737373]">
                 {stats.completedToday} of {stats.totalHabits} completed today
               </p>
-              {lastUpdated && !loading && (
-                <span className="text-[10px] text-[#22c55e]">
-                  updated {formatLastUpdated()}
-                </span>
-              )}
+              {getSyncIndicator()}
             </div>
           </div>
         </div>
@@ -465,6 +646,7 @@ export default function HabitCard() {
                   onToggle={toggleHabit}
                   onDelete={deleteHabit}
                   dayLabels={dayLabels}
+                  disabled={hasPendingChanges}
                 />
               ))}
             </SortableContext>
