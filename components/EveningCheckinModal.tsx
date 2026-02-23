@@ -231,23 +231,25 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                 </div>
               )}
 
-              {/* Reset Section */}
-              <div className="pt-6 mt-6 border-t border-[#30363d]">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium text-white">Reset Data</h4>
-                    <p className="text-xs text-[#8b949e]">Clear all habit check-in history</p>
+              {/* Reset Section - only show if there's data */}
+              {data?.history?.length > 0 && (
+                <div className="pt-6 mt-6 border-t border-[#30363d]">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-white">Reset Data</h4>
+                      <p className="text-xs text-[#8b949e]">Clear all habit check-in history</p>
+                    </div>
+                    <button
+                      onClick={() => setShowResetConfirm(true)}
+                      disabled={isResetting}
+                      className="flex items-center gap-2 px-4 py-2 bg-[#f85149]/10 hover:bg-[#f85149]/20 text-[#f85149] border border-[#f85149]/30 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 className={`w-4 h-4 ${isResetting ? 'animate-pulse' : ''}`} />
+                      <span className="text-sm font-medium">Reset</span>
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setShowResetConfirm(true)}
-                    disabled={isResetting}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#f85149]/10 hover:bg-[#f85149]/20 text-[#f85149] border border-[#f85149]/30 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    <Trash2 className={`w-4 h-4 ${isResetting ? 'animate-pulse' : ''}`} />
-                    <span className="text-sm font-medium">Reset</span>
-                  </button>
                 </div>
-              </div>
+              )}
               {/* Reset Confirmation Modal */}
               {showResetConfirm && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
