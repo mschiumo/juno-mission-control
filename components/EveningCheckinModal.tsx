@@ -87,7 +87,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                 <ClipboardList className="w-6 h-6 text-[#a371f7]" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">Evening Habit Check-in</h2>
+                <h2 className="text-xl font-bold text-white">Daily Habit Report</h2>
                 <p className="text-sm text-[#8b949e]">{new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).toLocaleDateString('en-US', { 
                   weekday: 'long', 
                   month: 'short', 
