@@ -165,31 +165,37 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                   7-Day Performance
                 </h3>
                 
-                <div className="space-y-3">
-                  {data?.questions.map((q) => {
-                    const stat = data?.stats.byQuestion?.[q.id];
-                    if (!stat) return null;
+                {!data?.questions?.length || Object.keys(data?.stats?.byQuestion || {}).length === 0 ? (
+                  <div className="text-center py-8 text-[#8b949e]">
+                    <p className="text-sm">Start logging habits to see your performance!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {data?.questions.map((q) => {
+                      const stat = data?.stats.byQuestion?.[q.id];
+                      if (!stat) return null;
 
-                    return (
-                      <div key={q.id} className="flex items-center gap-3 sm:gap-4">
-                        <div className="flex-1 min-w-0" title={q.question}>
-                          <p className="text-sm text-white truncate">{q.label}</p>
-                        </div>
-                        <div className="flex items-center gap-2 sm:gap-3 w-32 sm:w-48 flex-shrink-0">
-                          <div className="flex-1 h-2 bg-[#21262d] rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-[#238636] rounded-full"
-                              style={{ width: `${stat.rate}%` }}
-                            />
+                      return (
+                        <div key={q.id} className="flex items-center gap-3 sm:gap-4">
+                          <div className="flex-1 min-w-0" title={q.question}>
+                            <p className="text-sm text-white truncate">{q.label}</p>
                           </div>
-                          <span className="text-xs text-[#8b949e] w-12 sm:w-16 text-right">
-                            {stat.yes}/{stat.yes + stat.no}
-                          </span>
+                          <div className="flex items-center gap-2 sm:gap-3 w-32 sm:w-48 flex-shrink-0">
+                            <div className="flex-1 h-2 bg-[#21262d] rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-[#238636] rounded-full"
+                                style={{ width: `${stat.rate}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-[#8b949e] w-12 sm:w-16 text-right">
+                              {stat.yes}/{stat.yes + stat.no}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Recent History */}
