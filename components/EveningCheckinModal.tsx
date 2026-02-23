@@ -232,7 +232,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
               )}
 
               {/* Reset Section - only show if there's data */}
-              {data?.history?.length > 0 && (
+              {(data?.history?.length || 0) > 0 && (
                 <div className="pt-6 mt-6 border-t border-[#30363d]">
                   <div className="flex items-center justify-between">
                     <div>
