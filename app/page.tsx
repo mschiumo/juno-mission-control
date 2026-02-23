@@ -20,6 +20,7 @@ import MotivationalBanner from "@/components/MotivationalBanner";
 import DocumentationCard from "@/components/DocumentationCard";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
+import UserMenu from "@/components/UserMenu";
 import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
 
 type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'activity';
@@ -100,6 +101,7 @@ function DashboardContent() {
                 <NotificationsBell />
                 <JunoWidget />
                 <LiveClock />
+                <UserMenu />
               </div>
 
               {/* Mobile Menu Button */}
