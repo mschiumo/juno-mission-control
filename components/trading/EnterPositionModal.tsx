@@ -89,6 +89,7 @@ export default function EnterPositionModal({
 
     const activeTrade: ActiveTrade = {
       id: `active-${Date.now()}`,
+      watchlistId: item.id, // <-- Pass the original watchlist item ID
       ticker: item.ticker,
       plannedEntry: item.entryPrice,
       plannedStop: item.stopPrice,

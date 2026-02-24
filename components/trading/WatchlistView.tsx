@@ -26,6 +26,7 @@ import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
 import EditWatchlistItemModal from './EditWatchlistItemModal';
 import EnterPositionModal from './EnterPositionModal';
+import EditActiveTradeModal from './EditActiveTradeModal';
 
 const WATCHLIST_KEY = 'juno:trade-watchlist';
 const ACTIVE_TRADES_KEY = 'juno:active-trades';
@@ -60,6 +61,10 @@ export default function WatchlistView() {
   // Active Trades state
   const [activeTrades, setActiveTrades] = useState<ActiveTradeWithPnL[]>([]);
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
+  
+  // Edit Active Trade state
+  const [editingTrade, setEditingTrade] = useState<ActiveTrade | null>(null);
+  const [isEditTradeModalOpen, setIsEditTradeModalOpen] = useState(false);
 
   // Closed Positions state
   const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
@@ -217,18 +222,18 @@ export default function WatchlistView() {
       console.error('Error saving active trade:', error);
     }
 
-    // 2. Remove from potential trades (watchlist) using functional state update
-    // to ensure we're always working with the latest state
-    const watchlistId = activeTrade.id.replace('active-', '');
-    setWatchlist(prevWatchlist => {
-      const updatedPotential = prevWatchlist.filter(w => w.id !== watchlistId);
-      try {
-        localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updatedPotential));
-      } catch (error) {
-        console.error('Error saving watchlist:', error);
-      }
-      return updatedPotential;
-    });
+    // 2. Remove from potential trades (watchlist) using the watchlistId reference
+    if (activeTrade.watchlistId) {
+      setWatchlist(prevWatchlist => {
+        const updatedPotential = prevWatchlist.filter(w => w.id !== activeTrade.watchlistId);
+        try {
+          localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updatedPotential));
+        } catch (error) {
+          console.error('Error saving watchlist:', error);
+        }
+        return updatedPotential;
+      });
+    }
 
     // 3. Dispatch events to refresh both sections
     window.dispatchEvent(new CustomEvent('juno:active-trades-updated'));
@@ -287,6 +292,32 @@ export default function WatchlistView() {
     const trade = activeTrades.find(t => t.id === tradeId);
     if (!trade) return;
     handleEndTrade(trade);
+  };
+
+  // ===== EDIT: Active Trade =====
+  const handleEditTrade = (trade: ActiveTrade) => {
+    setEditingTrade(trade);
+    setIsEditTradeModalOpen(true);
+  };
+
+  const handleCloseEditTradeModal = () => {
+    setIsEditTradeModalOpen(false);
+    setEditingTrade(null);
+  };
+
+  const handleSaveTrade = (updatedTrade: ActiveTrade) => {
+    const updatedActive = activeTrades.map(trade => 
+      trade.id === updatedTrade.id ? { ...updatedTrade, currentPrice: trade.currentPrice, unrealizedPnL: trade.unrealizedPnL, unrealizedPnLPercent: trade.unrealizedPnLPercent } : trade
+    );
+    setActiveTrades(updatedActive);
+    try {
+      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(updatedActive));
+      window.dispatchEvent(new CustomEvent('juno:active-trades-updated'));
+    } catch (error) {
+      console.error('Error saving active trade:', error);
+    }
+    setIsEditTradeModalOpen(false);
+    setEditingTrade(null);
   };
 
   // ===== DELETE: Closed Position (permanent) =====
@@ -412,14 +443,24 @@ export default function WatchlistView() {
                       {formatDate(trade.openedAt)}
                     </div>
                   </div>
-                  <button
-                    onClick={() => setClosingTradeId(trade.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
-                    title="Close trade and remove from active trades"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    Close Trade
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleEditTrade(trade)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-400 hover:text-white hover:bg-blue-500 rounded-lg transition-colors"
+                      title="Edit trade details"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setClosingTradeId(trade.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                      title="Close trade and remove from active trades"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Close Trade
+                    </button>
+                  </div>
                 </div>
 
                 {/* Card Body */}
@@ -794,6 +835,14 @@ export default function WatchlistView() {
         isOpen={isEnterModalOpen}
         onClose={handleCloseEnterModal}
         onConfirm={handleConfirmEnterPosition}
+      />
+
+      {/* Edit Active Trade Modal */}
+      <EditActiveTradeModal
+        trade={editingTrade}
+        isOpen={isEditTradeModalOpen}
+        onClose={handleCloseEditTradeModal}
+        onSave={handleSaveTrade}
       />
 
       {/* Close Trade Confirmation Modal (Active → Closed) */}

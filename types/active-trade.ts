@@ -18,6 +18,8 @@ export interface ActiveTrade {
   openedAt: string; // ISO timestamp
   // Optional
   notes?: string;
+  // Reference to original watchlist item (for removal when moving to active)
+  watchlistId?: string;
 }
 
 export interface ActiveTradeWithPnL extends ActiveTrade {
