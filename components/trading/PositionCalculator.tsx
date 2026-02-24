@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calculator, RotateCcw, CheckCircle, AlertCircle, XCircle, Plus, BookmarkPlus, Info } from 'lucide-react';
+import { Calculator, RotateCcw, Eraser, CheckCircle, AlertCircle, XCircle, Plus, BookmarkPlus, Info } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 
 interface CalculatorInputs {
@@ -51,6 +51,19 @@ export default function PositionCalculator() {
 
   const handleReset = () => {
     setInputs(DEFAULT_VALUES);
+    setAddSuccess(false);
+    setSaveStatus('idle');
+  };
+
+  const handleClear = () => {
+    setInputs({
+      ticker: '',
+      riskAmount: '',
+      entryPrice: '',
+      stopPrice: '',
+      targetPrice: '',
+      riskRatio: '2',
+    });
     setAddSuccess(false);
     setSaveStatus('idle');
   };
@@ -238,6 +251,13 @@ export default function PositionCalculator() {
           >
             <RotateCcw className="w-4 h-4" />
             Reset
+          </button>
+          <button
+            onClick={handleClear}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-[#8b949e] border border-[#30363d] hover:text-white hover:bg-[#262626] hover:border-[#8b949e] rounded-lg transition-colors"
+          >
+            <Eraser className="w-4 h-4" />
+            Clear
           </button>
         </div>
       </div>
