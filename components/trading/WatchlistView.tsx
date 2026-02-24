@@ -17,7 +17,10 @@ import {
   CheckCircle,
   FileText,
   ArrowLeft,
-  X
+  X,
+  Archive,
+  Trash2,
+  History
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
@@ -26,6 +29,25 @@ import EnterPositionModal from './EnterPositionModal';
 
 const WATCHLIST_KEY = 'juno:trade-watchlist';
 const ACTIVE_TRADES_KEY = 'juno:active-trades';
+const CLOSED_POSITIONS_KEY = 'juno:closed-positions';
+
+// Closed Position Type
+export interface ClosedPosition {
+  id: string;
+  ticker: string;
+  plannedEntry: number;
+  plannedStop: number;
+  plannedTarget: number;
+  actualEntry: number;
+  actualShares: number;
+  // Optional exit data (can be added later)
+  exitPrice?: number;
+  exitDate?: string;
+  pnl?: number;
+  openedAt: string;
+  closedAt: string;
+  notes?: string;
+}
 
 export default function WatchlistView() {
   // Watchlist (Potential Trades) state
@@ -39,6 +61,10 @@ export default function WatchlistView() {
   const [activeTrades, setActiveTrades] = useState<ActiveTradeWithPnL[]>([]);
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
 
+  // Closed Positions state
+  const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
+  const [deletingPositionId, setDeletingPositionId] = useState<string | null>(null);
+
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +76,7 @@ export default function WatchlistView() {
   // Listen for storage changes (for multi-tab support)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === WATCHLIST_KEY || e.key === ACTIVE_TRADES_KEY) {
+      if (e.key === WATCHLIST_KEY || e.key === ACTIVE_TRADES_KEY || e.key === CLOSED_POSITIONS_KEY) {
         loadData();
       }
     };
@@ -65,9 +91,11 @@ export default function WatchlistView() {
 
     window.addEventListener('juno:watchlist-updated', handleUpdate);
     window.addEventListener('juno:active-trades-updated', handleUpdate);
+    window.addEventListener('juno:closed-positions-updated', handleUpdate);
     return () => {
       window.removeEventListener('juno:watchlist-updated', handleUpdate);
       window.removeEventListener('juno:active-trades-updated', handleUpdate);
+      window.removeEventListener('juno:closed-positions-updated', handleUpdate);
     };
   }, []);
 
@@ -96,6 +124,19 @@ export default function WatchlistView() {
     } catch (error) {
       console.error('Error loading active trades:', error);
       setActiveTrades([]);
+    }
+
+    // Load closed positions
+    try {
+      const storedClosed = localStorage.getItem(CLOSED_POSITIONS_KEY);
+      if (storedClosed) {
+        setClosedPositions(JSON.parse(storedClosed));
+      } else {
+        setClosedPositions([]);
+      }
+    } catch (error) {
+      console.error('Error loading closed positions:', error);
+      setClosedPositions([]);
     }
   };
 
@@ -198,22 +239,47 @@ export default function WatchlistView() {
     setEnteringItem(null);
   };
 
-  // ===== CLOSE: Active Trade =====
+  // ===== CLOSE: Active → Closed =====
   const handleEndTrade = (trade: ActiveTrade) => {
-    // Just remove from active trades - trade is now closed
-    const updated = activeTrades.filter(t => t.id !== trade.id);
-    setActiveTrades(updated);
+    // 1. Create closed position record
+    const closedPosition: ClosedPosition = {
+      id: trade.id,
+      ticker: trade.ticker,
+      plannedEntry: trade.plannedEntry,
+      plannedStop: trade.plannedStop,
+      plannedTarget: trade.plannedTarget,
+      actualEntry: trade.actualEntry,
+      actualShares: trade.actualShares,
+      openedAt: trade.openedAt,
+      closedAt: new Date().toISOString(),
+      notes: trade.notes,
+      // P&L calculation (placeholder - can be updated with actual exit price later)
+      pnl: undefined,
+    };
+
+    // 2. Add to closed positions
+    const updatedClosed = [closedPosition, ...closedPositions];
+    setClosedPositions(updatedClosed);
     try {
-      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(updated));
+      localStorage.setItem(CLOSED_POSITIONS_KEY, JSON.stringify(updatedClosed));
+    } catch (error) {
+      console.error('Error saving closed position:', error);
+    }
+
+    // 3. Remove from active trades
+    const updatedActive = activeTrades.filter(t => t.id !== trade.id);
+    setActiveTrades(updatedActive);
+    try {
+      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(updatedActive));
     } catch (error) {
       console.error('Error saving active trades:', error);
     }
 
-    // DO NOT add back to watchlist/potential
-    // The trade is now closed (journal/history handles archived trades)
+    // 4. Dispatch events
+    window.dispatchEvent(new CustomEvent('juno:active-trades-updated'));
+    window.dispatchEvent(new CustomEvent('juno:closed-positions-updated'));
 
-    // Refresh and close modal
-    loadData();
+    // 5. Close modal
     setClosingTradeId(null);
   };
 
@@ -221,6 +287,19 @@ export default function WatchlistView() {
     const trade = activeTrades.find(t => t.id === tradeId);
     if (!trade) return;
     handleEndTrade(trade);
+  };
+
+  // ===== DELETE: Closed Position (permanent) =====
+  const handleDeleteClosedPosition = (positionId: string) => {
+    const updated = closedPositions.filter(p => p.id !== positionId);
+    setClosedPositions(updated);
+    try {
+      localStorage.setItem(CLOSED_POSITIONS_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('juno:closed-positions-updated'));
+    } catch (error) {
+      console.error('Error saving closed positions:', error);
+    }
+    setDeletingPositionId(null);
   };
 
   // ===== Formatters =====
@@ -568,6 +647,136 @@ export default function WatchlistView() {
         )}
       </div>
 
+      {/* Divider */}
+      <div className="border-t border-[#30363d]"></div>
+
+      {/* ===== CLOSED POSITIONS SECTION ===== */}
+      <div className="space-y-4">
+        {/* Section Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-500/10 rounded-lg">
+              <Archive className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">Closed Positions</h3>
+              <p className="text-sm text-[#8b949e]">
+                {closedPositions.length} archived position{closedPositions.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Closed Positions List */}
+        {closedPositions.length === 0 ? (
+          <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
+            <History className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
+            <p className="text-sm text-[#8b949e]">No closed positions</p>
+            <p className="text-xs text-[#6e7681] mt-1">Closed trades will appear here</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {closedPositions.map((position) => (
+              <div
+                key={position.id}
+                className="bg-[#0F0F0F] border border-blue-500/20 rounded-xl overflow-hidden"
+              >
+                {/* Card Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-blue-500/5">
+                  <div className="flex items-center gap-3">
+                    <div className="px-3 py-1 bg-blue-500/10 rounded-lg">
+                      <span className="text-lg font-bold text-blue-400">{position.ticker}</span>
+                    </div>
+                    {/* Long/Short Indicator */}
+                    {(() => {
+                      const isLong = position.plannedTarget > position.plannedEntry;
+                      const isShort = position.plannedTarget < position.plannedEntry;
+                      if (!isLong && !isShort) return null;
+                      return (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                          {isLong ? '📈 LONG' : '📉 SHORT'}
+                        </span>
+                      );
+                    })()}
+                    <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
+                      <Calendar className="w-3.5 h-3.5" />
+                      Closed {formatDate(position.closedAt)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setDeletingPositionId(position.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+                    title="Delete from history"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete
+                  </button>
+                </div>
+
+                {/* Card Body */}
+                <div className="p-4 space-y-3">
+                  {/* Entry/Exit Summary Row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Entry Info */}
+                    <div className="bg-[#161b22] rounded-lg p-3">
+                      <div className="text-xs text-blue-400 uppercase tracking-wide mb-2">Entry</div>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-xs text-[#8b949e]">Price</span>
+                          <span className="text-xs font-medium text-white">{formatCurrency(position.actualEntry)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-[#8b949e]">Shares</span>
+                          <span className="text-xs font-medium text-white">{formatNumber(position.actualShares)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-[#8b949e]">Date</span>
+                          <span className="text-xs text-[#8b949e]">{formatDate(position.openedAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Exit Info */}
+                    <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-3">
+                      <div className="text-xs text-blue-400 uppercase tracking-wide mb-2">Exit</div>
+                      {position.exitPrice ? (
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between">
+                            <span className="text-xs text-[#8b949e]">Price</span>
+                            <span className="text-xs font-medium text-white">{formatCurrency(position.exitPrice)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-xs text-[#8b949e]">P&L</span>
+                            <span className={`text-xs font-bold ${(position.pnl || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {position.pnl !== undefined ? formatCurrency(position.pnl) : '--'}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <span className="text-xs text-[#6e7681] italic">Exit not recorded</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  {position.notes && (
+                    <div className="bg-[#161b22] rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-1">
+                        <FileText className="w-3.5 h-3.5" />
+                        Notes
+                      </div>
+                      <p className="text-sm text-white">{position.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* ===== MODALS ===== */}
 
       {/* Edit Modal */}
@@ -597,7 +806,7 @@ export default function WatchlistView() {
               </div>
               <h3 className="text-lg font-semibold text-white mb-2">Close Trade?</h3>
               <p className="text-sm text-[#8b949e] mb-6">
-                This will remove the trade from Active Trades. The trade will be recorded in your Trading Journal.
+                This will move the trade to Closed Positions for your records.
               </p>
               <div className="flex gap-3">
                 <button
@@ -611,6 +820,37 @@ export default function WatchlistView() {
                   className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors text-sm font-medium"
                 >
                   Close Trade
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Closed Position Confirmation Modal */}
+      {deletingPositionId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#0F0F0F] border border-[#262626] rounded-2xl w-full max-w-sm p-6">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6 text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Delete Position?</h3>
+              <p className="text-sm text-[#8b949e] mb-6">
+                This will permanently remove this closed position from history. This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeletingPositionId(null)}
+                  className="flex-1 px-4 py-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deletingPositionId && handleDeleteClosedPosition(deletingPositionId)}
+                  className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-medium"
+                >
+                  Delete
                 </button>
               </div>
             </div>
