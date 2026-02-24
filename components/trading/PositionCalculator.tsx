@@ -63,7 +63,7 @@ export default function PositionCalculator() {
   };
 
   const handleAddToWatchlist = () => {
-    if (calculations.status !== 'valid' || !inputs.ticker.trim()) return;
+    if (!isFormValid() || calculations.status !== 'valid') return;
 
     try {
       // Get existing watchlist
@@ -215,8 +215,19 @@ export default function PositionCalculator() {
 
   const statusColors = getStatusColors();
 
+  // Check if all required form fields are filled for watchlist
+  const isFormValid = () => {
+    return (
+      inputs.ticker.trim() !== '' &&
+      inputs.riskAmount !== '' && parseFloat(inputs.riskAmount) > 0 &&
+      inputs.entryPrice !== '' && parseFloat(inputs.entryPrice) > 0 &&
+      inputs.stopPrice !== '' && parseFloat(inputs.stopPrice) > 0 &&
+      inputs.targetPrice !== '' && parseFloat(inputs.targetPrice) > 0
+    );
+  };
+
   // Check if add to watchlist button should be enabled
-  const canAddToWatchlist = calculations.status === 'valid' && inputs.ticker.trim().length > 0;
+  const canAddToWatchlist = calculations.status === 'valid' && isFormValid();
 
   return (
     <div className="w-full">
@@ -405,36 +416,43 @@ export default function PositionCalculator() {
 
           {/* Add to Watchlist Button - Only show for valid trades */}
           {calculations.status === 'valid' && (
-            <button
-              onClick={handleAddToWatchlist}
-              disabled={!canAddToWatchlist || saveStatus === 'duplicate'}
-              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-                saveStatus === 'duplicate'
-                  ? 'bg-red-500/20 border border-red-500/50 text-red-400'
-                  : addSuccess || saveStatus === 'success'
-                    ? 'bg-green-500 text-white'
-                    : canAddToWatchlist
-                      ? 'bg-[#F97316] hover:bg-[#F97316]/90 text-white'
-                      : 'bg-[#262626] text-[#8b949e] cursor-not-allowed'
-              }`}
-            >
-              {saveStatus === 'duplicate' ? (
-                <>
-                  <AlertCircle className="w-5 h-5" />
-                  {inputs.ticker.trim().toUpperCase()} is already in your watchlist
-                </>
-              ) : addSuccess || saveStatus === 'success' ? (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  Added to Watchlist!
-                </>
-              ) : (
-                <>
-                  <BookmarkPlus className="w-5 h-5" />
-                  {inputs.ticker.trim() ? 'Add to Watchlist' : 'Enter Ticker to Save'}
-                </>
+            <div className="space-y-2">
+              <button
+                onClick={handleAddToWatchlist}
+                disabled={!isFormValid() || saveStatus === 'duplicate'}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                  saveStatus === 'duplicate'
+                    ? 'bg-red-500/20 border border-red-500/50 text-red-400'
+                    : addSuccess || saveStatus === 'success'
+                      ? 'bg-green-500 text-white'
+                      : isFormValid()
+                        ? 'bg-[#F97316] hover:bg-[#F97316]/90 text-white'
+                        : 'bg-[#262626] text-[#8b949e] cursor-not-allowed'
+                }`}
+              >
+                {saveStatus === 'duplicate' ? (
+                  <>
+                    <AlertCircle className="w-5 h-5" />
+                    {inputs.ticker.trim().toUpperCase()} is already in your watchlist
+                  </>
+                ) : addSuccess || saveStatus === 'success' ? (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    Added to Watchlist!
+                  </>
+                ) : (
+                  <>
+                    <BookmarkPlus className="w-5 h-5" />
+                    Add to Watchlist
+                  </>
+                )}
+              </button>
+              {!isFormValid() && (
+                <p className="text-xs text-[#8b949e] text-center">
+                  Fill in all fields to save to watchlist
+                </p>
               )}
-            </button>
+            </div>
           )}
 
           {/* Results Grid */}
