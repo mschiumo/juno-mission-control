@@ -808,6 +808,11 @@ export default function CalendarView() {
             setSelectedDate(null);
             setSelectedDateTrades([]);
           }}
+          onTradeDeleted={() => {
+            fetchDailyStats();
+            fetchAllTrades();
+            fetchTradesForDate(selectedDate);
+          }}
         />
       )}
 
@@ -878,10 +883,42 @@ export default function CalendarView() {
   );
 }
 
-function DayDetailModal({ date, data, trades, onClose }: { date: string; data: DayData; trades: TOSTrade[]; onClose: () => void }) {
+function DayDetailModal({ date, data, trades, onClose, onTradeDeleted }: { date: string; data: DayData; trades: TOSTrade[]; onClose: () => void; onTradeDeleted?: () => void }) {
   // Parse date parts directly to avoid UTC shift
   const [year, month, day] = date.split('-').map(Number);
   const dateObj = new Date(year, month - 1, day); // month is 0-indexed
+  
+  // Delete confirmation state
+  const [tradeToDelete, setTradeToDelete] = useState<TOSTrade | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Handle individual trade delete
+  const handleDeleteTrade = async (trade: TOSTrade) => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/trades/${trade.id}?userId=default`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        // Notify parent to refresh data
+        if (onTradeDeleted) {
+          onTradeDeleted();
+        }
+        // Dispatch global event for other components
+        window.dispatchEvent(new CustomEvent('juno:trades-updated'));
+      } else {
+        console.error('Failed to delete trade');
+        alert('Failed to delete trade. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting trade:', error);
+      alert('Error deleting trade. Please try again.');
+    } finally {
+      setIsDeleting(false);
+      setTradeToDelete(null);
+    }
+  };
   
   // Group trades by symbol for display
   const tradesBySymbol = useMemo(() => {
@@ -992,7 +1029,7 @@ function DayDetailModal({ date, data, trades, onClose }: { date: string; data: D
                   const short = symbolTrades.find(t => t.side === 'SHORT');
                   
                   return (
-                    <div key={symbol} className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
+                    <div key={symbol} className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d] group">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <span className="text-white font-medium">{symbol}</span>
@@ -1000,9 +1037,22 @@ function DayDetailModal({ date, data, trades, onClose }: { date: string; data: D
                             {symbolTrades.length} fills
                           </span>
                         </div>
-                        <span className={isWin ? 'text-[#3fb950] font-semibold' : pnl < 0 ? 'text-[#f85149] font-semibold' : 'text-[#8b949e] font-semibold'}>
-                          {pnl > 0 ? '+' : ''}${pnl.toFixed(2)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={isWin ? 'text-[#3fb950] font-semibold' : pnl < 0 ? 'text-[#f85149] font-semibold' : 'text-[#8b949e] font-semibold'}>
+                            {pnl > 0 ? '+' : ''}${pnl.toFixed(2)}
+                          </span>
+                          {/* Individual Trade Delete Button */}
+                          {symbolTrades.map((trade) => (
+                            <button
+                              key={trade.id}
+                              onClick={() => setTradeToDelete(trade)}
+                              className="p-1.5 hover:bg-[#da3633]/20 text-[#8b949e] hover:text-[#f85149] rounded transition-colors opacity-0 group-hover:opacity-100"
+                              title={`Delete trade ${trade.id.slice(0, 8)}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ))}
+                        </div>
                       </div>
                       <div className="grid grid-cols-4 gap-2 text-xs">
                         {long && (
@@ -1054,6 +1104,71 @@ function DayDetailModal({ date, data, trades, onClose }: { date: string; data: D
             Close
           </button>
         </div>
+        
+        {/* Delete Confirmation Modal */}
+        {tradeToDelete && (
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-sm p-5 shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-[#da3633]/20 rounded-full">
+                  <Trash2 className="w-5 h-5 text-[#f85149]" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">Delete Trade?</p>
+                  <p className="text-sm text-[#8b949e]">This action cannot be undone.</p>
+                </div>
+              </div>
+              
+              <div className="bg-[#0d1117] rounded-lg p-3 mb-4 text-sm">
+                <div className="flex justify-between mb-1">
+                  <span className="text-[#8b949e]">Symbol:</span>
+                  <span className="text-white font-medium">{tradeToDelete.symbol}</span>
+                </div>
+                <div className="flex justify-between mb-1">
+                  <span className="text-[#8b949e]">Side:</span>
+                  <span className={tradeToDelete.side === 'LONG' ? 'text-[#3fb950]' : 'text-[#f85149]'} >
+                    {tradeToDelete.side}
+                  </span>
+                </div>
+                <div className="flex justify-between mb-1">
+                  <span className="text-[#8b949e]">Shares:</span>
+                  <span className="text-white">{tradeToDelete.shares}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#8b949e]">Entry Price:</span>
+                  <span className="text-white">${tradeToDelete.entryPrice.toFixed(2)}</span>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setTradeToDelete(null)}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteTrade(tradeToDelete)}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 bg-[#da3633] hover:bg-[#f85149] text-white rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
