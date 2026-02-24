@@ -132,7 +132,7 @@ export default function PositionCalculator() {
           bg: calculations.actualRR > 0 ? 'bg-red-500/10' : 'bg-[#262626]',
           border: calculations.actualRR > 0 ? 'border-red-500/30' : 'border-[#30363d]',
           text: calculations.actualRR > 0 ? 'text-red-400' : 'text-[#8b949e]',
-          icon: calculations.actualRR > 0 ? <XCircle className="w-5 h-5 text-red-400" /> : <Info className="w-5 h-5 text-[#8b949e]" />,
+          icon: calculations.actualRR > 0 ? <XCircle className="w-5 h-5 text-red-400" /> : <AlertCircle className="w-5 h-5 text-[#8b949e]" />,
         };
     }
   };
@@ -172,9 +172,10 @@ export default function PositionCalculator() {
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm text-white">
               Risk Amount ($)
-              <span className="text-xs text-[#8b949e] font-normal">
-                — Amount you&apos;re willing to lose
-              </span>
+              
+                <span className="text-xs text-[#8b949e] font-normal">
+                  — Amount you&apos;re willing to lose
+                </span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]">$</span>
@@ -193,9 +194,10 @@ export default function PositionCalculator() {
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm text-white">
               Entry Price
-              <span className="text-xs text-[#8b949e] font-normal">
-                — Your planned entry point
-              </span>
+              
+                <span className="text-xs text-[#8b949e] font-normal">
+                  — Your planned entry point
+                </span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]">$</span>
@@ -213,9 +215,10 @@ export default function PositionCalculator() {
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm text-white">
               Stop Loss Price
-              <span className="text-xs text-[#8b949e] font-normal">
-                — Exit if price hits this level
-              </span>
+              
+                <span className="text-xs text-[#8b949e] font-normal">
+                  — Exit if price hits this level
+                </span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]">$</span>
@@ -233,9 +236,10 @@ export default function PositionCalculator() {
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm text-white">
               Target Price
-              <span className="text-xs text-[#8b949e] font-normal">
-                — Profit target / resistance level
-              </span>
+              
+                <span className="text-xs text-[#8b949e] font-normal">
+                  — Profit target / resistance level
+                </span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]">$</span>
@@ -253,9 +257,10 @@ export default function PositionCalculator() {
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm text-white">
               Desired Risk Ratio
-              <span className="text-xs text-[#8b949e] font-normal">
-                — Minimum reward-to-risk ratio
-              </span>
+              
+                <span className="text-xs text-[#8b949e] font-normal">
+                  — Minimum reward-to-risk ratio
+                </span>
             </label>
             <select
               value={inputs.riskRatio}
@@ -299,7 +304,6 @@ export default function PositionCalculator() {
                 <p className="text-xs text-[#8b949e] mt-1">
                   ${calculations.entry.toFixed(2)} - ${calculations.stop.toFixed(2)} = {formatCurrency(calculations.stopSize)}
                 </p>
-              )}
             </div>
 
             {/* Share Size */}
@@ -313,7 +317,6 @@ export default function PositionCalculator() {
                 <p className="text-xs text-[#8b949e] mt-1">
                   ${calculations.risk} / {formatCurrency(calculations.stopSize)} = {formatNumber(calculations.shareSize)} shares
                 </p>
-              )}
             </div>
 
             {/* Potential Reward */}
@@ -326,7 +329,6 @@ export default function PositionCalculator() {
                 <p className="text-xs text-[#8b949e] mt-1">
                   ${calculations.risk} × {calculations.ratio}R = {formatCurrency(calculations.potentialReward)}
                 </p>
-              )}
             </div>
 
             {/* Actual R:R */}
@@ -343,7 +345,6 @@ export default function PositionCalculator() {
                 <p className="text-xs text-[#8b949e] mt-1">
                   (${calculations.target.toFixed(2)} - ${calculations.entry.toFixed(2)}) / {formatCurrency(calculations.stopSize)} = {calculations.actualRR.toFixed(2)}:1
                 </p>
-              )}
             </div>
 
             {/* Position Value */}
@@ -356,7 +357,6 @@ export default function PositionCalculator() {
                 <p className="text-xs text-[#8b949e] mt-1">
                   {formatNumber(calculations.shareSize)} shares × ${calculations.entry.toFixed(2)} = {formatCurrency(calculations.positionValue)}
                 </p>
-              )}
             </div>
           </div>
 

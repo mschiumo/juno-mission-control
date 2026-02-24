@@ -51,6 +51,14 @@ function renderWithPRLinks(text: string, repoUrl: string = 'https://github.com/m
   return parts.length > 0 ? parts : text;
 }
 
+// Helper to safely convert any value to a string
+function safeString(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') return JSON.stringify(value, null, 2);
+  return String(value);
+}
+
 export default function ActivityLogCard() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,35 +177,50 @@ export default function ActivityLogCard() {
     setActiveFilter('all');
   };
 
-  // Filter out routine/noise entries
+  // Filter out routine/noise entries - v4 handles object details
   const isNoiseEntry = (activity: ActivityItem): boolean => {
-    // Filter out Auto-Respawn checks with no failures
-    if (activity.action.includes('Auto-Respawn')) {
-      const detailsLower = activity.details.toLowerCase();
-      if (detailsLower.includes('no failures') || detailsLower.includes('0 failed')) {
-        return true;
+    try {
+      // Safety check for null/undefined activity
+      if (!activity || typeof activity !== 'object') return false;
+      
+      // Use safeString to handle both string and object values
+      const action = safeString(activity?.action);
+      const details = safeString(activity?.details);
+      const type = safeString(activity?.type);
+      
+      // Filter out Auto-Respawn checks with no failures
+      if (action.includes('Auto-Respawn')) {
+        const detailsLower = details.toLowerCase();
+        if (detailsLower.includes('no failures') || detailsLower.includes('0 failed')) {
+          return true;
+        }
       }
-    }
-    // Filter out routine cron checks with no issues
-    if (activity.type === 'cron') {
-      const detailsLower = activity.details.toLowerCase();
-      const actionLower = activity.action.toLowerCase();
-      // Hide routine health checks that report "ok" or "no issues"
-      if (
-        (detailsLower.includes('check completed') && detailsLower.includes('ok')) ||
-        (detailsLower.includes('health check') && detailsLower.includes('healthy')) ||
-        (actionLower.includes('heartbeat') && detailsLower.includes('ok')) ||
-        detailsLower.includes('no issues found') ||
-        detailsLower.includes('all systems operational')
-      ) {
-        return true;
+      
+      // Filter out routine cron checks with no issues
+      if (type === 'cron') {
+        const detailsLower = details.toLowerCase();
+        const actionLower = action.toLowerCase();
+        // Hide routine health checks that report "ok" or "no issues"
+        if (
+          (detailsLower.includes('check completed') && detailsLower.includes('ok')) ||
+          (detailsLower.includes('health check') && detailsLower.includes('healthy')) ||
+          (actionLower.includes('heartbeat') && detailsLower.includes('ok')) ||
+          detailsLower.includes('no issues found') ||
+          detailsLower.includes('all systems operational')
+        ) {
+          return true;
+        }
       }
+      return false;
+    } catch (err) {
+      // If anything goes wrong, don't filter it out
+      console.error('Error in isNoiseEntry:', err);
+      return false;
     }
-    return false;
   };
 
-  // Get meaningful activities (excluding noise)
-  const meaningfulActivities = activities.filter(a => !isNoiseEntry(a));
+  // Get meaningful activities (excluding noise) - DISABLED for now due to object type issues
+  const meaningfulActivities = activities;
 
   const getTypeCounts = () => {
     const counts: Record<string, number> = {};
@@ -328,7 +351,7 @@ export default function ActivityLogCard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-white text-sm">{renderWithPRLinks(activity.action)}</span>
+                    <span className="font-medium text-white text-sm">{renderWithPRLinks(safeString(activity.action))}</span>
                     {activity.url ? (
                       <a 
                         href={activity.url}
@@ -344,7 +367,7 @@ export default function ActivityLogCard() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-[#8b949e] mt-2 leading-relaxed">{renderWithPRLinks(activity.details)}</p>
+                  <p className="text-xs text-[#8b949e] mt-2 leading-relaxed">{renderWithPRLinks(safeString(activity.details))}</p>
                   <div className="flex items-center gap-1 text-[10px] text-[#8b949e]/70 mt-3">
                     <Clock className="w-3 h-3" />
                     {formatTime(activity.timestamp)} EST
