@@ -100,17 +100,16 @@ export default function PositionCalculator() {
       
       // Save to localStorage
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      
+
       // Dispatch custom event to notify WatchlistView in same tab
       window.dispatchEvent(new CustomEvent('juno:watchlist-updated'));
-      
-      // Show success feedback
+
+      // Clear inputs after successful save
+      handleClear();
+
+      // Show success feedback briefly
       setSaveStatus('success');
-      setAddSuccess(true);
-      setTimeout(() => {
-        setSaveStatus('idle');
-        setAddSuccess(false);
-      }, 2000);
+      setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
       console.error('Error saving to watchlist:', error);
     }
