@@ -250,6 +250,17 @@ export default function WatchlistView() {
                 <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
                   <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
                 </div>
+                {/* Long/Short Indicator */}
+                {(() => {
+                  const isLong = item.targetPrice > item.entryPrice;
+                  const isShort = item.targetPrice < item.entryPrice;
+                  if (!isLong && !isShort) return null;
+                  return (
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                      {isLong ? '📈 LONG' : '📉 SHORT'}
+                    </span>
+                  );
+                })()}
                 <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
                   <Calendar className="w-3.5 h-3.5" />
                   {formatDate(item.createdAt)}

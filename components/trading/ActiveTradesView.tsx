@@ -189,6 +189,17 @@ export default function ActiveTradesView({ onTradeClosed }: ActiveTradesViewProp
                 <div className="px-3 py-1 bg-green-500/10 rounded-lg">
                   <span className="text-lg font-bold text-green-400">{trade.ticker}</span>
                 </div>
+                {/* Long/Short Indicator */}
+                {(() => {
+                  const isLong = trade.plannedTarget > trade.plannedEntry;
+                  const isShort = trade.plannedTarget < trade.plannedEntry;
+                  if (!isLong && !isShort) return null;
+                  return (
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                      {isLong ? '📈 LONG' : '📉 SHORT'}
+                    </span>
+                  );
+                })()}
                 <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
                   <Calendar className="w-3.5 h-3.5" />
                   {formatDate(trade.openedAt)}
