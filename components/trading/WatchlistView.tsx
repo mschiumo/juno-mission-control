@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   BookmarkX, 
   TrendingUp, 
@@ -32,6 +32,13 @@ const WATCHLIST_KEY = 'juno:trade-watchlist';
 const ACTIVE_TRADES_KEY = 'juno:active-trades';
 const CLOSED_POSITIONS_KEY = 'juno:closed-positions';
 
+// Custom event names for cross-section sync
+const EVENTS = {
+  WATCHLIST_UPDATED: 'juno:watchlist-updated',
+  ACTIVE_TRADES_UPDATED: 'juno:active-trades-updated',
+  CLOSED_POSITIONS_UPDATED: 'juno:closed-positions-updated',
+} as const;
+
 // Closed Position Type
 export interface ClosedPosition {
   id: string;
@@ -49,6 +56,58 @@ export interface ClosedPosition {
   closedAt: string;
   notes?: string;
 }
+
+// Helper functions for localStorage operations
+const storage = {
+  getWatchlist: (): WatchlistItem[] => {
+    try {
+      const stored = localStorage.getItem(WATCHLIST_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Error loading watchlist:', error);
+      return [];
+    }
+  },
+  setWatchlist: (data: WatchlistItem[]): void => {
+    try {
+      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(data));
+    } catch (error) {
+      console.error('Error saving watchlist:', error);
+    }
+  },
+  getActiveTrades: (): ActiveTradeWithPnL[] => {
+    try {
+      const stored = localStorage.getItem(ACTIVE_TRADES_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Error loading active trades:', error);
+      return [];
+    }
+  },
+  setActiveTrades: (data: ActiveTradeWithPnL[]): void => {
+    try {
+      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(data));
+    } catch (error) {
+      console.error('Error saving active trades:', error);
+    }
+  },
+  getClosedPositions: (): ClosedPosition[] => {
+    try {
+      const stored = localStorage.getItem(CLOSED_POSITIONS_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Error loading closed positions:', error);
+      return [];
+    }
+  },
+  setClosedPositions: (data: ClosedPosition[]): void => {
+    try {
+      localStorage.setItem(CLOSED_POSITIONS_KEY, JSON.stringify(data));
+    } catch (error) {
+      console.error('Error saving closed positions:', error);
+    }
+  },
+};
 
 export default function WatchlistView() {
   // Watchlist (Potential Trades) state
@@ -73,10 +132,17 @@ export default function WatchlistView() {
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Load data from localStorage - memoized to prevent unnecessary re-renders
+  const loadData = useCallback(() => {
+    setWatchlist(storage.getWatchlist());
+    setActiveTrades(storage.getActiveTrades());
+    setClosedPositions(storage.getClosedPositions());
+  }, []);
+
   useEffect(() => {
     setMounted(true);
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Listen for storage changes (for multi-tab support)
   useEffect(() => {
@@ -88,73 +154,40 @@ export default function WatchlistView() {
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  }, [loadData]);
 
-  // Listen for same-tab updates
+  // Listen for same-tab updates via custom events
   useEffect(() => {
-    const handleUpdate = () => loadData();
+    const handleWatchlistUpdate = () => {
+      setWatchlist(storage.getWatchlist());
+    };
+    
+    const handleActiveTradesUpdate = () => {
+      setActiveTrades(storage.getActiveTrades());
+    };
+    
+    const handleClosedPositionsUpdate = () => {
+      setClosedPositions(storage.getClosedPositions());
+    };
 
-    window.addEventListener('juno:watchlist-updated', handleUpdate);
-    window.addEventListener('juno:active-trades-updated', handleUpdate);
-    window.addEventListener('juno:closed-positions-updated', handleUpdate);
+    window.addEventListener(EVENTS.WATCHLIST_UPDATED, handleWatchlistUpdate);
+    window.addEventListener(EVENTS.ACTIVE_TRADES_UPDATED, handleActiveTradesUpdate);
+    window.addEventListener(EVENTS.CLOSED_POSITIONS_UPDATED, handleClosedPositionsUpdate);
+    
     return () => {
-      window.removeEventListener('juno:watchlist-updated', handleUpdate);
-      window.removeEventListener('juno:active-trades-updated', handleUpdate);
-      window.removeEventListener('juno:closed-positions-updated', handleUpdate);
+      window.removeEventListener(EVENTS.WATCHLIST_UPDATED, handleWatchlistUpdate);
+      window.removeEventListener(EVENTS.ACTIVE_TRADES_UPDATED, handleActiveTradesUpdate);
+      window.removeEventListener(EVENTS.CLOSED_POSITIONS_UPDATED, handleClosedPositionsUpdate);
     };
   }, []);
 
-  const loadData = () => {
-    // Load watchlist
-    try {
-      const storedWatchlist = localStorage.getItem(WATCHLIST_KEY);
-      if (storedWatchlist) {
-        setWatchlist(JSON.parse(storedWatchlist));
-      } else {
-        setWatchlist([]);
-      }
-    } catch (error) {
-      console.error('Error loading watchlist:', error);
-      setWatchlist([]);
-    }
-
-    // Load active trades
-    try {
-      const storedActive = localStorage.getItem(ACTIVE_TRADES_KEY);
-      if (storedActive) {
-        setActiveTrades(JSON.parse(storedActive));
-      } else {
-        setActiveTrades([]);
-      }
-    } catch (error) {
-      console.error('Error loading active trades:', error);
-      setActiveTrades([]);
-    }
-
-    // Load closed positions
-    try {
-      const storedClosed = localStorage.getItem(CLOSED_POSITIONS_KEY);
-      if (storedClosed) {
-        setClosedPositions(JSON.parse(storedClosed));
-      } else {
-        setClosedPositions([]);
-      }
-    } catch (error) {
-      console.error('Error loading closed positions:', error);
-      setClosedPositions([]);
-    }
-  };
-
   // ===== WATCHLIST (Potential Trades) Actions =====
   const handleRemoveFromWatchlist = (id: string) => {
-    const updated = watchlist.filter(item => item.id !== id);
+    const current = storage.getWatchlist();
+    const updated = current.filter(item => item.id !== id);
+    storage.setWatchlist(updated);
     setWatchlist(updated);
-    try {
-      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new Event('juno:watchlist-updated'));
-    } catch (error) {
-      console.error('Error saving watchlist:', error);
-    }
+    window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
   };
 
   const handleEdit = (item: WatchlistItem) => {
@@ -168,16 +201,13 @@ export default function WatchlistView() {
   };
 
   const handleSave = (updatedItem: WatchlistItem) => {
-    const updated = watchlist.map(item => 
+    const current = storage.getWatchlist();
+    const updated = current.map(item => 
       item.id === updatedItem.id ? updatedItem : item
     );
+    storage.setWatchlist(updated);
     setWatchlist(updated);
-    try {
-      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new Event('juno:watchlist-updated'));
-    } catch (error) {
-      console.error('Error saving watchlist:', error);
-    }
+    window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
     setIsEditModalOpen(false);
     setEditingItem(null);
   };
@@ -202,7 +232,8 @@ export default function WatchlistView() {
 
   const handleConfirmEnterPosition = (activeTrade: ActiveTrade) => {
     // Check for duplicate in active trades
-    const isDuplicateInActive = activeTrades.some(
+    const currentActive = storage.getActiveTrades();
+    const isDuplicateInActive = currentActive.some(
       t => t.ticker.toUpperCase() === activeTrade.ticker.toUpperCase()
     );
 
@@ -213,31 +244,25 @@ export default function WatchlistView() {
 
     // Clear any previous error
     setError(null);
-    // 1. Add to active trades
-    const updatedActive = [...activeTrades, activeTrade];
-    try {
-      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(updatedActive));
-      setActiveTrades(updatedActive);
-    } catch (error) {
-      console.error('Error saving active trade:', error);
-    }
+
+    // 1. Add to active trades (update localStorage FIRST, then state)
+    const updatedActive = [...currentActive, activeTrade];
+    storage.setActiveTrades(updatedActive);
+    setActiveTrades(updatedActive);
 
     // 2. Remove from potential trades (watchlist) using the watchlistId reference
+    // Update localStorage FIRST, then state
     if (activeTrade.watchlistId) {
-      setWatchlist(prevWatchlist => {
-        const updatedPotential = prevWatchlist.filter(w => w.id !== activeTrade.watchlistId);
-        try {
-          localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updatedPotential));
-        } catch (error) {
-          console.error('Error saving watchlist:', error);
-        }
-        return updatedPotential;
-      });
+      const currentWatchlist = storage.getWatchlist();
+      const updatedPotential = currentWatchlist.filter(w => w.id !== activeTrade.watchlistId);
+      storage.setWatchlist(updatedPotential);
+      setWatchlist(updatedPotential);
     }
 
-    // 3. Dispatch events to refresh both sections
-    window.dispatchEvent(new CustomEvent('juno:active-trades-updated'));
-    window.dispatchEvent(new CustomEvent('juno:watchlist-updated'));
+    // 3. Dispatch events to refresh all sections
+    // These events trigger other components (if any) to reload from localStorage
+    window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
+    window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
 
     // 4. Close modal
     setIsEnterModalOpen(false);
@@ -262,27 +287,21 @@ export default function WatchlistView() {
       pnl: undefined,
     };
 
-    // 2. Add to closed positions
-    const updatedClosed = [closedPosition, ...closedPositions];
+    // 2. Add to closed positions (localStorage FIRST, then state)
+    const currentClosed = storage.getClosedPositions();
+    const updatedClosed = [closedPosition, ...currentClosed];
+    storage.setClosedPositions(updatedClosed);
     setClosedPositions(updatedClosed);
-    try {
-      localStorage.setItem(CLOSED_POSITIONS_KEY, JSON.stringify(updatedClosed));
-    } catch (error) {
-      console.error('Error saving closed position:', error);
-    }
 
-    // 3. Remove from active trades
-    const updatedActive = activeTrades.filter(t => t.id !== trade.id);
+    // 3. Remove from active trades (localStorage FIRST, then state)
+    const currentActive = storage.getActiveTrades();
+    const updatedActive = currentActive.filter(t => t.id !== trade.id);
+    storage.setActiveTrades(updatedActive);
     setActiveTrades(updatedActive);
-    try {
-      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(updatedActive));
-    } catch (error) {
-      console.error('Error saving active trades:', error);
-    }
 
     // 4. Dispatch events
-    window.dispatchEvent(new CustomEvent('juno:active-trades-updated'));
-    window.dispatchEvent(new CustomEvent('juno:closed-positions-updated'));
+    window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
+    window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
 
     // 5. Close modal
     setClosingTradeId(null);
@@ -306,30 +325,24 @@ export default function WatchlistView() {
   };
 
   const handleSaveTrade = (updatedTrade: ActiveTrade) => {
-    const updatedActive = activeTrades.map(trade => 
+    const currentActive = storage.getActiveTrades();
+    const updatedActive = currentActive.map(trade => 
       trade.id === updatedTrade.id ? { ...updatedTrade, currentPrice: trade.currentPrice, unrealizedPnL: trade.unrealizedPnL, unrealizedPnLPercent: trade.unrealizedPnLPercent } : trade
     );
+    storage.setActiveTrades(updatedActive);
     setActiveTrades(updatedActive);
-    try {
-      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(updatedActive));
-      window.dispatchEvent(new CustomEvent('juno:active-trades-updated'));
-    } catch (error) {
-      console.error('Error saving active trade:', error);
-    }
+    window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
     setIsEditTradeModalOpen(false);
     setEditingTrade(null);
   };
 
   // ===== DELETE: Closed Position (permanent) =====
   const handleDeleteClosedPosition = (positionId: string) => {
-    const updated = closedPositions.filter(p => p.id !== positionId);
+    const currentClosed = storage.getClosedPositions();
+    const updated = currentClosed.filter(p => p.id !== positionId);
+    storage.setClosedPositions(updated);
     setClosedPositions(updated);
-    try {
-      localStorage.setItem(CLOSED_POSITIONS_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('juno:closed-positions-updated'));
-    } catch (error) {
-      console.error('Error saving closed positions:', error);
-    }
+    window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
     setDeletingPositionId(null);
   };
 
