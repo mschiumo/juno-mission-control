@@ -40,6 +40,7 @@ export default function WatchlistView() {
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
 
   const [mounted, setMounted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -150,9 +151,22 @@ export default function WatchlistView() {
   const handleCloseEnterModal = () => {
     setIsEnterModalOpen(false);
     setEnteringItem(null);
+    setError(null);
   };
 
   const handleConfirmEnterPosition = (activeTrade: ActiveTrade) => {
+    // Check for duplicate in active trades
+    const isDuplicateInActive = activeTrades.some(
+      t => t.ticker.toUpperCase() === activeTrade.ticker.toUpperCase()
+    );
+
+    if (isDuplicateInActive) {
+      setError(`${activeTrade.ticker} is already an active position`);
+      return; // Don't proceed
+    }
+
+    // Clear any previous error
+    setError(null);
     // 1. Add to active trades
     const updatedActive = [...activeTrades, activeTrade];
     try {
@@ -162,15 +176,18 @@ export default function WatchlistView() {
       console.error('Error saving active trade:', error);
     }
 
-    // 2. Remove from potential trades (watchlist)
+    // 2. Remove from potential trades (watchlist) using functional state update
+    // to ensure we're always working with the latest state
     const watchlistId = activeTrade.id.replace('active-', '');
-    const updatedPotential = watchlist.filter(w => w.id !== watchlistId);
-    try {
-      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updatedPotential));
-      setWatchlist(updatedPotential);
-    } catch (error) {
-      console.error('Error saving watchlist:', error);
-    }
+    setWatchlist(prevWatchlist => {
+      const updatedPotential = prevWatchlist.filter(w => w.id !== watchlistId);
+      try {
+        localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updatedPotential));
+      } catch (error) {
+        console.error('Error saving watchlist:', error);
+      }
+      return updatedPotential;
+    });
 
     // 3. Dispatch events to refresh both sections
     window.dispatchEvent(new CustomEvent('juno:active-trades-updated'));
@@ -247,6 +264,22 @@ export default function WatchlistView() {
 
   return (
     <div className="w-full space-y-6">
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3">
+          <div className="p-1.5 bg-red-500/20 rounded-full">
+            <X className="w-4 h-4 text-red-400" />
+          </div>
+          <p className="text-sm text-red-400 flex-1">{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="text-xs text-red-400 hover:text-red-300 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* ===== ACTIVE TRADES SECTION ===== */}
       <div className="space-y-4">
         {/* Section Header */}
