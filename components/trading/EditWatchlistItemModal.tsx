@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Trash2, Calculator } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 
@@ -35,6 +35,23 @@ export default function EditWatchlistItemModal({
     riskAmount: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // Calculate risk ratio from form values
+  const riskRatio = useMemo(() => {
+    const entry = parseFloat(formData.entryPrice);
+    const stop = parseFloat(formData.stopPrice);
+    const target = parseFloat(formData.targetPrice);
+
+    if (!entry || !stop || !target) return 0;
+
+    const risk = Math.abs(entry - stop);
+    const reward = Math.abs(target - entry);
+
+    if (risk === 0) return 0;
+    return reward / risk;
+  }, [formData.entryPrice, formData.stopPrice, formData.targetPrice]);
+
+  const isValid = riskRatio >= 2;
   const [calculatedValues, setCalculatedValues] = useState<{
     riskRatio: number;
     stopSize: number;
@@ -344,6 +361,11 @@ export default function EditWatchlistItemModal({
                 </div>
               </div>
             )}
+            {!isValid && riskRatio > 0 && (
+              <p className="text-sm text-red-400">
+                Risk ratio ({riskRatio.toFixed(2)}:1) must be at least 2:1
+              </p>
+            )}
           </div>
         </div>
 
@@ -365,7 +387,12 @@ export default function EditWatchlistItemModal({
             </button>
             <button
               onClick={handleSave}
-              className="px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg transition-colors text-sm font-medium"
+              disabled={!isValid}
+              className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                isValid
+                  ? 'bg-[#F97316] hover:bg-[#ea580c] text-white'
+                  : 'bg-[#262626] text-[#8b949e] cursor-not-allowed'
+              }`}
             >
               Save Changes
             </button>
