@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw, ChevronDown, ArrowUpDown, Filter, Download, Trash2, X, CheckSquare, Square } from 'lucide-react';
 import { getTodayInEST, parseDateToEST } from '@/lib/date-utils';
 
 interface DayData {
@@ -28,6 +28,9 @@ interface TOSTrade {
   orderType?: string;
 }
 
+type SortField = 'date' | 'symbol' | 'side' | 'entryPrice' | 'shares';
+type SortDirection = 'asc' | 'desc';
+
 export default function CalendarView() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -36,9 +39,21 @@ export default function CalendarView() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDateTrades, setSelectedDateTrades] = useState<TOSTrade[]>([]);
 
+  // Trades section state
+  const [allTrades, setAllTrades] = useState<TOSTrade[]>([]);
+  const [tradesExpanded, setTradesExpanded] = useState(false);
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [filterSymbol, setFilterSymbol] = useState('');
+  const [filterSide, setFilterSide] = useState<'' | 'LONG' | 'SHORT'>('');
+  const [selectedTrades, setSelectedTrades] = useState<Set<string>>(new Set());
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Fetch real data from API
   useEffect(() => {
     fetchDailyStats();
+    fetchAllTrades();
   }, []);
 
   const fetchDailyStats = async () => {
@@ -54,6 +69,20 @@ export default function CalendarView() {
       console.error('Error fetching trades:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchAllTrades = async () => {
+    try {
+      const response = await fetch('/api/trades?userId=default&perPage=1000');
+      const data = await response.json();
+      
+      if (data.success && data.data && data.data.trades) {
+        setAllTrades(data.data.trades);
+        setSelectedTrades(new Set());
+      }
+    } catch (error) {
+      console.error('Error fetching all trades:', error);
     }
   };
 
@@ -167,6 +196,7 @@ export default function CalendarView() {
   const handleImportSuccess = () => {
     console.log('Import success - refreshing data');
     fetchDailyStats(); // Refresh data after import
+    fetchAllTrades(); // Refresh all trades too
   };
 
   // Debug: Log current state
@@ -198,6 +228,106 @@ export default function CalendarView() {
     if (!dayData || dayData.trades === 0) return 'bg-[#21262d] text-[#8b949e]';
     if (dayData.pnl > 0) return 'bg-[#238636]/20 border-[#238636]/50 text-[#3fb950]';
     return 'bg-[#da3633]/20 border-[#da3633]/50 text-[#f85149]';
+  };
+
+  // Trades table handlers
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const filteredTrades = allTrades.filter(trade => {
+    const matchesSymbol = !filterSymbol || trade.symbol.toLowerCase().includes(filterSymbol.toLowerCase());
+    const matchesSide = !filterSide || trade.side === filterSide;
+    return matchesSymbol && matchesSide;
+  });
+
+  const sortedTrades = [...filteredTrades].sort((a, b) => {
+    let comparison = 0;
+    switch (sortField) {
+      case 'date':
+        comparison = new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime();
+        break;
+      case 'symbol':
+        comparison = a.symbol.localeCompare(b.symbol);
+        break;
+      case 'side':
+        comparison = a.side.localeCompare(b.side);
+        break;
+      case 'entryPrice':
+        comparison = a.entryPrice - b.entryPrice;
+        break;
+      case 'shares':
+        comparison = a.shares - b.shares;
+        break;
+    }
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  const toggleSelection = (tradeId: string) => {
+    const newSelected = new Set(selectedTrades);
+    if (newSelected.has(tradeId)) {
+      newSelected.delete(tradeId);
+    } else {
+      newSelected.add(tradeId);
+    }
+    setSelectedTrades(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTrades.size === sortedTrades.length) {
+      setSelectedTrades(new Set());
+    } else {
+      setSelectedTrades(new Set(sortedTrades.map(t => t.id)));
+    }
+  };
+
+  const deleteSelectedTrades = async () => {
+    setIsDeleting(true);
+    const idsToDelete = Array.from(selectedTrades);
+    
+    try {
+      for (const tradeId of idsToDelete) {
+        await fetch(`/api/trades/${tradeId}?userId=default`, {
+          method: 'DELETE'
+        });
+      }
+      
+      await fetchAllTrades();
+      await fetchDailyStats();
+      setShowDeleteModal(false);
+    } catch (error) {
+      console.error('Error deleting trades:', error);
+      alert('Failed to delete some trades');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const exportToCSV = () => {
+    const headers = ['Date', 'Symbol', 'Side', 'Shares', 'Entry Price', 'Exit Price', 'PnL', 'Status'];
+    const rows = sortedTrades.map(t => [
+      t.entryDate,
+      t.symbol,
+      t.side,
+      t.shares,
+      t.entryPrice.toFixed(2),
+      t.exitPrice?.toFixed(2) || '',
+      t.netPnL?.toFixed(2) || '',
+      t.status
+    ]);
+    
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trades_export_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
   };
 
   if (isLoading) {
@@ -417,6 +547,257 @@ export default function CalendarView() {
         </div>
       </div>
 
+      {/* All Trades Section - Collapsible */}
+      <div className="mt-6 bg-[#0d1117] border border-[#30363d] rounded-xl overflow-hidden">
+        {/* Header */}
+        <button
+          onClick={() => setTradesExpanded(!tradesExpanded)}
+          className="w-full flex items-center justify-between p-4 bg-[#161b22] hover:bg-[#1c2128] transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <ChevronDown className={`w-5 h-5 text-[#8b949e] transition-transform ${tradesExpanded ? 'rotate-180' : ''}`} />
+            <span className="text-white font-semibold">All Trades</span>
+            <span className="px-2 py-0.5 bg-[#30363d] text-[#8b949e] text-xs rounded-full">
+              {allTrades.length}
+            </span>
+          </div>
+          {!tradesExpanded && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  exportToCSV();
+                }}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg text-sm transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+            </div>
+          )}
+        </button>
+
+        {/* Expanded Content */}
+        {tradesExpanded && (
+          <div className="p-4">
+            {/* Controls */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-[#8b949e]" />
+                  <input
+                    type="text"
+                    placeholder="Filter by symbol..."
+                    value={filterSymbol}
+                    onChange={(e) => setFilterSymbol(e.target.value)}
+                    className="px-3 py-1.5 bg-[#161b22] border border-[#30363d] rounded-lg text-white text-sm focus:outline-none focus:border-[#F97316]"
+                  />
+                </div>
+                
+                <select
+                  value={filterSide}
+                  onChange={(e) => setFilterSide(e.target.value as '' | 'LONG' | 'SHORT')}
+                  className="px-3 py-1.5 bg-[#161b22] border border-[#30363d] rounded-lg text-white text-sm focus:outline-none focus:border-[#F97316]"
+                >
+                  <option value="">All Sides</option>
+                  <option value="LONG">Long</option>
+                  <option value="SHORT">Short</option>
+                </select>
+                
+                <button
+                  onClick={fetchAllTrades}
+                  className="p-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors"
+                  title="Refresh"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {selectedTrades.size > 0 && (
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-[#da3633]/20 hover:bg-[#da3633]/30 text-[#f85149] rounded-lg text-sm transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete ({selectedTrades.size})
+                  </button>
+                )}
+                
+                <button
+                  onClick={exportToCSV}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg text-sm transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto bg-[#161b22] border border-[#30363d] rounded-lg">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#30363d] bg-[#0d1117]">
+                    <th className="py-3 px-2 text-center w-10">
+                      <button
+                        onClick={toggleSelectAll}
+                        className="text-[#8b949e] hover:text-white transition-colors"
+                        title={selectedTrades.size === sortedTrades.length ? "Deselect all" : "Select all"}
+                      >
+                        {selectedTrades.size === sortedTrades.length ? (
+                          <CheckSquare className="w-5 h-5" />
+                        ) : selectedTrades.size > 0 ? (
+                          <div className="relative">
+                            <Square className="w-5 h-5" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-2 h-2 bg-[#F97316] rounded-sm" />
+                            </div>
+                          </div>
+                        ) : (
+                          <Square className="w-5 h-5" />
+                        )}
+                      </button>
+                    </th>
+                    <th 
+                      className="text-left py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
+                      onClick={() => handleSort('date')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Date/Time
+                        {sortField === 'date' && (
+                          <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      className="text-left py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
+                      onClick={() => handleSort('symbol')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Symbol
+                        {sortField === 'symbol' && (
+                          <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      className="text-left py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
+                      onClick={() => handleSort('side')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Side
+                        {sortField === 'side' && (
+                          <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      className="text-right py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
+                      onClick={() => handleSort('shares')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        Shares
+                        {sortField === 'shares' && (
+                          <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      className="text-right py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
+                      onClick={() => handleSort('entryPrice')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        Entry
+                        {sortField === 'entryPrice' && (
+                          <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                        )}
+                      </div>
+                    </th>
+                    <th className="text-right py-3 px-4 text-[#8b949e] font-medium">PnL</th>
+                    <th className="text-left py-3 px-4 text-[#8b949e] font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedTrades.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-[#8b949e]">
+                        {allTrades.length === 0 ? (
+                          <div className="space-y-2">
+                            <TrendingUp className="w-8 h-8 mx-auto text-[#30363d]" />
+                            <p>No trades yet. Import trades to get started.</p>
+                          </div>
+                        ) : (
+                          <p>No trades match your filters</p>
+                        )}
+                      </td>
+                    </tr>
+                  ) : (
+                    sortedTrades.map((trade) => (
+                      <tr 
+                        key={trade.id} 
+                        className={`border-b border-[#21262d] hover:bg-[#21262d]/50 ${selectedTrades.has(trade.id) ? 'bg-[#F97316]/10' : ''}`}
+                      >
+                        <td className="py-3 px-2 text-center">
+                          <button
+                            onClick={() => toggleSelection(trade.id)}
+                            className="text-[#8b949e] hover:text-[#F97316] transition-colors"
+                          >
+                            {selectedTrades.has(trade.id) ? (
+                              <CheckSquare className="w-5 h-5 text-[#F97316]" />
+                            ) : (
+                              <Square className="w-5 h-5" />
+                            )}
+                          </button>
+                        </td>
+                        <td className="py-3 px-4 text-white">
+                          <div className="text-xs text-[#8b949e]">{trade.entryDate?.split('T')[0]}</div>
+                          <div>{trade.entryDate?.split('T')[1]?.substring(0, 5)}</div>
+                        </td>
+                        <td className="py-3 px-4 font-medium text-white">{trade.symbol}</td>
+                        <td className="py-3 px-4">
+                          <span className={`flex items-center gap-1 ${trade.side === 'LONG' ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                            {trade.side === 'LONG' ? (
+                              <>
+                                <TrendingUp className="w-3 h-3" />
+                                LONG
+                              </>
+                            ) : (
+                              <>
+                                <TrendingDown className="w-3 h-3" />
+                                SHORT
+                              </>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right text-white">{trade.shares}</td>
+                        <td className="py-3 px-4 text-right text-white">${trade.entryPrice?.toFixed(2)}</td>
+                        <td className={`py-3 px-4 text-right ${trade.netPnL && trade.netPnL >= 0 ? 'text-[#3fb950]' : trade.netPnL && trade.netPnL < 0 ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
+                          {trade.netPnL ? `${trade.netPnL >= 0 ? '+' : ''}$${trade.netPnL.toFixed(2)}` : '-'}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`text-xs px-2 py-1 rounded-full ${trade.status === 'CLOSED' ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#d29922]/20 text-[#d29922]'}`}>
+                            {trade.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Footer */}
+            <div className="mt-3 text-sm text-[#8b949e] flex items-center justify-between">
+              <span>Showing {sortedTrades.length} of {allTrades.length} trades</span>
+              {selectedTrades.size > 0 && (
+                <span className="text-[#F97316]">{selectedTrades.size} selected</span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Day Detail Modal */}
       {selectedDate && (
         <DayDetailModal 
@@ -433,6 +814,65 @@ export default function CalendarView() {
       {/* Import Modal */}
       {showImportModal && (
         <ImportModal onClose={() => setShowImportModal(false)} onSuccess={handleImportSuccess} />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Delete Trades</h3>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-[#8b949e]" />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-[#da3633]/20 rounded-full">
+                  <Trash2 className="w-6 h-6 text-[#f85149]" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">
+                    Delete {selectedTrades.size} trade{selectedTrades.size !== 1 ? 's' : ''}?
+                  </p>
+                  <p className="text-sm text-[#8b949e]">
+                    This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 px-4 py-3 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteSelectedTrades}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-3 bg-[#da3633] hover:bg-[#f85149] text-white rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -4,11 +4,9 @@ import { useState, useCallback } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
-  List, 
   BarChart3, 
   BookOpen,
   TrendingUp,
-  Newspaper,
   Calculator,
   Settings,
   Menu,
@@ -22,11 +20,10 @@ import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import CalendarView from '@/components/trading/CalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
-import TradesListView from '@/components/trading/TradesListView';
 import AnalyticsView from '@/components/trading/AnalyticsView';
 import JournalView from '@/components/trading/JournalView';
 
-type TradingSubTab = 'overview' | 'trades' | 'analytics' | 'journal' | 'market' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'analytics' | 'journal' | 'market' | 'projection' | 'trade-management';
 
 export default function TradingView() {
   const router = useRouter();
@@ -36,7 +33,7 @@ export default function TradingView() {
   // Get subtab from URL or default to 'overview'
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
     const subtab = searchParams.get('subtab');
-    if (subtab === 'market' || subtab === 'trades' || 
+    if (subtab === 'market' || 
         subtab === 'analytics' || subtab === 'journal' || subtab === 'projection' ||
         subtab === 'trade-management') {
       return subtab;
@@ -64,7 +61,6 @@ export default function TradingView() {
   const subTabs = [
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
-    { id: 'trades' as const, label: 'Trades', icon: List },
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { id: 'journal' as const, label: 'Journal', icon: BookOpen },
     { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
@@ -148,10 +144,6 @@ export default function TradingView() {
       {/* Content */}
       {activeSubTab === 'overview' && (
         <CalendarView />
-      )}
-
-      {activeSubTab === 'trades' && (
-        <TradesListView />
       )}
 
       {activeSubTab === 'analytics' && (
