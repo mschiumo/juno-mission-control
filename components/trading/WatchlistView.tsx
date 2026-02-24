@@ -153,21 +153,30 @@ export default function WatchlistView() {
   };
 
   const handleConfirmEnterPosition = (activeTrade: ActiveTrade) => {
-    // Add to active trades
+    // 1. Add to active trades
+    const updatedActive = [...activeTrades, activeTrade];
     try {
-      const stored = localStorage.getItem(ACTIVE_TRADES_KEY);
-      const trades: ActiveTrade[] = stored ? JSON.parse(stored) : [];
-      trades.push(activeTrade);
-      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(trades));
+      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(updatedActive));
+      setActiveTrades(updatedActive);
     } catch (error) {
       console.error('Error saving active trade:', error);
     }
 
-    // Remove from watchlist
-    handleRemoveFromWatchlist(activeTrade.id.replace('active-', ''));
-    
-    // Refresh data
-    loadData();
+    // 2. Remove from potential trades (watchlist)
+    const watchlistId = activeTrade.id.replace('active-', '');
+    const updatedPotential = watchlist.filter(w => w.id !== watchlistId);
+    try {
+      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updatedPotential));
+      setWatchlist(updatedPotential);
+    } catch (error) {
+      console.error('Error saving watchlist:', error);
+    }
+
+    // 3. Dispatch events to refresh both sections
+    window.dispatchEvent(new CustomEvent('juno:active-trades-updated'));
+    window.dispatchEvent(new CustomEvent('juno:watchlist-updated'));
+
+    // 4. Close modal
     setIsEnterModalOpen(false);
     setEnteringItem(null);
   };
