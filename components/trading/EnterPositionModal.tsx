@@ -87,9 +87,11 @@ export default function EnterPositionModal({
     const actualShares = parseInt(formData.actualShares, 10);
     const positionValue = actualEntry * actualShares;
 
+    console.log('[DEBUG EnterPositionModal] Creating activeTrade with item.id:', item.id);
+
     const activeTrade: ActiveTrade = {
       id: `active-${Date.now()}`,
-      watchlistId: item.id, // <-- Pass the original watchlist item ID
+      watchlistId: item.id,
       ticker: item.ticker,
       plannedEntry: item.entryPrice,
       plannedStop: item.stopPrice,
@@ -101,8 +103,9 @@ export default function EnterPositionModal({
       notes: formData.notes.trim() || undefined,
     };
 
+    console.log('[DEBUG EnterPositionModal] activeTrade object:', activeTrade);
+
     onConfirm(activeTrade);
-    onClose();
   };
 
   const formatCurrency = (value: number) => {

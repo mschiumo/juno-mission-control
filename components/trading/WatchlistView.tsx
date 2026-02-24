@@ -117,6 +117,11 @@ export default function WatchlistView() {
   const [enteringItem, setEnteringItem] = useState<WatchlistItem | null>(null);
   const [isEnterModalOpen, setIsEnterModalOpen] = useState(false);
 
+  // Debug: Log watchlist changes
+  useEffect(() => {
+    console.log('[DEBUG WatchlistView] watchlist state changed:', watchlist.length, 'items');
+  }, [watchlist]);
+
   // Active Trades state
   const [activeTrades, setActiveTrades] = useState<ActiveTradeWithPnL[]>([]);
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
@@ -231,6 +236,8 @@ export default function WatchlistView() {
   };
 
   const handleConfirmEnterPosition = (activeTrade: ActiveTrade) => {
+    console.log('[DEBUG] handleConfirmEnterPosition called', { watchlistId: activeTrade.watchlistId });
+
     // Check for duplicate in active trades
     const currentActive = storage.getActiveTrades();
     const isDuplicateInActive = currentActive.some(
@@ -239,32 +246,42 @@ export default function WatchlistView() {
 
     if (isDuplicateInActive) {
       setError(`${activeTrade.ticker} is already an active position`);
-      return; // Don't proceed
+      return;
     }
 
-    // Clear any previous error
     setError(null);
 
-    // 1. Add to active trades (update localStorage FIRST, then state)
+    // 1. Add to active trades
     const updatedActive = [...currentActive, activeTrade];
     storage.setActiveTrades(updatedActive);
-    setActiveTrades(updatedActive);
+    console.log('[DEBUG] Active trades saved:', updatedActive.length);
 
-    // 2. Remove from potential trades (watchlist) using the watchlistId reference
-    // Update localStorage FIRST, then state
+    // 2. Remove from watchlist (if watchlistId exists)
     if (activeTrade.watchlistId) {
       const currentWatchlist = storage.getWatchlist();
+      console.log('[DEBUG] Watchlist before:', currentWatchlist.length, 'items');
+      console.log('[DEBUG] Looking for id:', activeTrade.watchlistId);
+      
       const updatedPotential = currentWatchlist.filter(w => w.id !== activeTrade.watchlistId);
+      console.log('[DEBUG] Watchlist after:', updatedPotential.length, 'items');
+      
       storage.setWatchlist(updatedPotential);
+      
+      // Direct state update - immediate
       setWatchlist(updatedPotential);
     }
 
-    // 3. Dispatch events to refresh all sections
-    // These events trigger other components (if any) to reload from localStorage
+    // 3. Update active trades state
+    setActiveTrades(updatedActive);
+
+    // 4. Sync from localStorage to ensure consistency
+    loadData();
+
+    // 5. Dispatch events for other components
     window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
     window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
 
-    // 4. Close modal
+    // 6. Close modal
     setIsEnterModalOpen(false);
     setEnteringItem(null);
   };
