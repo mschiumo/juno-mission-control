@@ -237,7 +237,7 @@ export default function PositionCalculator() {
             <Calculator className="w-5 h-5 text-[#F97316]" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-white">Position Sizing Calculator</h3>
+            <h3 className="text-lg font-semibold text-white">Trade Management</h3>
             <p className="text-sm text-[#8b949e]">Calculate shares and validate risk/reward</p>
           </div>
         </div>
