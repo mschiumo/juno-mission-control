@@ -1,75 +1,53 @@
 'use client';
 
-import { useState } from 'react';
 import { Calculator, Bookmark, Activity } from 'lucide-react';
 import PositionCalculator from './PositionCalculator';
 import WatchlistView from './WatchlistView';
 import ActiveTradesView from './ActiveTradesView';
 
-type Tab = 'calculator' | 'watchlist' | 'active';
-
 export default function TradeManagementView() {
-  const [activeTab, setActiveTab] = useState<Tab>('calculator');
-
-  const tabs = [
-    { id: 'calculator' as Tab, label: 'Calculator', icon: Calculator },
-    { id: 'watchlist' as Tab, label: 'Watchlist', icon: Bookmark },
-    { id: 'active' as Tab, label: 'Active Trades', icon: Activity },
-  ];
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-xl font-bold text-white">Trade Management</h2>
-        
-        {/* Tabs */}
-        <div className="flex items-center bg-[#161b22] border border-[#30363d] rounded-lg p-1">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-[#F97316] text-white'
-                    : 'text-[#8b949e] hover:text-white hover:bg-[#262626]'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            );
-          })}
+      </div>
+
+      {/* Active Trades Section */}
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
+          <Activity className="w-5 h-5 text-[#F97316]" />
+          <h3 className="text-lg font-semibold text-white">Active Trades</h3>
+        </div>
+        <div className="p-6">
+          <ActiveTradesView 
+            onTradeClosed={() => {
+              console.log('Trade closed');
+            }}
+          />
         </div>
       </div>
 
-      {/* Content */}
+      {/* Calculator Section */}
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-        {activeTab === 'calculator' && (
-          <div className="p-6">
-            <PositionCalculator />
-          </div>
-        )}
-        
-        {activeTab === 'watchlist' && (
-          <div className="p-6">
-            <WatchlistView />
-          </div>
-        )}
-        
-        {activeTab === 'active' && (
-          <div className="p-6">
-            <ActiveTradesView 
-              onTradeClosed={() => {
-                // Optionally show a notification or refresh data
-                console.log('Trade closed');
-              }}
-            />
-          </div>
-        )}
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
+          <Calculator className="w-5 h-5 text-[#F97316]" />
+          <h3 className="text-lg font-semibold text-white">Calculator</h3>
+        </div>
+        <div className="p-6">
+          <PositionCalculator />
+        </div>
+      </div>
+
+      {/* Watchlist Section */}
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
+          <Bookmark className="w-5 h-5 text-[#F97316]" />
+          <h3 className="text-lg font-semibold text-white">Watchlist</h3>
+        </div>
+        <div className="p-6">
+          <WatchlistView />
+        </div>
       </div>
     </div>
   );
