@@ -12,51 +12,45 @@ import {
   Award,
   BarChart3,
   Edit3,
-  Play
+  Play,
+  Activity,
+  CheckCircle,
+  FileText,
+  ArrowLeft,
+  X
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
-import type { ActiveTrade } from '@/types/active-trade';
+import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
 import EditWatchlistItemModal from './EditWatchlistItemModal';
 import EnterPositionModal from './EnterPositionModal';
 
-const STORAGE_KEY = 'juno:trade-watchlist';
+const WATCHLIST_KEY = 'juno:trade-watchlist';
 const ACTIVE_TRADES_KEY = 'juno:active-trades';
 
 export default function WatchlistView() {
+  // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
-  const [mounted, setMounted] = useState(false);
   const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [enteringItem, setEnteringItem] = useState<WatchlistItem | null>(null);
   const [isEnterModalOpen, setIsEnterModalOpen] = useState(false);
 
+  // Active Trades state
+  const [activeTrades, setActiveTrades] = useState<ActiveTradeWithPnL[]>([]);
+  const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
+
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
     setMounted(true);
-    // Load watchlist from localStorage
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setWatchlist(JSON.parse(stored));
-      }
-    } catch (error) {
-      console.error('Error loading watchlist:', error);
-    }
+    loadData();
   }, []);
 
   // Listen for storage changes (for multi-tab support)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        try {
-          const stored = e.newValue;
-          if (stored) {
-            setWatchlist(JSON.parse(stored));
-          } else {
-            setWatchlist([]);
-          }
-        } catch (error) {
-          console.error('Error handling storage change:', error);
-        }
+      if (e.key === WATCHLIST_KEY || e.key === ACTIVE_TRADES_KEY) {
+        loadData();
       }
     };
 
@@ -64,30 +58,53 @@ export default function WatchlistView() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // Listen for same-tab updates from PositionCalculator
+  // Listen for same-tab updates
   useEffect(() => {
-    const handleWatchlistUpdate = () => {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          setWatchlist(JSON.parse(stored));
-        } else {
-          setWatchlist([]);
-        }
-      } catch (error) {
-        console.error('Error handling watchlist update:', error);
-      }
-    };
+    const handleUpdate = () => loadData();
 
-    window.addEventListener('juno:watchlist-updated', handleWatchlistUpdate);
-    return () => window.removeEventListener('juno:watchlist-updated', handleWatchlistUpdate);
+    window.addEventListener('juno:watchlist-updated', handleUpdate);
+    window.addEventListener('juno:active-trades-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('juno:watchlist-updated', handleUpdate);
+      window.removeEventListener('juno:active-trades-updated', handleUpdate);
+    };
   }, []);
 
-  const handleRemove = (id: string) => {
+  const loadData = () => {
+    // Load watchlist
+    try {
+      const storedWatchlist = localStorage.getItem(WATCHLIST_KEY);
+      if (storedWatchlist) {
+        setWatchlist(JSON.parse(storedWatchlist));
+      } else {
+        setWatchlist([]);
+      }
+    } catch (error) {
+      console.error('Error loading watchlist:', error);
+      setWatchlist([]);
+    }
+
+    // Load active trades
+    try {
+      const storedActive = localStorage.getItem(ACTIVE_TRADES_KEY);
+      if (storedActive) {
+        setActiveTrades(JSON.parse(storedActive));
+      } else {
+        setActiveTrades([]);
+      }
+    } catch (error) {
+      console.error('Error loading active trades:', error);
+      setActiveTrades([]);
+    }
+  };
+
+  // ===== WATCHLIST (Potential Trades) Actions =====
+  const handleRemoveFromWatchlist = (id: string) => {
     const updated = watchlist.filter(item => item.id !== id);
     setWatchlist(updated);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new Event('juno:watchlist-updated'));
     } catch (error) {
       console.error('Error saving watchlist:', error);
     }
@@ -95,11 +112,11 @@ export default function WatchlistView() {
 
   const handleEdit = (item: WatchlistItem) => {
     setEditingItem(item);
-    setIsModalOpen(true);
+    setIsEditModalOpen(true);
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
     setEditingItem(null);
   };
 
@@ -109,23 +126,23 @@ export default function WatchlistView() {
     );
     setWatchlist(updated);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      // Dispatch event to refresh other components
+      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updated));
       window.dispatchEvent(new Event('juno:watchlist-updated'));
     } catch (error) {
       console.error('Error saving watchlist:', error);
     }
-    setIsModalOpen(false);
+    setIsEditModalOpen(false);
     setEditingItem(null);
   };
 
   const handleDelete = (id: string) => {
-    handleRemove(id);
-    setIsModalOpen(false);
+    handleRemoveFromWatchlist(id);
+    setIsEditModalOpen(false);
     setEditingItem(null);
   };
 
-  const handleEnterPosition = (item: WatchlistItem) => {
+  // ===== MOVE: Potential → Active =====
+  const handleStartTrade = (item: WatchlistItem) => {
     setEnteringItem(item);
     setIsEnterModalOpen(true);
   };
@@ -139,18 +156,70 @@ export default function WatchlistView() {
     // Add to active trades
     try {
       const stored = localStorage.getItem(ACTIVE_TRADES_KEY);
-      const activeTrades: ActiveTrade[] = stored ? JSON.parse(stored) : [];
-      activeTrades.push(activeTrade);
-      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(activeTrades));
-      window.dispatchEvent(new Event('juno:active-trades-updated'));
+      const trades: ActiveTrade[] = stored ? JSON.parse(stored) : [];
+      trades.push(activeTrade);
+      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(trades));
     } catch (error) {
       console.error('Error saving active trade:', error);
     }
 
     // Remove from watchlist
-    handleRemove(activeTrade.id.replace('active-', ''));
+    handleRemoveFromWatchlist(activeTrade.id.replace('active-', ''));
+    
+    // Refresh data
+    loadData();
+    setIsEnterModalOpen(false);
+    setEnteringItem(null);
   };
 
+  // ===== MOVE: Active → Potential (End Trade) =====
+  const handleEndTrade = (trade: ActiveTrade) => {
+    // Convert back to watchlist item
+    const watchlistItem: WatchlistItem = {
+      id: trade.id.replace('active-', ''),
+      ticker: trade.ticker,
+      entryPrice: trade.plannedEntry,
+      stopPrice: trade.plannedStop,
+      targetPrice: trade.plannedTarget,
+      riskRatio: Math.abs((trade.plannedTarget - trade.plannedEntry) / (trade.plannedEntry - trade.plannedStop)),
+      stopSize: Math.abs(trade.plannedEntry - trade.plannedStop),
+      shareSize: trade.actualShares,
+      potentialReward: Math.abs(trade.plannedTarget - trade.plannedEntry) * trade.actualShares,
+      positionValue: trade.positionValue,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Add back to watchlist
+    try {
+      const stored = localStorage.getItem(WATCHLIST_KEY);
+      const current: WatchlistItem[] = stored ? JSON.parse(stored) : [];
+      current.push(watchlistItem);
+      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(current));
+    } catch (error) {
+      console.error('Error saving to watchlist:', error);
+    }
+
+    // Remove from active trades
+    const updated = activeTrades.filter(t => t.id !== trade.id);
+    setActiveTrades(updated);
+    try {
+      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.error('Error saving active trades:', error);
+    }
+
+    // Refresh and close modal
+    loadData();
+    setClosingTradeId(null);
+  };
+
+  const handleClosePosition = (tradeId: string) => {
+    const trade = activeTrades.find(t => t.id === tradeId);
+    if (!trade) return;
+    handleEndTrade(trade);
+  };
+
+  // ===== Formatters =====
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -177,7 +246,7 @@ export default function WatchlistView() {
   // Don't render until mounted to avoid hydration mismatch
   if (!mounted) {
     return (
-      <div className="w-full">
+      <div className="w-full space-y-6">
         <div className="text-center py-12">
           <div className="animate-pulse">
             <div className="w-12 h-12 bg-[#262626] rounded-lg mx-auto mb-4" />
@@ -189,229 +258,345 @@ export default function WatchlistView() {
     );
   }
 
-  if (watchlist.length === 0) {
-    return (
-      <div className="w-full">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+  return (
+    <div className="w-full space-y-6">
+      {/* ===== ACTIVE TRADES SECTION ===== */}
+      <div className="space-y-4">
+        {/* Section Header */}
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-[#F97316]/10 rounded-lg">
-              <BookmarkX className="w-5 h-5 text-[#F97316]" />
+            <div className="p-2 bg-green-500/10 rounded-lg">
+              <Activity className="w-5 h-5 text-green-400" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white">Trade Watchlist</h3>
-              <p className="text-sm text-[#8b949e]">Saved valid trades from calculator</p>
+              <h3 className="text-lg font-semibold text-white">Active Trades</h3>
+              <p className="text-sm text-[#8b949e]">
+                {activeTrades.length} position{activeTrades.length !== 1 ? 's' : ''}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Empty State */}
-        <div className="text-center py-12 border border-dashed border-[#30363d] rounded-xl">
-          <BookmarkX className="w-12 h-12 text-[#30363d] mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-white mb-2">No Saved Trades</h3>
-          <p className="text-[#8b949e] max-w-md mx-auto mb-4">
-            When you calculate a valid trade (2:1 risk ratio or better), you can save it to your watchlist for later reference.
-          </p>
-          <div className="flex items-center justify-center gap-2 text-sm text-[#8b949e]">
-            <TrendingUp className="w-4 h-4 text-green-500" />
-            <span>Go to Calculator tab to add trades</span>
+        {/* Active Trades List */}
+        {activeTrades.length === 0 ? (
+          <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
+            <Activity className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
+            <p className="text-sm text-[#8b949e]">No active positions</p>
+            <p className="text-xs text-[#6e7681] mt-1">Start a trade from Potential Trades below</p>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-full">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#F97316]/10 rounded-lg">
-            <BarChart3 className="w-5 h-5 text-[#F97316]" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white">Trade Watchlist</h3>
-            <p className="text-sm text-[#8b949e]">{watchlist.length} saved trade{watchlist.length !== 1 ? 's' : ''}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Watchlist Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {watchlist.map((item) => (
-          <div
-            key={item.id}
-            onClick={() => handleEdit(item)}
-            className="bg-[#0F0F0F] border border-[#262626] rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group"
-          >
-            {/* Card Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
-                  <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
+        ) : (
+          <div className="space-y-3">
+            {activeTrades.map((trade) => (
+              <div
+                key={trade.id}
+                className="bg-[#0F0F0F] border border-green-500/30 rounded-xl overflow-hidden hover:border-green-500/50 transition-all"
+              >
+                {/* Card Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-green-500/5">
+                  <div className="flex items-center gap-3">
+                    <div className="px-3 py-1 bg-green-500/10 rounded-lg">
+                      <span className="text-lg font-bold text-green-400">{trade.ticker}</span>
+                    </div>
+                    {/* Long/Short Indicator */}
+                    {(() => {
+                      const isLong = trade.plannedTarget > trade.plannedEntry;
+                      const isShort = trade.plannedTarget < trade.plannedEntry;
+                      if (!isLong && !isShort) return null;
+                      return (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                          {isLong ? '📈 LONG' : '📉 SHORT'}
+                        </span>
+                      );
+                    })()}
+                    <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {formatDate(trade.openedAt)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setClosingTradeId(trade.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                    title="End trade and move back to watchlist"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    End Trade
+                  </button>
                 </div>
-                {/* Long/Short Indicator */}
-                {(() => {
-                  const isLong = item.targetPrice > item.entryPrice;
-                  const isShort = item.targetPrice < item.entryPrice;
-                  if (!isLong && !isShort) return null;
-                  return (
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                      {isLong ? '📈 LONG' : '📉 SHORT'}
-                    </span>
-                  );
-                })()}
-                <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
-                  <Calendar className="w-3.5 h-3.5" />
-                  {formatDate(item.createdAt)}
+
+                {/* Card Body */}
+                <div className="p-4 space-y-3">
+                  {/* Planned vs Actual Row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Planned */}
+                    <div className="bg-[#161b22] rounded-lg p-3">
+                      <div className="text-xs text-[#8b949e] uppercase tracking-wide mb-2">Planned</div>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-xs text-[#8b949e]">Entry</span>
+                          <span className="text-xs font-medium text-white">{formatCurrency(trade.plannedEntry)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-red-400">Stop</span>
+                          <span className="text-xs font-medium text-white">{formatCurrency(trade.plannedStop)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-green-400">Target</span>
+                          <span className="text-xs font-medium text-white">{formatCurrency(trade.plannedTarget)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actual */}
+                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
+                      <div className="text-xs text-green-400 uppercase tracking-wide mb-2">Actual Position</div>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-xs text-[#8b949e]">Entry</span>
+                          <span className="text-xs font-medium text-white">{formatCurrency(trade.actualEntry)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-[#8b949e]">Shares</span>
+                          <span className="text-xs font-medium text-white">{formatNumber(trade.actualShares)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-[#8b949e]">Value</span>
+                          <span className="text-xs font-bold text-green-400">{formatCurrency(trade.positionValue)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  {trade.notes && (
+                    <div className="bg-[#161b22] rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-1">
+                        <FileText className="w-3.5 h-3.5" />
+                        Notes
+                      </div>
+                      <p className="text-sm text-white">{trade.notes}</p>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEnterPosition(item);
-                  }}
-                  className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
-                  title="Enter position - Move to Active Trades"
-                >
-                  <Play className="w-3.5 h-3.5" />
-                  Start Trade
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEdit(item);
-                  }}
-                  className="p-2 text-[#8b949e] hover:text-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-colors"
-                  title="Edit trade"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRemove(item.id);
-                  }}
-                  className="p-2 text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                  title="Remove from watchlist"
-                >
-                  <BookmarkX className="w-4 h-4" />
-                </button>
-              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-[#30363d]"></div>
+
+      {/* ===== POTENTIAL TRADES SECTION ===== */}
+      <div className="space-y-4">
+        {/* Section Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#F97316]/10 rounded-lg">
+              <BarChart3 className="w-5 h-5 text-[#F97316]" />
             </div>
-
-            {/* Card Body - Stack Layout */}
-            <div className="p-4 space-y-2">
-              {/* Price Row */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-[#161b22] rounded-lg p-3">
-                  <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-1">
-                    <DollarSign className="w-3.5 h-3.5" />
-                    Entry
-                  </div>
-                  <p className="text-base font-semibold text-white">
-                    {formatCurrency(item.entryPrice)}
-                  </p>
-                </div>
-                <div className="bg-[#161b22] rounded-lg p-3">
-                  <div className="flex items-center gap-1.5 text-xs text-red-400 mb-1">
-                    <Shield className="w-3.5 h-3.5" />
-                    Stop
-                  </div>
-                  <p className="text-base font-semibold text-white">
-                    {formatCurrency(item.stopPrice)}
-                  </p>
-                </div>
-                <div className="bg-[#161b22] rounded-lg p-3">
-                  <div className="flex items-center gap-1.5 text-xs text-green-400 mb-1">
-                    <Target className="w-3.5 h-3.5" />
-                    Target
-                  </div>
-                  <p className="text-base font-semibold text-white">
-                    {formatCurrency(item.targetPrice)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Stats Stack - Full width rows */}
-              <div className="space-y-1.5">
-                {/* R:R */}
-                <div className="flex items-center justify-between bg-[#161b22] rounded-lg px-3 py-2">
-                  <div className="flex items-center gap-2 text-sm text-[#8b949e]">
-                    <Award className="w-4 h-4" />
-                    <span>R:R</span>
-                  </div>
-                  <span className="text-sm font-semibold text-green-400">
-                    {item.riskRatio.toFixed(2)}:1
-                  </span>
-                </div>
-
-                {/* Stop Size */}
-                <div className="flex items-center justify-between bg-[#161b22] rounded-lg px-3 py-2">
-                  <div className="flex items-center gap-2 text-sm text-[#8b949e]">
-                    <Shield className="w-4 h-4" />
-                    <span>Stop Size</span>
-                  </div>
-                  <span className="text-sm font-semibold text-white">
-                    {formatCurrency(item.stopSize)}
-                  </span>
-                </div>
-
-                {/* Shares */}
-                <div className="flex items-center justify-between bg-[#161b22] rounded-lg px-3 py-2">
-                  <div className="flex items-center gap-2 text-sm text-[#8b949e]">
-                    <Layers className="w-4 h-4" />
-                    <span>Shares</span>
-                  </div>
-                  <span className="text-sm font-semibold text-white">
-                    {formatNumber(item.shareSize)}
-                  </span>
-                </div>
-
-                {/* Position Value */}
-                <div className="flex items-center justify-between bg-[#161b22] rounded-lg px-3 py-2">
-                  <div className="flex items-center gap-2 text-sm text-[#8b949e]">
-                    <DollarSign className="w-4 h-4" />
-                    <span>Position</span>
-                  </div>
-                  <span className="text-sm font-semibold text-white">
-                    {formatCurrency(item.positionValue)}
-                  </span>
-                </div>
-
-                {/* Expected Profit */}
-                <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
-                  <div className="flex items-center gap-2 text-sm text-[#8b949e]">
-                    <TrendingUp className="w-4 h-4 text-green-400" />
-                    <span>Expected</span>
-                  </div>
-                  <span className="text-sm font-bold text-green-400">
-                    {formatCurrency(item.potentialReward)}
-                  </span>
-                </div>
-              </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">Potential Trades</h3>
+              <p className="text-sm text-[#8b949e]">
+                {watchlist.length} saved trade{watchlist.length !== 1 ? 's' : ''}
+              </p>
             </div>
           </div>
-        ))}
+        </div>
+
+        {/* Potential Trades List */}
+        {watchlist.length === 0 ? (
+          <div className="text-center py-12 border border-dashed border-[#30363d] rounded-xl">
+            <BookmarkX className="w-12 h-12 text-[#30363d] mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-white mb-2">No Saved Trades</h3>
+            <p className="text-[#8b949e] max-w-md mx-auto mb-4 text-sm">
+              When you calculate a valid trade (2:1 risk ratio or better), you can save it here for later reference.
+            </p>
+            <div className="flex items-center justify-center gap-2 text-sm text-[#8b949e]">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <span>Use the Calculator to add trades</span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {watchlist.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => handleEdit(item)}
+                className="bg-[#0F0F0F] border border-[#262626] rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group"
+              >
+                {/* Card Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
+                      <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
+                    </div>
+                    {/* Long/Short Indicator */}
+                    {(() => {
+                      const isLong = item.targetPrice > item.entryPrice;
+                      const isShort = item.targetPrice < item.entryPrice;
+                      if (!isLong && !isShort) return null;
+                      return (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                          {isLong ? '📈 LONG' : '📉 SHORT'}
+                        </span>
+                      );
+                    })()}
+                    <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {formatDate(item.createdAt)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartTrade(item);
+                      }}
+                      className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                      title="Enter position - Move to Active Trades"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      Start Trade
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(item);
+                      }}
+                      className="p-2 text-[#8b949e] hover:text-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-colors"
+                      title="Edit trade"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveFromWatchlist(item.id);
+                      }}
+                      className="p-2 text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                      title="Remove from watchlist"
+                    >
+                      <BookmarkX className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Card Body */}
+                <div className="p-4">
+                  {/* Price Row */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-[#161b22] rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-1">
+                        <DollarSign className="w-3.5 h-3.5" />
+                        Entry
+                      </div>
+                      <p className="text-base font-semibold text-white">
+                        {formatCurrency(item.entryPrice)}
+                      </p>
+                    </div>
+                    <div className="bg-[#161b22] rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 text-xs text-red-400 mb-1">
+                        <Shield className="w-3.5 h-3.5" />
+                        Stop
+                      </div>
+                      <p className="text-base font-semibold text-white">
+                        {formatCurrency(item.stopPrice)}
+                      </p>
+                    </div>
+                    <div className="bg-[#161b22] rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 text-xs text-green-400 mb-1">
+                        <Target className="w-3.5 h-3.5" />
+                        Target
+                      </div>
+                      <p className="text-base font-semibold text-white">
+                        {formatCurrency(item.targetPrice)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Stats Row */}
+                  <div className="grid grid-cols-4 gap-2 mt-3">
+                    <div className="bg-[#161b22] rounded-lg px-3 py-2">
+                      <div className="text-xs text-[#8b949e] mb-0.5">R:R</div>
+                      <span className="text-sm font-semibold text-green-400">
+                        {item.riskRatio.toFixed(2)}:1
+                      </span>
+                    </div>
+                    <div className="bg-[#161b22] rounded-lg px-3 py-2">
+                      <div className="text-xs text-[#8b949e] mb-0.5">Stop</div>
+                      <span className="text-sm font-semibold text-white">
+                        {formatCurrency(item.stopSize)}
+                      </span>
+                    </div>
+                    <div className="bg-[#161b22] rounded-lg px-3 py-2">
+                      <div className="text-xs text-[#8b949e] mb-0.5">Shares</div>
+                      <span className="text-sm font-semibold text-white">
+                        {formatNumber(item.shareSize)}
+                      </span>
+                    </div>
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+                      <div className="text-xs text-[#8b949e] mb-0.5">Profit</div>
+                      <span className="text-sm font-bold text-green-400">
+                        {formatCurrency(item.potentialReward)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* ===== MODALS ===== */}
 
       {/* Edit Modal */}
       <EditWatchlistItemModal
         item={editingItem}
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
         onSave={handleSave}
         onDelete={handleDelete}
       />
 
-      {/* Enter Position Modal */}
+      {/* Enter Position Modal (Potential → Active) */}
       <EnterPositionModal
         item={enteringItem}
         isOpen={isEnterModalOpen}
         onClose={handleCloseEnterModal}
         onConfirm={handleConfirmEnterPosition}
       />
+
+      {/* End Trade Confirmation Modal (Active → Potential) */}
+      {closingTradeId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#0F0F0F] border border-[#262626] rounded-2xl w-full max-w-sm p-6">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ArrowLeft className="w-6 h-6 text-yellow-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">End Trade?</h3>
+              <p className="text-sm text-[#8b949e] mb-6">
+                This will move the trade back to Potential Trades. You can start it again later.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setClosingTradeId(null)}
+                  className="flex-1 px-4 py-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => closingTradeId && handleClosePosition(closingTradeId)}
+                  className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors text-sm font-medium"
+                >
+                  End Trade
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
