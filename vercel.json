@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "ignoreCommand": "git log -1 --pretty=%B | grep -q '\\[build\\]' || (git branch --show-current | grep -q '^main$' \u0026\u0026 exit 1) || exit 0"
+}
