@@ -18,7 +18,8 @@ import {
   Archive,
   Trash2,
   History,
-  Plus
+  Plus,
+  Check
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
@@ -137,6 +138,10 @@ export default function WatchlistView() {
   // Track which positions have been added to calendar (for UI feedback)
   const [addedToCalendarIds, setAddedToCalendarIds] = useState<Set<string>>(new Set());
 
+  // Calendar trades for duplicate checking
+  const [calendarTrades, setCalendarTrades] = useState<Array<{ id: string; symbol: string; entryDate: string }>>([]);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -148,10 +153,33 @@ export default function WatchlistView() {
     setClosedPositions(storage.getClosedPositions());
   }, []);
 
+  // Fetch calendar trades to check for duplicates
+  const fetchCalendarTrades = useCallback(async () => {
+    try {
+      setIsLoadingCalendar(true);
+      const response = await fetch('/api/trades?limit=1000');
+      if (response.ok) {
+        const result = await response.json();
+        if (result.data && Array.isArray(result.data)) {
+          setCalendarTrades(result.data.map((t: { id: string; symbol: string; entryDate: string }) => ({
+            id: t.id,
+            symbol: t.symbol,
+            entryDate: t.entryDate,
+          })));
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching calendar trades:', err);
+    } finally {
+      setIsLoadingCalendar(false);
+    }
+  }, []);
+
   useEffect(() => {
     setMounted(true);
     loadData();
-  }, [loadData]);
+    fetchCalendarTrades();
+  }, [loadData, fetchCalendarTrades]);
 
   // Listen for storage changes (for multi-tab support)
   useEffect(() => {
@@ -367,6 +395,20 @@ export default function WatchlistView() {
     setDeletingPositionId(null);
   };
 
+  // ===== CALENDAR HELPERS =====
+  // Check if a position is already in the calendar
+  const isPositionInCalendar = useCallback((position: ClosedPosition): boolean => {
+    // Check session-based additions first
+    if (addedToCalendarIds.has(position.id)) return true;
+    
+    // Check against fetched calendar trades
+    const positionDate = position.closedAt.split('T')[0];
+    return calendarTrades.some(
+      t => t.symbol.toUpperCase() === position.ticker.toUpperCase() && 
+           t.entryDate?.split('T')[0] === positionDate
+    );
+  }, [addedToCalendarIds, calendarTrades]);
+
   // ===== ADD TO CALENDAR: Closed Position → Calendar Trade =====
   const handleAddToCalendar = async (position: ClosedPosition) => {
     try {
@@ -445,6 +487,9 @@ export default function WatchlistView() {
       setAddedToCalendarIds(prev => new Set(prev).add(position.id));
       setSuccessMessage(`Added to ${displayDate} calendar`);
       
+      // Refresh calendar trades to update button states
+      await fetchCalendarTrades();
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccessMessage(null);
@@ -841,17 +886,17 @@ export default function WatchlistView() {
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => handleAddToCalendar(position)}
-                      disabled={addedToCalendarIds.has(position.id)}
+                      disabled={isPositionInCalendar(position)}
                       className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors whitespace-nowrap ${
-                        addedToCalendarIds.has(position.id)
-                          ? 'bg-green-500/20 text-green-400 cursor-default'
+                        isPositionInCalendar(position)
+                          ? 'bg-green-500/20 text-green-400 cursor-not-allowed opacity-70'
                           : 'text-blue-400 hover:text-white hover:bg-blue-500'
                       }`}
-                      title={addedToCalendarIds.has(position.id) ? 'Added to calendar' : 'Add to Calendar'}
+                      title={isPositionInCalendar(position) ? 'Already added to calendar' : 'Add to Calendar'}
                     >
-                      {addedToCalendarIds.has(position.id) ? (
+                      {isPositionInCalendar(position) ? (
                         <>
-                          <CheckCircle className="w-3 h-3" />
+                          <Check className="w-3 h-3" />
                           Added
                         </>
                       ) : (
