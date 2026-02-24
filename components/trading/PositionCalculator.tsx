@@ -117,19 +117,20 @@ export default function PositionCalculator() {
     // Total Position Value = Share Size * Entry Price
     const positionValue = shareSize * entry;
 
-    // Validation status
+    // Validation status - use selected riskRatio from inputs
+    const desiredRatio = parseFloat(inputs.riskRatio) || 2;
     let status: 'valid' | 'marginal' | 'invalid' = 'invalid';
     let statusMessage = 'Enter all values to check trade validity';
 
-    if (actualRR >= 2) {
+    if (actualRR >= desiredRatio) {
       status = 'valid';
-      statusMessage = `✅ Valid Trade - ${actualRR.toFixed(2)}:1 R:R meets minimum 2:1 requirement`;
-    } else if (actualRR >= 1.5) {
+      statusMessage = `✅ Valid Trade - ${actualRR.toFixed(2)}:1 meets minimum ${desiredRatio}:1 requirement`;
+    } else if (actualRR >= desiredRatio * 0.75) {
       status = 'marginal';
-      statusMessage = `⚠️ Marginal Trade - ${actualRR.toFixed(2)}:1 R:R is below 2:1 minimum`;
+      statusMessage = `⚠️ Marginal Trade - ${actualRR.toFixed(2)}:1 is below ${desiredRatio}:1 minimum`;
     } else if (actualRR > 0) {
       status = 'invalid';
-      statusMessage = `❌ Invalid Trade - ${actualRR.toFixed(2)}:1 R:R is below 1.5:1 threshold`;
+      statusMessage = `❌ Invalid Trade - ${actualRR.toFixed(2)}:1 is below ${(desiredRatio * 0.75).toFixed(2)}:1 threshold`;
     }
 
     return {
@@ -451,8 +452,8 @@ export default function PositionCalculator() {
             <div className="bg-[#0F0F0F] border border-[#262626] rounded-lg p-4">
               <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Actual Risk:Reward</p>
               <p className={`text-xl font-bold ${
-                calculations.actualRR >= 2 ? 'text-green-400' :
-                calculations.actualRR >= 1.5 ? 'text-yellow-400' :
+                calculations.actualRR >= calculations.ratio ? 'text-green-400' :
+                calculations.actualRR >= calculations.ratio * 0.75 ? 'text-yellow-400' :
                 calculations.actualRR > 0 ? 'text-red-400' : 'text-white'
               }`}>
                 {calculations.actualRR > 0 ? `${calculations.actualRR.toFixed(2)}:1` : '—'}
@@ -480,19 +481,19 @@ export default function PositionCalculator() {
 
           {/* Quick Reference */}
           <div className="mt-4 p-3 bg-[#1a1a1a] border border-[#262626] rounded-lg">
-            <p className="text-xs font-medium text-[#8b949e] mb-2">Quick Reference</p>
+            <p className="text-xs font-medium text-[#8b949e] mb-2">Quick Reference (using {parseFloat(inputs.riskRatio) || 2}:1)</p>
             <div className="space-y-1 text-xs">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-[#8b949e]">≥ 2:1 R:R — Valid trade</span>
+                <span className="text-[#8b949e]">≥ {parseFloat(inputs.riskRatio) || 2}:1 R:R — Valid trade</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                <span className="text-[#8b949e]">1.5:1 to 2:1 — Marginal</span>
+                <span className="text-[#8b949e]">{(parseFloat(inputs.riskRatio) || 2) * 0.75}:1 to {parseFloat(inputs.riskRatio) || 2}:1 — Marginal</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-[#8b949e]">&lt; 1.5:1 — Invalid, skip trade</span>
+                <span className="text-[#8b949e]">&lt; {(parseFloat(inputs.riskRatio) || 2) * 0.75}:1 — Invalid, skip trade</span>
               </div>
             </div>
           </div>
