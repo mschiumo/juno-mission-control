@@ -1,23 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from 'redis';
-
-// Lazy Redis client initialization
-let redisClient: ReturnType<typeof createClient> | null = null;
-
-async function getRedisClient() {
-  if (redisClient) return redisClient;
-  
-  try {
-    const client = createClient({ url: process.env.REDIS_URL || undefined });
-    client.on('error', (err) => console.error('Redis Client Error:', err));
-    await client.connect();
-    redisClient = client;
-    return client;
-  } catch (error) {
-    console.error('Failed to connect to Redis:', error);
-    return null;
-  }
-}
+import { auth } from '@/lib/auth-config';
+import { getUserId, getHabitsKey, getHabitsPattern } from '@/lib/db/user-data';
+import { getRedisClient } from '@/lib/redis';
 
 // MJ's default habits (for reference/ordering)
 const DEFAULT_HABIT_IDS = new Set([
@@ -59,6 +43,16 @@ interface HabitData {
  */
 export async function POST() {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const redis = await getRedisClient();
     
     if (!redis) {
@@ -68,8 +62,9 @@ export async function POST() {
       );
     }
     
-    // Collect ALL unique habits from historical data
-    const habitKeys = await redis.keys('habits_data:*');
+    // Collect ALL unique habits from historical data for this user
+    const habitPattern = getHabitsPattern(userId);
+    const habitKeys = await redis.keys(habitPattern);
     const allHabitsMap = new Map<string, HabitData>();
     
     for (const key of habitKeys) {
@@ -98,17 +93,17 @@ export async function POST() {
       return (a.order ?? 0) - (b.order ?? 0);
     });
     
-    // Delete all historical habit data
+    // Delete all historical habit data for this user
     if (habitKeys.length > 0) {
       await redis.del(habitKeys);
     }
     
-    // Also delete evening check-in data (both formats)
-    const checkinKeys = await redis.keys('evening_checkin:*');
+    // Also delete evening check-in data for this user
+    const checkinKeys = await redis.keys(`evening_checkin:${userId}*`);
     if (checkinKeys.length > 0) {
       await redis.del(checkinKeys);
     }
-    await redis.del('evening_checkins');
+    await redis.del(`evening_checkin:${userId}`);
     
     // Create fresh habits for today - PRESERVE custom ones, reset history only
     const today = getToday();
@@ -120,7 +115,7 @@ export async function POST() {
       order: index // Reorder to fill any gaps
     }));
     
-    await redis.set(`habits_data:${today}`, JSON.stringify(freshHabits));
+    await redis.set(getHabitsKey(userId, today), JSON.stringify(freshHabits));
     
     const customHabitsCount = freshHabits.length - DEFAULT_HABIT_IDS.size;
     

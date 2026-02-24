@@ -1,6 +1,6 @@
-# Gmail OAuth Authentication Feature
+# Gmail OAuth Authentication + Multi-User Support
 
-This feature adds NextAuth.js with Google OAuth to the Juno Mission Control dashboard, requiring users to authenticate before accessing any dashboard content.
+This feature adds NextAuth.js with Google OAuth to the Juno Mission Control dashboard, requiring users to authenticate before accessing any dashboard content. Additionally, all data is now user-scoped, ensuring complete data isolation between users.
 
 ## Changes Summary
 
@@ -12,7 +12,10 @@ This feature adds NextAuth.js with Google OAuth to the Juno Mission Control dash
 4. **`middleware.ts`** - Route protection middleware
 5. **`components/AuthProvider.tsx`** - Session provider wrapper
 6. **`components/UserMenu.tsx`** - User dropdown menu with sign-out
-7. **`types/next-auth.d.ts`** - TypeScript type declarations
+7. **`types/next-auth.d.ts`** - TypeScript type declarations for NextAuth
+8. **`types/user.ts`** - User type definitions and helper functions
+9. **`lib/db/user-data.ts`** - User-scoped data access helpers with Redis key patterns
+10. **`app/api/migrate/route.ts`** - One-time data migration endpoint
 
 ### Modified Files
 
@@ -20,6 +23,14 @@ This feature adds NextAuth.js with Google OAuth to the Juno Mission Control dash
 2. **`app/layout.tsx`** - Wrapped with AuthProvider
 3. **`app/page.tsx`** - Added UserMenu to header
 4. **`.env.example`** - Documented required environment variables
+5. **`app/api/trades/*`** - All trade endpoints now user-scoped
+6. **`app/api/habits/*`** - All habit endpoints now user-scoped
+7. **`app/api/goals/*`** - Goals endpoints now user-scoped
+8. **`app/api/daily-journal/*`** - Journal endpoints now user-scoped
+9. **`app/api/activity-log/*`** - Activity log now user-scoped
+10. **`app/api/cron-results/*`** - Cron results now user-scoped
+11. **`app/api/evening-checkin/*`** - Evening check-in now user-scoped
+12. **`app/api/notifications/*`** - Notifications now fully user-scoped
 
 ## Environment Variables Required
 
@@ -80,6 +91,62 @@ The following Google scopes are requested:
 - `gmail.modify` - Modify Gmail (mark as read, archive)
 - `calendar.readonly` - Read Calendar events
 
+## Multi-User Data Isolation
+
+All data is now scoped to individual users using their email address as the user ID. This ensures complete data isolation between users.
+
+### Redis Key Patterns
+
+| Data Type | Old Key | New Key Pattern |
+|-----------|---------|-----------------|
+| Trades | `trades:v2:data` | `trades:v2:{userId}:data` |
+| Habits | `habits_data:{date}` | `habits:{userId}:data:{date}` |
+| Goals | `goals_data` | `goals:{userId}:data` |
+| Journal | `daily-journal:{date}` | `journal:{userId}:entry:{date}` |
+| Cron Results | `cron_results` | `cron_results:{userId}` |
+| Activity Log | `activity_log` | `activity_log:{userId}` |
+| Evening Check-in | `evening_checkins` | `evening_checkin:{userId}` |
+| Notifications | `notification:{id}` | `notification:{userId}:{id}` |
+
+### User ID Format
+The user ID is derived from the user's email address (normalized to lowercase):
+```typescript
+userId = email.toLowerCase().trim()
+```
+
+This creates a stable, predictable ID that doesn't require database lookups.
+
+## Data Migration
+
+### Migration Endpoint
+
+After deploying this update, run the one-time migration to move existing global data to user-scoped keys:
+
+```bash
+# Check migration status
+GET /api/migrate
+
+# Run migration (migrates all legacy data to authenticated user's scope)
+POST /api/migrate
+
+# Delete legacy data after confirming migration worked
+DELETE /api/migrate
+```
+
+### Migration Process
+
+1. **Check status first:** `GET /api/migrate` shows what legacy data exists and what user-scoped data exists
+2. **Run migration:** `POST /api/migrate` moves all legacy data to `trades:v2:{your-email}:data`, etc.
+3. **Verify:** Check that all your data is accessible
+4. **Cleanup (optional):** `DELETE /api/migrate` removes all legacy global data
+
+### Important Notes
+
+- Only authenticated users can run the migration
+- The first user to run the migration becomes the owner of all legacy data
+- Migration is idempotent - running it multiple times won't duplicate data
+- Legacy data is preserved until explicitly deleted via DELETE /api/migrate
+
 ## Testing Locally
 
 1. Copy `.env.example` to `.env.local` and fill in your credentials
@@ -90,9 +157,40 @@ The following Google scopes are requested:
 6. Click "Sign in with Google" and authorize the app
 7. You should be redirected back to the dashboard
 
-## Notes
+## Testing Multi-User Isolation
 
-- The middleware uses the latest Next.js 16 App Router patterns
-- NextAuth.js v5 beta is used for compatibility with Next.js 16
-- TypeScript types are extended for custom session properties
-- The UserMenu component is responsive and works on mobile
+1. Sign in with User A
+2. Add some trades, habits, goals, or journal entries
+3. Sign out
+4. Sign in with User B (different Google account)
+5. Verify that User A's data is not visible
+6. Add data as User B
+7. Sign back in as User A and verify User B's data is not visible
+
+## Breaking Changes
+
+### For API Consumers
+
+- All API endpoints now require authentication (401 if not logged in)
+- The `userId` query parameter is no longer needed (derived from session)
+- Existing API calls from external services will need to include authentication
+
+### For Data Access
+
+- Direct Redis access must use new key patterns
+- Legacy global keys are no longer used by the application
+- Migration must be run to preserve existing data
+
+## Security Considerations
+
+1. **Data Isolation:** Each user can only access their own data
+2. **Session Security:** JWT tokens are signed and expire after 30 days
+3. **CSRF Protection:** NextAuth.js handles CSRF protection automatically
+4. **Secure Headers:** Middleware ensures proper security headers
+
+## Future Enhancements
+
+- Admin dashboard to view all users (for system administrators)
+- User switching capability for admins
+- Data export per user
+- Data deletion/GDPR compliance endpoint

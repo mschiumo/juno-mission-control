@@ -1,30 +1,25 @@
 import { NextResponse } from 'next/server';
-import { createClient } from 'redis';
-
-let redisClient: ReturnType<typeof createClient> | null = null;
-
-async function getRedisClient() {
-  if (redisClient) return redisClient;
-  
-  try {
-    const client = createClient({ url: process.env.REDIS_URL || undefined });
-    client.on('error', (err) => console.error('Redis Client Error:', err));
-    await client.connect();
-    redisClient = client;
-    return client;
-  } catch (error) {
-    console.error('Failed to connect to Redis:', error);
-    return null;
-  }
-}
+import { auth } from '@/lib/auth-config';
+import { getUserId, getEveningCheckinKey } from '@/lib/db/user-data';
+import { getRedisClient } from '@/lib/redis';
 
 /**
  * POST /api/evening-checkin/clear
  * 
- * Wipes all evening check-in history
+ * Clear all evening check-in data for the authenticated user
  */
 export async function POST() {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const redis = await getRedisClient();
     
     if (!redis) {
@@ -34,19 +29,17 @@ export async function POST() {
       );
     }
     
-    // Delete the evening_checkins key
-    const result = await redis.del('evening_checkins');
+    const storageKey = getEveningCheckinKey(userId);
+    await redis.del(storageKey);
     
     return NextResponse.json({
       success: true,
-      message: 'Evening check-in history cleared',
-      deleted: result === 1
+      message: 'Evening check-in data cleared successfully'
     });
-    
   } catch (error) {
-    console.error('Evening checkin clear error:', error);
+    console.error('Clear evening check-in error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to clear check-in history' },
+      { success: false, error: 'Failed to clear evening check-in data' },
       { status: 500 }
     );
   }

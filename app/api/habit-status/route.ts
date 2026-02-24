@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from 'redis';
-
-const STORAGE_KEY_PREFIX = 'habits_data';
+import { auth } from '@/lib/auth-config';
+import { getUserId, getHabitsKey, getHabitsPattern } from '@/lib/db/user-data';
+import { getRedisClient } from '@/lib/redis';
 
 // MJ's specific habits with rolling history
 const DEFAULT_HABITS = [
@@ -16,25 +16,13 @@ const DEFAULT_HABITS = [
 ];
 
 // Lazy Redis client initialization
-let redisClient: ReturnType<typeof createClient> | null = null;
+let redisClient: ReturnType<typeof import('@/lib/redis').getRedisClient> | null = null;
 
-async function getRedisClient() {
+async function getRedis() {
   if (redisClient) return redisClient;
-  
-  try {
-    const client = createClient({ url: process.env.REDIS_URL || undefined });
-    client.on('error', (err) => console.error('Redis Client Error:', err));
-    await client.connect();
-    redisClient = client;
-    return client;
-  } catch (error) {
-    console.error('Failed to connect to Redis:', error);
-    return null;
-  }
-}
-
-function getStorageKey(date: string) {
-  return `${STORAGE_KEY_PREFIX}:${date}`;
+  const { getRedisClient } = await import('@/lib/redis');
+  redisClient = await getRedisClient();
+  return redisClient;
 }
 
 function getToday() {
@@ -117,14 +105,12 @@ function calculateStreak(completedToday: boolean, history: boolean[]): number {
  * Fetch historical completion data for a habit
  * Walks backwards through dates to build a complete picture
  */
-async function fetchHistoricalData(redis: ReturnType<typeof createClient> | null, startDate: string, daysToFetch: number): Promise<Map<string, HabitData[]>> {
+async function fetchHistoricalData(redis: Awaited<ReturnType<typeof getRedis>>, userId: string, startDate: string, daysToFetch: number): Promise<Map<string, HabitData[]>> {
   const historicalData = new Map<string, HabitData[]>();
-  
-  if (!redis) return historicalData;
   
   for (let i = 0; i < daysToFetch; i++) {
     const date = getPreviousDate(startDate, i);
-    const key = getStorageKey(date);
+    const key = getHabitsKey(userId, date);
     const data = await redis.get(key);
     if (data) {
       historicalData.set(date, JSON.parse(data));
@@ -199,9 +185,19 @@ function initializeHabits(previousData: HabitData[] | null, today: string): Habi
 
 export async function GET() {
   try {
-    const redis = await getRedisClient();
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
+    const redis = await getRedis();
     const today = getToday();
-    const storageKey = getStorageKey(today);
+    const storageKey = getHabitsKey(userId, today);
     
     let habits: HabitData[];
     
@@ -214,7 +210,7 @@ export async function GET() {
         habits = JSON.parse(stored);
         
         // Fetch historical data for accurate streak calculation
-        const historicalData = await fetchHistoricalData(redis, today, 30);
+        const historicalData = await fetchHistoricalData(redis, userId, today, 30);
         
         habits = habits.map(habit => {
           // Build complete history from historical data
@@ -232,7 +228,7 @@ export async function GET() {
       } else {
         // No data for today - check yesterday to initialize
         const yesterday = getPreviousDate(today, 1);
-        const yesterdayKey = getStorageKey(yesterday);
+        const yesterdayKey = getHabitsKey(userId, yesterday);
         const yesterdayData = await redis.get(yesterdayKey);
         
         habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today);
@@ -306,6 +302,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const body = await request.json();
     const { habitId, completed } = body;
     
@@ -313,9 +319,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'habitId is required' }, { status: 400 });
     }
 
-    const redis = await getRedisClient();
+    const redis = await getRedis();
     const today = getToday();
-    const storageKey = getStorageKey(today);
+    const storageKey = getHabitsKey(userId, today);
     
     // Load current habits
     let habits: HabitData[];
@@ -326,7 +332,8 @@ export async function POST(request: Request) {
       } else {
         // Initialize from yesterday if needed
         const yesterday = getPreviousDate(today, 1);
-        const yesterdayData = await redis.get(getStorageKey(yesterday));
+        const yesterdayKey = getHabitsKey(userId, yesterday);
+        const yesterdayData = await redis.get(yesterdayKey);
         habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today);
       }
     } else {
@@ -373,6 +380,16 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const body = await request.json();
     const { name, icon, target, category } = body;
     
@@ -383,9 +400,9 @@ export async function PUT(request: Request) {
       }, { status: 400 });
     }
 
-    const redis = await getRedisClient();
+    const redis = await getRedis();
     const today = getToday();
-    const storageKey = getStorageKey(today);
+    const storageKey = getHabitsKey(userId, today);
     
     // Load current habits
     let habits: HabitData[];
@@ -396,7 +413,8 @@ export async function PUT(request: Request) {
       } else {
         // Initialize from yesterday if needed
         const yesterday = getPreviousDate(today, 1);
-        const yesterdayData = await redis.get(getStorageKey(yesterday));
+        const yesterdayKey = getHabitsKey(userId, yesterday);
+        const yesterdayData = await redis.get(yesterdayKey);
         habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today);
       }
     } else {
@@ -435,7 +453,7 @@ export async function PUT(request: Request) {
         stats: {
           totalHabits: habits.length,
           completedToday,
-          longestStreak: Math.max(...habits.map(h => h.streak), 0),
+          longestStreak: Math.max(...habits.map(h => h.streak)),
           weeklyCompletion: Math.round((totalCompletions / (habits.length * 7)) * 100)
         }
       }
@@ -448,6 +466,16 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const { searchParams } = new URL(request.url);
     const habitId = searchParams.get('habitId');
     
@@ -455,9 +483,9 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, error: 'habitId is required' }, { status: 400 });
     }
 
-    const redis = await getRedisClient();
+    const redis = await getRedis();
     const today = getToday();
-    const storageKey = getStorageKey(today);
+    const storageKey = getHabitsKey(userId, today);
     
     // Load current habits
     let habits: HabitData[];
@@ -513,6 +541,16 @@ export async function DELETE(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const body = await request.json();
     const { habitIds } = body;
     
@@ -523,9 +561,9 @@ export async function PATCH(request: Request) {
       }, { status: 400 });
     }
 
-    const redis = await getRedisClient();
+    const redis = await getRedis();
     const today = getToday();
-    const storageKey = getStorageKey(today);
+    const storageKey = getHabitsKey(userId, today);
     
     // Load current habits
     let habits: HabitData[];

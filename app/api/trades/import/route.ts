@@ -5,9 +5,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth-config';
 import type { Trade, CSVImportResult, CSVImportError, CreateTradeRequest } from '@/types/trading';
 import { Strategy, TradeStatus, TradeSide } from '@/types/trading';
-import { saveTrades } from '@/lib/db/trades-v2';
+import { saveUserTrades, getUserTrades, getUserId } from '@/lib/db/user-data';
 import { parseTOSCSV } from '@/lib/parsers/tos-parser';
 import { getNowInEST } from '@/lib/date-utils';
 
@@ -18,26 +19,32 @@ import { getNowInEST } from '@/lib/date-utils';
  *
  * Body (JSON):
  * - csv: string (CSV content)
- * - userId: string (required)
  * - mapping: CSVImportMapping (column mapping configuration)
  * - delimiter: string (default: ',')
  *
  * Body (FormData):
  * - file: File (CSV file)
- * - userId: string (default: 'default')
  */
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const contentType = request.headers.get('content-type') || '';
     let csv: string;
-    let userId: string;
 
     if (contentType.includes('multipart/form-data')) {
       // Handle FormData (file upload)
       const formData = await request.formData();
       const file = formData.get('file') as File | null;
-      userId = (formData.get('userId') as string) || 'default';
 
       if (!file) {
         return NextResponse.json(
@@ -52,7 +59,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Handle JSON
       const body = await request.json();
       csv = body.csv;
-      userId = body.userId || 'default';
 
       if (!csv) {
         return NextResponse.json(
@@ -184,8 +190,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         });
       }
 
-      // Save to Redis
-      await saveTrades(trades);
+      // Save to Redis - merge with existing trades
+      const existingTrades = await getUserTrades(userId);
+      const tradeMap = new Map(existingTrades.map(t => [t.id, t]));
+      
+      for (const trade of trades) {
+        tradeMap.set(trade.id, trade);
+      }
+      
+      const mergedTrades = Array.from(tradeMap.values());
+      await saveUserTrades(userId, mergedTrades);
 
       return NextResponse.json({
         success: true,
@@ -311,9 +325,17 @@ async function importTradesFromCSV(
     }
   }
 
-  // Save all trades to Redis
+  // Save all trades to Redis - merge with existing
   if (trades.length > 0) {
-    await saveTrades(trades);
+    const existingTrades = await getUserTrades(userId);
+    const tradeMap = new Map(existingTrades.map(t => [t.id, t]));
+    
+    for (const trade of trades) {
+      tradeMap.set(trade.id, trade);
+    }
+    
+    const mergedTrades = Array.from(tradeMap.values());
+    await saveUserTrades(userId, mergedTrades);
   }
 
   return {

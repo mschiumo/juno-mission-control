@@ -1,5 +1,7 @@
 import { createClient } from 'redis';
 import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth-config';
+import { getUserId, getActivityLogKey } from '@/lib/db/user-data';
 
 interface ActivityItem {
   id: string;
@@ -9,8 +11,6 @@ interface ActivityItem {
   type: 'cron' | 'api' | 'user' | 'system';
   url?: string;
 }
-
-const STORAGE_KEY = 'activity_log';
 
 // Lazy Redis client initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
@@ -40,12 +40,23 @@ async function getRedisClient() {
 
 export async function GET() {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const redis = await getRedisClient();
+    const storageKey = getActivityLogKey(userId);
     
     // Get activities from Redis (or use empty array if Redis unavailable)
     let activities: ActivityItem[] = [];
     if (redis) {
-      const data = await redis.get(STORAGE_KEY);
+      const data = await redis.get(storageKey);
       activities = data ? JSON.parse(data) : [];
     }
 
@@ -76,6 +87,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const body = await request.json();
     const { action, details, type, url } = body;
 
@@ -95,8 +116,10 @@ export async function POST(request: Request) {
       }, { status: 503 });
     }
 
+    const storageKey = getActivityLogKey(userId);
+
     // Get existing activities
-    const data = await redis.get(STORAGE_KEY);
+    const data = await redis.get(storageKey);
     const activities: ActivityItem[] = data ? JSON.parse(data) : [];
 
     // Create new activity
@@ -116,7 +139,7 @@ export async function POST(request: Request) {
     }
 
     // Save back to Redis
-    await redis.set(STORAGE_KEY, JSON.stringify(activities));
+    await redis.set(storageKey, JSON.stringify(activities));
 
     return NextResponse.json({
       success: true,

@@ -5,14 +5,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth-config';
 import type { Trade, Metrics, DailySummary, TradeStatsResponse } from '@/types/trading';
-import { getAllTrades } from '@/lib/db/trades-v2';
+import { getUserTrades, getUserId } from '@/lib/db/user-data';
 
 /**
  * GET /api/trades/stats
  * 
  * Query Parameters:
- * - userId: string (required)
  * - period: 'day' | 'week' | 'month' | 'year' | 'all' (default: 'month')
  * - startDate: ISO date (optional, overrides period)
  * - endDate: ISO date (optional, overrides period)
@@ -21,17 +21,17 @@ import { getAllTrades } from '@/lib/db/trades-v2';
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const { searchParams } = new URL(request.url);
+    const session = await auth();
     
-    // Required parameters
-    const userId = searchParams.get('userId');
-    
-    if (!userId) {
+    if (!session?.user?.email) {
       return NextResponse.json(
-        { success: false, error: 'userId is required' },
-        { status: 400 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
       );
     }
+    
+    const userId = getUserId(session.user.email);
+    const { searchParams } = new URL(request.url);
     
     // Get date range
     const period = (searchParams.get('period') as Metrics['period']) || 'month';
@@ -70,13 +70,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const symbol = searchParams.get('symbol');
     const strategy = searchParams.get('strategy');
     
-    // Get all trades from Redis
-    const allTrades = await getAllTrades();
+    // Get all trades from Redis for this user
+    let trades = await getUserTrades(userId);
     
     // Get all user trades in date range
-    let trades = allTrades.filter((trade) => {
-      if (trade.userId && trade.userId !== userId) return false;
-      
+    trades = trades.filter((trade) => {
       const tradeDate = new Date(trade.entryDate);
       if (tradeDate < startDate || tradeDate > endDate) return false;
       
@@ -90,7 +88,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     trades.sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime());
     
     // Calculate metrics
-    const metrics = calculateMetrics(trades, period, startDate, endDate);
+    const metrics = calculateMetrics(trades, period, startDate, endDate, userId);
     const dailySummaries = calculateDailySummaries(trades);
     
     const response: TradeStatsResponse = {
@@ -114,7 +112,8 @@ function calculateMetrics(
   trades: Trade[],
   period: Metrics['period'],
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  userId: string
 ): Metrics {
   const closedTrades = trades.filter((t) => t.status === 'CLOSED' && t.netPnL !== undefined);
   
@@ -210,7 +209,7 @@ function calculateMetrics(
   
   return {
     id: crypto.randomUUID(),
-    userId: 'default-user', // Should match the request
+    userId,
     period,
     startDate: startDate.toISOString().split('T')[0],
     endDate: endDate.toISOString().split('T')[0],
@@ -252,7 +251,7 @@ function calculateDailySummaries(trades: Trade[]): DailySummary[] {
     if (!summariesByDate.has(date)) {
       summariesByDate.set(date, {
         id: crypto.randomUUID(),
-        userId: trade.userId || 'default',
+        userId: trade.userId || '',
         date,
         totalTrades: 0,
         winningTrades: 0,

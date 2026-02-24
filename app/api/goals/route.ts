@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
-import { createClient } from 'redis';
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth-config';
+import { getUserId, getGoalsKey } from '@/lib/db/user-data';
+import { getRedisClient } from '@/lib/redis';
 
-const STORAGE_KEY = 'goals_data';
 type Category = 'yearly' | 'weekly' | 'daily' | 'collaborative';
 
 interface ActionItem {
@@ -33,45 +34,10 @@ interface GoalsData {
 
 // Default goals structure
 const DEFAULT_GOALS: GoalsData = {
-  yearly: [
-    { id: 'y1', title: 'Generate steady self-generated income', phase: 'in-progress', category: 'yearly', source: 'mj' },
-    { id: 'y2', title: 'Master physical health & fitness', phase: 'in-progress', category: 'yearly', source: 'mj' },
-    { id: 'y3', title: 'Launch KeepLiving brand', phase: 'not-started', category: 'yearly', source: 'mj' },
-    { id: 'y4', title: 'Move overseas successfully', phase: 'not-started', category: 'yearly', source: 'mj' }
-  ],
-  weekly: [
-    { id: 'w1', title: 'Lift 4x this week', phase: 'in-progress', category: 'weekly', source: 'mj' },
-    { id: 'w2', title: 'Run 5x this week', phase: 'in-progress', category: 'weekly', source: 'mj' },
-    { id: 'w3', title: 'Trade daily with discipline', phase: 'in-progress', category: 'weekly', source: 'mj' },
-    { id: 'w4', title: 'Publish 1 blog post', phase: 'not-started', category: 'weekly', source: 'mj' }
-  ],
-  daily: [
-    { id: 'd1', title: 'Make bed', phase: 'achieved', category: 'daily', source: 'mj' },
-    { id: 'd2', title: 'Take morning meds', phase: 'in-progress', category: 'daily', source: 'mj' },
-    { id: 'd3', title: 'Read market brief', phase: 'not-started', category: 'daily', source: 'mj' },
-    { id: 'd4', title: 'Exercise/Lift', phase: 'not-started', category: 'daily', source: 'mj' }
-  ],
-  collaborative: [
-    { 
-      id: 'c1', 
-      title: 'Dashboard Theme Improvements', 
-      phase: 'in-progress', 
-      category: 'collaborative', 
-      source: 'juno',
-      junoAssisted: true,
-      actionItems: [
-        { id: 'ai-1', text: 'Update GoalsCard with tabs', status: 'completed', createdAt: new Date().toISOString() }
-      ]
-    },
-    { 
-      id: 'c2', 
-      title: 'Email Integration Setup', 
-      phase: 'not-started', 
-      category: 'collaborative', 
-      source: 'subagent',
-      junoAssisted: true
-    }
-  ]
+  yearly: [],
+  weekly: [],
+  daily: [],
+  collaborative: []
 };
 
 // Helper function to validate category
@@ -79,39 +45,32 @@ function isValidCategory(cat: string): cat is Category {
   return cat === 'yearly' || cat === 'weekly' || cat === 'daily' || cat === 'collaborative';
 }
 
-// Lazy Redis client initialization
-let redisClient: ReturnType<typeof createClient> | null = null;
-
-async function getRedisClient() {
-  if (redisClient) return redisClient;
-  
-  try {
-    const client = createClient({ url: process.env.REDIS_URL || undefined });
-    client.on('error', (err) => console.error('Redis Client Error:', err));
-    await client.connect();
-    redisClient = client;
-    return client;
-  } catch (error) {
-    console.error('Failed to connect to Redis:', error);
-    return null;
-  }
-}
-
 export async function GET() {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const redis = await getRedisClient();
     
+    const storageKey = getGoalsKey(userId);
     let goals = DEFAULT_GOALS;
     
     if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
+      const stored = await redis.get(storageKey);
       if (stored) {
         goals = JSON.parse(stored);
         // Ensure all categories exist (migration for old data)
         if (!goals.collaborative) goals.collaborative = [];
-        if (!goals.yearly) goals.yearly = DEFAULT_GOALS.yearly;
-        if (!goals.weekly) goals.weekly = DEFAULT_GOALS.weekly;
-        if (!goals.daily) goals.daily = DEFAULT_GOALS.daily;
+        if (!goals.yearly) goals.yearly = [];
+        if (!goals.weekly) goals.weekly = [];
+        if (!goals.daily) goals.daily = [];
       }
     }
 
@@ -132,6 +91,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const body = await request.json();
     const { goalId, newPhase, category, notes, junoAssisted, actionItems, title, dueDate } = body;
     
@@ -151,11 +120,12 @@ export async function POST(request: Request) {
     }
 
     const redis = await getRedisClient();
+    const storageKey = getGoalsKey(userId);
     
     // Get current goals
     let goals = DEFAULT_GOALS;
     if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
+      const stored = await redis.get(storageKey);
       if (stored) {
         goals = JSON.parse(stored);
       }
@@ -202,7 +172,7 @@ export async function POST(request: Request) {
     
     // Save to Redis
     if (redis) {
-      await redis.set(STORAGE_KEY, JSON.stringify(goals));
+      await redis.set(storageKey, JSON.stringify(goals));
     }
 
     return NextResponse.json({
@@ -221,6 +191,16 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const body = await request.json();
     const { title, category, notes, phase, junoAssisted, actionItems, id, source, dueDate } = body;
     
@@ -240,11 +220,12 @@ export async function PUT(request: Request) {
     }
 
     const redis = await getRedisClient();
+    const storageKey = getGoalsKey(userId);
     
     // Get current goals
     let goals = DEFAULT_GOALS;
     if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
+      const stored = await redis.get(storageKey);
       if (stored) {
         goals = JSON.parse(stored);
         // Ensure all categories exist (fix for corrupted data)
@@ -279,7 +260,7 @@ export async function PUT(request: Request) {
     
     // Save to Redis
     if (redis) {
-      await redis.set(STORAGE_KEY, JSON.stringify(goals));
+      await redis.set(storageKey, JSON.stringify(goals));
     }
 
     return NextResponse.json({
@@ -298,6 +279,16 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const { searchParams } = new URL(request.url);
     const goalId = searchParams.get('goalId');
     const category = searchParams.get('category');
@@ -318,18 +309,19 @@ export async function DELETE(request: Request) {
     }
 
     const redis = await getRedisClient();
+    const storageKey = getGoalsKey(userId);
     
     // Get current goals
     let goals = DEFAULT_GOALS;
     if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
+      const stored = await redis.get(storageKey);
       if (stored) {
         goals = JSON.parse(stored);
         // Ensure all categories exist (migration for old data)
         if (!goals.collaborative) goals.collaborative = [];
-        if (!goals.yearly) goals.yearly = DEFAULT_GOALS.yearly;
-        if (!goals.weekly) goals.weekly = DEFAULT_GOALS.weekly;
-        if (!goals.daily) goals.daily = DEFAULT_GOALS.daily;
+        if (!goals.yearly) goals.yearly = [];
+        if (!goals.weekly) goals.weekly = [];
+        if (!goals.daily) goals.daily = [];
       }
     }
     
@@ -338,7 +330,7 @@ export async function DELETE(request: Request) {
     
     // Save to Redis
     if (redis) {
-      await redis.set(STORAGE_KEY, JSON.stringify(goals));
+      await redis.set(storageKey, JSON.stringify(goals));
     }
 
     return NextResponse.json({
@@ -357,6 +349,16 @@ export async function DELETE(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const body = await request.json();
     const { goalId, fromCategory, toCategory } = body;
     
@@ -376,11 +378,12 @@ export async function PATCH(request: Request) {
     }
 
     const redis = await getRedisClient();
+    const storageKey = getGoalsKey(userId);
     
     // Get current goals
     let goals = DEFAULT_GOALS;
     if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
+      const stored = await redis.get(storageKey);
       if (stored) {
         goals = JSON.parse(stored);
       }
@@ -405,7 +408,7 @@ export async function PATCH(request: Request) {
     
     // Save to Redis
     if (redis) {
-      await redis.set(STORAGE_KEY, JSON.stringify(goals));
+      await redis.set(storageKey, JSON.stringify(goals));
     }
 
     return NextResponse.json({
