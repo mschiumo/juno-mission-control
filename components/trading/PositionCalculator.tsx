@@ -106,8 +106,8 @@ export default function PositionCalculator() {
     // Share Size = Risk / Stop Size
     const shareSize = stopSize > 0 ? Math.floor(risk / stopSize) : 0;
 
-    // Potential Reward = Risk * Risk Ratio
-    const potentialReward = risk * ratio;
+    // Expected Profit = (Target - Entry) * Share Size
+    const potentialReward = entry > 0 && target > 0 && shareSize > 0 ? (target - entry) * shareSize : 0;
 
     // Actual Risk:Reward = (Target - Entry) / Stop Size
     const actualRR = stopSize > 0 && target > 0 && entry > 0
@@ -434,15 +434,15 @@ export default function PositionCalculator() {
               )}
             </div>
 
-            {/* Potential Reward */}
+            {/* Expected Profit */}
             <div className="bg-[#0F0F0F] border border-[#262626] rounded-lg p-4">
-              <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Potential Reward</p>
+              <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Expected Profit</p>
               <p className="text-xl font-bold text-green-400">
                 {calculations.potentialReward > 0 ? formatCurrency(calculations.potentialReward) : '—'}
               </p>
               {showTooltips && calculations.potentialReward > 0 && (
                 <p className="text-xs text-[#8b949e] mt-1">
-                  ${calculations.risk} × {calculations.ratio}R = {formatCurrency(calculations.potentialReward)}
+                  (${calculations.target.toFixed(2)} - ${calculations.entry.toFixed(2)}) × {formatNumber(calculations.shareSize)} = {formatCurrency(calculations.potentialReward)}
                 </p>
               )}
             </div>
