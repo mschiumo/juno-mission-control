@@ -17,10 +17,13 @@ import {
   X,
   Archive,
   Trash2,
-  History
+  History,
+  Plus
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
+import type { CreateTradeRequest } from '@/types/trading';
+import { TradeSide, Strategy } from '@/types/trading';
 import EditWatchlistItemModal from './EditWatchlistItemModal';
 import EnterPositionModal from './EnterPositionModal';
 import EditActiveTradeModal from './EditActiveTradeModal';
@@ -130,9 +133,13 @@ export default function WatchlistView() {
   // Closed Positions state
   const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
   const [deletingPositionId, setDeletingPositionId] = useState<string | null>(null);
+  
+  // Track which positions have been added to calendar (for UI feedback)
+  const [addedToCalendarIds, setAddedToCalendarIds] = useState<Set<string>>(new Set());
 
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Load data from localStorage - memoized to prevent unnecessary re-renders
   const loadData = useCallback(() => {
@@ -360,6 +367,73 @@ export default function WatchlistView() {
     setDeletingPositionId(null);
   };
 
+  // ===== ADD TO CALENDAR: Closed Position → Calendar Trade =====
+  const handleAddToCalendar = async (position: ClosedPosition) => {
+    try {
+      // Calculate P&L if exit price exists, otherwise use planned target
+      const exitPrice = position.exitPrice || position.plannedTarget;
+      const isLong = position.plannedTarget > position.plannedEntry;
+      
+      // Calculate P&L: (Exit - Entry) * Shares for LONG, (Entry - Exit) * Shares for SHORT
+      let pnl = 0;
+      if (position.pnl !== undefined) {
+        pnl = position.pnl;
+      } else if (exitPrice && position.actualEntry) {
+        pnl = isLong 
+          ? (exitPrice - position.actualEntry) * position.actualShares
+          : (position.actualEntry - exitPrice) * position.actualShares;
+      }
+
+      // Create trade request
+      const tradeRequest: CreateTradeRequest = {
+        symbol: position.ticker,
+        side: isLong ? TradeSide.LONG : TradeSide.SHORT,
+        strategy: Strategy.DAY_TRADE, // Default strategy
+        entryDate: position.openedAt,
+        entryPrice: position.actualEntry,
+        shares: position.actualShares,
+        entryNotes: `${position.notes || 'Moved from Closed Positions'} [Source: closed-position-transfer]`,
+        exitDate: position.closedAt,
+        exitPrice: exitPrice,
+        stopLoss: position.plannedStop,
+        takeProfit: position.plannedTarget,
+      };
+
+      // POST to API
+      const response = await fetch('/api/trades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tradeRequest),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add trade to calendar');
+      }
+
+      // Show success feedback
+      setAddedToCalendarIds(prev => new Set(prev).add(position.id));
+      setSuccessMessage(`${position.ticker} added to calendar`);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+
+      // Dispatch event to refresh calendar if needed
+      window.dispatchEvent(new CustomEvent('juno:calendar-trades-updated'));
+
+    } catch (err) {
+      console.error('Error adding to calendar:', err);
+      setError(err instanceof Error ? err.message : 'Failed to add to calendar');
+      
+      // Clear error after 5 seconds
+      setTimeout(() => {
+        setError(null);
+      }, 5000);
+    }
+  };
+
   // ===== Formatters =====
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -401,7 +475,7 @@ export default function WatchlistView() {
 
   return (
     <div className="w-full space-y-6">
-      {/* Error Display */}
+      {/* Error & Success Display */}
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3">
           <div className="p-1.5 bg-red-500/20 rounded-full">
@@ -411,6 +485,21 @@ export default function WatchlistView() {
           <button
             onClick={() => setError(null)}
             className="text-xs text-red-400 hover:text-red-300 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+      
+      {successMessage && (
+        <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 flex items-center gap-3">
+          <div className="p-1.5 bg-green-500/20 rounded-full">
+            <CheckCircle className="w-4 h-4 text-green-400" />
+          </div>
+          <p className="text-sm text-green-400 flex-1">{successMessage}</p>
+          <button
+            onClick={() => setSuccessMessage(null)}
+            className="text-xs text-green-400 hover:text-green-300 underline"
           >
             Dismiss
           </button>
@@ -719,14 +808,38 @@ export default function WatchlistView() {
                       Closed {formatDate(position.closedAt)}
                     </div>
                   </div>
-                  <button
-                    onClick={() => setDeletingPositionId(position.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
-                    title="Delete from history"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Delete
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleAddToCalendar(position)}
+                      disabled={addedToCalendarIds.has(position.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                        addedToCalendarIds.has(position.id)
+                          ? 'bg-green-500/20 text-green-400 cursor-default'
+                          : 'text-blue-400 hover:text-white hover:bg-blue-500'
+                      }`}
+                      title={addedToCalendarIds.has(position.id) ? 'Added to calendar' : 'Add to Calendar'}
+                    >
+                      {addedToCalendarIds.has(position.id) ? (
+                        <>
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          Added
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          Add to Calendar
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setDeletingPositionId(position.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+                      title="Delete from history"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete
+                    </button>
+                  </div>
                 </div>
 
                 {/* Card Body */}
