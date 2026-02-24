@@ -11,18 +11,24 @@ import {
   Layers,
   Award,
   BarChart3,
-  Edit3
+  Edit3,
+  Play
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
+import type { ActiveTrade } from '@/types/active-trade';
 import EditWatchlistItemModal from './EditWatchlistItemModal';
+import EnterPositionModal from './EnterPositionModal';
 
 const STORAGE_KEY = 'juno:trade-watchlist';
+const ACTIVE_TRADES_KEY = 'juno:active-trades';
 
 export default function WatchlistView() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [mounted, setMounted] = useState(false);
   const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [enteringItem, setEnteringItem] = useState<WatchlistItem | null>(null);
+  const [isEnterModalOpen, setIsEnterModalOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -117,6 +123,32 @@ export default function WatchlistView() {
     handleRemove(id);
     setIsModalOpen(false);
     setEditingItem(null);
+  };
+
+  const handleEnterPosition = (item: WatchlistItem) => {
+    setEnteringItem(item);
+    setIsEnterModalOpen(true);
+  };
+
+  const handleCloseEnterModal = () => {
+    setIsEnterModalOpen(false);
+    setEnteringItem(null);
+  };
+
+  const handleConfirmEnterPosition = (activeTrade: ActiveTrade) => {
+    // Add to active trades
+    try {
+      const stored = localStorage.getItem(ACTIVE_TRADES_KEY);
+      const activeTrades: ActiveTrade[] = stored ? JSON.parse(stored) : [];
+      activeTrades.push(activeTrade);
+      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(activeTrades));
+      window.dispatchEvent(new Event('juno:active-trades-updated'));
+    } catch (error) {
+      console.error('Error saving active trade:', error);
+    }
+
+    // Remove from watchlist
+    handleRemove(activeTrade.id.replace('active-', ''));
   };
 
   const formatCurrency = (value: number) => {
@@ -224,6 +256,17 @@ export default function WatchlistView() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEnterPosition(item);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                  title="Enter position - Move to Active Trades"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Start Trade
+                </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -349,6 +392,14 @@ export default function WatchlistView() {
         onClose={handleCloseModal}
         onSave={handleSave}
         onDelete={handleDelete}
+      />
+
+      {/* Enter Position Modal */}
+      <EnterPositionModal
+        item={enteringItem}
+        isOpen={isEnterModalOpen}
+        onClose={handleCloseEnterModal}
+        onConfirm={handleConfirmEnterPosition}
       />
     </div>
   );
