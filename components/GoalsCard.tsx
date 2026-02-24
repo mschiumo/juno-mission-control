@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Target, Plus, X, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle, Calendar, Clock } from 'lucide-react';
+import { Target, Plus, X, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle, Calendar, Clock, Trash2, Square, CheckSquare } from 'lucide-react';
 
 interface Notification {
   message: string;
@@ -112,6 +112,11 @@ export default function GoalsCard() {
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<Goal | null>(null);
 
+  // Multi-select bulk delete state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
   // Initialize active category from URL query param (using 'goalTab' to avoid conflict with main page tabs)
   useEffect(() => {
     const tabParam = searchParams.get('goalTab');
@@ -123,6 +128,7 @@ export default function GoalsCard() {
   // Update URL when tab changes (using replace to avoid bloating history)
   const handleCategoryChange = (category: Category) => {
     setActiveCategory(category);
+    setSelectedIds(new Set()); // Clear selection when changing categories
     const params = new URLSearchParams(searchParams.toString());
     params.set('goalTab', category);
     router.replace(`?${params.toString()}`, { scroll: false });
@@ -182,6 +188,7 @@ export default function GoalsCard() {
       const data = await response.json();
       if (data.success) {
         setGoals(data.data);
+        setSelectedIds(new Set()); // Clear selection on refresh
       }
     } catch (error) {
       console.error('Failed to fetch goals:', error);
@@ -372,6 +379,67 @@ export default function GoalsCard() {
       console.error('Failed to restore goal:', error);
       fetchGoals();
       showNotification('Failed to restore goal', 'error');
+    }
+  };
+
+  // Multi-select handlers
+  const toggleSelection = (goalId: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(goalId)) {
+      newSelected.delete(goalId);
+    } else {
+      newSelected.add(goalId);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    const currentGoals = goals[activeCategory] || [];
+    if (selectedIds.size === currentGoals.length && currentGoals.length > 0) {
+      // Deselect all
+      setSelectedIds(new Set());
+    } else {
+      // Select all in current category
+      setSelectedIds(new Set(currentGoals.map(g => g.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const executeBulkDelete = async () => {
+    setIsBulkDeleting(true);
+    const idsToDelete = Array.from(selectedIds);
+    const deletedGoals: Goal[] = [];
+
+    // Get goals data before deleting for potential undo
+    idsToDelete.forEach(id => {
+      const goal = goals[activeCategory]?.find(g => g.id === id);
+      if (goal) deletedGoals.push(goal);
+    });
+
+    try {
+      // Delete goals one by one (API doesn't support bulk delete yet)
+      for (const goalId of idsToDelete) {
+        const goal = goals[activeCategory]?.find(g => g.id === goalId);
+        if (goal) {
+          await fetch(`/api/goals?goalId=${goalId}&category=${goal.category}`, {
+            method: 'DELETE'
+          });
+        }
+      }
+
+      // Refresh the list
+      await fetchGoals();
+      setSelectedIds(new Set());
+      setShowBulkDeleteConfirm(false);
+      showNotification(`${idsToDelete.length} goal${idsToDelete.length !== 1 ? 's' : ''} deleted`, 'success');
+    } catch (error) {
+      console.error('Error deleting goals:', error);
+      showNotification('Failed to delete some goals', 'error');
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -594,12 +662,24 @@ export default function GoalsCard() {
     const isCollaborative = goal.category === 'collaborative' || goal.source !== 'mj';
     const source = goal.source || 'mj';
     const sourceInfo = sourceLabels[source];
+    const isSelected = selectedIds.has(goal.id);
     
     const cardContent = (
       <>
-        {/* Header with source badge */}
+        {/* Header with checkbox and source badge */}
         <div className="flex items-start justify-between gap-2 overflow-hidden">
           <div className="flex items-center gap-2 flex-1 min-w-0">
+            {/* Selection checkbox */}
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleSelection(goal.id); }}
+              className="flex-shrink-0 text-[#8b949e] hover:text-[#F97316] transition-colors p-1 -ml-1"
+            >
+              {isSelected ? (
+                <CheckSquare className="w-5 h-5 text-[#F97316]" />
+              ) : (
+                <Square className="w-5 h-5" />
+              )}
+            </button>
             {isCollaborative && (
               <div className={`flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 bg-purple-500/20 rounded text-[10px] ${sourceInfo.color}`}>
                 <span>{sourceInfo.icon}</span>
@@ -607,7 +687,7 @@ export default function GoalsCard() {
               </div>
             )}
             <div className="flex flex-col flex-1 min-w-0">
-              <p className="text-sm text-white truncate">
+              <p className={`text-sm truncate ${isSelected ? 'text-[#F97316]' : 'text-white'}`}>
                 {goal.title}
               </p>
               {goal.dueDate && (
@@ -762,6 +842,10 @@ export default function GoalsCard() {
 
   // Mobile view
   if (isMobile) {
+    const currentGoals = goals[activeCategory] || [];
+    const allSelected = currentGoals.length > 0 && selectedIds.size === currentGoals.length;
+    const someSelected = selectedIds.size > 0 && selectedIds.size < currentGoals.length;
+
     return (
       <div className="card">
         {/* Mobile Header */}
@@ -777,12 +861,24 @@ export default function GoalsCard() {
               <p className="text-xs text-[#737373]">{categoryDescriptions[activeCategory]}</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="p-2 bg-[#F97316] text-white rounded-xl"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {selectedIds.size > 0 ? (
+              <button
+                onClick={() => setShowBulkDeleteConfirm(true)}
+                className="flex items-center gap-1 px-3 py-2 bg-[#da3633]/20 hover:bg-[#da3633]/30 text-[#f85149] rounded-xl text-sm transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                ({selectedIds.size})
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="p-2 bg-[#F97316] text-white rounded-xl"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Mobile Category Tabs - Two-level navigation */}
@@ -833,6 +929,37 @@ export default function GoalsCard() {
 
         {/* Mobile: Stacked Phases */}
         <div className="space-y-4">
+          {/* Select All Header */}
+          {currentGoals.length > 0 && (
+            <div className="flex items-center justify-between px-1">
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center gap-2 text-sm text-[#8b949e] hover:text-white transition-colors"
+              >
+                {allSelected ? (
+                  <CheckSquare className="w-5 h-5 text-[#F97316]" />
+                ) : someSelected ? (
+                  <div className="relative">
+                    <Square className="w-5 h-5 text-[#8b949e]" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-2.5 h-2.5 bg-[#F97316] rounded-sm" />
+                    </div>
+                  </div>
+                ) : (
+                  <Square className="w-5 h-5" />
+                )}
+                <span>{selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select All'}</span>
+              </button>
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={clearSelection}
+                  className="text-xs text-[#737373] hover:text-white transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
           {(['not-started', 'in-progress', 'achieved'] as Phase[]).map((phase) => {
             const phaseGoals = getGoalsByPhase(activeCategory, phase);
             return (
@@ -1095,11 +1222,56 @@ export default function GoalsCard() {
             </div>
           </div>
         )}
+
+        {/* Mobile Bulk Delete Confirmation Modal */}
+        {showBulkDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="card w-full max-w-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle className="w-6 h-6 text-[#da3633]" />
+                <h3 className="text-lg font-semibold text-white">Delete Goals?</h3>
+              </div>
+              <p className="text-[#737373] mb-6 text-sm">
+                Are you sure you want to delete {selectedIds.size} goal{selectedIds.size !== 1 ? 's' : ''}? This action cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowBulkDeleteConfirm(false)}
+                  disabled={isBulkDeleting}
+                  className="flex-1 px-4 py-3 bg-[#262626] text-white rounded-xl text-sm font-medium min-h-[44px] disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={executeBulkDelete}
+                  disabled={isBulkDeleting}
+                  className="flex-1 px-4 py-3 bg-[#da3633] text-white rounded-xl text-sm font-medium min-h-[44px] disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isBulkDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   // Desktop view
+  const currentGoals = goals[activeCategory] || [];
+  const allSelected = currentGoals.length > 0 && selectedIds.size === currentGoals.length;
+  const someSelected = selectedIds.size > 0 && selectedIds.size < currentGoals.length;
+
   return (
     <div className="card">
       {/* Header */}
@@ -1119,13 +1291,33 @@ export default function GoalsCard() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#F97316] text-white rounded-xl text-sm hover:bg-[#ff8c5a] transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add {activeCategory === 'collaborative' ? 'Task' : 'Goal'}
-          </button>
+          {selectedIds.size > 0 ? (
+            <>
+              <span className="text-sm text-[#8b949e] mr-2">{selectedIds.size} selected</span>
+              <button
+                onClick={() => setShowBulkDeleteConfirm(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#da3633]/20 hover:bg-[#da3633]/30 text-[#f85149] rounded-xl text-sm transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+              <button
+                onClick={clearSelection}
+                className="p-2 text-[#737373] hover:text-white transition-colors"
+                title="Clear selection"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-[#F97316] text-white rounded-xl text-sm hover:bg-[#ff8c5a] transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add {activeCategory === 'collaborative' ? 'Task' : 'Goal'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1192,30 +1384,67 @@ export default function GoalsCard() {
 
       {/* KanBan Board */}
       <div className="grid grid-cols-3 gap-4">
-        {(['not-started', 'in-progress', 'achieved'] as Phase[]).map((phase) => (
-          <div
-            key={phase}
-            className="bg-[#0F0F0F] rounded-xl p-4 min-h-[300px] border border-[#262626]"
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, phase)}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-white">{phaseLabels[phase]}</h3>
-              <span className="text-xs text-[#737373] bg-[#1a1a1a] px-2 py-1 rounded-full">
-                {getGoalsByPhase(activeCategory, phase).length}
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              {getGoalsByPhase(activeCategory, phase).map((goal) => renderGoalCard(goal, phase, false))}
-              {getGoalsByPhase(activeCategory, phase).length === 0 && (
-                <div className="text-center py-8 text-[#737373] text-sm">
-                  Drop goals here
+        {(['not-started', 'in-progress', 'achieved'] as Phase[]).map((phase) => {
+          const phaseGoals = getGoalsByPhase(activeCategory, phase);
+          const phaseSelectedCount = phaseGoals.filter(g => selectedIds.has(g.id)).length;
+          const allPhaseSelected = phaseGoals.length > 0 && phaseSelectedCount === phaseGoals.length;
+          
+          return (
+            <div
+              key={phase}
+              className="bg-[#0F0F0F] rounded-xl p-4 min-h-[300px] border border-[#262626]"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, phase)}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const phaseGoalIds = phaseGoals.map(g => g.id);
+                      const newSelected = new Set(selectedIds);
+                      if (allPhaseSelected) {
+                        // Deselect all in this phase
+                        phaseGoalIds.forEach(id => newSelected.delete(id));
+                      } else {
+                        // Select all in this phase
+                        phaseGoalIds.forEach(id => newSelected.add(id));
+                      }
+                      setSelectedIds(newSelected);
+                    }}
+                    className="text-[#8b949e] hover:text-[#F97316] transition-colors"
+                    title={allPhaseSelected ? "Deselect all in this column" : "Select all in this column"}
+                  >
+                    {allPhaseSelected ? (
+                      <CheckSquare className="w-4 h-4 text-[#F97316]" />
+                    ) : phaseSelectedCount > 0 ? (
+                      <div className="relative">
+                        <Square className="w-4 h-4" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 bg-[#F97316] rounded-sm" />
+                        </div>
+                      </div>
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                  </button>
+                  <h3 className="text-sm font-medium text-white">{phaseLabels[phase]}</h3>
                 </div>
-              )}
+                <span className="text-xs text-[#737373] bg-[#1a1a1a] px-2 py-1 rounded-full">
+                  {phaseGoals.length}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {phaseGoals.map((goal) => renderGoalCard(goal, phase, false))}
+                {phaseGoals.length === 0 && (
+                  <div className="text-center py-8 text-[#737373] text-sm">
+                    Drop goals here
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Add Goal Modal - Desktop */}
@@ -1497,6 +1726,56 @@ export default function GoalsCard() {
                 className="flex-1 px-4 py-3 bg-[#da3633] text-white rounded-xl hover:bg-red-600 transition-colors font-medium min-h-[44px]"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal - Desktop */}
+      {showBulkDeleteConfirm && !isMobile && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="card w-full max-w-md">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-[#da3633]/20 rounded-full">
+                <Trash2 className="w-6 h-6 text-[#f85149]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Delete Goals</h3>
+                <p className="text-sm text-[#737373]">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="mb-6 p-4 bg-[#0F0F0F] rounded-xl">
+              <p className="text-white font-medium">
+                Are you sure you want to delete {selectedIds.size} goal{selectedIds.size !== 1 ? 's' : ''}?
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBulkDeleteConfirm(false)}
+                disabled={isBulkDeleting}
+                className="flex-1 px-4 py-3 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors font-medium min-h-[44px] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeBulkDelete}
+                disabled={isBulkDeleting}
+                className="flex-1 px-4 py-3 bg-[#da3633] text-white rounded-xl hover:bg-red-600 transition-colors font-medium min-h-[44px] disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isBulkDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete {selectedIds.size}
+                  </>
+                )}
               </button>
             </div>
           </div>
