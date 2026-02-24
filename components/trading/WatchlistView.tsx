@@ -210,40 +210,40 @@ export default function WatchlistView() {
               </div>
 
               {/* Stats Row */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-[#161b22] rounded-lg p-2.5">
-                  <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-1">
-                    <Award className="w-3.5 h-3.5" />
-                    R:R
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                <div className="bg-[#161b22] rounded-lg p-2 min-w-0">
+                  <div className="flex items-center gap-1 text-xs text-[#8b949e] mb-1">
+                    <Award className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate">R:R</span>
                   </div>
-                  <p className="text-sm font-semibold text-green-400">
+                  <p className="text-sm font-semibold text-green-400 truncate">
                     {item.riskRatio.toFixed(2)}:1
                   </p>
                 </div>
-                <div className="bg-[#161b22] rounded-lg p-2.5">
-                  <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-1">
-                    <Shield className="w-3.5 h-3.5" />
-                    Stop Size
+                <div className="bg-[#161b22] rounded-lg p-2 min-w-0">
+                  <div className="flex items-center gap-1 text-xs text-[#8b949e] mb-1">
+                    <Shield className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate">Stop</span>
                   </div>
-                  <p className="text-sm font-semibold text-white">
+                  <p className="text-xs font-semibold text-white truncate">
                     {formatCurrency(item.stopSize)}
                   </p>
                 </div>
-                <div className="bg-[#161b22] rounded-lg p-2.5">
-                  <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-1">
-                    <Layers className="w-3.5 h-3.5" />
-                    Shares
+                <div className="bg-[#161b22] rounded-lg p-2 min-w-0">
+                  <div className="flex items-center gap-1 text-xs text-[#8b949e] mb-1">
+                    <Layers className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate">Shares</span>
                   </div>
-                  <p className="text-sm font-semibold text-white">
+                  <p className="text-xs font-semibold text-white truncate">
                     {formatNumber(item.shareSize)}
                   </p>
                 </div>
-                <div className="bg-[#161b22] rounded-lg p-2.5">
-                  <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-1">
-                    <DollarSign className="w-3.5 h-3.5" />
-                    Position
+                <div className="bg-[#161b22] rounded-lg p-2 min-w-0">
+                  <div className="flex items-center gap-1 text-xs text-[#8b949e] mb-1">
+                    <DollarSign className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate">Position</span>
                   </div>
-                  <p className="text-sm font-semibold text-white">
+                  <p className="text-xs font-semibold text-white truncate">
                     {formatCurrency(item.positionValue)}
                   </p>
                 </div>
