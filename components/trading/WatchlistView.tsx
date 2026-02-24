@@ -384,22 +384,27 @@ export default function WatchlistView() {
           : (position.actualEntry - exitPrice) * position.actualShares;
       }
 
-      // Create trade request
+      // Extract the original trade date for calendar display
+      // Use closedAt date to ensure trade appears on correct day
+      const displayDate = new Date(position.closedAt).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+
+      // Create trade request with ORIGINAL TRADE DATE
       const tradeRequest: CreateTradeRequest = {
         symbol: position.ticker,
         side: isLong ? TradeSide.LONG : TradeSide.SHORT,
         strategy: Strategy.DAY_TRADE, // Default strategy
-        entryDate: position.openedAt,
+        entryDate: position.openedAt, // Original entry date
         entryPrice: position.actualEntry,
         shares: position.actualShares,
-        entryNotes: `${position.notes || 'Moved from Closed Positions'} [Source: closed-position-transfer]`,
-        exitDate: position.closedAt,
-        exitPrice: exitPrice,
+        entryNotes: `Transferred from Closed Positions. ${position.notes || ''} [Source: closed-position-transfer]`,
         stopLoss: position.plannedStop,
         takeProfit: position.plannedTarget,
       };
 
-      // POST to API
+      // POST to API to create the trade
       const response = await fetch('/api/trades', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -411,9 +416,29 @@ export default function WatchlistView() {
         throw new Error(errorData.error || 'Failed to add trade to calendar');
       }
 
-      // Show success feedback
+      const result = await response.json();
+      
+      // Now update the trade with exit info (close it) to match the original closed position
+      if (result.data?.id) {
+        const updateResponse = await fetch(`/api/trades/${result.data.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            exitDate: position.closedAt, // ORIGINAL close date - ensures calendar shows correct date
+            exitPrice: exitPrice,
+            exitNotes: `Closed position transferred from watchlist. P&L: ${formatCurrency(pnl)}`,
+            status: 'CLOSED',
+          }),
+        });
+
+        if (!updateResponse.ok) {
+          console.warn('Trade created but exit info update failed');
+        }
+      }
+
+      // Show success feedback with the date
       setAddedToCalendarIds(prev => new Set(prev).add(position.id));
-      setSuccessMessage(`${position.ticker} added to calendar`);
+      setSuccessMessage(`Added to ${displayDate} calendar`);
       
       // Clear success message after 3 seconds
       setTimeout(() => {
