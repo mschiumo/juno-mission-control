@@ -1,13 +1,63 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import Link from "next/link";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 function LoginContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const error = searchParams.get("error");
+  const registered = searchParams.get("registered");
+  
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (formError) setFormError("");
+  };
+
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.email || !formData.password) {
+      setFormError("Please enter both email and password");
+      return;
+    }
+
+    setIsLoading(true);
+    setFormError("");
+
+    try {
+      const result = await signIn("credentials", {
+        email: formData.email,
+        password: formData.password,
+        callbackUrl,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setFormError("Invalid email or password");
+      } else if (result?.ok) {
+        router.push(callbackUrl);
+        router.refresh();
+      }
+    } catch (err) {
+      setFormError("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0d1117] flex items-center justify-center px-4">
@@ -27,18 +77,95 @@ function LoginContent() {
 
         {/* Login Card */}
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-8 shadow-xl">
-          {error && (
+          {registered && (
+            <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-sm">
+              Account created successfully! Please sign in with your credentials.
+            </div>
+          )}
+
+          {(error || formError) && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
               {error === "OAuthCallback" && "Authentication failed. Please try again."}
               {error === "OAuthAccountNotLinked" && "This account is not linked. Please sign in with your original provider."}
               {error === "SessionRequired" && "Please sign in to access this page."}
-              {!error && "An error occurred during sign in."}
+              {error === "CredentialsSignin" && "Invalid email or password."}
+              {formError || (!error?.startsWith("OAuth") && !error?.startsWith("Session") && error)}
             </div>
           )}
 
+          {/* Email/Password Form */}
+          <form onSubmit={handleCredentialsSubmit} className="space-y-4 mb-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-[#c9d1d9] mb-1">
+                Email Address
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#6e7681] focus:outline-none focus:ring-2 focus:ring-[#F97316] focus:border-transparent transition-all"
+                placeholder="you@example.com"
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-[#c9d1d9] mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg text-white placeholder-[#6e7681] focus:outline-none focus:ring-2 focus:ring-[#F97316] focus:border-transparent transition-all"
+                  placeholder="••••••••"
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b949e] hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-[#F97316] hover:bg-[#ea580c] text-white font-medium py-3 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[#F97316] focus:ring-offset-2 focus:ring-offset-[#161b22] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign In"
+              )}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-4 mb-6">
+            <div className="flex-1 h-px bg-[#30363d]"></div>
+            <span className="text-sm text-[#8b949e]">or continue with</span>
+            <div className="flex-1 h-px bg-[#30363d]"></div>
+          </div>
+
+          {/* Google Sign In */}
           <button
             onClick={() => signIn("google", { callbackUrl })}
-            className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 font-medium py-3 px-4 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#F97316] focus:ring-offset-2 focus:ring-offset-[#161b22]"
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 font-medium py-3 px-4 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#F97316] focus:ring-offset-2 focus:ring-offset-[#161b22] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -61,9 +188,16 @@ function LoginContent() {
             Sign in with Google
           </button>
 
+          {/* Create Account Link */}
           <div className="mt-6 text-center">
             <p className="text-sm text-[#8b949e]">
-              By signing in, you agree to allow Juno Mission Control to access your Gmail and Calendar data.
+              Don&apos;t have an account?{" "}
+              <Link
+                href="/signup"
+                className="text-[#F97316] hover:text-[#ff8c5a] font-medium transition-colors"
+              >
+                Create account
+              </Link>
             </p>
           </div>
         </div>
