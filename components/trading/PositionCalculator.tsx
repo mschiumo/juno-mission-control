@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calculator, RotateCcw, CheckCircle, AlertCircle, XCircle, Info } from 'lucide-react';
+import { Calculator, RotateCcw, CheckCircle, AlertCircle, XCircle, Plus, BookmarkPlus, Info } from 'lucide-react';
+import type { WatchlistItem } from '@/types/watchlist';
 
 interface CalculatorInputs {
+  ticker: string;
   riskAmount: string;
   entryPrice: string;
   stopPrice: string;
@@ -12,6 +14,7 @@ interface CalculatorInputs {
 }
 
 const DEFAULT_VALUES: CalculatorInputs = {
+  ticker: '',
   riskAmount: '20',
   entryPrice: '',
   stopPrice: '',
@@ -27,19 +30,63 @@ const RISK_RATIO_OPTIONS = [
   { value: '4', label: '4:1' },
 ];
 
+const STORAGE_KEY = 'juno:trade-watchlist';
+
 export default function PositionCalculator() {
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_VALUES);
   const [showTooltips, setShowTooltips] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [addSuccess, setAddSuccess] = useState(false);
 
   const handleInputChange = (field: keyof CalculatorInputs, value: string) => {
-    // Allow empty string or valid numbers
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+    // Allow empty string or valid numbers for numeric fields
+    if (field === 'ticker') {
+      // Convert ticker to uppercase
+      setInputs(prev => ({ ...prev, [field]: value.toUpperCase() }));
+    } else if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setInputs(prev => ({ ...prev, [field]: value }));
     }
   };
 
   const handleReset = () => {
     setInputs(DEFAULT_VALUES);
+    setAddSuccess(false);
+  };
+
+  const handleAddToWatchlist = () => {
+    if (calculations.status !== 'valid' || !inputs.ticker.trim()) return;
+
+    const newItem: WatchlistItem = {
+      id: Date.now().toString(),
+      ticker: inputs.ticker.trim().toUpperCase(),
+      entryPrice: calculations.entry,
+      stopPrice: calculations.stop,
+      targetPrice: calculations.target,
+      riskRatio: calculations.actualRR,
+      stopSize: calculations.stopSize,
+      shareSize: calculations.shareSize,
+      potentialReward: calculations.potentialReward,
+      positionValue: calculations.positionValue,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      // Get existing watchlist
+      const stored = localStorage.getItem(STORAGE_KEY);
+      const existing: WatchlistItem[] = stored ? JSON.parse(stored) : [];
+      
+      // Add new item to the beginning
+      const updated = [newItem, ...existing];
+      
+      // Save to localStorage
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      
+      // Show success feedback
+      setAddSuccess(true);
+      setTimeout(() => setAddSuccess(false), 2000);
+    } catch (error) {
+      console.error('Error saving to watchlist:', error);
+    }
   };
 
   // Calculate all values
@@ -140,6 +187,9 @@ export default function PositionCalculator() {
 
   const statusColors = getStatusColors();
 
+  // Check if add to watchlist button should be enabled
+  const canAddToWatchlist = calculations.status === 'valid' && inputs.ticker.trim().length > 0;
+
   return (
     <div className="w-full">
       {/* Header */}
@@ -176,6 +226,26 @@ export default function PositionCalculator() {
         <div className="space-y-4">
           <h4 className="text-sm font-medium text-[#8b949e] uppercase tracking-wide">Trade Parameters</h4>
           
+          {/* Ticker Symbol */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-white">
+              Stock Ticker
+              {showTooltips && (
+                <span className="text-xs text-[#8b949e] font-normal">
+                  — Symbol for the stock you&apos;re trading
+                </span>
+              )}
+            </label>
+            <input
+              type="text"
+              value={inputs.ticker}
+              onChange={(e) => handleInputChange('ticker', e.target.value)}
+              placeholder="AAPL"
+              className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg px-4 py-2.5 text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors uppercase"
+            />
+            <p className="text-xs text-[#8b949e]">Required to save to watchlist</p>
+          </div>
+
           {/* Risk Amount */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm text-white">
@@ -304,6 +374,33 @@ export default function PositionCalculator() {
               </p>
             </div>
           </div>
+
+          {/* Add to Watchlist Button - Only show for valid trades */}
+          {calculations.status === 'valid' && (
+            <button
+              onClick={handleAddToWatchlist}
+              disabled={!canAddToWatchlist}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                addSuccess
+                  ? 'bg-green-500 text-white'
+                  : canAddToWatchlist
+                    ? 'bg-[#F97316] hover:bg-[#F97316]/90 text-white'
+                    : 'bg-[#262626] text-[#8b949e] cursor-not-allowed'
+              }`}
+            >
+              {addSuccess ? (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  Added to Watchlist!
+                </>
+              ) : (
+                <>
+                  <BookmarkPlus className="w-5 h-5" />
+                  {inputs.ticker.trim() ? 'Add to Watchlist' : 'Enter Ticker to Save'}
+                </>
+              )}
+            </button>
+          )}
 
           {/* Results Grid */}
           <div className="grid grid-cols-1 gap-3">
