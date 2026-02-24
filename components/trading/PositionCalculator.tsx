@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calculator, RotateCcw, Eraser, CheckCircle, AlertCircle, XCircle, Plus, BookmarkPlus, Info } from 'lucide-react';
+import { Calculator, Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 
 interface CalculatorInputs {
@@ -47,12 +47,6 @@ export default function PositionCalculator() {
     } else if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setInputs(prev => ({ ...prev, [field]: value }));
     }
-  };
-
-  const handleReset = () => {
-    setInputs(DEFAULT_VALUES);
-    setAddSuccess(false);
-    setSaveStatus('idle');
   };
 
   const handleClear = () => {
@@ -244,13 +238,6 @@ export default function PositionCalculator() {
             title="Toggle formula explanations"
           >
             <Info className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleReset}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Reset
           </button>
           <button
             onClick={handleClear}
