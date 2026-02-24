@@ -181,34 +181,9 @@ export default function WatchlistView() {
     setEnteringItem(null);
   };
 
-  // ===== MOVE: Active → Potential (End Trade) =====
+  // ===== CLOSE: Active Trade =====
   const handleEndTrade = (trade: ActiveTrade) => {
-    // Convert back to watchlist item
-    const watchlistItem: WatchlistItem = {
-      id: trade.id.replace('active-', ''),
-      ticker: trade.ticker,
-      entryPrice: trade.plannedEntry,
-      stopPrice: trade.plannedStop,
-      targetPrice: trade.plannedTarget,
-      riskRatio: Math.abs((trade.plannedTarget - trade.plannedEntry) / (trade.plannedEntry - trade.plannedStop)),
-      stopSize: Math.abs(trade.plannedEntry - trade.plannedStop),
-      shareSize: trade.actualShares,
-      potentialReward: Math.abs(trade.plannedTarget - trade.plannedEntry) * trade.actualShares,
-      positionValue: trade.positionValue,
-      createdAt: new Date().toISOString(),
-    };
-
-    // Add back to watchlist
-    try {
-      const stored = localStorage.getItem(WATCHLIST_KEY);
-      const current: WatchlistItem[] = stored ? JSON.parse(stored) : [];
-      current.push(watchlistItem);
-      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(current));
-    } catch (error) {
-      console.error('Error saving to watchlist:', error);
-    }
-
-    // Remove from active trades
+    // Just remove from active trades - trade is now closed
     const updated = activeTrades.filter(t => t.id !== trade.id);
     setActiveTrades(updated);
     try {
@@ -216,6 +191,9 @@ export default function WatchlistView() {
     } catch (error) {
       console.error('Error saving active trades:', error);
     }
+
+    // DO NOT add back to watchlist/potential
+    // The trade is now closed (journal/history handles archived trades)
 
     // Refresh and close modal
     loadData();
@@ -325,10 +303,10 @@ export default function WatchlistView() {
                   <button
                     onClick={() => setClosingTradeId(trade.id)}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
-                    title="End trade and move back to watchlist"
+                    title="Close trade and remove from active trades"
                   >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    End Trade
+                    <X className="w-3.5 h-3.5" />
+                    Close Trade
                   </button>
                 </div>
 
@@ -576,17 +554,17 @@ export default function WatchlistView() {
         onConfirm={handleConfirmEnterPosition}
       />
 
-      {/* End Trade Confirmation Modal (Active → Potential) */}
+      {/* Close Trade Confirmation Modal (Active → Closed) */}
       {closingTradeId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-[#0F0F0F] border border-[#262626] rounded-2xl w-full max-w-sm p-6">
             <div className="text-center">
               <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ArrowLeft className="w-6 h-6 text-yellow-400" />
+                <X className="w-6 h-6 text-yellow-400" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">End Trade?</h3>
+              <h3 className="text-lg font-semibold text-white mb-2">Close Trade?</h3>
               <p className="text-sm text-[#8b949e] mb-6">
-                This will move the trade back to Potential Trades. You can start it again later.
+                This will remove the trade from Active Trades. The trade will be recorded in your Trading Journal.
               </p>
               <div className="flex gap-3">
                 <button
@@ -599,7 +577,7 @@ export default function WatchlistView() {
                   onClick={() => closingTradeId && handleClosePosition(closingTradeId)}
                   className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors text-sm font-medium"
                 >
-                  End Trade
+                  Close Trade
                 </button>
               </div>
             </div>
