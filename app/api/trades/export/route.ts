@@ -5,8 +5,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth-config';
 import type { Trade } from '@/types/trading';
-import { getAllTrades } from '@/lib/db/trades-v2';
+import { getUserTrades, getUserId } from '@/lib/db/user-data';
 
 /**
  * GET /api/trades/export
@@ -14,7 +15,6 @@ import { getAllTrades } from '@/lib/db/trades-v2';
  * Export trades to CSV format
  * 
  * Query Parameters:
- * - userId: string (required)
  * - format: 'csv' | 'json' (default: 'csv')
  * - startDate: ISO date (optional filter)
  * - endDate: ISO date (optional filter)
@@ -24,17 +24,17 @@ import { getAllTrades } from '@/lib/db/trades-v2';
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const { searchParams } = new URL(request.url);
+    const session = await auth();
     
-    // Required parameters
-    const userId = searchParams.get('userId');
-    
-    if (!userId) {
+    if (!session?.user?.email) {
       return NextResponse.json(
-        { success: false, error: 'userId is required' },
-        { status: 400 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
       );
     }
+    
+    const userId = getUserId(session.user.email);
+    const { searchParams } = new URL(request.url);
     
     // Optional filters
     const format = searchParams.get('format') || 'csv';
@@ -44,13 +44,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const symbol = searchParams.get('symbol');
     const includeJournal = searchParams.get('includeJournal') === 'true';
     
-    // Get all trades from Redis
-    const allTrades = await getAllTrades();
-    
-    // Get filtered trades
-    let trades = allTrades.filter(
-      (trade) => !trade.userId || trade.userId === userId
-    );
+    // Get all trades from Redis for this user
+    let trades = await getUserTrades(userId);
     
     // Apply filters
     if (startDate) {

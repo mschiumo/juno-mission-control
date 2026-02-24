@@ -1,14 +1,25 @@
 import { NextResponse } from 'next/server';
-import { clearAllTrades } from '@/lib/db/trades-v2';
+import { auth } from '@/lib/auth-config';
+import { clearUserTrades, getUserId } from '@/lib/db/user-data';
 
 /**
  * POST /api/trades/clear
  * 
- * Wipes all trade data from Redis
+ * Wipes all trade data from Redis for the authenticated user
  */
 export async function POST() {
   try {
-    await clearAllTrades();
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
+    await clearUserTrades(userId);
     
     return NextResponse.json({
       success: true,

@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth-config';
+import { getUserId } from '@/lib/db/user-data';
 import { getRedisClient } from '@/lib/redis';
 import { getNowInEST } from '@/lib/date-utils';
 
-const JOURNAL_KEY_PREFIX = 'journal:';
+const getJournalKey = (userId: string, date: string) =>> `trade-journal:${userId}:${date}`;
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const body = await request.json();
     const { date, notes } = body;
     
@@ -17,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
     
     const redis = await getRedisClient();
-    const key = `${JOURNAL_KEY_PREFIX}${date}`;
+    const key = getJournalKey(userId, date);
     
     await redis.hSet(key, {
       date,
@@ -44,6 +56,16 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     
@@ -51,7 +73,7 @@ export async function GET(request: NextRequest) {
     
     if (date) {
       // Get specific date
-      const data = await redis.hGetAll(`${JOURNAL_KEY_PREFIX}${date}`);
+      const data = await redis.hGetAll(getJournalKey(userId, date));
       return NextResponse.json({
         success: true,
         date,
@@ -60,13 +82,13 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Get all journals (scan for keys)
-    const keys = await redis.keys(`${JOURNAL_KEY_PREFIX}*`);
+    // Get all journals (scan for keys for this user)
+    const keys = await redis.keys(`trade-journal:${userId}:*`);
     const journals: Record<string, string> = {};
     
     for (const key of keys) {
       const data = await redis.hGetAll(key);
-      const dateKey = key.replace(JOURNAL_KEY_PREFIX, '');
+      const dateKey = key.replace(`trade-journal:${userId}:`, '');
       if (data.notes) {
         journals[dateKey] = data.notes;
       }
@@ -91,6 +113,16 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     
@@ -102,7 +134,7 @@ export async function DELETE(request: NextRequest) {
     }
     
     const redis = await getRedisClient();
-    await redis.del(`${JOURNAL_KEY_PREFIX}${date}`);
+    await redis.del(getJournalKey(userId, date));
     
     return NextResponse.json({
       success: true,

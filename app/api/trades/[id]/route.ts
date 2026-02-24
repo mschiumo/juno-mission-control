@@ -7,9 +7,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth-config';
 import type { Trade, UpdateTradeRequest } from '@/types/trading';
 import { TradeStatus, TradeSide } from '@/types/trading';
-import { getTradeById, updateTrade, deleteTrade } from '@/lib/db/trades-v2';
+import { 
+  getUserTrades, 
+  saveUserTrade, 
+  deleteUserTrade,
+  getUserId 
+} from '@/lib/db/user-data';
 
 interface RouteParams {
   params: Promise<{
@@ -27,24 +33,26 @@ export async function GET(
   { params }: RouteParams
 ): Promise<NextResponse> {
   try {
-    const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const session = await auth();
     
-    const trade = await getTradeById(id);
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
+    const { id } = await params;
+    
+    // Get user's trades only
+    const trades = await getUserTrades(userId);
+    const trade = trades.find(t => t.id === id);
     
     if (!trade) {
       return NextResponse.json(
         { success: false, error: 'Trade not found' },
         { status: 404 }
-      );
-    }
-    
-    // Verify user has access to this trade
-    if (userId && trade.userId && trade.userId !== userId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 403 }
       );
     }
     
@@ -72,28 +80,31 @@ export async function PUT(
   { params }: RouteParams
 ): Promise<NextResponse> {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const { id } = await params;
     const body: UpdateTradeRequest = await request.json();
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
     
-    const trade = await getTradeById(id);
+    // Get user's trades and find the one to update
+    const trades = await getUserTrades(userId);
+    const tradeIndex = trades.findIndex(t => t.id === id);
     
-    if (!trade) {
+    if (tradeIndex === -1) {
       return NextResponse.json(
         { success: false, error: 'Trade not found' },
         { status: 404 }
       );
     }
     
-    // Verify user has access to this trade
-    if (userId && trade.userId && trade.userId !== userId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 403 }
-      );
-    }
-    
+    const trade = trades[tradeIndex];
     const now = new Date().toISOString();
     const updates: Partial<Trade> = { updatedAt: now };
     
@@ -153,15 +164,14 @@ export async function PUT(
       }
     }
     
-    // Update trade in Redis
-    const updatedTrade = await updateTrade(id, updates);
+    // Update trade
+    const updatedTrade: Trade = {
+      ...trade,
+      ...updates
+    };
     
-    if (!updatedTrade) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to update trade' },
-        { status: 500 }
-      );
-    }
+    // Save updated trade
+    await saveUserTrade(userId, updatedTrade);
     
     return NextResponse.json({ success: true, data: updatedTrade });
     
@@ -184,11 +194,21 @@ export async function DELETE(
   { params }: RouteParams
 ): Promise<NextResponse> {
   try {
-    const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const session = await auth();
     
-    const trade = await getTradeById(id);
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
+    const { id } = await params;
+    
+    // Verify trade exists for this user
+    const trades = await getUserTrades(userId);
+    const trade = trades.find(t => t.id === id);
     
     if (!trade) {
       return NextResponse.json(
@@ -197,15 +217,7 @@ export async function DELETE(
       );
     }
     
-    // Verify user has access to this trade
-    if (userId && trade.userId && trade.userId !== userId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 403 }
-      );
-    }
-    
-    await deleteTrade(id);
+    await deleteUserTrade(userId, id);
     
     return NextResponse.json({ 
       success: true, 

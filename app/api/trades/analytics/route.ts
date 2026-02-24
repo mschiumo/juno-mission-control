@@ -1,10 +1,21 @@
 import { NextResponse } from 'next/server';
-import { getAllTrades } from '@/lib/db/trades-v2';
+import { auth } from '@/lib/auth-config';
+import { getUserTrades, getUserId } from '@/lib/db/user-data';
 import { Trade, TradeSide, TradeStatus } from '@/types/trading';
 
 export async function GET() {
   try {
-    const trades = await getAllTrades();
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
+    const trades = await getUserTrades(userId);
     
     if (trades.length === 0) {
       return NextResponse.json({

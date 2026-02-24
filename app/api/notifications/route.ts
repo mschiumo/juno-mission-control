@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth-config';
+import { getUserId, getNotificationsPattern, getNotificationKey } from '@/lib/db/user-data';
 import { getRedisClient } from '@/lib/redis';
-
-const NOTIFICATION_PREFIX = 'notification:';
 
 export interface Notification {
   id: string;
@@ -18,11 +18,21 @@ export interface Notification {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const { searchParams } = new URL(request.url);
     const unreadOnly = searchParams.get('unread') === 'true';
     
     const redis = await getRedisClient();
-    const keys = await redis.keys(`${NOTIFICATION_PREFIX}*`);
+    const keys = await redis.keys(getNotificationsPattern(userId));
     const notifications: Notification[] = [];
     
     for (const key of keys) {
@@ -66,6 +76,16 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const markAll = searchParams.get('all') === 'true';
@@ -74,7 +94,7 @@ export async function PATCH(request: NextRequest) {
     
     if (markAll) {
       // Mark all as read
-      const keys = await redis.keys(`${NOTIFICATION_PREFIX}*`);
+      const keys = await redis.keys(getNotificationsPattern(userId));
       for (const key of keys) {
         await redis.hSet(key, 'read', 'true');
       }
@@ -88,7 +108,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
     
-    await redis.hSet(`${NOTIFICATION_PREFIX}${id}`, 'read', 'true');
+    await redis.hSet(getNotificationKey(userId, id), 'read', 'true');
     
     return NextResponse.json({ success: true, message: 'Notification marked as read' });
     
@@ -103,6 +123,16 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
@@ -114,7 +144,7 @@ export async function DELETE(request: NextRequest) {
     }
     
     const redis = await getRedisClient();
-    await redis.del(`${NOTIFICATION_PREFIX}${id}`);
+    await redis.del(getNotificationKey(userId, id));
     
     return NextResponse.json({ success: true, message: 'Notification deleted' });
     

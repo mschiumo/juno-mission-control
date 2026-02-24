@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
+import { auth } from '@/lib/auth-config';
+import { getUserId, getEveningCheckinKey, getHabitsKey } from '@/lib/db/user-data';
 
-const STORAGE_KEY = 'evening_checkins';
-const HABITS_KEY_PREFIX = 'habits_data';
+const HABITS_KEY_PREFIX = 'habits';
 
 // Evening habit check-in questions
 const DEFAULT_QUESTIONS = [
@@ -26,6 +27,7 @@ const HABIT_TO_QUESTION_MAP: Record<string, string> = {
   'take-meds': 'took-meds',
 };
 
+// Lazy Redis client initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
 
 async function getRedisClient() {
@@ -65,9 +67,13 @@ interface HabitData {
 /**
  * Get habit completions for a specific date
  */
-async function getHabitCompletionsForDate(redis: ReturnType<typeof createClient>, date: string): Promise<Record<string, boolean>> {
+async function getHabitCompletionsForDate(
+  redis: ReturnType<typeof createClient>, 
+  userId: string,
+  date: string
+): Promise<Record<string, boolean>> {
   try {
-    const habitsData = await redis.get(`${HABITS_KEY_PREFIX}:${date}`);
+    const habitsData = await redis.get(getHabitsKey(userId, date));
     if (!habitsData) return {};
     
     const habits: HabitData[] = JSON.parse(habitsData);
@@ -92,6 +98,16 @@ async function getHabitCompletionsForDate(redis: ReturnType<typeof createClient>
 
 export async function GET(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Unauthorized' 
+      }, { status: 401 });
+    }
+    
+    const userId = getUserId(session.user.email);
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || getToday();
     const range = searchParams.get('range') || '7'; // days for report
@@ -105,7 +121,8 @@ export async function GET(request: Request) {
       }, { status: 503 });
     }
 
-    const stored = await redis.get(STORAGE_KEY);
+    const storageKey = getEveningCheckinKey(userId);
+    const stored = await redis.get(storageKey);
     const allCheckins = stored ? JSON.parse(stored) : [];
 
     // Filter by date range if specified
@@ -122,7 +139,7 @@ export async function GET(request: Request) {
     const todayCheckin = allCheckins.find((c: { date: string }) => c.date === date);
     
     // Get habit completions for today
-    const habitCompletions = await getHabitCompletionsForDate(redis, date);
+    const habitCompletions = await getHabitCompletionsForDate(redis, userId, date);
     
     // Merge habit completions with checkin responses
     const mergedResponses = {
@@ -165,6 +182,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Unauthorized' 
+      }, { status: 401 });
+    }
+    
+    const userId = getUserId(session.user.email);
     const body = await request.json();
     const { responses, notes } = body;
 
@@ -184,8 +211,9 @@ export async function POST(request: Request) {
       }, { status: 503 });
     }
 
+    const storageKey = getEveningCheckinKey(userId);
     const today = getToday();
-    const stored = await redis.get(STORAGE_KEY);
+    const stored = await redis.get(storageKey);
     const allCheckins = stored ? JSON.parse(stored) : [];
 
     // Check if already submitted today
@@ -214,7 +242,7 @@ export async function POST(request: Request) {
       return new Date(c.date) >= cutoffDate;
     });
 
-    await redis.set(STORAGE_KEY, JSON.stringify(trimmedCheckins));
+    await redis.set(storageKey, JSON.stringify(trimmedCheckins));
 
     return NextResponse.json({
       success: true,

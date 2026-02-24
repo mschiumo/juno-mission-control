@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
+import { auth } from '@/lib/auth-config';
+import { getUserId, getCronResultsKey } from '@/lib/db/user-data';
 
 interface CronResult {
   id: string;
@@ -9,7 +11,6 @@ interface CronResult {
   type: 'market' | 'motivational' | 'check-in' | 'review' | 'error';
 }
 
-const STORAGE_KEY = 'cron_results';
 const MAX_RESULTS = 100;
 
 // Redis client - lazy initialization
@@ -40,14 +41,25 @@ async function getRedisClient() {
 
 export async function GET(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const { searchParams } = new URL(request.url);
     const jobName = searchParams.get('jobName');
     
     const redis = await getRedisClient();
+    const storageKey = getCronResultsKey(userId);
     
     let results: CronResult[] = [];
     if (redis) {
-      const data = await redis.get(STORAGE_KEY);
+      const data = await redis.get(storageKey);
       results = data ? JSON.parse(data) : [];
     }
 
@@ -102,6 +114,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const body = await request.json();
     const { jobName, content, type } = body;
 
@@ -121,8 +143,10 @@ export async function POST(request: Request) {
       }, { status: 503 });
     }
 
+    const storageKey = getCronResultsKey(userId);
+
     // Get existing results
-    const data = await redis.get(STORAGE_KEY);
+    const data = await redis.get(storageKey);
     const results: CronResult[] = data ? JSON.parse(data) : [];
 
     // Create new result
@@ -141,7 +165,7 @@ export async function POST(request: Request) {
     }
 
     // Save to Redis
-    await redis.set(STORAGE_KEY, JSON.stringify(results));
+    await redis.set(storageKey, JSON.stringify(results));
 
     return NextResponse.json({
       success: true,

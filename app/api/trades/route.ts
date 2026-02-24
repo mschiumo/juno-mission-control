@@ -6,9 +6,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth-config';
 import type { Trade, CreateTradeRequest, TradeListResponse } from '@/types/trading';
 import { TradeStatus, Strategy, TradeSide } from '@/types/trading';
-import { getAllTrades, saveTrade, deleteTrade } from '@/lib/db/trades-v2';
+import { 
+  getUserTrades, 
+  saveUserTrade, 
+  deleteUserTrade,
+  clearUserTrades,
+  getUserId,
+  requireAuth
+} from '@/lib/db/user-data';
 import { getNowInEST } from '@/lib/date-utils';
 
 // Helper to generate UUID
@@ -20,7 +28,6 @@ function generateId(): string {
  * GET /api/trades
  * 
  * Query Parameters:
- * - userId: string (optional, defaults to 'default')
  * - symbol: string (optional filter)
  * - status: 'OPEN' | 'CLOSED' | 'PARTIAL' (optional filter)
  * - strategy: string (optional filter)
@@ -33,13 +40,20 @@ function generateId(): string {
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const { searchParams } = new URL(request.url);
     
-    // Get all trades from Redis
-    const allTrades = await getAllTrades();
-    
-    // Required parameters
-    const userId = searchParams.get('userId') || 'default';
+    // Get all trades from Redis for this user
+    const allTrades = await getUserTrades(userId);
     
     // Optional filters
     const symbol = searchParams.get('symbol');
@@ -57,12 +71,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const sortBy = searchParams.get('sortBy') || 'entryDate';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     
-    // Filter trades by user
-    let filteredTrades = allTrades.filter(
-      (trade) => trade.userId === userId || !trade.userId // Include trades without userId for backward compat
-    );
-    
     // Apply filters
+    let filteredTrades = allTrades;
+    
     if (symbol) {
       filteredTrades = filteredTrades.filter(
         (t) => t.symbol.toUpperCase() === symbol.toUpperCase()
@@ -156,6 +167,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const session = await auth();
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = getUserId(session.user.email);
     const body: CreateTradeRequest = await request.json();
     
     // Validation
@@ -187,7 +208,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Create trade object
     const newTrade: Trade = {
       id: generateId(),
-      userId: body.userId || 'default',
+      userId: userId, // Set to the authenticated user's ID
       symbol: body.symbol.toUpperCase(),
       side: body.side,
       status: TradeStatus.OPEN,
@@ -211,7 +232,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     
     // Store trade in Redis
-    await saveTrade(newTrade);
+    await saveUserTrade(userId, newTrade);
     
     return NextResponse.json(
       { success: true, data: newTrade },
