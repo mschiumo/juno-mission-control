@@ -37,6 +37,7 @@ export default function PositionCalculator() {
   const [showTooltips, setShowTooltips] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [addSuccess, setAddSuccess] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'duplicate' | 'success'>('idle');
 
   const handleInputChange = (field: keyof CalculatorInputs, value: string) => {
     // Allow empty string or valid numbers for numeric fields
@@ -51,29 +52,41 @@ export default function PositionCalculator() {
   const handleReset = () => {
     setInputs(DEFAULT_VALUES);
     setAddSuccess(false);
+    setSaveStatus('idle');
   };
 
   const handleAddToWatchlist = () => {
     if (calculations.status !== 'valid' || !inputs.ticker.trim()) return;
 
-    const newItem: WatchlistItem = {
-      id: Date.now().toString(),
-      ticker: inputs.ticker.trim().toUpperCase(),
-      entryPrice: calculations.entry,
-      stopPrice: calculations.stop,
-      targetPrice: calculations.target,
-      riskRatio: calculations.actualRR,
-      stopSize: calculations.stopSize,
-      shareSize: calculations.shareSize,
-      potentialReward: calculations.potentialReward,
-      positionValue: calculations.positionValue,
-      createdAt: new Date().toISOString(),
-    };
-
     try {
       // Get existing watchlist
       const stored = localStorage.getItem(STORAGE_KEY);
       const existing: WatchlistItem[] = stored ? JSON.parse(stored) : [];
+      
+      // Check for duplicate ticker
+      const isDuplicate = existing.some((item: WatchlistItem) =>
+        item.ticker.toUpperCase() === inputs.ticker.trim().toUpperCase()
+      );
+      
+      if (isDuplicate) {
+        setSaveStatus('duplicate');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+        return;
+      }
+
+      const newItem: WatchlistItem = {
+        id: Date.now().toString(),
+        ticker: inputs.ticker.trim().toUpperCase(),
+        entryPrice: calculations.entry,
+        stopPrice: calculations.stop,
+        targetPrice: calculations.target,
+        riskRatio: calculations.actualRR,
+        stopSize: calculations.stopSize,
+        shareSize: calculations.shareSize,
+        potentialReward: calculations.potentialReward,
+        positionValue: calculations.positionValue,
+        createdAt: new Date().toISOString(),
+      };
       
       // Add new item to the beginning
       const updated = [newItem, ...existing];
@@ -85,8 +98,12 @@ export default function PositionCalculator() {
       window.dispatchEvent(new CustomEvent('juno:watchlist-updated'));
       
       // Show success feedback
+      setSaveStatus('success');
       setAddSuccess(true);
-      setTimeout(() => setAddSuccess(false), 2000);
+      setTimeout(() => {
+        setSaveStatus('idle');
+        setAddSuccess(false);
+      }, 2000);
     } catch (error) {
       console.error('Error saving to watchlist:', error);
     }
@@ -383,16 +400,23 @@ export default function PositionCalculator() {
           {calculations.status === 'valid' && (
             <button
               onClick={handleAddToWatchlist}
-              disabled={!canAddToWatchlist}
+              disabled={!canAddToWatchlist || saveStatus === 'duplicate'}
               className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-                addSuccess
-                  ? 'bg-green-500 text-white'
-                  : canAddToWatchlist
-                    ? 'bg-[#F97316] hover:bg-[#F97316]/90 text-white'
-                    : 'bg-[#262626] text-[#8b949e] cursor-not-allowed'
+                saveStatus === 'duplicate'
+                  ? 'bg-red-500/20 border border-red-500/50 text-red-400'
+                  : addSuccess || saveStatus === 'success'
+                    ? 'bg-green-500 text-white'
+                    : canAddToWatchlist
+                      ? 'bg-[#F97316] hover:bg-[#F97316]/90 text-white'
+                      : 'bg-[#262626] text-[#8b949e] cursor-not-allowed'
               }`}
             >
-              {addSuccess ? (
+              {saveStatus === 'duplicate' ? (
+                <>
+                  <AlertCircle className="w-5 h-5" />
+                  {inputs.ticker.trim().toUpperCase()} is already in your watchlist
+                </>
+              ) : addSuccess || saveStatus === 'success' ? (
                 <>
                   <CheckCircle className="w-5 h-5" />
                   Added to Watchlist!
