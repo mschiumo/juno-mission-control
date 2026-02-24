@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calculator, RotateCcw, CheckCircle, AlertCircle, XCircle, Plus, BookmarkPlus, Info } from 'lucide-react';
+import { Calculator, RotateCcw, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 
 interface CalculatorInputs {
@@ -35,7 +35,6 @@ const STORAGE_KEY = 'juno:trade-watchlist';
 export default function PositionCalculator() {
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_VALUES);
   const [showTooltips, setShowTooltips] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [addSuccess, setAddSuccess] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'duplicate' | 'success'>('idle');
 
@@ -242,147 +241,9 @@ export default function PositionCalculator() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column - Inputs */}
-        <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[#8b949e] uppercase tracking-wide">Trade Parameters</h4>
-          
-          {/* Ticker Symbol */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-white">
-              Stock Ticker
-              {showTooltips && (
-                <span className="text-xs text-[#8b949e] font-normal">
-                  — Symbol for the stock you&apos;re trading
-                </span>
-              )}
-            </label>
-            <input
-              type="text"
-              value={inputs.ticker}
-              onChange={(e) => handleInputChange('ticker', e.target.value)}
-              placeholder="AAPL"
-              className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg px-4 py-2.5 text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors uppercase"
-            />
-            <p className="text-xs text-[#8b949e]">Required to save to watchlist</p>
-          </div>
-
-          {/* Risk Amount */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-white">
-              Risk Amount ($)
-              {showTooltips && (
-                <span className="text-xs text-[#8b949e] font-normal">
-                  — Amount you&apos;re willing to lose
-                </span>
-              )}
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]">$</span>
-              <input
-                type="text"
-                value={inputs.riskAmount}
-                onChange={(e) => handleInputChange('riskAmount', e.target.value)}
-                placeholder="20"
-                className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg pl-7 pr-4 py-2.5 text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors"
-              />
-            </div>
-            <p className="text-xs text-[#8b949e]">Default: $20 for beginner phase</p>
-          </div>
-
-          {/* Entry Price */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-white">
-              Entry Price
-              {showTooltips && (
-                <span className="text-xs text-[#8b949e] font-normal">
-                  — Your planned entry point
-                </span>
-              )}
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]">$</span>
-              <input
-                type="text"
-                value={inputs.entryPrice}
-                onChange={(e) => handleInputChange('entryPrice', e.target.value)}
-                placeholder="6.00"
-                className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg pl-7 pr-4 py-2.5 text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* Stop Price */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-white">
-              Stop Loss Price
-              {showTooltips && (
-                <span className="text-xs text-[#8b949e] font-normal">
-                  — Exit if price hits this level
-                </span>
-              )}
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]">$</span>
-              <input
-                type="text"
-                value={inputs.stopPrice}
-                onChange={(e) => handleInputChange('stopPrice', e.target.value)}
-                placeholder="5.50"
-                className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg pl-7 pr-4 py-2.5 text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* Target Price */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-white">
-              Target Price
-              {showTooltips && (
-                <span className="text-xs text-[#8b949e] font-normal">
-                  — Profit target / resistance level
-                </span>
-              )}
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]">$</span>
-              <input
-                type="text"
-                value={inputs.targetPrice}
-                onChange={(e) => handleInputChange('targetPrice', e.target.value)}
-                placeholder="7.00"
-                className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg pl-7 pr-4 py-2.5 text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* Risk Ratio */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-white">
-              Desired Risk Ratio
-              {showTooltips && (
-                <span className="text-xs text-[#8b949e] font-normal">
-                  — Minimum reward-to-risk ratio
-                </span>
-              )}
-            </label>
-            <select
-              value={inputs.riskRatio}
-              onChange={(e) => handleInputChange('riskRatio', e.target.value)}
-              className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-[#F97316] transition-colors appearance-none cursor-pointer"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5L6 8L9.5 4.5' stroke='%238b949e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
-            >
-              {RISK_RATIO_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-[#8b949e]">Minimum 2:1 recommended per strategy</p>
-          </div>
-        </div>
-
-        {/* Right Column - Results */}
+      {/* Vertical Stack Layout: Results → Add Button → Inputs */}
+      <div className="space-y-6">
+        {/* Section 1: Calculated Results (TOP) */}
         <div className="space-y-4">
           <h4 className="text-sm font-medium text-[#8b949e] uppercase tracking-wide">Calculated Results</h4>
 
@@ -396,51 +257,17 @@ export default function PositionCalculator() {
             </div>
           </div>
 
-          {/* Add to Watchlist Button - Only show for valid trades */}
-          {calculations.status === 'valid' && (
-            <button
-              onClick={handleAddToWatchlist}
-              disabled={!canAddToWatchlist || saveStatus === 'duplicate'}
-              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-                saveStatus === 'duplicate'
-                  ? 'bg-red-500/20 border border-red-500/50 text-red-400'
-                  : addSuccess || saveStatus === 'success'
-                    ? 'bg-green-500 text-white'
-                    : canAddToWatchlist
-                      ? 'bg-[#F97316] hover:bg-[#F97316]/90 text-white'
-                      : 'bg-[#262626] text-[#8b949e] cursor-not-allowed'
-              }`}
-            >
-              {saveStatus === 'duplicate' ? (
-                <>
-                  <AlertCircle className="w-5 h-5" />
-                  {inputs.ticker.trim().toUpperCase()} is already in your watchlist
-                </>
-              ) : addSuccess || saveStatus === 'success' ? (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  Added to Watchlist!
-                </>
-              ) : (
-                <>
-                  <BookmarkPlus className="w-5 h-5" />
-                  {inputs.ticker.trim() ? 'Add to Watchlist' : 'Enter Ticker to Save'}
-                </>
-              )}
-            </button>
-          )}
-
           {/* Results Grid */}
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {/* Stop Size */}
             <div className="bg-[#0F0F0F] border border-[#262626] rounded-lg p-4">
               <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Stop Size</p>
-              <p className="text-xl font-bold text-white">
+              <p className="text-lg font-bold text-white">
                 {calculations.stopSize > 0 ? formatCurrency(calculations.stopSize) : '—'}
               </p>
               {showTooltips && calculations.stopSize > 0 && (
                 <p className="text-xs text-[#8b949e] mt-1">
-                  ${calculations.entry.toFixed(2)} - ${calculations.stop.toFixed(2)} = {formatCurrency(calculations.stopSize)}
+                  ${calculations.entry.toFixed(2)} - ${calculations.stop.toFixed(2)}
                 </p>
               )}
             </div>
@@ -448,13 +275,13 @@ export default function PositionCalculator() {
             {/* Share Size */}
             <div className="bg-[#0F0F0F] border border-[#262626] rounded-lg p-4">
               <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Share Size</p>
-              <p className="text-xl font-bold text-white">
+              <p className="text-lg font-bold text-white">
                 {calculations.shareSize > 0 ? formatNumber(calculations.shareSize) : '—'}
-                {calculations.shareSize > 0 && <span className="text-sm font-normal text-[#8b949e] ml-2">shares</span>}
+                {calculations.shareSize > 0 && <span className="text-xs font-normal text-[#8b949e] ml-1">shrs</span>}
               </p>
               {showTooltips && calculations.shareSize > 0 && (
                 <p className="text-xs text-[#8b949e] mt-1">
-                  ${calculations.risk} / {formatCurrency(calculations.stopSize)} = {formatNumber(calculations.shareSize)} shares
+                  ${calculations.risk} / {formatCurrency(calculations.stopSize)}
                 </p>
               )}
             </div>
@@ -462,20 +289,20 @@ export default function PositionCalculator() {
             {/* Expected Profit */}
             <div className="bg-[#0F0F0F] border border-[#262626] rounded-lg p-4">
               <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Expected Profit</p>
-              <p className="text-xl font-bold text-green-400">
+              <p className="text-lg font-bold text-green-400">
                 {calculations.potentialReward > 0 ? formatCurrency(calculations.potentialReward) : '—'}
               </p>
               {showTooltips && calculations.potentialReward > 0 && (
                 <p className="text-xs text-[#8b949e] mt-1">
-                  (${calculations.target.toFixed(2)} - ${calculations.entry.toFixed(2)}) × {formatNumber(calculations.shareSize)} = {formatCurrency(calculations.potentialReward)}
+                  Δ${(calculations.target - calculations.entry).toFixed(2)} × {formatNumber(calculations.shareSize)}
                 </p>
               )}
             </div>
 
             {/* Actual R:R */}
             <div className="bg-[#0F0F0F] border border-[#262626] rounded-lg p-4">
-              <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Actual Risk:Reward</p>
-              <p className={`text-xl font-bold ${
+              <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Actual R:R</p>
+              <p className={`text-lg font-bold ${
                 calculations.actualRR >= calculations.ratio ? 'text-green-400' :
                 calculations.actualRR >= calculations.ratio * 0.75 ? 'text-yellow-400' :
                 calculations.actualRR > 0 ? 'text-red-400' : 'text-white'
@@ -484,41 +311,212 @@ export default function PositionCalculator() {
               </p>
               {showTooltips && calculations.actualRR > 0 && (
                 <p className="text-xs text-[#8b949e] mt-1">
-                  (${calculations.target.toFixed(2)} - ${calculations.entry.toFixed(2)}) / {formatCurrency(calculations.stopSize)} = {calculations.actualRR.toFixed(2)}:1
+                  vs {calculations.ratio}:1 target
                 </p>
               )}
             </div>
 
             {/* Position Value */}
             <div className="bg-[#0F0F0F] border border-[#262626] rounded-lg p-4">
-              <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Total Position Value</p>
-              <p className="text-xl font-bold text-white">
+              <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Position Value</p>
+              <p className="text-lg font-bold text-white">
                 {calculations.positionValue > 0 ? formatCurrency(calculations.positionValue) : '—'}
               </p>
               {showTooltips && calculations.positionValue > 0 && (
                 <p className="text-xs text-[#8b949e] mt-1">
-                  {formatNumber(calculations.shareSize)} shares × ${calculations.entry.toFixed(2)} = {formatCurrency(calculations.positionValue)}
+                  {formatNumber(calculations.shareSize)} × ${calculations.entry.toFixed(2)}
                 </p>
               )}
             </div>
           </div>
 
           {/* Quick Reference */}
-          <div className="mt-4 p-3 bg-[#1a1a1a] border border-[#262626] rounded-lg">
-            <p className="text-xs font-medium text-[#8b949e] mb-2">Quick Reference (using {parseFloat(inputs.riskRatio) || 2}:1)</p>
-            <div className="space-y-1 text-xs">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-[#8b949e]">≥ {parseFloat(inputs.riskRatio) || 2}:1 R:R — Valid trade</span>
+          <div className="flex flex-wrap items-center gap-4 text-xs">
+            <span className="text-[#8b949e]">Risk thresholds ({parseFloat(inputs.riskRatio) || 2}:1):</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <span className="text-[#8b949e]">≥ {parseFloat(inputs.riskRatio) || 2}:1 valid</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-yellow-500" />
+              <span className="text-[#8b949e]">{(parseFloat(inputs.riskRatio) || 2) * 0.75}:1 to {parseFloat(inputs.riskRatio) || 2}:1 marginal</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-red-500" />
+              <span className="text-[#8b949e]">&lt; {(parseFloat(inputs.riskRatio) || 2) * 0.75}:1 skip</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 2: Add to Watchlist Button (MIDDLE) */}
+        {calculations.status === 'valid' && (
+          <button
+            onClick={handleAddToWatchlist}
+            disabled={!canAddToWatchlist || saveStatus === 'duplicate'}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+              saveStatus === 'duplicate'
+                ? 'bg-red-500/20 border border-red-500/50 text-red-400'
+                : addSuccess || saveStatus === 'success'
+                  ? 'bg-green-500 text-white'
+                  : canAddToWatchlist
+                    ? 'bg-[#F97316] hover:bg-[#F97316]/90 text-white'
+                    : 'bg-[#262626] text-[#8b949e] cursor-not-allowed'
+            }`}
+          >
+            {saveStatus === 'duplicate' ? (
+              <>
+                <AlertCircle className="w-5 h-5" />
+                {inputs.ticker.trim().toUpperCase()} is already in your watchlist
+              </>
+            ) : addSuccess || saveStatus === 'success' ? (
+              <>
+                <CheckCircle className="w-5 h-5" />
+                Added to Watchlist!
+              </>
+            ) : (
+              <>
+                <BookmarkPlus className="w-5 h-5" />
+                {inputs.ticker.trim() ? '📝 Add to Watchlist' : 'Enter Ticker to Save'}
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Section 3: Trade Parameters - Input Fields (BOTTOM) */}
+        <div className="space-y-4 pt-4 border-t border-[#262626]">
+          <h4 className="text-sm font-medium text-[#8b949e] uppercase tracking-wide">Trade Parameters</h4>
+          
+          {/* Input Grid - 2 columns on larger screens */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Ticker Symbol */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-white">
+                Stock Ticker
+                {showTooltips && (
+                  <span className="text-xs text-[#8b949e] font-normal">
+                    — Symbol for the stock
+                  </span>
+                )}
+              </label>
+              <input
+                type="text"
+                value={inputs.ticker}
+                onChange={(e) => handleInputChange('ticker', e.target.value)}
+                placeholder="e.g. AAPL"
+                className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg px-4 py-2.5 text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors uppercase"
+              />
+            </div>
+
+            {/* Risk Amount */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-white">
+                Risk Amount
+                {showTooltips && (
+                  <span className="text-xs text-[#8b949e] font-normal">
+                    — Amount willing to lose
+                  </span>
+                )}
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]">$</span>
+                <input
+                  type="text"
+                  value={inputs.riskAmount}
+                  onChange={(e) => handleInputChange('riskAmount', e.target.value)}
+                  placeholder="20"
+                  className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg pl-7 pr-4 py-2.5 text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors"
+                />
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                <span className="text-[#8b949e]">{(parseFloat(inputs.riskRatio) || 2) * 0.75}:1 to {parseFloat(inputs.riskRatio) || 2}:1 — Marginal</span>
+            </div>
+
+            {/* Entry Price */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-white">
+                Entry Price
+                {showTooltips && (
+                  <span className="text-xs text-[#8b949e] font-normal">
+                    — Planned entry point
+                  </span>
+                )}
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]">$</span>
+                <input
+                  type="text"
+                  value={inputs.entryPrice}
+                  onChange={(e) => handleInputChange('entryPrice', e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg pl-7 pr-4 py-2.5 text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors"
+                />
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-[#8b949e]">&lt; {(parseFloat(inputs.riskRatio) || 2) * 0.75}:1 — Invalid, skip trade</span>
+            </div>
+
+            {/* Stop Price */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-white">
+                Stop Loss Price
+                {showTooltips && (
+                  <span className="text-xs text-[#8b949e] font-normal">
+                    — Exit if price hits this
+                  </span>
+                )}
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]">$</span>
+                <input
+                  type="text"
+                  value={inputs.stopPrice}
+                  onChange={(e) => handleInputChange('stopPrice', e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg pl-7 pr-4 py-2.5 text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors"
+                />
               </div>
+            </div>
+
+            {/* Target Price */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-white">
+                Target Price
+                {showTooltips && (
+                  <span className="text-xs text-[#8b949e] font-normal">
+                    — Profit target level
+                  </span>
+                )}
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]">$</span>
+                <input
+                  type="text"
+                  value={inputs.targetPrice}
+                  onChange={(e) => handleInputChange('targetPrice', e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg pl-7 pr-4 py-2.5 text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Risk Ratio */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-white">
+                Desired Risk Ratio
+                {showTooltips && (
+                  <span className="text-xs text-[#8b949e] font-normal">
+                    — Minimum R:R ratio
+                  </span>
+                )}
+              </label>
+              <select
+                value={inputs.riskRatio}
+                onChange={(e) => handleInputChange('riskRatio', e.target.value)}
+                className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-[#F97316] transition-colors appearance-none cursor-pointer"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5L6 8L9.5 4.5' stroke='%238b949e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+              >
+                {RISK_RATIO_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
