@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcrypt';
+import * as bcrypt from 'bcrypt';
 import { getRedisClient } from '@/lib/redis';
 
 const SALT_ROUNDS = 12;
