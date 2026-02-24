@@ -370,18 +370,23 @@ export default function WatchlistView() {
   // ===== ADD TO CALENDAR: Closed Position → Calendar Trade =====
   const handleAddToCalendar = async (position: ClosedPosition) => {
     try {
-      // Calculate P&L if exit price exists, otherwise use planned target
+      // Calculate P&L - Use stored position.pnl if available, otherwise calculate from exit data
       const exitPrice = position.exitPrice || position.plannedTarget;
       const isLong = position.plannedTarget > position.plannedEntry;
       
-      // Calculate P&L: (Exit - Entry) * Shares for LONG, (Entry - Exit) * Shares for SHORT
+      // Calculate P&L: Use stored value if available, otherwise compute from actual exit data
       let pnl = 0;
       if (position.pnl !== undefined) {
+        // Use the stored P&L value (set when position was closed with actual exit price)
         pnl = position.pnl;
       } else if (exitPrice && position.actualEntry) {
+        // Calculate actual P&L based on actual entry and exit
         pnl = isLong 
           ? (exitPrice - position.actualEntry) * position.actualShares
           : (position.actualEntry - exitPrice) * position.actualShares;
+      } else {
+        // Fallback: calculate planned profit using planned entry
+        pnl = (position.plannedTarget - position.plannedEntry) * position.actualShares;
       }
 
       // Extract the original trade date for calendar display
@@ -610,7 +615,7 @@ export default function WatchlistView() {
                   <div className="grid grid-cols-5 gap-2">
                     <div>
                       <div className="text-xs text-[#8b949e]">Entry</div>
-                      <div className="text-sm font-semibold">{formatCurrency(trade.plannedEntry)}</div>
+                      <div className="text-sm font-semibold">{formatCurrency(trade.actualEntry)}</div>
                     </div>
                     <div>
                       <div className="text-xs text-red-400">Stop</div>
@@ -622,7 +627,7 @@ export default function WatchlistView() {
                     </div>
                     <div>
                       <div className="text-xs text-[#8b949e]">Profit</div>
-                      <div className="text-sm font-bold text-green-400">{formatCurrency((trade.plannedTarget - trade.plannedEntry) * trade.actualShares)}</div>
+                      <div className="text-sm font-bold text-green-400">{formatCurrency((trade.plannedTarget - trade.actualEntry) * trade.actualShares)}</div>
                     </div>
                     <div>
                       <div className="text-xs text-[#8b949e]">Value</div>
@@ -632,8 +637,8 @@ export default function WatchlistView() {
 
                   {/* Notes */}
                   {trade.notes && (
-                    <div className="bg-[#161b22] rounded-lg p-3">
-                      <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-1">
+                    <div className="bg-[#161b22] rounded-lg p-4">
+                      <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-2">
                         <FileText className="w-3.5 h-3.5" />
                         Notes
                       </div>
@@ -813,8 +818,8 @@ export default function WatchlistView() {
               >
                 {/* Card Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-blue-500/5">
-                  <div className="flex items-center gap-3">
-                    <div className="px-3 py-1 bg-blue-500/10 rounded-lg">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="px-3 py-1 bg-blue-500/10 rounded-lg shrink-0">
                       <span className="text-lg font-bold text-blue-400">{position.ticker}</span>
                     </div>
                     {/* Long/Short Indicator */}
@@ -823,21 +828,21 @@ export default function WatchlistView() {
                       const isShort = position.plannedTarget < position.plannedEntry;
                       if (!isLong && !isShort) return null;
                       return (
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                           {isLong ? '📈 LONG' : '📉 SHORT'}
                         </span>
                       );
                     })()}
-                    <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
-                      <Calendar className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-1.5 text-xs text-[#8b949e] whitespace-nowrap shrink-0">
+                      <Calendar className="w-3.5 h-3.5 shrink-0" />
                       Closed {formatDate(position.closedAt)}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => handleAddToCalendar(position)}
                       disabled={addedToCalendarIds.has(position.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                      className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors whitespace-nowrap ${
                         addedToCalendarIds.has(position.id)
                           ? 'bg-green-500/20 text-green-400 cursor-default'
                           : 'text-blue-400 hover:text-white hover:bg-blue-500'
@@ -846,22 +851,22 @@ export default function WatchlistView() {
                     >
                       {addedToCalendarIds.has(position.id) ? (
                         <>
-                          <CheckCircle className="w-3.5 h-3.5" />
+                          <CheckCircle className="w-3 h-3" />
                           Added
                         </>
                       ) : (
                         <>
-                          <Plus className="w-3.5 h-3.5" />
-                          Add to Calendar
+                          <Plus className="w-3 h-3" />
+                          Calendar
                         </>
                       )}
                     </button>
                     <button
                       onClick={() => setDeletingPositionId(position.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors whitespace-nowrap"
                       title="Delete from history"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3 h-3" />
                       Delete
                     </button>
                   </div>
@@ -873,7 +878,7 @@ export default function WatchlistView() {
                   <div className="grid grid-cols-5 gap-2">
                     <div>
                       <div className="text-xs text-[#8b949e]">Entry</div>
-                      <div className="text-sm font-semibold">{formatCurrency(position.plannedEntry)}</div>
+                      <div className="text-sm font-semibold">{formatCurrency(position.actualEntry || position.plannedEntry)}</div>
                     </div>
                     <div>
                       <div className="text-xs text-red-400">Stop</div>
@@ -885,17 +890,23 @@ export default function WatchlistView() {
                     </div>
                     <div>
                       <div className="text-xs text-[#8b949e]">Profit</div>
-                      <div className="text-sm font-bold text-green-400">{formatCurrency((position.plannedTarget - position.plannedEntry) * position.actualShares)}</div>
+                      <div className="text-sm font-bold text-green-400">
+                        {(() => {
+                          const entry = position.actualEntry || position.plannedEntry;
+                          const target = position.plannedTarget;
+                          return formatCurrency((target - entry) * position.actualShares);
+                        })()}
+                      </div>
                     </div>
                     <div>
                       <div className="text-xs text-[#8b949e]">Value</div>
-                      <div className="text-sm font-semibold">{formatCurrency(position.actualEntry * position.actualShares)}</div>
+                      <div className="text-sm font-semibold">{formatCurrency((position.actualEntry || position.plannedEntry) * position.actualShares)}</div>
                     </div>
                   </div>
 
                   {/* Exit Info - kept separate for closed positions */}
                   {position.exitPrice && (
-                    <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-3">
+                    <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-4">
                       <div className="text-xs text-blue-400 uppercase tracking-wide mb-2">Exit Info</div>
                       <div className="grid grid-cols-3 gap-4">
                         <div>
@@ -918,8 +929,8 @@ export default function WatchlistView() {
 
                   {/* Notes */}
                   {position.notes && (
-                    <div className="bg-[#161b22] rounded-lg p-3">
-                      <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-1">
+                    <div className="bg-[#161b22] rounded-lg p-4">
+                      <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-2">
                         <FileText className="w-3.5 h-3.5" />
                         Notes
                       </div>
