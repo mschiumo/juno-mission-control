@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw, ChevronDown, ArrowUpDown, Filter, Download, Trash2, X, CheckSquare, Square } from 'lucide-react';
 import { getTodayInEST, parseDateToEST } from '@/lib/date-utils';
+import ManualTradeEntryModal from './ManualTradeEntryModal';
 
 interface DayData {
   date: string;
