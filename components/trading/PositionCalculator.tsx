@@ -81,6 +81,9 @@ export default function PositionCalculator() {
       // Save to localStorage
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       
+      // Dispatch custom event to notify WatchlistView in same tab
+      window.dispatchEvent(new CustomEvent('juno:watchlist-updated'));
+      
       // Show success feedback
       setAddSuccess(true);
       setTimeout(() => setAddSuccess(false), 2000);

@@ -54,6 +54,25 @@ export default function WatchlistView() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  // Listen for same-tab updates from PositionCalculator
+  useEffect(() => {
+    const handleWatchlistUpdate = () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          setWatchlist(JSON.parse(stored));
+        } else {
+          setWatchlist([]);
+        }
+      } catch (error) {
+        console.error('Error handling watchlist update:', error);
+      }
+    };
+
+    window.addEventListener('juno:watchlist-updated', handleWatchlistUpdate);
+    return () => window.removeEventListener('juno:watchlist-updated', handleWatchlistUpdate);
+  }, []);
+
   const handleRemove = (id: string) => {
     const updated = watchlist.filter(item => item.id !== id);
     setWatchlist(updated);
