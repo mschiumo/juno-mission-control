@@ -891,8 +891,8 @@ export default function WatchlistView() {
                 className="bg-[#0F0F0F] border border-blue-500/20 rounded-xl overflow-hidden"
               >
                 {/* Card Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-blue-500/5">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-blue-500/5 gap-4">
+                  <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
                     <div className="px-3 py-1 bg-blue-500/10 rounded-lg shrink-0">
                       <span className="text-lg font-bold text-blue-400">{position.ticker}</span>
                     </div>
@@ -909,47 +909,38 @@ export default function WatchlistView() {
                     })()}
                     <div className="flex items-center gap-1.5 text-xs text-[#8b949e] whitespace-nowrap shrink-0">
                       <Calendar className="w-3.5 h-3.5 shrink-0" />
-                      Closed {formatDate(position.closedAt)}
+                      <span className="hidden sm:inline">Closed </span>
+                      {formatDate(position.closedAt)}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => handleAddToCalendar(position)}
-                      disabled={isPositionInCalendar(position)}
-                      className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors whitespace-nowrap ${
-                        isPositionInCalendar(position)
-                          ? 'bg-green-500/20 text-green-400 cursor-not-allowed opacity-70'
-                          : 'text-blue-400 hover:text-white hover:bg-blue-500'
-                      }`}
-                      title={isPositionInCalendar(position) ? 'Already added to calendar' : 'Add to Calendar'}
-                    >
-                      {isPositionInCalendar(position) ? (
-                        <>
-                          <Check className="w-3 h-3" />
-                          Added
-                        </>
-                      ) : (
-                        <>
+                  <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                    {!isPositionInCalendar(position) && (
+                      <>
+                        <button
+                          onClick={() => handleAddToCalendar(position)}
+                          className="flex items-center gap-1 px-1.5 sm:px-2 py-1 text-xs text-blue-400 hover:text-white hover:bg-blue-500 rounded-lg transition-colors whitespace-nowrap"
+                          title="Add to Calendar"
+                        >
                           <Plus className="w-3 h-3" />
-                          Calendar
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => handleEditClosedPosition(position)}
-                      className="flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:text-white hover:bg-blue-500 rounded-lg transition-colors whitespace-nowrap"
-                      title="Edit position details"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                      Edit
-                    </button>
+                          <span className="hidden sm:inline">Add</span>
+                        </button>
+                        <button
+                          onClick={() => handleEditClosedPosition(position)}
+                          className="flex items-center gap-1 px-1.5 sm:px-2 py-1 text-xs text-blue-400 hover:text-white hover:bg-blue-500 rounded-lg transition-colors whitespace-nowrap"
+                          title="Edit position details"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </button>
+                      </>
+                    )}
                     <button
                       onClick={() => setDeletingPositionId(position.id)}
-                      className="flex items-center gap-1 px-2 py-1 text-xs text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors whitespace-nowrap"
+                      className="flex items-center gap-1 px-1.5 sm:px-2 py-1 text-xs text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors whitespace-nowrap"
                       title="Delete from history"
                     >
                       <Trash2 className="w-3 h-3" />
-                      Delete
+                      <span className="hidden sm:inline">Delete</span>
                     </button>
                   </div>
                 </div>
