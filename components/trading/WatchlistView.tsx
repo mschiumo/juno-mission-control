@@ -147,6 +147,9 @@ export default function WatchlistView() {
   const [calendarTrades, setCalendarTrades] = useState<Array<{ id: string; symbol: string; entryDate: string }>>([]);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
 
+  // Confirmation modal state for Add to Calendar
+  const [confirmingAddToCalendar, setConfirmingAddToCalendar] = useState<ClosedPosition | null>(null);
+
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -438,6 +441,127 @@ export default function WatchlistView() {
   }, [addedToCalendarIds, calendarTrades]);
 
   // ===== ADD TO CALENDAR: Closed Position → Calendar Trade =====
+  const handleAddToCalendarClick = (position: ClosedPosition) => {
+    setConfirmingAddToCalendar(position);
+  };
+
+  const handleConfirmAddToCalendar = async () => {
+    if (!confirmingAddToCalendar) return;
+
+    const position = confirmingAddToCalendar;
+
+    try {
+      // Calculate P&L dynamically from trade parameters (PR #156: Fix P&L calculation)
+      // DO NOT use stored position.pnl - always calculate from entry/exit/shares/side
+      const entryPrice = position.actualEntry;
+      const exitPrice = position.exitPrice || position.plannedTarget;
+      const shares = position.actualShares;
+      const isLong = position.plannedTarget > position.plannedEntry;
+
+      // Calculate P&L dynamically based on side (Long/Short)
+      let pnl = 0;
+      if (isLong) {
+        // For LONG trades: pnl = (exitPrice - entryPrice) * shares
+        pnl = (exitPrice - entryPrice) * shares;
+      } else {
+        // For SHORT trades: pnl = (entryPrice - exitPrice) * shares
+        pnl = (entryPrice - exitPrice) * shares;
+      }
+
+      // Extract the original trade date for calendar display
+      // Use closedAt date to ensure trade appears on correct day
+      const displayDate = new Date(position.closedAt).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+
+      // Create trade request with ORIGINAL TRADE DATE
+      const tradeRequest: CreateTradeRequest = {
+        symbol: position.ticker,
+        side: isLong ? TradeSide.LONG : TradeSide.SHORT,
+        strategy: Strategy.DAY_TRADE, // Default strategy
+        entryDate: position.openedAt, // Original entry date
+        entryPrice: position.actualEntry,
+        shares: position.actualShares,
+        entryNotes: `Transferred from Closed Positions. ${position.notes || ''} [Source: closed-position-transfer]`,
+        stopLoss: position.plannedStop,
+        takeProfit: position.plannedTarget,
+      };
+
+      // POST to API to create the trade
+      const response = await fetch('/api/trades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tradeRequest),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add trade to calendar');
+      }
+
+      const result = await response.json();
+
+      // Now update the trade with exit info (close it) to match the original closed position
+      if (result.data?.id) {
+        const updateResponse = await fetch(`/api/trades/${result.data.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            exitDate: position.closedAt, // ORIGINAL close date - ensures calendar shows correct date
+            exitPrice: exitPrice,
+            exitNotes: `Closed position transferred from watchlist. P&L: ${formatCurrency(pnl)}`,
+            status: 'CLOSED',
+            // BUG FIX #2: Pass explicit P&L to prevent API recalculation discrepancy
+            grossPnL: pnl,
+            netPnL: pnl, // Use same value for net (fees already accounted for if applicable)
+          }),
+        });
+
+        if (!updateResponse.ok) {
+          console.warn('Trade created but exit info update failed');
+        }
+      }
+
+      // Show success feedback with the date
+      setAddedToCalendarIds(prev => new Set(prev).add(position.id));
+
+      // Remove from closed positions (NEW - PR #156)
+      const updatedClosed = closedPositions.filter(p => p.id !== position.id);
+      setClosedPositions(updatedClosed);
+      localStorage.setItem(CLOSED_POSITIONS_KEY, JSON.stringify(updatedClosed));
+      window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
+
+      // Close modal and show success
+      setConfirmingAddToCalendar(null);
+      setSuccessMessage(`Added to ${displayDate} calendar and removed from Closed Positions`);
+
+      // Refresh calendar trades to update button states
+      await fetchCalendarTrades();
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+
+      // Dispatch event to refresh calendar if needed
+      window.dispatchEvent(new CustomEvent('juno:calendar-trades-updated'));
+
+    } catch (err) {
+      console.error('Error adding to calendar:', err);
+      setError(err instanceof Error ? err.message : 'Failed to add to calendar');
+
+      // Close modal on error
+      setConfirmingAddToCalendar(null);
+
+      // Clear error after 5 seconds
+      setTimeout(() => {
+        setError(null);
+      }, 5000);
+    }
+  };
+
+  // ===== ADD TO CALENDAR: Closed Position → Calendar Trade (legacy, replaced by confirmation flow) =====
   const handleAddToCalendar = async (position: ClosedPosition) => {
     try {
       // Calculate P&L dynamically from trade parameters (PR #156: Fix P&L calculation)
@@ -917,7 +1041,7 @@ export default function WatchlistView() {
                     {!isPositionInCalendar(position) && (
                       <>
                         <button
-                          onClick={() => handleAddToCalendar(position)}
+                          onClick={() => handleAddToCalendarClick(position)}
                           className="flex items-center gap-1 px-1.5 sm:px-2 py-1 text-xs text-blue-400 hover:text-white hover:bg-blue-500 rounded-lg transition-colors whitespace-nowrap"
                           title="Add to Calendar"
                         >
@@ -1119,6 +1243,37 @@ export default function WatchlistView() {
                   className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-medium"
                 >
                   Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add to Calendar Confirmation Modal */}
+      {confirmingAddToCalendar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#0F0F0F] border border-[#262626] rounded-2xl w-full max-w-sm p-6">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-6 h-6 text-blue-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Add Trade to Calendar?</h3>
+              <p className="text-sm text-[#8b949e] mb-6">
+                Are you sure you want to add {confirmingAddToCalendar.ticker} to the calendar? This will also remove it from Closed Positions.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmingAddToCalendar(null)}
+                  className="flex-1 px-4 py-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmAddToCalendar}
+                  className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium"
+                >
+                  Yes, Add to Calendar
                 </button>
               </div>
             </div>
