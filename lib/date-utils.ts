@@ -1,13 +1,38 @@
 /**
  * Date utilities for EST (America/New_York) timezone handling
- * All dates are stored with -05:00 offset to ensure consistency
+ * All dates are stored with proper EST/EDT offset to ensure consistency
  */
 
 const EST_TIMEZONE = 'America/New_York';
 const EST_OFFSET = '-05:00';
+const EDT_OFFSET = '-04:00';
 
 /**
- * Get current date/time in EST as ISO string with -05:00 offset
+ * Get the correct EST/EDT offset for a given date
+ * Returns '-05:00' for EST (winter) or '-04:00' for EDT (summer/daylight saving)
+ */
+export function getESTOffset(date: Date = new Date()): string {
+  // Format the date to see if we're in EDT or EST
+  const timeString = date.toLocaleString('en-US', {
+    timeZone: EST_TIMEZONE,
+    timeZoneName: 'short',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  
+  // Check for EDT indicator - EDT is GMT-4, EST is GMT-5
+  // During daylight saving time (roughly March-Nov), America/New_York uses EDT (-04:00)
+  const isEDT = timeString.includes('EDT');
+  return isEDT ? EDT_OFFSET : EST_OFFSET;
+}
+
+/**
+ * Get current date/time in EST/EDT as ISO string with proper offset
  * Use this instead of new Date().toISOString() which returns UTC
  */
 export function getNowInEST(): string {
@@ -26,7 +51,8 @@ export function getNowInEST(): string {
   // Parse MM/DD/YYYY, HH:MM:SS format
   const [datePart, timePart] = estDateStr.split(', ');
   const [month, day, year] = datePart.split('/');
-  return `${year}-${month}-${day}T${timePart}${EST_OFFSET}`;
+  const offset = getESTOffset(now);
+  return `${year}-${month}-${day}T${timePart}${offset}`;
 }
 
 /**
@@ -60,7 +86,7 @@ export function getCurrentTimeInEST(): string {
 }
 
 /**
- * Convert a date string to EST ISO format with -05:00 offset
+ * Convert a date string to EST/EDT ISO format with proper offset
  * Handles various input formats
  */
 export function toESTISOString(dateInput: string | Date): string {
@@ -83,7 +109,8 @@ export function toESTISOString(dateInput: string | Date): string {
   
   const [datePart, timePart] = estDateStr.split(', ');
   const [month, day, year] = datePart.split('/');
-  return `${year}-${month}-${day}T${timePart}${EST_OFFSET}`;
+  const offset = getESTOffset(date);
+  return `${year}-${month}-${day}T${timePart}${offset}`;
 }
 
 /**
@@ -127,19 +154,25 @@ export function parseDateToEST(dateStr: string): string {
 }
 
 /**
- * Create start of day timestamp in EST for a given date string
+ * Create start of day timestamp in EST/EDT for a given date string
  */
 export function getStartOfDayEST(dateStr: string): string {
   const parsed = parseDateToEST(dateStr);
-  return `${parsed}T00:00:00${EST_OFFSET}`;
+  // Create a date to determine if we're in EST or EDT
+  const date = new Date(`${parsed}T12:00:00`);
+  const offset = getESTOffset(date);
+  return `${parsed}T00:00:00${offset}`;
 }
 
 /**
- * Create end of day timestamp in EST for a given date string
+ * Create end of day timestamp in EST/EDT for a given date string
  */
 export function getEndOfDayEST(dateStr: string): string {
   const parsed = parseDateToEST(dateStr);
-  return `${parsed}T23:59:59${EST_OFFSET}`;
+  // Create a date to determine if we're in EST or EDT
+  const date = new Date(`${parsed}T12:00:00`);
+  const offset = getESTOffset(date);
+  return `${parsed}T23:59:59${offset}`;
 }
 
 /**

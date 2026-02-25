@@ -9,7 +9,7 @@ import type { Trade, CSVImportResult, CSVImportError, CreateTradeRequest } from 
 import { Strategy, TradeStatus, TradeSide } from '@/types/trading';
 import { saveTrades } from '@/lib/db/trades-v2';
 import { parseTOSCSV } from '@/lib/parsers/tos-parser';
-import { getNowInEST } from '@/lib/date-utils';
+import { getNowInEST, getESTOffset } from '@/lib/date-utils';
 
 /**
  * POST /api/trades/import
@@ -84,7 +84,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         tosTrades.forEach(t => {
           const [year, month, day] = t.date.split('-');
           const [hours, minutes, seconds] = t.time.split(':');
-          const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
+          const tradeDate = new Date(`${year}-${month}-${day}T${hours}:${minutes}:00`);
+          const offset = getESTOffset(tradeDate);
+          const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offset}`;
 
           trades.push({
             id: crypto.randomUUID(),
@@ -128,15 +130,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             const shares = Math.min(buy.quantity, sell.quantity);
             const netPnL = (sell.price - buy.price) * shares;
 
-            // Create entryDate with explicit EST timezone
+            // Create entryDate with proper EST/EDT timezone offset
             const [year, month, day] = buy.date.split('-');
             const [hours, minutes, seconds] = buy.time.split(':');
-            const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
+            const buyDate = new Date(`${year}-${month}-${day}T${hours}:${minutes}:00`);
+            const offset = getESTOffset(buyDate);
+            const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offset}`;
 
-            // Create exitDate
+            // Create exitDate with proper EST/EDT timezone offset
             const [sYear, sMonth, sDay] = sell.date.split('-');
             const [sHours, sMinutes, sSeconds] = sell.time.split(':');
-            const exitDate = `${sYear}-${sMonth}-${sDay}T${sHours}:${sMinutes}:${sSeconds}-05:00`;
+            const sellDate = new Date(`${sYear}-${sMonth}-${sDay}T${sHours}:${sMinutes}:00`);
+            const sellOffset = getESTOffset(sellDate);
+            const exitDate = `${sYear}-${sMonth}-${sDay}T${sHours}:${sMinutes}:${sSeconds}${sellOffset}`;
 
             trades.push({
               id: crypto.randomUUID(),
@@ -164,7 +170,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           [...unmatchedBuys, ...unmatchedSells].forEach(t => {
             const [year, month, day] = t.date.split('-');
             const [hours, minutes, seconds] = t.time.split(':');
-            const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
+            const tradeDate = new Date(`${year}-${month}-${day}T${hours}:${minutes}:00`);
+            const offset = getESTOffset(tradeDate);
+            const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offset}`;
 
             trades.push({
               id: crypto.randomUUID(),
@@ -399,7 +407,7 @@ function parseTradeRow(
     if (isNaN(date.getTime())) {
       parsedEntryDate = getNowInEST();
     } else {
-      // Convert parsed date to EST
+      // Convert parsed date to EST/EDT with proper offset
       const estDateStr = date.toLocaleString('en-US', {
         timeZone: 'America/New_York',
         year: 'numeric',
@@ -412,7 +420,8 @@ function parseTradeRow(
       });
       const [datePart, timePart] = estDateStr.split(', ');
       const [month, day, year] = datePart.split('/');
-      parsedEntryDate = `${year}-${month}-${day}T${timePart}-05:00`;
+      const offset = getESTOffset(date);
+      parsedEntryDate = `${year}-${month}-${day}T${timePart}${offset}`;
     }
   } catch {
     parsedEntryDate = getNowInEST();
@@ -449,7 +458,7 @@ function parseTradeRow(
         try {
           const parsedExitDate = new Date(exitDate);
           if (!isNaN(parsedExitDate.getTime())) {
-            // Convert to EST
+            // Convert to EST/EDT with proper offset
             const estDateStr = parsedExitDate.toLocaleString('en-US', {
               timeZone: 'America/New_York',
               year: 'numeric',
@@ -462,7 +471,8 @@ function parseTradeRow(
             });
             const [datePart, timePart] = estDateStr.split(', ');
             const [month, day, year] = datePart.split('/');
-            trade.exitDate = `${year}-${month}-${day}T${timePart}-05:00`;
+            const offset = getESTOffset(parsedExitDate);
+            trade.exitDate = `${year}-${month}-${day}T${timePart}${offset}`;
           }
         } catch {
           trade.exitDate = now;

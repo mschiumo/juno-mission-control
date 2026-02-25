@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, CreateTradeRequest, TradeListResponse } from '@/types/trading';
 import { TradeStatus, Strategy, TradeSide } from '@/types/trading';
 import { getAllTrades, saveTrade, deleteTrade } from '@/lib/db/trades-v2';
-import { getNowInEST, toESTISOString } from '@/lib/date-utils';
+import { getNowInEST, toESTISOString, getStartOfDayEST, getEndOfDayEST } from '@/lib/date-utils';
 
 // Helper to generate UUID
 function generateId(): string {
@@ -35,8 +35,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
     
+    console.log('[DEBUG API] Received request with params:', Object.fromEntries(searchParams.entries()));
+    
     // Get all trades from Redis
     const allTrades = await getAllTrades();
+    console.log('[DEBUG API] Total trades in database:', allTrades.length);
     
     // Required parameters
     const userId = searchParams.get('userId') || 'default';
@@ -61,6 +64,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let filteredTrades = allTrades.filter(
       (trade) => trade.userId === userId || !trade.userId // Include trades without userId for backward compat
     );
+    console.log('[DEBUG API] After user filter:', filteredTrades.length);
     
     // Apply filters
     if (symbol) {
@@ -78,20 +82,33 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
     
     if (startDate) {
-      // Start of day in EST
-      const start = new Date(`${startDate}T00:00:00-05:00`);
+      // Start of day in EST/EDT
+      const start = new Date(getStartOfDayEST(startDate));
+      console.log('[DEBUG API] Start date filter:', startDate, '- parsed as:', start.toISOString());
       filteredTrades = filteredTrades.filter(
-        (t) => new Date(toESTISOString(t.entryDate)) >= start
+        (t) => {
+          const tradeDate = new Date(toESTISOString(t.entryDate));
+          const matches = tradeDate >= start;
+          console.log(`[DEBUG API] Trade ${t.id.slice(0,8)} entryDate: ${t.entryDate}, parsed: ${tradeDate.toISOString()}, matches start: ${matches}`);
+          return matches;
+        }
       );
     }
     
     if (endDate) {
-      // End of day in EST (23:59:59)
-      const end = new Date(`${endDate}T23:59:59-05:00`);
+      // End of day in EST/EDT (23:59:59)
+      const end = new Date(getEndOfDayEST(endDate));
+      console.log('[DEBUG API] End date filter:', endDate, '- parsed as:', end.toISOString());
       filteredTrades = filteredTrades.filter(
-        (t) => new Date(toESTISOString(t.entryDate)) <= end
+        (t) => {
+          const tradeDate = new Date(toESTISOString(t.entryDate));
+          const matches = tradeDate <= end;
+          console.log(`[DEBUG API] Trade ${t.id.slice(0,8)} matches end: ${matches}`);
+          return matches;
+        }
       );
     }
+    console.log('[DEBUG API] Final filtered trades count:', filteredTrades.length);
     
     if (tags && tags.length > 0) {
       filteredTrades = filteredTrades.filter((t) =>

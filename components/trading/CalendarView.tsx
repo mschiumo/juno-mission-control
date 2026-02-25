@@ -89,17 +89,30 @@ export default function CalendarView() {
 
   const fetchTradesForDate = async (date: string) => {
     try {
+      console.log('[DEBUG] fetchTradesForDate called with date:', date);
+      
       // Use startDate and endDate for the specific day
+      const apiUrl = `/api/trades?userId=default&startDate=${date}&endDate=${date}&perPage=100&_t=${Date.now()}`;
+      console.log('[DEBUG] API URL:', apiUrl);
+      
       const [tradesRes, journalRes] = await Promise.all([
-        fetch(`/api/trades?userId=default&startDate=${date}&endDate=${date}&perPage=100&_t=${Date.now()}`),
+        fetch(apiUrl),
         fetch(`/api/trades/journal?date=${date}&_t=${Date.now()}`)
       ]);
       
       const tradesData = await tradesRes.json();
-      const journalData = await journalRes.json();
+      console.log('[DEBUG] API response:', tradesData);
+      console.log('[DEBUG] tradesData.success:', tradesData.success);
+      console.log('[DEBUG] tradesData.data:', tradesData.data);
+      console.log('[DEBUG] tradesData.data?.trades:', tradesData.data?.trades);
+      console.log('[DEBUG] tradesData.data?.trades?.length:', tradesData.data?.trades?.length);
       
       if (tradesData.success && tradesData.data && tradesData.data.trades) {
+        console.log('[DEBUG] Setting selectedDateTrades with', tradesData.data.trades.length, 'trades');
         setSelectedDateTrades(tradesData.data.trades);
+      } else {
+        console.log('[DEBUG] No trades found in response, setting empty array');
+        setSelectedDateTrades([]);
       }
       
       if (journalData.success && journalData.notes) {
@@ -112,6 +125,7 @@ export default function CalendarView() {
   };
 
   const handleDateClick = (date: string) => {
+    console.log('[DEBUG] handleDateClick called with date:', date);
     setSelectedDate(date);
     fetchTradesForDate(date);
   };
@@ -887,6 +901,11 @@ export default function CalendarView() {
 }
 
 function DayDetailModal({ date, data, trades, onClose, onTradeDeleted }: { date: string; data: DayData; trades: TOSTrade[]; onClose: () => void; onTradeDeleted?: () => void }) {
+  // DEBUG: Log trades received
+  console.log('[DEBUG] DayDetailModal - trades received:', trades);
+  console.log('[DEBUG] DayDetailModal - trades length:', trades?.length);
+  console.log('[DEBUG] DayDetailModal - data.trades count from summary:', data?.trades);
+  
   // Parse date parts directly to avoid UTC shift
   const [year, month, day] = date.split('-').map(Number);
   const dateObj = new Date(year, month - 1, day); // month is 0-indexed
