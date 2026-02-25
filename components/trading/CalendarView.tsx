@@ -101,6 +101,7 @@ export default function CalendarView() {
       ]);
       
       const tradesData = await tradesRes.json();
+      const journalData = await journalRes.json();
       console.log('[DEBUG] API response:', tradesData);
       console.log('[DEBUG] tradesData.success:', tradesData.success);
       console.log('[DEBUG] tradesData.data:', tradesData.data);
