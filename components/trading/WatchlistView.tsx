@@ -156,6 +156,14 @@ export default function WatchlistView() {
 
   // Confirmation modal state for Add to Calendar
   const [confirmingAddToCalendar, setConfirmingAddToCalendar] = useState<ClosedPosition | null>(null);
+  
+  // Editable calendar form state
+  const [calendarFormData, setCalendarFormData] = useState<{
+    entryPrice: string;
+    exitPrice: string;
+    shares: string;
+    takeProfit: string;
+  } | null>(null);
 
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -507,49 +515,73 @@ export default function WatchlistView() {
   // ===== ADD TO CALENDAR: Closed Position → Calendar Trade =====
   const handleAddToCalendarClick = (position: ClosedPosition) => {
     setConfirmingAddToCalendar(position);
+    // Initialize form data with position values
+    setCalendarFormData({
+      entryPrice: (position.actualEntry || position.plannedEntry).toString(),
+      exitPrice: (position.exitPrice || position.plannedTarget).toString(),
+      shares: position.actualShares.toString(),
+      takeProfit: position.plannedTarget.toString(),
+    });
+  };
+
+  // Calculate P&L for calendar form
+  const calculateCalendarPnL = useCallback(() => {
+    if (!confirmingAddToCalendar || !calendarFormData) return 0;
+    
+    const entryPrice = parseFloat(calendarFormData.entryPrice) || 0;
+    const exitPrice = parseFloat(calendarFormData.exitPrice) || 0;
+    const shares = parseFloat(calendarFormData.shares) || 0;
+    const isLong = confirmingAddToCalendar.plannedTarget > confirmingAddToCalendar.plannedEntry;
+    
+    if (isLong) {
+      return (exitPrice - entryPrice) * shares;
+    } else {
+      return (entryPrice - exitPrice) * shares;
+    }
+  }, [confirmingAddToCalendar, calendarFormData]);
+
+  const handleCalendarFormChange = (field: 'entryPrice' | 'exitPrice' | 'shares' | 'takeProfit', value: string) => {
+    setCalendarFormData(prev => prev ? { ...prev, [field]: value } : null);
   };
 
   const handleConfirmAddToCalendar = async () => {
-    if (!confirmingAddToCalendar) return;
+    if (!confirmingAddToCalendar || !calendarFormData) return;
 
     const position = confirmingAddToCalendar;
 
     try {
-      // Calculate P&L dynamically from trade parameters (PR #156: Fix P&L calculation)
-      // DO NOT use stored position.pnl - always calculate from entry/exit/shares/side
-      const entryPrice = position.actualEntry;
-      const exitPrice = position.exitPrice || position.plannedTarget;
-      const shares = position.actualShares;
+      // Use editable form values
+      const entryPrice = parseFloat(calendarFormData.entryPrice) || position.actualEntry;
+      const exitPrice = parseFloat(calendarFormData.exitPrice) || position.exitPrice || position.plannedTarget;
+      const shares = parseFloat(calendarFormData.shares) || position.actualShares;
+      const takeProfit = parseFloat(calendarFormData.takeProfit) || position.plannedTarget;
       const isLong = position.plannedTarget > position.plannedEntry;
 
-      // Calculate P&L dynamically based on side (Long/Short)
+      // Calculate P&L from editable values
       let pnl = 0;
       if (isLong) {
-        // For LONG trades: pnl = (exitPrice - entryPrice) * shares
         pnl = (exitPrice - entryPrice) * shares;
       } else {
-        // For SHORT trades: pnl = (entryPrice - exitPrice) * shares
         pnl = (entryPrice - exitPrice) * shares;
       }
 
       // Extract the original trade date for calendar display
-      // Use closedAt date to ensure trade appears on correct day
       const displayDate = new Date(position.closedAt).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
       });
 
-      // Create trade request with ORIGINAL TRADE DATE
+      // Create trade request with EDITABLE VALUES from form
       const tradeRequest: CreateTradeRequest = {
         symbol: position.ticker,
         side: isLong ? TradeSide.LONG : TradeSide.SHORT,
         strategy: Strategy.DAY_TRADE, // Default strategy
         entryDate: position.openedAt, // Original entry date
-        entryPrice: position.actualEntry,
-        shares: position.actualShares,
+        entryPrice: entryPrice, // Use edited entry price
+        shares: shares, // Use edited shares
         entryNotes: `Transferred from Closed Positions. ${position.notes || ''} [Source: closed-position-transfer]`,
         stopLoss: position.plannedStop,
-        takeProfit: position.plannedTarget,
+        takeProfit: takeProfit, // Use edited take profit
       };
 
       // POST to API to create the trade
@@ -598,6 +630,7 @@ export default function WatchlistView() {
 
       // Close modal and show success
       setConfirmingAddToCalendar(null);
+      setCalendarFormData(null); // Reset form data
       setSuccessMessage(`Added to ${displayDate} calendar and removed from Closed Positions`);
 
       // Refresh calendar trades to update button states
@@ -1427,31 +1460,106 @@ export default function WatchlistView() {
       )}
 
       {/* Add to Calendar Confirmation Modal */}
-      {confirmingAddToCalendar && (
+      {confirmingAddToCalendar && calendarFormData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#0F0F0F] border border-[#262626] rounded-2xl w-full max-w-sm p-6">
-            <div className="text-center">
+          <div className="bg-[#0F0F0F] border border-[#262626] rounded-2xl w-full max-w-md p-6">
+            <div className="text-center mb-6">
               <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Calendar className="w-6 h-6 text-blue-400" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Add Trade to Calendar?</h3>
-              <p className="text-sm text-[#8b949e] mb-6">
-                Are you sure you want to add {confirmingAddToCalendar.ticker} to the calendar? This will also remove it from Closed Positions.
+              <h3 className="text-lg font-semibold text-white mb-1">Add Trade to Calendar</h3>
+              <p className="text-sm text-[#8b949e]">
+                {confirmingAddToCalendar.ticker} • Edit values before adding
               </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setConfirmingAddToCalendar(null)}
-                  className="flex-1 px-4 py-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors text-sm font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmAddToCalendar}
-                  className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium"
-                >
-                  Yes, Add to Calendar
-                </button>
+            </div>
+
+            {/* Editable Fields */}
+            <div className="space-y-4 mb-6">
+              {/* Entry Price */}
+              <div>
+                <label className="block text-xs text-[#8b949e] mb-1.5">Entry Price</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={calendarFormData.entryPrice}
+                  onChange={(e) => handleCalendarFormChange('entryPrice', e.target.value)}
+                  className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                />
               </div>
+
+              {/* Exit Price */}
+              <div>
+                <label className="block text-xs text-[#8b949e] mb-1.5">Exit Price</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={calendarFormData.exitPrice}
+                  onChange={(e) => handleCalendarFormChange('exitPrice', e.target.value)}
+                  className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                />
+              </div>
+
+              {/* Shares */}
+              <div>
+                <label className="block text-xs text-[#8b949e] mb-1.5">Shares</label>
+                <input
+                  type="number"
+                  step="1"
+                  value={calendarFormData.shares}
+                  onChange={(e) => handleCalendarFormChange('shares', e.target.value)}
+                  className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                />
+              </div>
+
+              {/* Take Profit Level */}
+              <div>
+                <label className="block text-xs text-[#8b949e] mb-1.5">
+                  Take Profit Level <span className="text-[#6e7681]">(optional)</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={calendarFormData.takeProfit}
+                  onChange={(e) => handleCalendarFormChange('takeProfit', e.target.value)}
+                  className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  placeholder="Target price"
+                />
+              </div>
+
+              {/* Live P&L Display */}
+              <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+                <div className="text-xs text-[#8b949e] mb-1">Calculated P&L</div>
+                {(() => {
+                  const pnl = calculateCalendarPnL();
+                  return (
+                    <div className={`text-2xl font-bold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {formatCurrency(pnl)}
+                    </div>
+                  );
+                })()}
+                <div className="text-xs text-[#6e7681] mt-1">
+                  Based on edited values above
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setConfirmingAddToCalendar(null);
+                  setCalendarFormData(null);
+                }}
+                className="flex-1 px-4 py-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAddToCalendar}
+                className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                Add to Calendar
+              </button>
             </div>
           </div>
         </div>
