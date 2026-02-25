@@ -430,27 +430,32 @@ export default function WatchlistView() {
     }
 
     let parsedValue: number | string | undefined;
+    let numericValue: number | undefined;
     
     if (field === 'notes') {
       parsedValue = value.trim() || undefined;
     } else {
-      parsedValue = parseFloat(value);
-      if (isNaN(parsedValue) || parsedValue <= 0) {
+      numericValue = parseFloat(value);
+      if (isNaN(numericValue) || numericValue <= 0) {
         // Invalid value, cancel edit
         setInlineEditing(null);
         return;
       }
+      parsedValue = numericValue;
+    }
+
+    // Recalculate position value if entry or shares changed
+    let newPositionValue = trade.positionValue;
+    if ((field === 'actualEntry' || field === 'actualShares') && numericValue !== undefined) {
+      const entryPrice = field === 'actualEntry' ? numericValue : (trade.actualEntry || 0);
+      const shares = field === 'actualShares' ? numericValue : (trade.actualShares || 0);
+      newPositionValue = entryPrice * shares;
     }
 
     const updatedTrade: ActiveTrade = {
       ...trade,
       [field]: parsedValue,
-      // Recalculate position value if entry or shares changed
-      ...(field === 'actualEntry' || field === 'actualShares' ? {
-        positionValue: 
-          (field === 'actualEntry' ? (parsedValue as number) : (trade.actualEntry || 0)) * 
-          (field === 'actualShares' ? (parsedValue as number) : (trade.actualShares || 0))
-      } : {})
+      positionValue: newPositionValue
     };
 
     handleSaveTrade(updatedTrade);
