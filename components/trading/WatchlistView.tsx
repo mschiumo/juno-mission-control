@@ -132,6 +132,13 @@ export default function WatchlistView() {
   const [editingTrade, setEditingTrade] = useState<ActiveTrade | null>(null);
   const [isEditTradeModalOpen, setIsEditTradeModalOpen] = useState(false);
 
+  // Inline edit state for Active Trades
+  const [inlineEditing, setInlineEditing] = useState<{
+    tradeId: string;
+    field: 'actualEntry' | 'plannedStop' | 'plannedTarget' | 'actualShares' | 'notes';
+    value: string;
+  } | null>(null);
+
   // Closed Positions state
   const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
   const [deletingPositionId, setDeletingPositionId] = useState<string | null>(null);
@@ -391,6 +398,63 @@ export default function WatchlistView() {
     window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
     setIsEditTradeModalOpen(false);
     setEditingTrade(null);
+  };
+
+  // ===== INLINE EDIT: Active Trade =====
+  const handleInlineEditStart = (trade: ActiveTrade, field: 'actualEntry' | 'plannedStop' | 'plannedTarget' | 'actualShares' | 'notes') => {
+    const value = trade[field]?.toString() || '';
+    setInlineEditing({ tradeId: trade.id, field, value });
+  };
+
+  const handleInlineEditChange = (value: string) => {
+    if (!inlineEditing) return;
+    setInlineEditing({ ...inlineEditing, value });
+  };
+
+  const handleInlineEditSave = () => {
+    if (!inlineEditing) return;
+
+    const { tradeId, field, value } = inlineEditing;
+    const trade = activeTrades.find(t => t.id === tradeId);
+    if (!trade) {
+      setInlineEditing(null);
+      return;
+    }
+
+    let parsedValue: number | string | undefined;
+    
+    if (field === 'notes') {
+      parsedValue = value.trim() || undefined;
+    } else {
+      parsedValue = parseFloat(value);
+      if (isNaN(parsedValue) || parsedValue <= 0) {
+        // Invalid value, cancel edit
+        setInlineEditing(null);
+        return;
+      }
+    }
+
+    const updatedTrade: ActiveTrade = {
+      ...trade,
+      [field]: parsedValue,
+      // Recalculate position value if entry or shares changed
+      ...(field === 'actualEntry' || field === 'actualShares' ? {
+        positionValue: 
+          (field === 'actualEntry' ? parsedValue : trade.actualEntry) * 
+          (field === 'actualShares' ? parsedValue : trade.actualShares)
+      } : {})
+    };
+
+    handleSaveTrade(updatedTrade);
+    setInlineEditing(null);
+  };
+
+  const handleInlineEditKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleInlineEditSave();
+    } else if (e.key === 'Escape') {
+      setInlineEditing(null);
+    }
   };
 
   // ===== EDIT: Closed Position =====
@@ -810,38 +874,144 @@ export default function WatchlistView() {
                 {/* Card Body */}
                 <div className="p-4 space-y-3">
                   {/* Unified Stats Row - All States */}
-                  <div className="grid grid-cols-5 gap-2">
-                    <div>
+                  <div className="grid grid-cols-6 gap-2">
+                    {/* Entry Price - Inline Editable */}
+                    <div className="cursor-pointer hover:bg-[#262626] rounded-lg px-1 -mx-1 transition-colors"
+                         onClick={() => handleInlineEditStart(trade, 'actualEntry')}>
                       <div className="text-xs text-[#8b949e]">Entry</div>
-                      <div className="text-sm font-semibold">{formatCurrency(trade.actualEntry)}</div>
+                      {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'actualEntry' ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={inlineEditing.value}
+                          onChange={(e) => handleInlineEditChange(e.target.value)}
+                          onBlur={handleInlineEditSave}
+                          onKeyDown={handleInlineEditKeyDown}
+                          autoFocus
+                          className="w-full px-1 py-0.5 bg-[#161b22] border border-blue-500 rounded text-sm font-semibold text-white focus:outline-none"
+                        />
+                      ) : (
+                        <div className="text-sm font-semibold">{formatCurrency(trade.actualEntry)}</div>
+                      )}
                     </div>
-                    <div>
+
+                    {/* Stop Price - Inline Editable */}
+                    <div className="cursor-pointer hover:bg-[#262626] rounded-lg px-1 -mx-1 transition-colors"
+                         onClick={() => handleInlineEditStart(trade, 'plannedStop')}>
                       <div className="text-xs text-red-400">Stop</div>
-                      <div className="text-sm font-semibold">{formatCurrency(trade.plannedStop)}</div>
+                      {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'plannedStop' ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={inlineEditing.value}
+                          onChange={(e) => handleInlineEditChange(e.target.value)}
+                          onBlur={handleInlineEditSave}
+                          onKeyDown={handleInlineEditKeyDown}
+                          autoFocus
+                          className="w-full px-1 py-0.5 bg-[#161b22] border border-blue-500 rounded text-sm font-semibold text-white focus:outline-none"
+                        />
+                      ) : (
+                        <div className="text-sm font-semibold">{formatCurrency(trade.plannedStop)}</div>
+                      )}
                     </div>
-                    <div>
+
+                    {/* Target Price - Inline Editable */}
+                    <div className="cursor-pointer hover:bg-[#262626] rounded-lg px-1 -mx-1 transition-colors"
+                         onClick={() => handleInlineEditStart(trade, 'plannedTarget')}>
                       <div className="text-xs text-green-400">Target</div>
-                      <div className="text-sm font-semibold">{formatCurrency(trade.plannedTarget)}</div>
+                      {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'plannedTarget' ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={inlineEditing.value}
+                          onChange={(e) => handleInlineEditChange(e.target.value)}
+                          onBlur={handleInlineEditSave}
+                          onKeyDown={handleInlineEditKeyDown}
+                          autoFocus
+                          className="w-full px-1 py-0.5 bg-[#161b22] border border-blue-500 rounded text-sm font-semibold text-white focus:outline-none"
+                        />
+                      ) : (
+                        <div className="text-sm font-semibold">{formatCurrency(trade.plannedTarget)}</div>
+                      )}
                     </div>
+
+                    {/* Profit */}
                     <div>
                       <div className="text-xs text-[#8b949e]">Profit</div>
                       <div className="text-sm font-bold text-green-400">{formatCurrency((trade.plannedTarget - trade.actualEntry) * trade.actualShares)}</div>
                     </div>
+
+                    {/* Risk Amount */}
                     <div>
-                      <div className="text-xs text-[#8b949e]">Value</div>
-                      <div className="text-sm font-semibold">{formatCurrency(trade.positionValue)}</div>
+                      <div className="text-xs text-red-400 font-medium">Risk</div>
+                      <div className="text-sm font-bold text-red-400">
+                        {(() => {
+                          const riskAmount = Math.abs(trade.actualEntry - trade.plannedStop) * trade.actualShares;
+                          return formatCurrency(riskAmount);
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Shares - Inline Editable */}
+                    <div className="cursor-pointer hover:bg-[#262626] rounded-lg px-1 -mx-1 transition-colors"
+                         onClick={() => handleInlineEditStart(trade, 'actualShares')}>
+                      <div className="text-xs text-[#8b949e]">Shares</div>
+                      {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'actualShares' ? (
+                        <input
+                          type="number"
+                          step="1"
+                          value={inlineEditing.value}
+                          onChange={(e) => handleInlineEditChange(e.target.value)}
+                          onBlur={handleInlineEditSave}
+                          onKeyDown={handleInlineEditKeyDown}
+                          autoFocus
+                          className="w-full px-1 py-0.5 bg-[#161b22] border border-blue-500 rounded text-sm font-semibold text-white focus:outline-none"
+                        />
+                      ) : (
+                        <div className="text-sm font-semibold">{formatNumber(trade.actualShares)}</div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Notes */}
-                  {trade.notes && (
-                    <div className="bg-[#161b22] rounded-lg p-4">
-                      <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-2">
-                        <FileText className="w-3.5 h-3.5" />
-                        Notes
-                      </div>
-                      <p className="text-sm text-white">{trade.notes}</p>
+                  {/* Notes - Inline Editable */}
+                  {trade.notes ? (
+                    <div className="bg-[#161b22] rounded-lg p-4 cursor-pointer hover:bg-[#1c2128] transition-colors"
+                         onClick={() => handleInlineEditStart(trade, 'notes')}>
+                      {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'notes' ? (
+                        <textarea
+                          value={inlineEditing.value}
+                          onChange={(e) => handleInlineEditChange(e.target.value)}
+                          onBlur={handleInlineEditSave}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.metaKey) {
+                              handleInlineEditSave();
+                            } else if (e.key === 'Escape') {
+                              setInlineEditing(null);
+                            }
+                          }}
+                          autoFocus
+                          rows={3}
+                          className="w-full px-2 py-1 bg-[#0F0F0F] border border-blue-500 rounded text-sm text-white focus:outline-none resize-none"
+                          placeholder="Add notes..."
+                        />
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-2">
+                            <FileText className="w-3.5 h-3.5" />
+                            Notes (click to edit)
+                          </div>
+                          <p className="text-sm text-white">{trade.notes}</p>
+                        </>
+                      )}
                     </div>
+                  ) : (
+                    <button
+                      onClick={() => handleInlineEditStart(trade, 'notes')}
+                      className="w-full text-left text-xs text-[#8b949e] hover:text-blue-400 flex items-center gap-1.5 py-2"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      + Add notes
+                    </button>
                   )}
                 </div>
               </div>

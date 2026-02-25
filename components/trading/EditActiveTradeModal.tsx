@@ -14,6 +14,8 @@ interface EditActiveTradeModalProps {
 interface FormErrors {
   actualEntry?: string;
   actualShares?: string;
+  plannedStop?: string;
+  plannedTarget?: string;
 }
 
 export default function EditActiveTradeModal({
@@ -25,6 +27,8 @@ export default function EditActiveTradeModal({
   const [formData, setFormData] = useState({
     actualEntry: '',
     actualShares: '',
+    plannedStop: '',
+    plannedTarget: '',
     notes: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
@@ -35,6 +39,8 @@ export default function EditActiveTradeModal({
       setFormData({
         actualEntry: trade.actualEntry.toString(),
         actualShares: trade.actualShares.toString(),
+        plannedStop: trade.plannedStop.toString(),
+        plannedTarget: trade.plannedTarget.toString(),
         notes: trade.notes || '',
       });
     }
@@ -46,6 +52,8 @@ export default function EditActiveTradeModal({
       setFormData({
         actualEntry: '',
         actualShares: '',
+        plannedStop: '',
+        plannedTarget: '',
         notes: '',
       });
       setErrors({});
@@ -63,6 +71,16 @@ export default function EditActiveTradeModal({
     const actualShares = parseInt(formData.actualShares, 10);
     if (isNaN(actualShares) || actualShares <= 0) {
       newErrors.actualShares = 'Valid number of shares required';
+    }
+
+    const plannedStop = parseFloat(formData.plannedStop);
+    if (isNaN(plannedStop) || plannedStop <= 0) {
+      newErrors.plannedStop = 'Valid stop price required';
+    }
+
+    const plannedTarget = parseFloat(formData.plannedTarget);
+    if (isNaN(plannedTarget) || plannedTarget <= 0) {
+      newErrors.plannedTarget = 'Valid target price required';
     }
 
     setErrors(newErrors);
@@ -83,12 +101,16 @@ export default function EditActiveTradeModal({
 
     const actualEntry = parseFloat(formData.actualEntry);
     const actualShares = parseInt(formData.actualShares, 10);
+    const plannedStop = parseFloat(formData.plannedStop);
+    const plannedTarget = parseFloat(formData.plannedTarget);
     const positionValue = actualEntry * actualShares;
 
     const updatedTrade: ActiveTrade = {
       ...trade,
       actualEntry,
       actualShares,
+      plannedStop,
+      plannedTarget,
       positionValue,
       notes: formData.notes.trim() || undefined,
     };
@@ -214,15 +236,79 @@ export default function EditActiveTradeModal({
               )}
             </div>
 
+            {/* Stop Price */}
+            <div>
+              <label className="block text-sm font-medium text-[#8b949e] mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <span className="text-[10px] text-red-400 font-bold">S</span>
+                  </div>
+                  Stop Price
+                </div>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.plannedStop}
+                onChange={(e) => handleInputChange('plannedStop', e.target.value)}
+                className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                placeholder="Enter stop price"
+              />
+              {errors.plannedStop && (
+                <p className="mt-1 text-xs text-red-400">{errors.plannedStop}</p>
+              )}
+            </div>
+
+            {/* Target Price */}
+            <div>
+              <label className="block text-sm font-medium text-[#8b949e] mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <span className="text-[10px] text-green-400 font-bold">T</span>
+                  </div>
+                  Target Price
+                </div>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.plannedTarget}
+                onChange={(e) => handleInputChange('plannedTarget', e.target.value)}
+                className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                placeholder="Enter target price"
+              />
+              {errors.plannedTarget && (
+                <p className="mt-1 text-xs text-red-400">{errors.plannedTarget}</p>
+              )}
+            </div>
+
             {/* Position Value Preview */}
             {currentPositionValue > 0 && (
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[#8b949e]">Position Value</span>
                   <span className="text-lg font-bold text-blue-400">
                     {formatCurrency(currentPositionValue)}
                   </span>
                 </div>
+                {/* Risk Amount */}
+                {(() => {
+                  const entry = parseFloat(formData.actualEntry || '0');
+                  const stop = parseFloat(formData.plannedStop || '0');
+                  const shares = parseInt(formData.actualShares || '0', 10);
+                  if (entry > 0 && stop > 0 && shares > 0) {
+                    const riskAmount = Math.abs(entry - stop) * shares;
+                    return (
+                      <div className="flex items-center justify-between pt-2 border-t border-blue-500/20">
+                        <span className="text-sm text-[#8b949e]">Risk Amount</span>
+                        <span className="text-lg font-bold text-red-400">
+                          -{formatCurrency(riskAmount)}
+                        </span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             )}
 
