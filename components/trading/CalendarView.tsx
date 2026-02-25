@@ -24,6 +24,7 @@ interface TOSTrade {
   exitPrice?: number;
   exitDate?: string;
   netPnL?: number;
+  grossPnL?: number;
   status: 'OPEN' | 'CLOSED';
   orderType?: string;
 }
@@ -317,7 +318,7 @@ export default function CalendarView() {
       t.shares,
       t.entryPrice.toFixed(2),
       t.exitPrice?.toFixed(2) || '',
-      t.netPnL?.toFixed(2) || '',
+      t.grossPnL !== undefined ? t.grossPnL.toFixed(2) : (t.netPnL?.toFixed(2) || ''),
       t.status
     ]);
     
@@ -772,8 +773,8 @@ export default function CalendarView() {
                         </td>
                         <td className="py-3 px-4 text-right text-white">{trade.shares}</td>
                         <td className="py-3 px-4 text-right text-white">${trade.entryPrice?.toFixed(2)}</td>
-                        <td className={`py-3 px-4 text-right ${trade.netPnL && trade.netPnL >= 0 ? 'text-[#3fb950]' : trade.netPnL && trade.netPnL < 0 ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
-                          {trade.netPnL ? `${trade.netPnL >= 0 ? '+' : ''}$${trade.netPnL.toFixed(2)}` : '-'}
+                        <td className={`py-3 px-4 text-right ${(trade.grossPnL !== undefined ? trade.grossPnL : trade.netPnL) && (trade.grossPnL !== undefined ? trade.grossPnL : trade.netPnL)! >= 0 ? 'text-[#3fb950]' : (trade.grossPnL !== undefined ? trade.grossPnL : trade.netPnL) && (trade.grossPnL !== undefined ? trade.grossPnL : trade.netPnL)! < 0 ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
+                          {(trade.grossPnL !== undefined ? trade.grossPnL : trade.netPnL) ? `${(trade.grossPnL !== undefined ? trade.grossPnL : trade.netPnL)! >= 0 ? '+' : ''}$${(trade.grossPnL !== undefined ? trade.grossPnL : trade.netPnL)!.toFixed(2)}` : '-'}
                         </td>
                         <td className="py-3 px-4">
                           <span className={`text-xs px-2 py-1 rounded-full ${trade.status === 'CLOSED' ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#d29922]/20 text-[#d29922]'}`}>
