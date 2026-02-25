@@ -28,6 +28,7 @@ import { TradeSide, Strategy } from '@/types/trading';
 import EditWatchlistItemModal from './EditWatchlistItemModal';
 import EnterPositionModal from './EnterPositionModal';
 import EditActiveTradeModal from './EditActiveTradeModal';
+import EditClosedPositionModal from './EditClosedPositionModal';
 
 const WATCHLIST_KEY = 'juno:trade-watchlist';
 const ACTIVE_TRADES_KEY = 'juno:active-trades';
@@ -134,6 +135,10 @@ export default function WatchlistView() {
   // Closed Positions state
   const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
   const [deletingPositionId, setDeletingPositionId] = useState<string | null>(null);
+  
+  // Edit Closed Position state
+  const [editingClosedPosition, setEditingClosedPosition] = useState<ClosedPosition | null>(null);
+  const [isEditClosedPositionModalOpen, setIsEditClosedPositionModalOpen] = useState(false);
   
   // Track which positions have been added to calendar (for UI feedback)
   const [addedToCalendarIds, setAddedToCalendarIds] = useState<Set<string>>(new Set());
@@ -383,6 +388,29 @@ export default function WatchlistView() {
     window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
     setIsEditTradeModalOpen(false);
     setEditingTrade(null);
+  };
+
+  // ===== EDIT: Closed Position =====
+  const handleEditClosedPosition = (position: ClosedPosition) => {
+    setEditingClosedPosition(position);
+    setIsEditClosedPositionModalOpen(true);
+  };
+
+  const handleCloseEditClosedPositionModal = () => {
+    setIsEditClosedPositionModalOpen(false);
+    setEditingClosedPosition(null);
+  };
+
+  const handleSaveClosedPosition = (updatedPosition: ClosedPosition) => {
+    const currentClosed = storage.getClosedPositions();
+    const updated = currentClosed.map(position => 
+      position.id === updatedPosition.id ? updatedPosition : position
+    );
+    storage.setClosedPositions(updated);
+    setClosedPositions(updated);
+    window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
+    setIsEditClosedPositionModalOpen(false);
+    setEditingClosedPosition(null);
   };
 
   // ===== DELETE: Closed Position (permanent) =====
@@ -908,6 +936,14 @@ export default function WatchlistView() {
                       )}
                     </button>
                     <button
+                      onClick={() => handleEditClosedPosition(position)}
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:text-white hover:bg-blue-500 rounded-lg transition-colors whitespace-nowrap"
+                      title="Edit position details"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      Edit
+                    </button>
+                    <button
                       onClick={() => setDeletingPositionId(position.id)}
                       className="flex items-center gap-1 px-2 py-1 text-xs text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors whitespace-nowrap"
                       title="Delete from history"
@@ -1027,6 +1063,14 @@ export default function WatchlistView() {
         isOpen={isEditTradeModalOpen}
         onClose={handleCloseEditTradeModal}
         onSave={handleSaveTrade}
+      />
+
+      {/* Edit Closed Position Modal */}
+      <EditClosedPositionModal
+        position={editingClosedPosition}
+        isOpen={isEditClosedPositionModalOpen}
+        onClose={handleCloseEditClosedPositionModal}
+        onSave={handleSaveClosedPosition}
       />
 
       {/* Close Trade Confirmation Modal (Active → Closed) */}
