@@ -66,16 +66,34 @@ export default function PositionCalculator() {
     if (!isFormValid() || calculations.status !== 'valid') return;
 
     try {
-      // Get existing watchlist
+      // Get existing watchlist (Potential Trades)
       const stored = localStorage.getItem(STORAGE_KEY);
       const existing: WatchlistItem[] = stored ? JSON.parse(stored) : [];
       
-      // Check for duplicate ticker
-      const isDuplicate = existing.some((item: WatchlistItem) =>
-        item.ticker.toUpperCase() === inputs.ticker.trim().toUpperCase()
+      // Get active trades
+      const activeTradesStored = localStorage.getItem('juno:active-trades');
+      const activeTrades = activeTradesStored ? JSON.parse(activeTradesStored) : [];
+      
+      const tickerInput = inputs.ticker.trim().toUpperCase();
+      
+      // Check for duplicate ticker in watchlist (Potential Trades)
+      const isDuplicateInWatchlist = existing.some((item: WatchlistItem) =>
+        item.ticker.toUpperCase() === tickerInput
       );
       
-      if (isDuplicate) {
+      // Check for duplicate ticker in active trades
+      const isDuplicateInActive = activeTrades.some((trade: any) =>
+        trade.ticker?.toUpperCase() === tickerInput
+      );
+      
+      // Block if in watchlist or active trades, but allow if only in closed positions
+      if (isDuplicateInWatchlist) {
+        setSaveStatus('duplicate');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+        return;
+      }
+      
+      if (isDuplicateInActive) {
         setSaveStatus('duplicate');
         setTimeout(() => setSaveStatus('idle'), 3000);
         return;
