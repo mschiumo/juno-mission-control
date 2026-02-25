@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, CreateTradeRequest, TradeListResponse } from '@/types/trading';
 import { TradeStatus, Strategy, TradeSide } from '@/types/trading';
 import { getAllTrades, saveTrade, deleteTrade } from '@/lib/db/trades-v2';
-import { getNowInEST } from '@/lib/date-utils';
+import { getNowInEST, toESTISOString } from '@/lib/date-utils';
 
 // Helper to generate UUID
 function generateId(): string {
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       // Start of day in EST
       const start = new Date(`${startDate}T00:00:00-05:00`);
       filteredTrades = filteredTrades.filter(
-        (t) => new Date(t.entryDate) >= start
+        (t) => new Date(toESTISOString(t.entryDate)) >= start
       );
     }
     
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       // End of day in EST (23:59:59)
       const end = new Date(`${endDate}T23:59:59-05:00`);
       filteredTrades = filteredTrades.filter(
-        (t) => new Date(t.entryDate) <= end
+        (t) => new Date(toESTISOString(t.entryDate)) <= end
       );
     }
     
