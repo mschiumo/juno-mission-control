@@ -412,23 +412,21 @@ export default function WatchlistView() {
   // ===== ADD TO CALENDAR: Closed Position → Calendar Trade =====
   const handleAddToCalendar = async (position: ClosedPosition) => {
     try {
-      // Calculate P&L - Use stored position.pnl if available, otherwise calculate from exit data
+      // Calculate P&L dynamically from trade parameters (PR #156: Fix P&L calculation)
+      // DO NOT use stored position.pnl - always calculate from entry/exit/shares/side
+      const entryPrice = position.actualEntry;
       const exitPrice = position.exitPrice || position.plannedTarget;
+      const shares = position.actualShares;
       const isLong = position.plannedTarget > position.plannedEntry;
       
-      // Calculate P&L: Use stored value if available, otherwise compute from actual exit data
+      // Calculate P&L dynamically based on side (Long/Short)
       let pnl = 0;
-      if (position.pnl !== undefined) {
-        // Use the stored P&L value (set when position was closed with actual exit price)
-        pnl = position.pnl;
-      } else if (exitPrice && position.actualEntry) {
-        // Calculate actual P&L based on actual entry and exit
-        pnl = isLong 
-          ? (exitPrice - position.actualEntry) * position.actualShares
-          : (position.actualEntry - exitPrice) * position.actualShares;
+      if (isLong) {
+        // For LONG trades: pnl = (exitPrice - entryPrice) * shares
+        pnl = (exitPrice - entryPrice) * shares;
       } else {
-        // Fallback: calculate planned profit using planned entry
-        pnl = (position.plannedTarget - position.plannedEntry) * position.actualShares;
+        // For SHORT trades: pnl = (entryPrice - exitPrice) * shares
+        pnl = (entryPrice - exitPrice) * shares;
       }
 
       // Extract the original trade date for calendar display
@@ -475,6 +473,9 @@ export default function WatchlistView() {
             exitPrice: exitPrice,
             exitNotes: `Closed position transferred from watchlist. P&L: ${formatCurrency(pnl)}`,
             status: 'CLOSED',
+            // BUG FIX #2: Pass explicit P&L to prevent API recalculation discrepancy
+            grossPnL: pnl,
+            netPnL: pnl, // Use same value for net (fees already accounted for if applicable)
           }),
         });
 
@@ -960,9 +961,21 @@ export default function WatchlistView() {
                         </div>
                         <div>
                           <div className="text-xs text-[#8b949e]">Actual P&L</div>
-                          <div className={`text-sm font-bold ${(position.pnl || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {position.pnl !== undefined ? formatCurrency(position.pnl) : '--'}
-                          </div>
+                          {(() => {
+                            // Calculate P&L dynamically (PR #156)
+                            const entryPrice = position.actualEntry || position.plannedEntry;
+                            const exitPrice = position.exitPrice || position.plannedTarget;
+                            const shares = position.actualShares;
+                            const isLong = position.plannedTarget > position.plannedEntry;
+                            const pnl = isLong
+                              ? (exitPrice - entryPrice) * shares
+                              : (entryPrice - exitPrice) * shares;
+                            return (
+                              <div className={`text-sm font-bold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {formatCurrency(pnl)}
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div>
                           <div className="text-xs text-[#8b949e]">Closed</div>

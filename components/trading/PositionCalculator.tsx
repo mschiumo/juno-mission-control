@@ -145,15 +145,20 @@ export default function PositionCalculator() {
     let status: 'valid' | 'marginal' | 'invalid' = 'invalid';
     let statusMessage = 'Enter all values to check trade validity';
 
-    if (actualRR >= desiredRatio) {
+    // BUG FIX #1: Add epsilon tolerance to avoid floating point precision issues
+    // e.g., 1.9999999 should count as valid when desiredRatio is 2.0
+    const EPSILON = 0.001;
+    const roundedActualRR = Math.round(actualRR * 100) / 100;
+
+    if (roundedActualRR >= desiredRatio - EPSILON) {
       status = 'valid';
-      statusMessage = `✅ Valid Trade - ${actualRR.toFixed(2)}:1 meets minimum ${desiredRatio}:1 requirement`;
-    } else if (actualRR >= desiredRatio * 0.75) {
+      statusMessage = `✅ Valid Trade - ${roundedActualRR.toFixed(2)}:1 meets minimum ${desiredRatio}:1 requirement`;
+    } else if (roundedActualRR >= desiredRatio * 0.75) {
       status = 'marginal';
-      statusMessage = `⚠️ Marginal Trade - ${actualRR.toFixed(2)}:1 is below ${desiredRatio}:1 minimum`;
-    } else if (actualRR > 0) {
+      statusMessage = `⚠️ Marginal Trade - ${roundedActualRR.toFixed(2)}:1 is below ${desiredRatio}:1 minimum`;
+    } else if (roundedActualRR > 0) {
       status = 'invalid';
-      statusMessage = `❌ Invalid Trade - ${actualRR.toFixed(2)}:1 is below ${(desiredRatio * 0.75).toFixed(2)}:1 threshold`;
+      statusMessage = `❌ Invalid Trade - ${roundedActualRR.toFixed(2)}:1 is below ${(desiredRatio * 0.75).toFixed(2)}:1 threshold`;
     }
 
     return {

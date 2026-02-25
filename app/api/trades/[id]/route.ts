@@ -121,8 +121,16 @@ export async function PUT(
     if (body.exitPrice !== undefined) {
       updates.exitPrice = body.exitPrice;
       
-      // Auto-calculate P&L if exit price provided and trade wasn't already closed
-      if (body.exitPrice > 0 && trade.entryPrice > 0) {
+      // BUG FIX #2: Use explicit P&L values if provided (prevents recalculation discrepancies)
+      if (body.grossPnL !== undefined) {
+        updates.grossPnL = body.grossPnL;
+      }
+      if (body.netPnL !== undefined) {
+        updates.netPnL = body.netPnL;
+      }
+      
+      // Auto-calculate P&L only if not explicitly provided and trade wasn't already closed
+      if (body.grossPnL === undefined && body.exitPrice > 0 && trade.entryPrice > 0) {
         const isLong = trade.side === TradeSide.LONG;
         const priceDiff = isLong 
           ? body.exitPrice - trade.entryPrice
