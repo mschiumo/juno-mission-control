@@ -448,8 +448,8 @@ export default function WatchlistView() {
       // Recalculate position value if entry or shares changed
       ...(field === 'actualEntry' || field === 'actualShares' ? {
         positionValue: 
-          (field === 'actualEntry' ? parsedValue : trade.actualEntry) * 
-          (field === 'actualShares' ? parsedValue : trade.actualShares)
+          (field === 'actualEntry' ? parsedValue : (trade.actualEntry || 0)) * 
+          (field === 'actualShares' ? parsedValue : (trade.actualShares || 0))
       } : {})
     };
 
