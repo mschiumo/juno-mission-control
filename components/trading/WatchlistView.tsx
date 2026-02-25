@@ -1091,7 +1091,13 @@ export default function WatchlistView() {
                         {(() => {
                           const entry = position.actualEntry || position.plannedEntry;
                           const target = position.plannedTarget;
-                          return formatCurrency((target - entry) * position.actualShares);
+                          const isLong = position.plannedTarget > position.plannedEntry;
+                          // For LONG: (target - entry) * shares
+                          // For SHORT: (entry - target) * shares (absolute value)
+                          const profit = isLong
+                            ? (target - entry) * position.actualShares
+                            : (entry - target) * position.actualShares;
+                          return formatCurrency(profit);
                         })()}
                       </div>
                     </div>
