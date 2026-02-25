@@ -20,9 +20,10 @@ import MotivationalBanner from "@/components/MotivationalBanner";
 import DocumentationCard from "@/components/DocumentationCard";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
-import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
+import NotesView from "@/components/NotesView";
+import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X, CheckSquare, StickyNote } from 'lucide-react';
 
-type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'activity';
+type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'activity' | 'notes';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -33,7 +34,7 @@ function DashboardContent() {
   // Get tab from URL query param, default to 'dashboard'
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
-    if (tab === 'tasks' || tab === 'trading' || tab === 'goals' || tab === 'activity') return tab;
+    if (tab === 'tasks' || tab === 'trading' || tab === 'goals' || tab === 'activity' || tab === 'notes') return tab;
     return 'dashboard';
   }, [searchParams]);
   
@@ -57,6 +58,7 @@ function DashboardContent() {
     { id: 'tasks' as const, label: 'Tasks', icon: CheckSquare },
     { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
     { id: 'goals' as const, label: 'Goals', icon: Target },
+    { id: 'notes' as const, label: 'Notes', icon: StickyNote },
     { id: 'activity' as const, label: 'Activity', icon: Activity },
   ];
 
@@ -176,6 +178,11 @@ function DashboardContent() {
             <Suspense fallback={<div className="p-8 text-center text-[#8b949e]">Loading goals...</div>}>
               <GoalsCard />
             </Suspense>
+          </div>
+        ) : activeTab === 'notes' ? (
+          /* Notes View */
+          <div className="max-w-6xl mx-auto">
+            <NotesView />
           </div>
         ) : (
           /* Activity Log View */
