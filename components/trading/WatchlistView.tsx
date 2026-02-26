@@ -1250,7 +1250,7 @@ export default function WatchlistView() {
                       className={`p-2 rounded-lg transition-colors ${item.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-[#8b949e] hover:text-yellow-400 hover:bg-yellow-400/10'}`}
                       title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                     >
-                      <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-yellow-400' : ''}`} />
+                      <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-current' : ''}`} />
                     </button>
                     <button
                       onClick={(e) => {
