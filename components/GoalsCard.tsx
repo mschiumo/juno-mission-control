@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Target, Plus, X, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle, Calendar, Clock } from 'lucide-react';
+import { Target, Plus, X, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle, Calendar, Clock, Search } from 'lucide-react';
 
 interface Notification {
   message: string;
@@ -91,6 +91,9 @@ export default function GoalsCard() {
   const [newGoalDueDate, setNewGoalDueDate] = useState('');
   const [draggedGoal, setDraggedGoal] = useState<Goal | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Notes modal state
   const [notesGoal, setNotesGoal] = useState<Goal | null>(null);
@@ -575,6 +578,17 @@ export default function GoalsCard() {
 
   const getGoalsByPhase = (category: Category, phase: Phase) => {
     let filtered = goals[category]?.filter(g => g.phase === phase) || [];
+    
+    // Apply search filter if query exists
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(g => 
+        g.title.toLowerCase().includes(query) ||
+        (g.notes?.toLowerCase().includes(query) ?? false) ||
+        (g.actionItems?.some(item => item.text.toLowerCase().includes(query)) ?? false)
+      );
+    }
+    
     return filtered;
   };
 
@@ -783,6 +797,26 @@ export default function GoalsCard() {
           >
             <Plus className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* Mobile Search */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373]" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search goals..."
+            className="w-full pl-9 pr-3 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#F97316]"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#737373] hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Mobile Category Tabs - Two-level navigation */}
@@ -1119,6 +1153,26 @@ export default function GoalsCard() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search goals..."
+              className="pl-9 pr-3 py-1.5 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white text-sm w-48 focus:outline-none focus:border-[#F97316]"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#737373] hover:text-white"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1 px-3 py-1.5 bg-[#F97316] text-white rounded-xl text-sm hover:bg-[#ff8c5a] transition-colors"
