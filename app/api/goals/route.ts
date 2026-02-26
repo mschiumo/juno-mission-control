@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
+import { randomUUID } from 'crypto';
 
 const STORAGE_KEY = 'goals_data';
 type Category = 'yearly' | 'weekly' | 'daily' | 'collaborative';
@@ -261,9 +262,9 @@ export async function PUT(request: Request) {
     // Auto-categorize collaborative goals
     const finalCategory = goalSource !== 'mj' ? 'collaborative' : category;
     
-    // Add new goal (or restore with existing ID)
+    // Add new goal with guaranteed unique ID (always generate server-side)
     const newGoal: Goal = {
-      id: id || `${finalCategory[0]}${Date.now()}`,
+      id: randomUUID(),
       title,
       phase: phase || 'not-started',
       category: finalCategory,
