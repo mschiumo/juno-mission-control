@@ -709,12 +709,18 @@ export default function WatchlistView() {
       const takeProfit = parseFloat(calendarFormData.takeProfit) || position.plannedTarget;
       const isLong = position.plannedTarget > position.plannedEntry;
 
-      // Calculate P&L from editable values
+      // Calculate P&L from editable values, but prefer the stored P&L from position if available
       let pnl = 0;
-      if (isLong) {
-        pnl = (exitPrice - entryPrice) * shares;
+      if (position.pnl !== undefined && position.pnl !== null) {
+        // Use the P&L stored in the position (from trading management tab)
+        pnl = position.pnl;
       } else {
-        pnl = (entryPrice - exitPrice) * shares;
+        // Fallback: calculate from prices
+        if (isLong) {
+          pnl = (exitPrice - entryPrice) * shares;
+        } else {
+          pnl = (entryPrice - exitPrice) * shares;
+        }
       }
 
       // Extract the original trade date for calendar display
@@ -1663,9 +1669,12 @@ export default function WatchlistView() {
 
               {/* Live P&L Display */}
               <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
-                <div className="text-xs text-[#8b949e] mb-1">Calculated P&L</div>
+                <div className="text-xs text-[#8b949e] mb-1">P&L (from Trade Management)</div>
                 {(() => {
-                  const pnl = calculateCalendarPnL();
+                  // Use stored P&L from position if available, otherwise calculate
+                  const pnl = confirmingAddToCalendar?.pnl !== undefined 
+                    ? confirmingAddToCalendar.pnl 
+                    : calculateCalendarPnL();
                   return (
                     <div className={`text-2xl font-bold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {formatCurrency(pnl)}
@@ -1673,7 +1682,7 @@ export default function WatchlistView() {
                   );
                 })()}
                 <div className="text-xs text-[#6e7681] mt-1">
-                  Based on edited values above
+                  Using actual trade P&L
                 </div>
               </div>
             </div>
