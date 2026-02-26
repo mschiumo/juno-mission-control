@@ -31,7 +31,16 @@ export default function EditActiveTradeModal({
     plannedTarget: '',
     notes: '',
   });
+  const [originalRiskAmount, setOriginalRiskAmount] = useState<number>(0);
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // Calculate shares based on risk amount and prices
+  const calculateShares = (entry: number, stop: number, riskAmount: number): number => {
+    if (entry <= 0 || stop <= 0 || riskAmount <= 0) return 0;
+    const stopSize = Math.abs(entry - stop);
+    if (stopSize <= 0) return 0;
+    return Math.floor(riskAmount / stopSize);
+  };
 
   // Populate form when trade changes
   useEffect(() => {
@@ -43,6 +52,9 @@ export default function EditActiveTradeModal({
         plannedTarget: trade.plannedTarget.toString(),
         notes: trade.notes || '',
       });
+      // Store original risk amount for share calculation
+      const stopSize = Math.abs(trade.actualEntry - trade.plannedStop);
+      setOriginalRiskAmount(stopSize * trade.actualShares);
     }
   }, [trade]);
 
@@ -88,7 +100,19 @@ export default function EditActiveTradeModal({
   };
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
-    setFormData({ ...formData, [field]: value });
+    const newFormData = { ...formData, [field]: value };
+    
+    // Auto-calculate shares when entry or stop price changes
+    if (field === 'actualEntry' || field === 'plannedStop') {
+      const entry = parseFloat(newFormData.actualEntry || '0');
+      const stop = parseFloat(newFormData.plannedStop || '0');
+      if (entry > 0 && stop > 0 && originalRiskAmount > 0) {
+        const newShares = calculateShares(entry, stop, originalRiskAmount);
+        newFormData.actualShares = newShares.toString();
+      }
+    }
+    
+    setFormData(newFormData);
 
     // Clear error for this field
     if (errors[field as keyof FormErrors]) {
@@ -215,25 +239,24 @@ export default function EditActiveTradeModal({
               )}
             </div>
 
-            {/* Actual Shares */}
+            {/* Actual Shares - Auto-calculated */}
             <div>
               <label className="block text-sm font-medium text-[#8b949e] mb-2">
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4" />
                   Shares
+                  <span className="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">Auto-calculated</span>
                 </div>
               </label>
               <input
                 type="number"
                 step="1"
                 value={formData.actualShares}
-                onChange={(e) => handleInputChange('actualShares', e.target.value)}
-                className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                placeholder="Enter number of shares"
+                readOnly
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white cursor-not-allowed"
+                placeholder="Calculated automatically"
               />
-              {errors.actualShares && (
-                <p className="mt-1 text-xs text-red-400">{errors.actualShares}</p>
-              )}
+              <p className="mt-1 text-xs text-[#8b949e]">Shares adjust automatically based on entry, stop, and original risk amount</p>
             </div>
 
             {/* Stop Price */}
