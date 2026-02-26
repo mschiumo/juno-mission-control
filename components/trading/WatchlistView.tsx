@@ -1192,14 +1192,7 @@ export default function WatchlistView() {
           </div>
         ) : (
           <div className="space-y-3">
-            {[...watchlist]
-              .sort((a, b) => {
-                // Favorites first, then by creation date
-                if (a.isFavorite && !b.isFavorite) return -1;
-                if (!a.isFavorite && b.isFavorite) return 1;
-                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-              })
-              .map((item) => (
+            {watchlist.map((item) => (
               <div
                 key={item.id}
                 draggable
