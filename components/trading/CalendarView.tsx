@@ -402,6 +402,14 @@ export default function CalendarView() {
           
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setShowTradeEntryModal(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-[#F97316] hover:bg-[#F97316]/90 text-white rounded-lg transition-colors font-medium text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Trade</span>
+            </button>
+            
+            <button
               onClick={() => setShowImportModal(true)}
               className="flex items-center gap-2 px-3 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors font-medium text-sm"
             >
