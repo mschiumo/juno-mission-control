@@ -1,0 +1,108 @@
+<!-- KeepLiving Hero Section -->
+<section class="hero hero--{{ section.settings.hero_height }}"
+         style="background-color: {{ section.settings.background_color }};">
+  <div class="hero__content">
+    <div class="hero__text">
+      {%- if section.settings.subheading != blank -%}
+        <p class="hero__subheading">{{ section.settings.subheading | escape }}</p>
+      {%- endif -%}
+
+      <h1 class="hero__heading">{{ section.settings.heading | escape }}</h1>
+
+      {%- if section.settings.text != blank -%}
+        <div class="hero__description">{{ section.settings.text }}</div>
+      {%- endif -%}
+
+      {%- if section.settings.button_label != blank -%}
+        <a href="{{ section.settings.button_link }}" 
+           class="button button--primary hero__button">{{ section.settings.button_label | escape }}</a>
+      {%- endif -%}
+    </div>
+
+    {%- if section.settings.image != blank -%}
+      <div class="hero__image-wrapper">
+        <img src="{{ section.settings.image | image_url: width: 1000 }}"
+             alt="{{ section.settings.image.alt | escape }}"
+             class="hero__image"
+             loading="lazy"
+             width="{{ section.settings.image.width }}"
+             height="{{ section.settings.image.height }}">
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Hero",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "subheading",
+      "default": "Mental Health Awareness",
+      "label": "Subheading"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "default": "Keep Living",
+      "label": "Heading"
+    },
+    {
+      "type": "richtext",
+      "id": "text",
+      "default": "<p>A reminder to overcome fear, depression, and hopelessness. Make it through that moment, that day, that hard time.</p>",
+      "label": "Text"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "default": "Shop Now",
+      "label": "Button label"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Image"
+    },
+    {
+      "type": "select",
+      "id": "hero_height",
+      "options": [
+        {
+          "value": "small",
+          "label": "Small"
+        },
+        {
+          "value": "medium",
+          "label": "Medium"
+        },
+        {
+          "value": "large",
+          "label": "Large"
+        }
+      ],
+      "default": "large",
+      "label": "Height"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background color",
+      "default": "#f8f9fa"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Hero"
+    }
+  ]
+}
+{% endschema %}

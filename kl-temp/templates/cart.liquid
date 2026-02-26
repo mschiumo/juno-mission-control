@@ -1,0 +1,75 @@
+{% comment %}
+  Cart template
+{% endcomment %}
+
+<div class="cart">
+  <h1 class="cart__title">{{ 'sections.cart.title' | t }}</h1>
+
+  {% if cart.item_count > 0 %}
+    <form action="{{ routes.cart_url }}" method="post" class="cart__form">
+      <div class="cart__items">
+        {% for item in cart.items %}
+          <div class="cart__item">
+            {% if item.image %}
+              <div class="cart__item-image">
+                <img src="{{ item.image | image_url: width: 200 }}"
+                     alt="{{ item.image.alt | escape }}"
+                     loading="lazy"
+                     width="{{ item.image.width }}"
+                     height="{{ item.image.height }}">
+              </div>
+            {% endif %}
+            
+            <div class="cart__item-details">
+              <h2 class="cart__item-title">
+                <a href="{{ item.url }}">{{ item.product.title }}</a>
+              </h2>
+              
+              {% if item.variant.title != 'Default Title' %}
+                <p class="cart__item-variant">{{ item.variant.title }}</p>
+              {% endif %}
+              
+              <div class="cart__item-price">{{ item.final_line_price | money }}</div>
+              
+              <div class="cart__item-quantity">
+                <label for="quantity-{{ item.index }}" class="visually-hidden">Quantity</label>
+                <input type="number"
+                       name="updates[]"
+                       id="quantity-{{ item.index }}"
+                       value="{{ item.quantity }}"
+                       min="0"
+                       class="cart__item-quantity-input">
+              </div>
+              
+              <a href="{{ item.url_to_remove }}" class="cart__item-remove">
+                {{ 'sections.cart.remove' | t | default: "Remove" }}
+              </a>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="cart__footer">
+        <div class="cart__subtotal">
+          <span>{{ 'sections.cart.subtotal' | t }}</span>
+          <span>{{ cart.total_price | money }}</span>
+        </div>
+        
+        <button type="submit" name="update" class="button button--secondary">
+          {{ 'sections.cart.update' | t | default: "Update" }}
+        </button>
+        
+        <button type="submit" name="checkout" class="button button--primary">
+          {{ 'sections.cart.checkout' | t }}
+        </button>
+      </div>
+    </form>
+  {% else %}
+    <div class="cart__empty">
+      <p>{{ 'sections.cart.empty' | t }}</p>
+      <a href="{{ routes.root_url }}" class="button button--primary">
+        {{ 'general.continue_shopping' | t | default: "Continue shopping" }}
+      </a>
+    </div>
+  {% endif %}
+</div>

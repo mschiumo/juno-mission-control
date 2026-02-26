@@ -1,0 +1,9 @@
+<div class="template-404">
+  <div class="template-404__content">
+    <h1 class="template-404__title">{{ 'general.404.title' | t }}</h1>
+    <p class="template-404__subtext">{{ 'general.404.subtext' | t }}</p>
+    <a href="{{ routes.root_url }}" class="button button--primary">
+      {{ 'general.404.go_home' | t | default: "Go home" }}
+    </a>
+  </div>
+</div>

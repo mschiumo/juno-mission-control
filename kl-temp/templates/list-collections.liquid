@@ -1,0 +1,33 @@
+{% comment %}
+  List collections template
+{% endcomment %}
+
+<div class="list-collections">
+  <h1 class="list-collections__title">{{ 'collections.general.all_collections' | t | default: "All collections" }}</h1>
+
+  <div class="list-collections__grid">
+    {% for collection in collections %}
+      <div class="collection-card">
+        <a href="{{ collection.url }}" class="collection-card__link">
+          {% if collection.featured_image %}
+            <div class="collection-card__image-wrapper">
+              <img src="{{ collection.featured_image | image_url: width: 600 }}"
+                   alt="{{ collection.featured_image.alt | escape }}"
+                   class="collection-card__image"
+                   loading="lazy"
+                   width="{{ collection.featured_image.width }}"
+                   height="{{ collection.featured_image.height }}">
+            </div>
+          {% endif %}
+          
+          <div class="collection-card__info">
+            <h2 class="collection-card__title">{{ collection.title }}</h2>
+            <p class="collection-card__count">
+              {{ collection.products_count }} {{ 'collections.general.products' | t | default: "Products" }}
+            </p>
+          </div>
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+</div>

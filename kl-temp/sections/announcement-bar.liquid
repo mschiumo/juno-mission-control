@@ -1,0 +1,44 @@
+{% comment %}
+  KeepLiving Announcement Bar
+  Optional top bar for announcements
+{% endcomment %}
+
+{%- if section.settings.show_announcement -%}
+  <div class="announcement-bar" style="background-color: {{ section.settings.background_color }}; color: {{ section.settings.text_color }};">
+    <div class="announcement-bar__wrapper">
+      <p class="announcement-bar__message">{{ section.settings.text | escape }}</p>
+    </div>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Announcement bar",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_announcement",
+      "default": false,
+      "label": "Show announcement"
+    },
+    {
+      "type": "text",
+      "id": "text",
+      "default": "Free shipping on orders over $50",
+      "label": "Announcement text"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "default": "#2c5f5d",
+      "label": "Background color"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "default": "#ffffff",
+      "label": "Text color"
+    }
+  ]
+}
+{% endschema %}

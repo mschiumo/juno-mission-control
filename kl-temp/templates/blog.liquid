@@ -1,0 +1,56 @@
+{% comment %}
+  Blog template
+{% endcomment %}
+
+<div class="blog">
+  <header class="blog__header">
+    <h1 class="blog__title">{{ blog.title }}</h1>
+  </header>
+
+  <div class="blog__articles">
+    {% paginate blog.articles by 12 %}
+      {% for article in blog.articles %}
+        <article class="blog__article">
+          {% if article.image %}
+            <a href="{{ article.url }}" class="blog__article-image-link">
+              <img src="{{ article.image | image_url: width: 600 }}"
+                   alt="{{ article.image.alt | escape }}"
+                   class="blog__article-image"
+                   loading="lazy"
+                   width="{{ article.image.width }}"
+                   height="{{ article.image.height }}">
+            </a>
+          {% endif %}
+          
+          <div class="blog__article-content">
+            <h2 class="blog__article-title">
+              <a href="{{ article.url }}">{{ article.title }}</a>
+            </h2>
+            
+            {% if article.published_at %}
+              <time class="blog__article-date" datetime="{{ article.published_at | date: '%Y-%m-%d' }}">
+                {{ article.published_at | date: format: 'date' }}
+              </time>
+            {% endif %}
+            
+            {% if article.excerpt_or_content.size > 0 %}
+              <div class="blog__article-excerpt">
+                {{ article.excerpt_or_content | strip_html | truncatewords: 30 }}
+              </div>
+            {% endif %}
+            
+            <a href="{{ article.url }}" class="blog__article-read-more">
+              {{ 'blogs.article.read_more' | t }}
+            </a>
+          </div>
+        </article>
+      {% endfor %}
+
+      {% if paginate.pages > 1 %}
+        <nav class="pagination" role="navigation">
+          {{ paginate | default_pagination }}
+        </nav>
+      {% endif %}
+    {% endpaginate %}
+  </div>
+</div>

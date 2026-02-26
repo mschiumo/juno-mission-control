@@ -1,0 +1,24 @@
+{% comment %}
+  Meta tags for KeepLiving theme
+{% endcomment %}
+
+<meta name="theme-color" content="{{ settings.color_primary }}">
+
+{% comment %} Open Graph {% endcomment %}
+<meta property="og:site_name" content="{{ shop.name }}">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:title" content="{{ page_title | escape }}">
+<meta property="og:type" content="{{ template | replace: '.', ' ' | truncatewords: 1, '' | handle }}">
+<meta property="og:description" content="{{ page_description | escape }}">
+
+{% if page_image %}
+  <meta property="og:image" content="http:{{ page_image | image_url }}">
+  <meta property="og:image:secure_url" content="https:{{ page_image | image_url }}">
+  <meta property="og:image:width" content="{{ page_image.width }}">
+  <meta property="og:image:height" content="{{ page_image.height }}">
+{% endif %}
+
+{% comment %} Twitter Card {% endcomment %}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ page_title | escape }}">
+<meta name="twitter:description" content="{{ page_description | escape }}">

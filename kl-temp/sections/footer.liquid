@@ -1,0 +1,74 @@
+<!-- KeepLiving Footer -->
+<footer class="footer" style="background-color: {{ section.settings.background_color }}; color: {{ section.settings.text_color }};">
+  <div class="footer__wrapper">
+    <div class="footer__grid">
+      <div class="footer__column">
+        <h3 class="footer__heading">{{ shop.name }}</h3>
+        <p class="footer__text">A reminder to overcome fear, depression, and hopelessness. Make it through that moment, that day, that hard time.</p>
+      </div>
+
+      <div class="footer__column">
+        <h4 class="footer__heading">Shop</h4>
+        <ul class="footer__menu">
+          {%- for link in section.settings.menu.links -%}
+            <li><a href="{{ link.url }}" class="footer__link">{{ link.title }}</a></li>
+          {%- endfor -%}
+        </ul>
+      </div>
+
+      <div class="footer__column">
+        <h4 class="footer__heading">Support</h4>
+        <p class="footer__text">If you're struggling, please reach out. <br><a href="https://988lifeline.org" target="_blank" class="footer__link">988 Suicide & Crisis Lifeline</a></p>
+      </div>
+
+      <div class="footer__column">
+        <h4 class="footer__heading">Connect</h4>
+        <p class="footer__text">Follow the journey</p>
+        {%- if section.settings.show_social -%}
+          <ul class="footer__social">
+            {%- if settings.social_instagram_link != blank -%}
+              <li><a href="{{ settings.social_instagram_link }}" class="footer__link" target="_blank">Instagram</a></li>
+            {%- endif -%}
+          </ul>
+        {%- endif -%}
+      </div>
+    </div>
+
+    <div class="footer__bottom">
+      <p class="footer__copyright">&copy; {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.</p>
+    </div>
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Footer",
+  "settings": [
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background color",
+      "default": "#2c5f5d"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "link_list",
+      "id": "menu",
+      "default": "footer",
+      "label": "Menu",
+      "info": "Displays only top-level menu items."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_social",
+      "default": true,
+      "label": "Show social media links"
+    }
+  ]
+}
+{% endschema %}

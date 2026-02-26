@@ -1,0 +1,41 @@
+{% comment %}
+  Article template
+{% endcomment %}
+
+<article class="article">
+  <div class="article__header">
+    <h1 class="article__title">{{ article.title }}</h1>
+    {% if article.published_at %}
+      <time class="article__date" datetime="{{ article.published_at | date: '%Y-%m-%d' }}">
+        {{ article.published_at | date: format: 'date' }}
+      </time>
+    {% endif %}
+    {% if article.author %}
+      <span class="article__author">{{ article.author }}</span>
+    {% endif %}
+  </div>
+
+  {% if article.image %}
+    <div class="article__image-wrapper">
+      <img src="{{ article.image | image_url: width: 1200 }}"
+           alt="{{ article.image.alt | escape }}"
+           class="article__image"
+           loading="eager"
+           width="{{ article.image.width }}"
+           height="{{ article.image.height }}">
+    </div>
+  {% endif %}
+
+  <div class="article__content">
+    {{ article.content }}
+  </div>
+
+  {% if article.tags.size > 0 %}
+    <div class="article__tags">
+      <span>{{ 'blogs.article.posted_in' | t }}:</span>
+      {% for tag in article.tags %}
+        <a href="{{ blog.url }}/tagged/{{ tag | handle }}" class="article__tag">{{ tag }}</a>{% unless forloop.last %}, {% endunless %}
+      {% endfor %}
+    </div>
+  {% endif %}
+</article>

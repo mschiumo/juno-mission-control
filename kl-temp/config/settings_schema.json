@@ -1,0 +1,27 @@
+[
+  {
+    "name": "theme_info",
+    "theme_name": "KeepLiving",
+    "theme_version": "1.0.0",
+    "theme_author": "KeepLiving Project",
+    "theme_documentation_url": "https://github.com/mschiumo/keepliving-shopify-theme-",
+    "theme_support_url": "https://github.com/mschiumo/keepliving-shopify-theme-/issues"
+  },
+  {
+    "name": "Colors",
+    "settings": [
+      {
+        "type": "color",
+        "id": "color_primary",
+        "label": "Primary Color",
+        "default": "#2c5f5d"
+      },
+      {
+        "type": "color",
+        "id": "color_accent",
+        "label": "Accent Color",
+        "default": "#e07a5f"
+      }
+    ]
+  }
+]

@@ -1,0 +1,33 @@
+<section class="collection">
+  <div class="collection__wrapper">
+    <header class="collection__header">
+      <h1 class="collection__title">{{ collection.title }}</h1>
+      {%- if collection.description != blank -%}
+        <div class="collection__description">{{ collection.description }}</div>
+      {%- endif -%}
+    </header>
+
+    <div class="collection__grid">
+      {%- for product in collection.products -%}
+        <div class="product-card">
+          <a href="{{ product.url }}" class="product-card__link">
+            <div class="product-card__image-wrapper">
+              {%- if product.featured_image -%}
+                <img src="{{ product.featured_image | image_url: width: 400 }}"
+                     alt="{{ product.featured_image.alt | escape }}"
+                     class="product-card__image"
+                     loading="lazy"
+                     width="{{ product.featured_image.width }}"
+                     height="{{ product.featured_image.height }}">
+              {%- endif -%}
+            </div>
+            <div class="product-card__info">
+              <h3 class="product-card__title">{{ product.title | escape }}</h3>
+              <p class="product-card__price">{{ product.price | money }}</p>
+            </div>
+          </a>
+        </div>
+      {%- endfor -%}
+    </div>
+  </div>
+</section>

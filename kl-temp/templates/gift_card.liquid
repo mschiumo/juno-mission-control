@@ -1,0 +1,43 @@
+{% comment %}
+  Gift card template
+{% endcomment %}
+
+<div class="gift-card">
+  <header class="gift-card__header">
+    <h1 class="gift-card__title">{{ 'gift_cards.issued.subtext' | t }}</h1>
+  </header>
+
+  <div class="gift-card__content">
+    <div class="gift-card__image-wrapper">
+      <img src="{{ 'gift-card/card.svg' | shopify_asset_url }}" alt="" class="gift-card__image" height="" width="">
+    </div>
+
+    <div class="gift-card__amount">
+      {% if gift_card.balance > 0 %}
+        {{ gift_card.balance | money }}
+      {% else %}
+        {{ gift_card.initial_value | money }}
+      {% endif %}
+    </div>
+
+    <div class="gift-card__code">
+      <span class="gift-card__code-text" data-gift-card-digits>{{ gift_card.code | format_code }}</span>
+    </div>
+
+    {% if gift_card.pass_url %}
+      <a href="{{ gift_card.pass_url }}" class="gift-card__apple-wallet">
+        <img src="{{ 'gift-card/add-to-apple-wallet.svg' | shopify_asset_url }}" alt="Add to Apple Wallet" class="gift-card__apple-wallet-image" height="" width="">
+      </a>
+    {% endif %}
+
+    <div class="gift-card__qr-code" data-gift-card-qr data-identifier="{{ gift_card.qr_identifier }}"></div>
+
+    {% if gift_card.expired %}
+      <p class="gift-card__expired">{{ 'gift_cards.issued.expired' | t }}</p>
+    {% endif %}
+
+    {% if gift_card.balance != gift_card.initial_value %}
+      <p class="gift-card__balance-remaining">{{ 'gift_cards.issued.remaining_html' | t: balance: gift_card.balance | money }}</p>
+    {% endif %}
+  </div>
+</div>

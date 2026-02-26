@@ -1,0 +1,84 @@
+<!-- KeepLiving About/Story Section -->
+<section class="about-section">
+  <div class="about-section__wrapper">
+    <div class="about-section__grid">
+      {%- if section.settings.image != blank -%}
+        <div class="about-section__image-wrapper">
+          <img src="{{ section.settings.image | image_url: width: 800 }}"
+               alt="{{ section.settings.image.alt | escape }}"
+               class="about-section__image"
+               loading="lazy"
+               width="{{ section.settings.image.width }}"
+               height="{{ section.settings.image.height }}">
+        </div>
+      {%- endif -%}
+
+      <div class="about-section__content">
+        {%- if section.settings.subheading != blank -%}
+          <p class="about-section__subheading">{{ section.settings.subheading | escape }}</p>
+        {%- endif -%}
+
+        {%- if section.settings.heading != blank -%}
+          <h2 class="about-section__heading">{{ section.settings.heading | escape }}</h2>
+        {%- endif -%}
+
+        {%- if section.settings.text != blank -%}
+          <div class="about-section__text">{{ section.settings.text }}</div>
+        {%- endif -%}
+
+        {%- if section.settings.button_label != blank -%}
+          <a href="{{ section.settings.button_link }}" class="button button--primary">{{ section.settings.button_label | escape }}</a>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "About/Story",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "default": "Our Story",
+      "label": "Subheading"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "default": "Why KeepLiving Exists",
+      "label": "Heading"
+    },
+    {
+      "type": "richtext",
+      "id": "text",
+      "default": "<p>I've been where you are. The fear, the depression, the feeling that it won't get better. But I kept living. One moment at a time. One day at a time. These products are reminders—to you, to me, to all of us—that we can make it through.</p>",
+      "label": "Text"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "default": "Read My Story",
+      "label": "Button label"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "Button link"
+    }
+  ],
+  "presets": [
+    {
+      "name": "About/Story"
+    }
+  ]
+}
+{% endschema %}

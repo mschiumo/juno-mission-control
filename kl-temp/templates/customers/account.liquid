@@ -1,0 +1,65 @@
+{% comment %}
+  Account template
+{% endcomment %}
+
+<div class="customer account">
+  <h1 class="account__title">{{ 'customer.account.title' | t }}</h1>
+
+  <div class="account__content">
+    <div class="account__orders">
+      <h2>{{ 'customer.orders.title' | t }}</h2>
+
+      {% paginate customer.orders by 20 %}
+        {% if customer.orders.size != 0 %}
+          <table class="account__orders-table">
+            <thead>
+              <tr>
+                <th>{{ 'customer.orders.order_number' | t }}</th>
+                <th>{{ 'customer.orders.date' | t }}</th>
+                <th>{{ 'customer.orders.payment_status' | t }}</th>
+                <th>{{ 'customer.orders.fulfillment_status' | t }}</th>
+                <th>{{ 'customer.orders.total' | t }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for order in customer.orders %}
+                <tr>
+                  <td>
+                    <a href="{{ order.customer_url }}" class="account__order-link">
+                      {{ order.name }}
+                    </a>
+                  </td>
+                  <td>{{ order.created_at | date: format: 'date' }}</td>
+                  <td>{{ order.financial_status_label }}</td>
+                  <td>{{ order.fulfillment_status_label }}</td>
+                  <td>{{ order.total_price | money }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p>{{ 'customer.orders.none' | t }}</p>
+        {% endif %}
+
+        {{ paginate | default_pagination }}
+      {% endpaginate %}
+    </div>
+
+    <div class="account__details">
+      <h2>{{ 'customer.account.details' | t }}</h2>
+
+      <div class="account__customer-info">
+        <p><strong>{{ customer.name }}</strong></p>
+        <p>{{ customer.email }}</p>
+      </div>
+
+      <a href="{{ routes.account_addresses_url }}" class="button button--primary">
+        {{ 'customer.account.view_addresses' | t }} ({{ customer.addresses_count }})
+      </a>
+
+      <a href="{{ routes.account_logout_url }}" class="button button--secondary">
+        {{ 'customer.log_out' | t }}
+      </a>
+    </div>
+  </div>
+</div>

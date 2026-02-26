@@ -1,0 +1,46 @@
+{% comment %}
+  Activate account template
+{% endcomment %}
+
+<div class="customer activate">
+  <h1 class="activate__title">{{ 'customer.activate_account.title' | t }}</h1>
+  <p class="activate__subtitle">{{ 'customer.activate_account.subtext' | t }}</p>
+
+  {% form 'activate_customer_password' %}
+    {{ form.errors | default_errors }}
+
+    <div class="activate__field">
+      <label for="customer_password" class="activate__label">
+        {{ 'customer.activate_account.password' | t }}
+      </label>
+      <input type="password"
+             name="customer[password]"
+             id="customer_password"
+             class="activate__input"
+             autocomplete="new-password"
+             placeholder="{{ 'customer.activate_account.password' | t }}">
+    </div>
+
+    <div class="activate__field">
+      <label for="customer_password_confirmation" class="activate__label">
+        {{ 'customer.activate_account.password_confirm' | t }}
+      </label>
+      <input type="password"
+             name="customer[password_confirmation]"
+             id="customer_password_confirmation"
+             class="activate__input"
+             autocomplete="new-password"
+             placeholder="{{ 'customer.activate_account.password_confirm' | t }}">
+    </div>
+
+    <div class="activate__buttons">
+      <button type="submit" class="activate__submit button button--primary">
+        {{ 'customer.activate_account.submit' | t }}
+      </button>
+
+      <button type="submit" name="decline" class="activate__decline button button--secondary">
+        {{ 'customer.activate_account.cancel' | t }}
+      </button>
+    </div>
+  {% endform %}
+</div>

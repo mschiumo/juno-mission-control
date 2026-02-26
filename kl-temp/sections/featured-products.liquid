@@ -1,0 +1,88 @@
+<!-- KeepLiving Featured Products Section -->
+<section class="featured-products">
+  <div class="featured-products__wrapper">
+    {%- if section.settings.title != blank -%}
+      <h2 class="featured-products__title">{{ section.settings.title | escape }}</h2>
+    {%- endif -%}
+
+    {%- if section.settings.description != blank -%}
+      <p class="featured-products__description">{{ section.settings.description | escape }}</p>
+    {%- endif -%}
+
+    <div class="featured-products__grid">
+      {%- for product in section.settings.collection.products limit: section.settings.products_to_show -%}
+        <div class="product-card">
+          <a href="{{ product.url }}" class="product-card__link">
+            <div class="product-card__image-wrapper">
+              {%- if product.featured_image -%}
+                <img src="{{ product.featured_image | image_url: width: 400 }}"
+                     alt="{{ product.featured_image.alt | escape }}"
+                     class="product-card__image"
+                     loading="lazy"
+                     width="{{ product.featured_image.width }}"
+                     height="{{ product.featured_image.height }}">
+              {%- endif -%}
+            </div>
+            <div class="product-card__info">
+              <h3 class="product-card__title">{{ product.title | escape }}</h3>
+              <p class="product-card__price">{{ product.price | money }}</p>
+            </div>
+          </a>
+        </div>
+      {%- endfor -%}
+    </div>
+
+    {%- if section.settings.show_view_all and section.settings.collection != blank -%}
+      <div class="featured-products__view-all">
+        <a href="{{ section.settings.collection.url }}" class="button button--primary">View All</a>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Featured Products",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "default": "Featured Collection",
+      "label": "Title"
+    },
+    {
+      "type": "textarea",
+      "id": "description",
+      "default": "Products to remind you to keep going.",
+      "label": "Description"
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Collection"
+    },
+    {
+      "type": "range",
+      "id": "products_to_show",
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "default": 4,
+      "label": "Products to show"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_view_all",
+      "default": true,
+      "label": "Show 'View All' button"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Featured Products"
+    }
+  ]
+}
+{% endschema %}

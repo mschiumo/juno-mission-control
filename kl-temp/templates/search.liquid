@@ -1,0 +1,79 @@
+{% comment %}
+  Search template
+{% endcomment %}
+
+<div class="search">
+  <h1 class="search__title">{{ 'general.search.search' | t }}</h1>
+
+  <form action="{{ routes.search_url }}" method="get" class="search__form" role="search">
+    <input type="search"
+           name="q"
+           value="{{ search.terms | escape }}"
+           placeholder="{{ 'general.search.search' | t }}"
+           class="search__input">
+    <button type="submit" class="search__submit button button--primary">
+      {{ 'general.search.submit' | t | default: "Search" }}
+    </button>
+  </form>
+
+  {% if search.performed %}
+    <div class="search__results">
+      {% if search.results.size > 0 %}
+        <p class="search__results-count">
+          {{ 'general.search.results_for_html' | t: terms: search.terms, count: search.results_count }}
+        </p>
+
+        <div class="search__results-grid">
+          {% for item in search.results %}
+            <div class="search-result">
+              {% case item.object_type %}
+                {% when 'product' %}
+                  {% assign product = item %}
+                  <div class="search-result__product">
+                    {% if product.featured_image %}
+                      <a href="{{ product.url }}" class="search-result__image-link">
+                        <img src="{{ product.featured_image | image_url: width: 400 }}"
+                             alt="{{ product.featured_image.alt | escape }}"
+                             class="search-result__image"
+                             loading="lazy"
+                             width="{{ product.featured_image.width }}"
+                             height="{{ product.featured_image.height }}">
+                      </a>
+                    {% endif %}
+                    <h3 class="search-result__title">
+                      <a href="{{ product.url }}">{{ product.title }}</a>
+                    </h3>
+                    <p class="search-result__price">{{ product.price | money }}</p>
+                  </div>
+                
+                {% when 'article' %}
+                  <div class="search-result__article">
+                    <h3 class="search-result__title">
+                      <a href="{{ item.url }}">{{ item.title }}</a>
+                    </h3>
+                    <p class="search-result__excerpt">{{ item.content | strip_html | truncatewords: 20 }}</p>
+                  </div>
+                
+                {% when 'page' %}
+                  <div class="search-result__page">
+                    <h3 class="search-result__title">
+                      <a href="{{ item.url }}">{{ item.title }}</a>
+                    </h3>
+                    <p class="search-result__excerpt">{{ item.content | strip_html | truncatewords: 20 }}</p>
+                  </div>
+              {% endcase %}
+            </div>
+          {% endfor %}
+        </div>
+
+        {% if paginate.pages > 1 %}
+          <nav class="pagination" role="navigation">
+            {{ paginate | default_pagination }}
+          </nav>
+        {% endif %}
+      {% else %}
+        <p class="search__no-results">{{ 'general.search.no_results_html' | t: terms: search.terms }}</p>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>

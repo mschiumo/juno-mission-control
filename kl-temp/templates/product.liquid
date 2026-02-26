@@ -1,0 +1,48 @@
+<section class="product">
+  <div class="product__wrapper">
+    <div class="product__grid">
+      <div class="product__media">
+        {%- if product.featured_image -%}
+          <img src="{{ product.featured_image | image_url: width: 1000 }}"
+               alt="{{ product.featured_image.alt | escape }}"
+               class="product__image"
+               loading="eager"
+               width="{{ product.featured_image.width }}"
+               height="{{ product.featured_image.height }}">
+        {%- endif -%}
+      </div>
+
+      <div class="product__info">
+        <h1 class="product__title">{{ product.title }}</h1>
+
+        <div class="product__price">{{ product.price | money }}</div>
+
+        <div class="product__description">{{ product.description }}</div>
+
+        <form action="{{ routes.cart_add_url }}" method="post" class="product__form">
+          <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
+
+          <div class="product__quantity">
+            <label for="quantity" class="product__quantity-label">Quantity</label>
+            <input type="number" 
+                   id="quantity" 
+                   name="quantity" 
+                   value="1" 
+                   min="1"
+                   class="product__quantity-input">
+          </div>
+
+          <button type="submit" 
+                  class="button button--primary product__add-to-cart"
+                  {% unless product.available %}disabled{% endunless %}>
+            {%- if product.available -%}
+              Add to Cart
+            {%- else -%}
+              Sold Out
+            {%- endif -%}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>

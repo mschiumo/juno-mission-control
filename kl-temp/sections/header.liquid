@@ -1,0 +1,88 @@
+<!-- KeepLiving Header Section -->
+<header class="header header--{{ section.settings.logo_position }}">
+  <div class="header__wrapper">
+    <div class="header__logo">
+      <a href="{{ routes.root_url }}" class="header__logo-link">
+        {%- if section.settings.logo != blank -%}
+          <img src="{{ section.settings.logo | image_url: width: 200 }}" 
+               alt="{{ shop.name }}"
+               class="header__logo-image"
+               width="{{ section.settings.logo_width }}"
+               loading="lazy">
+        {%- else -%}
+          <span class="h2">{{ shop.name }}</span>
+        {%- endif -%}
+      </a>
+    </div>
+
+    <nav class="header__nav">
+      <ul class="header__menu">
+        {%- for link in section.settings.menu.links -%}
+          <li class="header__menu-item">
+            <a href="{{ link.url }}" class="header__menu-link">{{ link.title }}</a>
+          </li>
+        {%- endfor -%}
+      </ul>
+    </nav>
+
+    <div class="header__icons">
+      <a href="{{ routes.cart_url }}" class="header__icon header__icon--cart">
+        <span class="visually-hidden">{{ 'templates.cart.cart' | t }}</span>
+        <span class="svg-wrapper">
+          {%- assign icon_cart_content = 'icon-cart.svg' | inline_asset_content -%}
+          {%- if icon_cart_content != blank -%}
+            {{ icon_cart_content }}
+          {%- else -%}
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+          {%- endif -%}
+        </span>
+        <span class="header__cart-count" data-cart-count>{{ cart.item_count }}</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+{% schema %}
+{
+  "name": "Header",
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "logo",
+      "label": "Logo"
+    },
+    {
+      "type": "range",
+      "id": "logo_width",
+      "min": 50,
+      "max": 250,
+      "step": 10,
+      "default": 100,
+      "unit": "px",
+      "label": "Logo width"
+    },
+    {
+      "type": "select",
+      "id": "logo_position",
+      "options": [
+        {
+          "value": "middle-left",
+          "label": "Middle left"
+        },
+        {
+          "value": "top-center",
+          "label": "Top center"
+        }
+      ],
+      "default": "middle-left",
+      "label": "Logo position"
+    },
+    {
+      "type": "link_list",
+      "id": "menu",
+      "default": "main-menu",
+      "label": "Menu"
+    }
+  ]
+}
+{% endschema %}

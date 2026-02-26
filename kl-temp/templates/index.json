@@ -1,0 +1,44 @@
+{
+  "sections": {
+    "header": {
+      "type": "header",
+      "settings": {}
+    },
+    "hero": {
+      "type": "hero",
+      "settings": {
+        "heading": "Keep Living",
+        "subheading": "Mental Health Awareness",
+        "text": "A reminder to overcome fear, depression, and hopelessness. Make it through that moment, that day, that hard time.",
+        "button_label": "Shop Now",
+        "button_link": "/collections/all"
+      }
+    },
+    "featured-products": {
+      "type": "featured-products",
+      "settings": {
+        "title": "Featured Collection",
+        "description": "Products to remind you to keep going."
+      }
+    },
+    "about": {
+      "type": "about",
+      "settings": {
+        "heading": "Why KeepLiving Exists",
+        "subheading": "Our Story",
+        "text": "I've been where you are. The fear, the depression, the feeling that it won't get better. But I kept living. One moment at a time. One day at a time."
+      }
+    },
+    "footer": {
+      "type": "footer",
+      "settings": {}
+    }
+  },
+  "order": [
+    "header",
+    "hero",
+    "featured-products",
+    "about",
+    "footer"
+  ]
+}
