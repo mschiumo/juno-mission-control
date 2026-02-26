@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw, ChevronDown, ArrowUpDown, Filter, Download, Trash2, X, CheckSquare, Square } from 'lucide-react';
 import { getTodayInEST, parseDateToEST } from '@/lib/date-utils';
+import TradeEntryModal from './TradeEntryModal';
 
 interface DayData {
   date: string;
@@ -50,6 +51,7 @@ export default function CalendarView() {
   const [selectedTrades, setSelectedTrades] = useState<Set<string>>(new Set());
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showTradeEntryModal, setShowTradeEntryModal] = useState(false);
 
   // Fetch real data from API
   useEffect(() => {
@@ -839,6 +841,16 @@ export default function CalendarView() {
         <ImportModal onClose={() => setShowImportModal(false)} onSuccess={handleImportSuccess} />
       )}
 
+      {/* Trade Entry Modal */}
+      {showTradeEntryModal && (
+        <TradeEntryModal 
+          isOpen={showTradeEntryModal} 
+          onClose={() => setShowTradeEntryModal(false)} 
+          onSuccess={handleImportSuccess}
+          prefillDate={selectedDate}
+        />
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1182,11 +1194,11 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (selectedFile: File) => {
-    if (selectedFile.name.endsWith('.csv') || selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls')) {
+    if (selectedFile.name.endsWith('.csv')) {
       setFile(selectedFile);
       setUploadResult(null);
     } else {
-      setUploadResult({ success: false, message: 'Please select a CSV or Excel file' });
+      setUploadResult({ success: false, message: 'Please select a CSV file. Excel files (.xlsx, .xls) are not supported. Export as CSV from ThinkOrSwim.' });
     }
   };
 
@@ -1230,7 +1242,11 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: 
           }
         }, 1500);
       } else {
-        setUploadResult({ success: false, message: result.error || 'Import failed' });
+        // Show detailed error message
+        const errorMsg = result.details 
+          ? `${result.error}\n\n${result.details}` 
+          : result.error || 'Import failed';
+        setUploadResult({ success: false, message: errorMsg });
       }
     } catch (error) {
       setUploadResult({ success: false, message: 'Upload failed. Please try again.' });
@@ -1258,7 +1274,7 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: 
           <input
             type="file"
             ref={fileInputRef}
-            accept=".csv,.xlsx,.xls"
+            accept=".csv"
             onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
             className="hidden"
           />
@@ -1272,8 +1288,8 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: 
             </div>
           ) : (
             <>
-              <p className="text-white font-medium mb-2">Drop CSV or Excel file here</p>
-              <p className="text-sm text-[#8b949e] mb-4">Supports ThinkOrSwim, Interactive Brokers, and generic formats</p>
+              <p className="text-white font-medium mb-2">Drop CSV file here</p>
+              <p className="text-sm text-[#8b949e] mb-4">Supports ThinkOrSwim Account Statement (CSV format)</p>
             </>
           )}
           
@@ -1287,7 +1303,7 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: 
         </div>
         
         {uploadResult && (
-          <div className={`p-3 rounded-lg mb-4 ${uploadResult.success ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#da3633]/20 text-[#f85149]'}`}>
+          <div className={`p-3 rounded-lg mb-4 whitespace-pre-wrap ${uploadResult.success ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#da3633]/20 text-[#f85149]'}`}>
             {uploadResult.message}
           </div>
         )}

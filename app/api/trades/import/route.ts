@@ -46,6 +46,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
       }
 
+      // Validate file type - only CSV is supported
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith('.csv')) {
+        return NextResponse.json(
+          { success: false, error: 'Only CSV files are supported. Please export as CSV from ThinkOrSwim.' },
+          { status: 400 }
+        );
+      }
+
       // Read file content
       csv = await file.text();
     } else {
@@ -63,24 +72,51 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Check if this is a TOS format
-    if (csv.includes("Today's Trade Activity") || csv.includes('Filled Orders') || csv.includes('TO OPEN') || csv.includes('Position Statement for')) {
-      const tosTrades = parseTOSCSV(csv);
-
-      if (tosTrades.length === 0) {
+    const normalizedCsv = csv.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const isTOSFormat = normalizedCsv.includes("Today's Trade Activity") || 
+                        normalizedCsv.includes('Filled Orders') || 
+                        normalizedCsv.includes('TO OPEN') || 
+                        normalizedCsv.includes('Position Statement for') ||
+                        normalizedCsv.includes('Account Statement') ||
+                        normalizedCsv.includes('Statement for');
+    
+    if (isTOSFormat) {
+      console.log('[Import] Detected TOS format, parsing...');
+      
+      let tosTrades;
+      try {
+        tosTrades = parseTOSCSV(csv);
+      } catch (parseError) {
+        console.error('[Import] Error parsing TOS CSV:', parseError);
         return NextResponse.json(
-          { success: false, error: 'No trades found in TOS file. Make sure it contains Filled Orders or Position Statement data.' },
+          { success: false, error: 'Failed to parse TOS file. Please ensure it is a valid ThinkOrSwim CSV export.' },
           { status: 400 }
         );
       }
 
+      if (tosTrades.length === 0) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'No trades found in TOS file. Make sure it contains Filled Orders or Position Statement data. Supported formats: Account Statement, Trade Activity, Position Statement.',
+            details: 'Please ensure you are exporting from TOS Monitor → Account Statement and selecting CSV format.'
+          },
+          { status: 400 }
+        );
+      }
+
+      console.log(`[Import] Parsed ${tosTrades.length} trades from TOS file`);
+
       // Check if this is Position Statement format (already has PnL calculated)
-      const isPositionStatement = csv.includes('Position Statement for');
+      const isPositionStatement = normalizedCsv.includes('Position Statement for') || 
+                                   normalizedCsv.includes('Account Statement');
 
       const trades: Trade[] = [];
       const now = getNowInEST();
 
-      if (isPositionStatement) {
+      if (isPositionStatement && tosTrades.some(t => t.orderType === 'POSITION_PNL')) {
         // Position Statement: trades already have PnL, use them directly
+        // These represent completed round trips (both buy and sell happened)
         tosTrades.forEach(t => {
           const [year, month, day] = t.date.split('-');
           const [hours, minutes, seconds] = t.time.split(':');
@@ -92,7 +128,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             id: crypto.randomUUID(),
             userId,
             symbol: t.symbol,
-            side: t.pnl && t.pnl >= 0 ? TradeSide.LONG : TradeSide.SHORT,
+            side: TradeSide.LONG, // Position Statement entries represent completed round trips
             status: TradeStatus.CLOSED,
             strategy: Strategy.DAY_TRADE,
             entryDate,
@@ -103,7 +139,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             netPnL: t.pnl || 0,
             createdAt: now,
             updatedAt: now,
-            entryNotes: `Imported from TOS Position Statement - ${t.posEffect}`
+            entryNotes: `Imported from TOS Position Statement - ${t.posEffect || 'Daily PnL'}`
           });
         });
       } else {
@@ -193,7 +229,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       // Save to Redis
-      await saveTrades(trades);
+      try {
+        await saveTrades(trades);
+      } catch (saveError) {
+        console.error('[Import] Error saving trades:', saveError);
+        return NextResponse.json(
+          { success: false, error: 'Failed to save trades to database. Please try again.' },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json({
         success: true,
@@ -218,8 +262,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   } catch (error) {
     console.error('Error importing trades:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to import trades';
     return NextResponse.json(
-      { success: false, error: 'Failed to import trades' },
+      { 
+        success: false, 
+        error: errorMessage,
+        details: 'An unexpected error occurred while processing your file. Please check the file format and try again.'
+      },
       { status: 500 }
     );
   }
