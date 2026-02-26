@@ -292,15 +292,6 @@ export default function WatchlistView() {
       prev.map(i => i.id === item.id ? { ...i, isFavorite: !i.isFavorite } : i)
     );
   };
-      
-      await fetchWatchlist();
-      window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update favorite');
-    } finally {
-      setWatchlistLoading(false);
-    }
-  };
 
   // ===== DRAG AND DROP HANDLERS (Frontend only - no API calls) =====
   const handleDragStart = (e: React.DragEvent, id: string, type: 'watchlist' | 'active' | 'closed') => {
