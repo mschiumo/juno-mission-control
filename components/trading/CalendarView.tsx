@@ -506,7 +506,7 @@ export default function CalendarView() {
                             {dayData.pnl >= 0 ? '+' : ''}{formatCurrency(dayData.pnl)}
                           </div>
                           <div className="text-[8px] md:text-xs text-[#8b949e] truncate">
-                            {dayData.trades}t
+                            {dayData.trades} {dayData.trades === 1 ? 'trade' : 'trades'}
                           </div>
                         </div>
                       )}
