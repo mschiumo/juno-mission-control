@@ -788,6 +788,14 @@ export default function WatchlistView() {
     });
   };
 
+  // Short date format for closed positions: MM/DD
+  const formatShortDate = (isoString: string) => {
+    const date = new Date(isoString);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${month}/${day}`;
+  };
+
   // Don't render until mounted to avoid hydration mismatch
   if (!mounted) {
     return (
@@ -1242,7 +1250,7 @@ export default function WatchlistView() {
                     <div className="flex items-center gap-1.5 text-xs text-[#8b949e] whitespace-nowrap shrink-0">
                       <Calendar className="w-3.5 h-3.5 shrink-0" />
                       <span className="hidden sm:inline">Closed </span>
-                      {formatDate(position.closedAt)}
+                      {formatShortDate(position.closedAt)}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -1344,7 +1352,7 @@ export default function WatchlistView() {
                         </div>
                         <div>
                           <div className="text-xs text-[#8b949e]">Closed</div>
-                          <div className="text-sm text-[#8b949e]">{formatDate(position.closedAt)}</div>
+                          <div className="text-sm text-[#8b949e]">{formatShortDate(position.closedAt)}</div>
                         </div>
                       </div>
                     </div>
