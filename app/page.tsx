@@ -64,7 +64,7 @@ function DashboardContent() {
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
       {/* Header */}
       <header className="border-b border-[#30363d] bg-[#161b22]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-[#ff6b35] to-[#ff8c5a] flex items-center justify-center text-white font-bold text-lg md:text-xl shadow-lg">
@@ -149,7 +149,7 @@ function DashboardContent() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
         {activeTab === 'dashboard' ? (
           /* Dashboard Grid - Single column for better spacing */
           <div className="space-y-4">
@@ -162,24 +162,24 @@ function DashboardContent() {
           </div>
         ) : activeTab === 'tasks' ? (
           /* Tasks View - Projects and Task Management */
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-[1600px] mx-auto">
             <ProjectsCard />
           </div>
         ) : activeTab === 'trading' ? (
           /* Trading View - New Trading Journal */
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-[1600px] mx-auto">
             <TradingView />
           </div>
         ) : activeTab === 'goals' ? (
           /* Goals View */
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-[1600px] mx-auto">
             <Suspense fallback={<div className="p-8 text-center text-[#8b949e]">Loading goals...</div>}>
               <GoalsCard />
             </Suspense>
           </div>
         ) : (
           /* Activity Log View */
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-[1600px] mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
               <ActivityLogCard />
               <DailyCronsCard />
@@ -191,7 +191,7 @@ function DashboardContent() {
 
       {/* Footer */}
       <footer className="border-t border-[#30363d] bg-[#161b22] mt-8 md:mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-2">
             <p className="text-center md:text-left text-xs md:text-sm text-[#8b949e]">
               Juno Mission Control © {new Date().getFullYear()}
