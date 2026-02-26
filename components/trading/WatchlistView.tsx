@@ -285,18 +285,13 @@ export default function WatchlistView() {
     setEditingItem(null);
   };
 
-  // ===== FAVORITE TOGGLE =====
-  const handleToggleFavorite = async (item: WatchlistItem) => {
-    setWatchlistLoading(true);
-    try {
-      const updatedItem = { ...item, isFavorite: !item.isFavorite };
-      const response = await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedItem),
-      });
-      
-      if (!response.ok) throw new Error('Failed to update favorite status');
+  // ===== FAVORITE TOGGLE (Frontend only - no API call) =====
+  const handleToggleFavorite = (item: WatchlistItem) => {
+    // Update local state immediately - no API call needed
+    setWatchlist(prev => 
+      prev.map(i => i.id === item.id ? { ...i, isFavorite: !i.isFavorite } : i)
+    );
+  };
       
       await fetchWatchlist();
       window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
@@ -307,7 +302,7 @@ export default function WatchlistView() {
     }
   };
 
-  // ===== DRAG AND DROP HANDLERS =====
+  // ===== DRAG AND DROP HANDLERS (Frontend only - no API calls) =====
   const handleDragStart = (e: React.DragEvent, id: string, type: 'watchlist' | 'active' | 'closed') => {
     setDraggedItem({ id, type });
     e.dataTransfer.effectAllowed = 'move';
@@ -322,7 +317,7 @@ export default function WatchlistView() {
     setDragOverItem(null);
   };
 
-  const handleDrop = async (e: React.DragEvent, targetId: string, type: 'watchlist' | 'active' | 'closed') => {
+  const handleDrop = (e: React.DragEvent, targetId: string, type: 'watchlist' | 'active' | 'closed') => {
     e.preventDefault();
     setDragOverItem(null);
     
@@ -331,90 +326,40 @@ export default function WatchlistView() {
       return;
     }
 
-    // Reorder logic based on type
-    try {
-      if (type === 'watchlist') {
-        const items = [...watchlist];
-        const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
-        const targetIndex = items.findIndex(i => i.id === targetId);
-        
-        if (draggedIndex === -1 || targetIndex === -1) return;
-        
-        // Remove dragged item and insert at target position
-        const [removed] = items.splice(draggedIndex, 1);
-        items.splice(targetIndex, 0, removed);
-        
-        // Update order property for each item
-        const updatedItems = items.map((item, index) => ({ ...item, order: index }));
-        
-        // Update local state immediately for smooth UX
-        setWatchlist(updatedItems);
-        
-        // Save to API
-        for (const item of updatedItems) {
-          await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(item),
-          });
-        }
-        
-        window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
-      } else if (type === 'active') {
-        const items = [...activeTrades];
-        const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
-        const targetIndex = items.findIndex(i => i.id === targetId);
-        
-        if (draggedIndex === -1 || targetIndex === -1) return;
-        
-        const [removed] = items.splice(draggedIndex, 1);
-        items.splice(targetIndex, 0, removed);
-        
-        const updatedItems = items.map((item, index) => ({ ...item, order: index }));
-        setActiveTrades(updatedItems);
-        
-        for (const item of updatedItems) {
-          await fetch(`/api/active-trades?userId=${DEFAULT_USER_ID}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(item),
-          });
-        }
-        
-        window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
-      } else if (type === 'closed') {
-        const items = [...closedPositions];
-        const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
-        const targetIndex = items.findIndex(i => i.id === targetId);
-        
-        if (draggedIndex === -1 || targetIndex === -1) return;
-        
-        const [removed] = items.splice(draggedIndex, 1);
-        items.splice(targetIndex, 0, removed);
-        
-        const updatedItems = items.map((item, index) => ({ ...item, order: index }));
-        setClosedPositions(updatedItems);
-        
-        for (const item of updatedItems) {
-          await fetch(`/api/closed-positions?userId=${DEFAULT_USER_ID}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(item),
-          });
-        }
-        
-        window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
-      }
-    } catch (err) {
-      console.error('Error reordering items:', err);
-      setError('Failed to reorder items');
-      // Refresh to get correct order from server
-      await fetchWatchlist();
-      await fetchActiveTrades();
-      await fetchClosedPositions();
-    } finally {
-      setDraggedItem(null);
+    // Reorder locally only - no API calls
+    if (type === 'watchlist') {
+      const items = [...watchlist];
+      const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
+      const targetIndex = items.findIndex(i => i.id === targetId);
+      
+      if (draggedIndex === -1 || targetIndex === -1) return;
+      
+      const [removed] = items.splice(draggedIndex, 1);
+      items.splice(targetIndex, 0, removed);
+      setWatchlist(items);
+    } else if (type === 'active') {
+      const items = [...activeTrades];
+      const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
+      const targetIndex = items.findIndex(i => i.id === targetId);
+      
+      if (draggedIndex === -1 || targetIndex === -1) return;
+      
+      const [removed] = items.splice(draggedIndex, 1);
+      items.splice(targetIndex, 0, removed);
+      setActiveTrades(items);
+    } else if (type === 'closed') {
+      const items = [...closedPositions];
+      const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
+      const targetIndex = items.findIndex(i => i.id === targetId);
+      
+      if (draggedIndex === -1 || targetIndex === -1) return;
+      
+      const [removed] = items.splice(draggedIndex, 1);
+      items.splice(targetIndex, 0, removed);
+      setClosedPositions(items);
     }
+    
+    setDraggedItem(null);
   };
 
   // ===== MOVE: Potential → Active =====
