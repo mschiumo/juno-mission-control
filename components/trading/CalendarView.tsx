@@ -902,19 +902,14 @@ export default function CalendarView() {
 }
 
 function DayDetailModal({ date, data, trades, onClose, onTradeDeleted }: { date: string; data: DayData; trades: TOSTrade[]; onClose: () => void; onTradeDeleted?: () => void }) {
-  // DEBUG: Log trades received
-  console.log('[DEBUG] DayDetailModal - trades received:', trades);
-  console.log('[DEBUG] DayDetailModal - trades length:', trades?.length);
-  console.log('[DEBUG] DayDetailModal - data.trades count from summary:', data?.trades);
-  
   // Parse date parts directly to avoid UTC shift
   const [year, month, day] = date.split('-').map(Number);
   const dateObj = new Date(year, month - 1, day); // month is 0-indexed
-  
+
   // Delete confirmation state
   const [tradeToDelete, setTradeToDelete] = useState<TOSTrade | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // Handle individual trade delete
   const handleDeleteTrade = async (trade: TOSTrade) => {
     setIsDeleting(true);
@@ -922,13 +917,11 @@ function DayDetailModal({ date, data, trades, onClose, onTradeDeleted }: { date:
       const response = await fetch(`/api/trades/${trade.id}?userId=default`, {
         method: 'DELETE'
       });
-      
+
       if (response.ok) {
-        // Notify parent to refresh data
         if (onTradeDeleted) {
           onTradeDeleted();
         }
-        // Dispatch global event for other components
         window.dispatchEvent(new CustomEvent('juno:trades-updated'));
       } else {
         console.error('Failed to delete trade');
@@ -942,61 +935,244 @@ function DayDetailModal({ date, data, trades, onClose, onTradeDeleted }: { date:
       setTradeToDelete(null);
     }
   };
-  
-  // Group trades by symbol for display
-  const tradesBySymbol = useMemo(() => {
-    const grouped: Record<string, TOSTrade[]> = {};
-    trades.forEach(trade => {
-      if (!grouped[trade.symbol]) grouped[trade.symbol] = [];
-      grouped[trade.symbol].push(trade);
-    });
-    return grouped;
+
+  // Calculate simple stats from trades array directly
+  const uniqueSymbols = useMemo(() => {
+    const symbols = new Set(trades.map(t => t.symbol));
+    return symbols.size;
   }, [trades]);
 
-  // Calculate per-symbol PnL
-  const symbolPnLs = useMemo(() => {
-    return Object.entries(tradesBySymbol).map(([symbol, symbolTrades]) => {
-      const longs = symbolTrades.filter(t => t.side === 'LONG');
-      const shorts = symbolTrades.filter(t => t.side === 'SHORT');
-      
-      let pnl = 0;
-      if (longs.length > 0 && shorts.length > 0) {
-        const longValue = longs.reduce((sum, t) => sum + t.entryPrice * t.shares, 0);
-        const longQty = longs.reduce((sum, t) => sum + t.shares, 0);
-        const avgLong = longQty > 0 ? longValue / longQty : 0;
-        
-        const shortValue = shorts.reduce((sum, t) => sum + t.entryPrice * t.shares, 0);
-        const shortQty = shorts.reduce((sum, t) => sum + t.shares, 0);
-        const avgShort = shortQty > 0 ? shortValue / shortQty : 0;
-        
-        // For shorts: profit when sell price > buy price (cover)
-        pnl = (avgShort - avgLong) * Math.min(longQty, shortQty);
-      }
-      
-      return { symbol, trades: symbolTrades, pnl, isWin: pnl > 0 };
-    });
-  }, [tradesBySymbol]);
-  
-  // Redirect to Journal tab - check if entry exists first
+  const winningTrades = useMemo(() => {
+    return trades.filter(t => {
+      const pnl = t.grossPnL !== undefined ? t.grossPnL : (t.netPnL || 0);
+      return pnl > 0;
+    }).length;
+  }, [trades]);
+
+  const losingTrades = useMemo(() => {
+    return trades.filter(t => {
+      const pnl = t.grossPnL !== undefined ? t.grossPnL : (t.netPnL || 0);
+      return pnl < 0;
+    }).length;
+  }, [trades]);
+
+  // Redirect to Journal tab
   const openJournal = async () => {
     try {
       const response = await fetch(`/api/trades/journal?date=${date}&_t=${Date.now()}`);
-      const data = await response.json();
-      
-      if (data.success && data.notes) {
-        // Entry exists - open in edit mode
+      const journalData = await response.json();
+
+      if (journalData.success && journalData.notes) {
         window.location.href = `/?tab=trading&subtab=journal&date=${date}&action=edit`;
       } else {
-        // No entry exists - open create modal
         window.location.href = `/?tab=trading&subtab=journal&date=${date}&action=create`;
       }
     } catch (error) {
       console.error('Error checking journal entry:', error);
-      // Default to create if API fails
       window.location.href = `/?tab=trading&subtab=journal&date=${date}&action=create`;
     }
   };
-  
+
+  // Format time from entryDate
+  const formatTime = (entryDate: string) => {
+    if (!entryDate) return '-';
+    const parts = entryDate.split('T');
+    if (parts.length < 2) return '-';
+    return parts[1].substring(0, 5);
+  };
+
+  // Get PnL for a trade
+  const getTradePnl = (trade: TOSTrade): number => {
+    return trade.grossPnL !== undefined ? trade.grossPnL : (trade.netPnL || 0);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-[#30363d] flex-shrink-0">
+          <div>
+            <h3 className="text-lg font-bold text-white">
+              {dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </h3>
+            <div className="flex items-center gap-3 mt-1">
+              <span className={`text-sm font-semibold ${data.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                {data.pnl >= 0 ? '+' : ''}${data.pnl.toFixed(2)} PnL
+              </span>
+              <span className="text-[#8b949e] text-sm">{data.trades} trades</span>
+              {data.winRate !== undefined && (
+                <span className="text-sm text-[#8b949e]">Win Rate: <span className={data.winRate >= 50 ? 'text-[#3fb950]' : 'text-[#f85149]'}>{data.winRate}%</span></span>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-[#262626] rounded-lg">
+            <span className="text-[#8b949e]">✕</span>
+          </button>
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-4 p-4 bg-[#0d1117] border-b border-[#30363d] flex-shrink-0">
+          <div className="text-center">
+            <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Symbols</div>
+            <div className="text-white font-semibold">{uniqueSymbols}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Winning</div>
+            <div className="text-[#3fb950] font-semibold">{winningTrades}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Losing</div>
+            <div className="text-[#f85149] font-semibold">{losingTrades}</div>
+          </div>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+          {/* Trades List */}
+          <div>
+            <h4 className="text-sm font-medium text-[#8b949e] mb-2">Trades ({trades.length})</h4>
+            <div className="space-y-2">
+              {trades.length === 0 ? (
+                <div className="text-[#8b949e] text-sm py-4 text-center">No trade details available</div>
+              ) : (
+                trades.map((trade) => {
+                  const pnl = getTradePnl(trade);
+                  const isWin = pnl > 0;
+                  const isLoss = pnl < 0;
+
+                  return (
+                    <div key={trade.id} className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d] group">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-medium">{trade.symbol}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded ${trade.side === 'LONG' ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#da3633]/20 text-[#f85149]'}`}>
+                            {trade.side}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded ${trade.status === 'CLOSED' ? 'bg-[#8b949e]/20 text-[#8b949e]' : 'bg-[#d29922]/20 text-[#d29922]'}`}>
+                            {trade.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={isWin ? 'text-[#3fb950] font-semibold' : isLoss ? 'text-[#f85149] font-semibold' : 'text-[#8b949e] font-semibold'}>
+                            {pnl > 0 ? '+' : ''}${pnl.toFixed(2)}
+                          </span>
+                          <button
+                            onClick={() => setTradeToDelete(trade)}
+                            className="p-1.5 hover:bg-[#da3633]/20 text-[#8b949e] hover:text-[#f85149] rounded transition-colors opacity-0 group-hover:opacity-100"
+                            title={`Delete trade ${trade.id.slice(0, 8)}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <div>
+                          <span className="text-[#8b949e]">Shares: </span>
+                          <span className="text-white">{trade.shares}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#8b949e]">Entry: </span>
+                          <span className="text-white">${trade.entryPrice.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#8b949e]">Exit: </span>
+                          <span className="text-white">{trade.exitPrice ? `$${trade.exitPrice.toFixed(2)}` : '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#8b949e]">Time: </span>
+                          <span className="text-white">{formatTime(trade.entryDate)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-between items-center gap-3 p-4 border-t border-[#30363d] flex-shrink-0">
+          <button
+            onClick={openJournal}
+            className="px-4 py-2 bg-[#F97316]/10 hover:bg-[#F97316]/20 text-[#F97316] rounded-lg transition-colors flex items-center gap-2 text-sm"
+          >
+            <span>📓</span>
+            Open Journal
+          </button>
+          <button onClick={onClose} className="px-4 py-2 text-[#8b949e] hover:text-white">
+            Close
+          </button>
+        </div>
+
+        {/* Delete Confirmation Modal */}
+        {tradeToDelete && (
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-sm p-5 shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-[#da3633]/20 rounded-full">
+                  <Trash2 className="w-5 h-5 text-[#f85149]" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">Delete Trade?</p>
+                  <p className="text-sm text-[#8b949e]">This action cannot be undone.</p>
+                </div>
+              </div>
+
+              <div className="bg-[#0d1117] rounded-lg p-3 mb-4 text-sm">
+                <div className="flex justify-between mb-1">
+                  <span className="text-[#8b949e]">Symbol:</span>
+                  <span className="text-white font-medium">{tradeToDelete.symbol}</span>
+                </div>
+                <div className="flex justify-between mb-1">
+                  <span className="text-[#8b949e]">Side:</span>
+                  <span className={tradeToDelete.side === 'LONG' ? 'text-[#3fb950]' : 'text-[#f85149]'}>
+                    {tradeToDelete.side}
+                  </span>
+                </div>
+                <div className="flex justify-between mb-1">
+                  <span className="text-[#8b949e]">Shares:</span>
+                  <span className="text-white">{tradeToDelete.shares}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#8b949e]">Entry Price:</span>
+                  <span className="text-white">${tradeToDelete.entryPrice.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setTradeToDelete(null)}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteTrade(tradeToDelete)}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 bg-[#da3633] hover:bg-[#f85149] text-white rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col">
