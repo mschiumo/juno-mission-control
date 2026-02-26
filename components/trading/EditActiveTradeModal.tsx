@@ -42,6 +42,25 @@ export default function EditActiveTradeModal({
     return Math.floor(riskAmount / stopSize);
   };
 
+  // Calculate risk/reward ratio based on current form values
+  const calculateRiskReward = (): { ratio: number; reward: number; risk: number } => {
+    const entry = parseFloat(formData.actualEntry) || 0;
+    const stop = parseFloat(formData.plannedStop) || 0;
+    const target = parseFloat(formData.plannedTarget) || 0;
+    
+    if (entry <= 0 || stop <= 0 || target <= 0) {
+      return { ratio: 0, reward: 0, risk: 0 };
+    }
+    
+    const isLong = target > entry;
+    const risk = isLong ? Math.abs(entry - stop) : Math.abs(stop - entry);
+    const reward = isLong ? Math.abs(target - entry) : Math.abs(entry - target);
+    
+    const ratio = risk > 0 ? reward / risk : 0;
+    
+    return { ratio, reward, risk };
+  };
+
   // Populate form when trade changes
   useEffect(() => {
     if (trade) {
@@ -93,6 +112,12 @@ export default function EditActiveTradeModal({
     const plannedTarget = parseFloat(formData.plannedTarget);
     if (isNaN(plannedTarget) || plannedTarget <= 0) {
       newErrors.plannedTarget = 'Valid target price required';
+    }
+
+    // Validate minimum 2:1 risk/reward ratio
+    const { ratio } = calculateRiskReward();
+    if (ratio > 0 && ratio < 2) {
+      newErrors.plannedTarget = `Risk/Reward ratio is ${ratio.toFixed(2)}:1. Minimum 2:1 required.`;
     }
 
     setErrors(newErrors);
@@ -189,31 +214,60 @@ export default function EditActiveTradeModal({
         <div className="p-6 overflow-y-auto">
           {/* Planned Values Reference */}
           <div className="bg-[#161b22] border border-[#262626] rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium text-[#8b949e] uppercase tracking-wide">
-                Planned Trade
+                Current Trade Setup
               </span>
+              {(() => {
+                const { ratio } = calculateRiskReward();
+                const isValid = ratio >= 2;
+                return (
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${isValid ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+                    <span className={`text-xs font-semibold ${isValid ? 'text-green-400' : 'text-red-400'}`}>
+                      R/R: {ratio.toFixed(2)}:1
+                    </span>
+                    {!isValid && ratio > 0 && (
+                      <span className="text-[10px] text-red-400">(Need 2:1)</span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <span className="text-xs text-[#8b949e]">Entry</span>
                 <p className="text-sm font-semibold text-white">
-                  {formatCurrency(trade.plannedEntry)}
+                  {formatCurrency(parseFloat(formData.actualEntry) || trade.plannedEntry)}
                 </p>
               </div>
               <div>
                 <span className="text-xs text-[#8b949e]">Stop</span>
                 <p className="text-sm font-semibold text-red-400">
-                  {formatCurrency(trade.plannedStop)}
+                  {formatCurrency(parseFloat(formData.plannedStop) || trade.plannedStop)}
                 </p>
               </div>
               <div>
                 <span className="text-xs text-[#8b949e]">Target</span>
                 <p className="text-sm font-semibold text-green-400">
-                  {formatCurrency(trade.plannedTarget)}
+                  {formatCurrency(parseFloat(formData.plannedTarget) || trade.plannedTarget)}
                 </p>
               </div>
             </div>
+            {(() => {
+              const { ratio, reward, risk } = calculateRiskReward();
+              if (ratio <= 0) return null;
+              return (
+                <div className="mt-3 pt-3 border-t border-[#262626]">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#8b949e]">Risk: {formatCurrency(risk)}</span>
+                    <span className="text-[#8b949e]">Reward: {formatCurrency(reward)}</span>
+                    <span className={ratio >= 2 ? 'text-green-400' : 'text-red-400'}>
+                      Ratio: {ratio.toFixed(2)}:1
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Form */}
