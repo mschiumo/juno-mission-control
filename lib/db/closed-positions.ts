@@ -21,6 +21,7 @@ export interface ClosedPosition {
   openedAt: string;
   closedAt: string;
   notes?: string;
+  order?: number; // Optional order index for drag-and-drop sorting
 }
 
 const CLOSED_POSITIONS_KEY = 'trades:closed:data';

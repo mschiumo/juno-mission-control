@@ -20,7 +20,8 @@ import {
   History,
   Plus,
   Check,
-  RefreshCw
+  RefreshCw,
+  Star
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
@@ -86,6 +87,10 @@ export default function WatchlistView() {
   
   // Track which positions have been added to calendar (for UI feedback)
   const [addedToCalendarIds, setAddedToCalendarIds] = useState<Set<string>>(new Set());
+
+  // Drag and Drop state
+  const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'watchlist' | 'active' | 'closed' } | null>(null);
+  const [dragOverItem, setDragOverItem] = useState<string | null>(null);
 
   // Calendar trades for duplicate checking
   const [calendarTrades, setCalendarTrades] = useState<Array<{ id: string; symbol: string; entryDate: string }>>([]);
@@ -278,6 +283,138 @@ export default function WatchlistView() {
     await handleRemoveFromWatchlist(id);
     setIsEditModalOpen(false);
     setEditingItem(null);
+  };
+
+  // ===== FAVORITE TOGGLE =====
+  const handleToggleFavorite = async (item: WatchlistItem) => {
+    setWatchlistLoading(true);
+    try {
+      const updatedItem = { ...item, isFavorite: !item.isFavorite };
+      const response = await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedItem),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update favorite status');
+      
+      await fetchWatchlist();
+      window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update favorite');
+    } finally {
+      setWatchlistLoading(false);
+    }
+  };
+
+  // ===== DRAG AND DROP HANDLERS =====
+  const handleDragStart = (e: React.DragEvent, id: string, type: 'watchlist' | 'active' | 'closed') => {
+    setDraggedItem({ id, type });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    setDragOverItem(id);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverItem(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string, type: 'watchlist' | 'active' | 'closed') => {
+    e.preventDefault();
+    setDragOverItem(null);
+    
+    if (!draggedItem || draggedItem.type !== type || draggedItem.id === targetId) {
+      setDraggedItem(null);
+      return;
+    }
+
+    // Reorder logic based on type
+    try {
+      if (type === 'watchlist') {
+        const items = [...watchlist];
+        const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
+        const targetIndex = items.findIndex(i => i.id === targetId);
+        
+        if (draggedIndex === -1 || targetIndex === -1) return;
+        
+        // Remove dragged item and insert at target position
+        const [removed] = items.splice(draggedIndex, 1);
+        items.splice(targetIndex, 0, removed);
+        
+        // Update order property for each item
+        const updatedItems = items.map((item, index) => ({ ...item, order: index }));
+        
+        // Update local state immediately for smooth UX
+        setWatchlist(updatedItems);
+        
+        // Save to API
+        for (const item of updatedItems) {
+          await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item),
+          });
+        }
+        
+        window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
+      } else if (type === 'active') {
+        const items = [...activeTrades];
+        const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
+        const targetIndex = items.findIndex(i => i.id === targetId);
+        
+        if (draggedIndex === -1 || targetIndex === -1) return;
+        
+        const [removed] = items.splice(draggedIndex, 1);
+        items.splice(targetIndex, 0, removed);
+        
+        const updatedItems = items.map((item, index) => ({ ...item, order: index }));
+        setActiveTrades(updatedItems);
+        
+        for (const item of updatedItems) {
+          await fetch(`/api/active-trades?userId=${DEFAULT_USER_ID}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item),
+          });
+        }
+        
+        window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
+      } else if (type === 'closed') {
+        const items = [...closedPositions];
+        const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
+        const targetIndex = items.findIndex(i => i.id === targetId);
+        
+        if (draggedIndex === -1 || targetIndex === -1) return;
+        
+        const [removed] = items.splice(draggedIndex, 1);
+        items.splice(targetIndex, 0, removed);
+        
+        const updatedItems = items.map((item, index) => ({ ...item, order: index }));
+        setClosedPositions(updatedItems);
+        
+        for (const item of updatedItems) {
+          await fetch(`/api/closed-positions?userId=${DEFAULT_USER_ID}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item),
+          });
+        }
+        
+        window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
+      }
+    } catch (err) {
+      console.error('Error reordering items:', err);
+      setError('Failed to reorder items');
+      // Refresh to get correct order from server
+      await fetchWatchlist();
+      await fetchActiveTrades();
+      await fetchClosedPositions();
+    } finally {
+      setDraggedItem(null);
+    }
   };
 
   // ===== MOVE: Potential → Active =====
@@ -858,7 +995,12 @@ export default function WatchlistView() {
             {activeTrades.map((trade) => (
               <div
                 key={trade.id}
-                className="bg-[#0F0F0F] border border-green-500/30 rounded-xl overflow-hidden hover:border-green-500/50 transition-all"
+                draggable
+                onDragStart={(e) => handleDragStart(e, trade.id, 'active')}
+                onDragOver={(e) => handleDragOver(e, trade.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, trade.id, 'active')}
+                className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-green-500/50 transition-all ${dragOverItem === trade.id ? 'border-green-500 ring-2 ring-green-500/20' : 'border-green-500/30'}`}
               >
                 {/* Card Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-green-500/5">
@@ -1114,11 +1256,23 @@ export default function WatchlistView() {
           </div>
         ) : (
           <div className="space-y-3">
-            {watchlist.map((item) => (
+            {[...watchlist]
+              .sort((a, b) => {
+                // Favorites first, then by creation date
+                if (a.isFavorite && !b.isFavorite) return -1;
+                if (!a.isFavorite && b.isFavorite) return 1;
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+              })
+              .map((item) => (
               <div
                 key={item.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, item.id, 'watchlist')}
+                onDragOver={(e) => handleDragOver(e, item.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, item.id, 'watchlist')}
                 onClick={() => handleEdit(item)}
-                className="bg-[#0F0F0F] border border-[#262626] rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group"
+                className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
               >
                 {/* Card Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors">
@@ -1143,6 +1297,16 @@ export default function WatchlistView() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleFavorite(item);
+                      }}
+                      className={`p-2 rounded-lg transition-colors ${item.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-[#8b949e] hover:text-yellow-400 hover:bg-yellow-400/10'}`}
+                      title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                      <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-yellow-400' : ''}`} />
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1249,7 +1413,12 @@ export default function WatchlistView() {
             {closedPositions.map((position) => (
               <div
                 key={position.id}
-                className="bg-[#0F0F0F] border border-blue-500/20 rounded-xl overflow-hidden"
+                draggable
+                onDragStart={(e) => handleDragStart(e, position.id, 'closed')}
+                onDragOver={(e) => handleDragOver(e, position.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, position.id, 'closed')}
+                className={`bg-[#0F0F0F] border rounded-xl overflow-hidden ${dragOverItem === position.id ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-blue-500/20'}`}
               >
                 {/* Card Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-blue-500/5 gap-4">
