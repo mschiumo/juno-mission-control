@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Target, Plus, X, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle, Calendar, Clock, Trash2, Square, CheckSquare } from 'lucide-react';
+import { Target, Plus, X, FileText, Bot, CheckCircle, Circle, Loader2, Check, AlertCircle, RotateCcw, AlertTriangle, Calendar, Clock, Trash2, Square, CheckSquare, ArrowRightLeft } from 'lucide-react';
 
 interface Notification {
   message: string;
@@ -798,19 +798,22 @@ export default function GoalsCard() {
           )}
         </div>
         
-        {/* Move to category - only for non-collaborative goals */}
-        {!isCollaborative && !isMobileView && (
-          <div className="flex gap-1 mt-2 pt-2 border-t border-[#262626]/50 opacity-0 group-hover:opacity-100 transition-opacity">
-            <span className="text-[10px] text-[#737373] mr-1">Move to:</span>
-            {(['daily', 'weekly', 'yearly'] as Category[]).filter(cat => cat !== goal.category).map((cat) => (
-              <button
-                key={cat}
-                onClick={(e) => { e.stopPropagation(); moveCategory(goal, cat); }}
-                className="text-[10px] px-2 py-1 bg-[#0F0F0F] text-[#737373] rounded hover:bg-[#F97316]/20 hover:text-[#F97316] transition-colors"
-              >
-                {categoryLabels[cat]}
-              </button>
-            ))}
+        {/* Move to category - visible move buttons for all non-collaborative goals */}
+        {!isCollaborative && (
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#262626]/50">
+            <span className="text-[10px] text-[#737373]">Move to:</span>
+            <div className="flex gap-1">
+              {(['daily', 'weekly', 'yearly'] as Category[]).filter(cat => cat !== goal.category).map((cat) => (
+                <button
+                  key={cat}
+                  onClick={(e) => { e.stopPropagation(); moveCategory(goal, cat); }}
+                  className="text-[10px] px-2 py-1 bg-[#0F0F0F] text-[#737373] rounded hover:bg-[#F97316]/20 hover:text-[#F97316] transition-colors flex items-center gap-1"
+                >
+                  <ArrowRightLeft className="w-3 h-3" />
+                  {categoryLabels[cat]}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </>
