@@ -19,113 +19,49 @@ import {
   Trash2,
   History,
   Plus,
-  Check
+  Check,
+  RefreshCw
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
 import type { CreateTradeRequest } from '@/types/trading';
 import { TradeSide, Strategy } from '@/types/trading';
+import type { ClosedPosition } from '@/lib/db/closed-positions';
 import EditWatchlistItemModal from './EditWatchlistItemModal';
 import EnterPositionModal from './EnterPositionModal';
 import EditActiveTradeModal from './EditActiveTradeModal';
 import EditClosedPositionModal from './EditClosedPositionModal';
 
-const WATCHLIST_KEY = 'juno:trade-watchlist';
-const ACTIVE_TRADES_KEY = 'juno:active-trades';
-const CLOSED_POSITIONS_KEY = 'juno:closed-positions';
+// API response types
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+}
 
-// Custom event names for cross-section sync
+// Custom event names for cross-section sync (kept for backward compatibility)
 const EVENTS = {
   WATCHLIST_UPDATED: 'juno:watchlist-updated',
   ACTIVE_TRADES_UPDATED: 'juno:active-trades-updated',
   CLOSED_POSITIONS_UPDATED: 'juno:closed-positions-updated',
 } as const;
 
-// Closed Position Type
-export interface ClosedPosition {
-  id: string;
-  ticker: string;
-  plannedEntry: number;
-  plannedStop: number;
-  plannedTarget: number;
-  actualEntry: number;
-  actualShares: number;
-  // Optional exit data (can be added later)
-  exitPrice?: number;
-  exitDate?: string;
-  pnl?: number;
-  openedAt: string;
-  closedAt: string;
-  notes?: string;
-}
-
-// Helper functions for localStorage operations
-const storage = {
-  getWatchlist: (): WatchlistItem[] => {
-    try {
-      const stored = localStorage.getItem(WATCHLIST_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch (error) {
-      console.error('Error loading watchlist:', error);
-      return [];
-    }
-  },
-  setWatchlist: (data: WatchlistItem[]): void => {
-    try {
-      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(data));
-    } catch (error) {
-      console.error('Error saving watchlist:', error);
-    }
-  },
-  getActiveTrades: (): ActiveTradeWithPnL[] => {
-    try {
-      const stored = localStorage.getItem(ACTIVE_TRADES_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch (error) {
-      console.error('Error loading active trades:', error);
-      return [];
-    }
-  },
-  setActiveTrades: (data: ActiveTradeWithPnL[]): void => {
-    try {
-      localStorage.setItem(ACTIVE_TRADES_KEY, JSON.stringify(data));
-    } catch (error) {
-      console.error('Error saving active trades:', error);
-    }
-  },
-  getClosedPositions: (): ClosedPosition[] => {
-    try {
-      const stored = localStorage.getItem(CLOSED_POSITIONS_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch (error) {
-      console.error('Error loading closed positions:', error);
-      return [];
-    }
-  },
-  setClosedPositions: (data: ClosedPosition[]): void => {
-    try {
-      localStorage.setItem(CLOSED_POSITIONS_KEY, JSON.stringify(data));
-    } catch (error) {
-      console.error('Error saving closed positions:', error);
-    }
-  },
-};
+// Default user ID (can be made dynamic with auth later)
+const DEFAULT_USER_ID = 'default';
 
 export default function WatchlistView() {
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [watchlistLoading, setWatchlistLoading] = useState(false);
   const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [enteringItem, setEnteringItem] = useState<WatchlistItem | null>(null);
   const [isEnterModalOpen, setIsEnterModalOpen] = useState(false);
 
-  // Debug: Log watchlist changes
-  useEffect(() => {
-    console.log('[DEBUG WatchlistView] watchlist state changed:', watchlist.length, 'items');
-  }, [watchlist]);
-
   // Active Trades state
   const [activeTrades, setActiveTrades] = useState<ActiveTradeWithPnL[]>([]);
+  const [activeTradesLoading, setActiveTradesLoading] = useState(false);
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
   
   // Edit Active Trade state
@@ -141,6 +77,7 @@ export default function WatchlistView() {
 
   // Closed Positions state
   const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
+  const [closedPositionsLoading, setClosedPositionsLoading] = useState(false);
   const [deletingPositionId, setDeletingPositionId] = useState<string | null>(null);
   
   // Edit Closed Position state
@@ -169,11 +106,65 @@ export default function WatchlistView() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Load data from localStorage - memoized to prevent unnecessary re-renders
-  const loadData = useCallback(() => {
-    setWatchlist(storage.getWatchlist());
-    setActiveTrades(storage.getActiveTrades());
-    setClosedPositions(storage.getClosedPositions());
+  // Debug: Log watchlist changes
+  useEffect(() => {
+    console.log('[DEBUG WatchlistView] watchlist state changed:', watchlist.length, 'items');
+  }, [watchlist]);
+
+  // ===== API FUNCTIONS =====
+  
+  // Fetch watchlist from API
+  const fetchWatchlist = useCallback(async () => {
+    setWatchlistLoading(true);
+    try {
+      const response = await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`);
+      if (!response.ok) throw new Error('Failed to fetch watchlist');
+      const result: ApiResponse<WatchlistItem[]> = await response.json();
+      if (result.success && result.data) {
+        setWatchlist(result.data);
+      }
+    } catch (err) {
+      console.error('Error fetching watchlist:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch watchlist');
+    } finally {
+      setWatchlistLoading(false);
+    }
+  }, []);
+
+  // Fetch active trades from API
+  const fetchActiveTrades = useCallback(async () => {
+    setActiveTradesLoading(true);
+    try {
+      const response = await fetch(`/api/active-trades?userId=${DEFAULT_USER_ID}`);
+      if (!response.ok) throw new Error('Failed to fetch active trades');
+      const result: ApiResponse<ActiveTradeWithPnL[]> = await response.json();
+      if (result.success && result.data) {
+        setActiveTrades(result.data);
+      }
+    } catch (err) {
+      console.error('Error fetching active trades:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch active trades');
+    } finally {
+      setActiveTradesLoading(false);
+    }
+  }, []);
+
+  // Fetch closed positions from API
+  const fetchClosedPositions = useCallback(async () => {
+    setClosedPositionsLoading(true);
+    try {
+      const response = await fetch(`/api/closed-positions?userId=${DEFAULT_USER_ID}`);
+      if (!response.ok) throw new Error('Failed to fetch closed positions');
+      const result: ApiResponse<ClosedPosition[]> = await response.json();
+      if (result.success && result.data) {
+        setClosedPositions(result.data);
+      }
+    } catch (err) {
+      console.error('Error fetching closed positions:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch closed positions');
+    } finally {
+      setClosedPositionsLoading(false);
+    }
   }, []);
 
   // Fetch calendar trades to check for duplicates
@@ -183,8 +174,8 @@ export default function WatchlistView() {
       const response = await fetch('/api/trades?limit=1000');
       if (response.ok) {
         const result = await response.json();
-        if (result.data && Array.isArray(result.data)) {
-          setCalendarTrades(result.data.map((t: { id: string; symbol: string; entryDate: string }) => ({
+        if (result.data && result.data.trades && Array.isArray(result.data.trades)) {
+          setCalendarTrades(result.data.trades.map((t: { id: string; symbol: string; entryDate: string }) => ({
             id: t.id,
             symbol: t.symbol,
             entryDate: t.entryDate,
@@ -198,37 +189,27 @@ export default function WatchlistView() {
     }
   }, []);
 
+  // Load all data
+  const loadAllData = useCallback(async () => {
+    await Promise.all([
+      fetchWatchlist(),
+      fetchActiveTrades(),
+      fetchClosedPositions(),
+    ]);
+  }, [fetchWatchlist, fetchActiveTrades, fetchClosedPositions]);
+
+  // Initial load
   useEffect(() => {
     setMounted(true);
-    loadData();
+    loadAllData();
     fetchCalendarTrades();
-  }, [loadData, fetchCalendarTrades]);
+  }, [loadAllData, fetchCalendarTrades]);
 
-  // Listen for storage changes (for multi-tab support)
+  // Listen for custom events (for backward compatibility with other components)
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === WATCHLIST_KEY || e.key === ACTIVE_TRADES_KEY || e.key === CLOSED_POSITIONS_KEY) {
-        loadData();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [loadData]);
-
-  // Listen for same-tab updates via custom events
-  useEffect(() => {
-    const handleWatchlistUpdate = () => {
-      setWatchlist(storage.getWatchlist());
-    };
-    
-    const handleActiveTradesUpdate = () => {
-      setActiveTrades(storage.getActiveTrades());
-    };
-    
-    const handleClosedPositionsUpdate = () => {
-      setClosedPositions(storage.getClosedPositions());
-    };
+    const handleWatchlistUpdate = () => fetchWatchlist();
+    const handleActiveTradesUpdate = () => fetchActiveTrades();
+    const handleClosedPositionsUpdate = () => fetchClosedPositions();
 
     window.addEventListener(EVENTS.WATCHLIST_UPDATED, handleWatchlistUpdate);
     window.addEventListener(EVENTS.ACTIVE_TRADES_UPDATED, handleActiveTradesUpdate);
@@ -239,15 +220,26 @@ export default function WatchlistView() {
       window.removeEventListener(EVENTS.ACTIVE_TRADES_UPDATED, handleActiveTradesUpdate);
       window.removeEventListener(EVENTS.CLOSED_POSITIONS_UPDATED, handleClosedPositionsUpdate);
     };
-  }, []);
+  }, [fetchWatchlist, fetchActiveTrades, fetchClosedPositions]);
 
   // ===== WATCHLIST (Potential Trades) Actions =====
-  const handleRemoveFromWatchlist = (id: string) => {
-    const current = storage.getWatchlist();
-    const updated = current.filter(item => item.id !== id);
-    storage.setWatchlist(updated);
-    setWatchlist(updated);
-    window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
+  const handleRemoveFromWatchlist = async (id: string) => {
+    setWatchlistLoading(true);
+    try {
+      const response = await fetch(`/api/watchlist?id=${id}&userId=${DEFAULT_USER_ID}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) throw new Error('Failed to remove from watchlist');
+      
+      // Refresh data
+      await fetchWatchlist();
+      window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove item');
+    } finally {
+      setWatchlistLoading(false);
+    }
   };
 
   const handleEdit = (item: WatchlistItem) => {
@@ -260,20 +252,30 @@ export default function WatchlistView() {
     setEditingItem(null);
   };
 
-  const handleSave = (updatedItem: WatchlistItem) => {
-    const current = storage.getWatchlist();
-    const updated = current.map(item => 
-      item.id === updatedItem.id ? updatedItem : item
-    );
-    storage.setWatchlist(updated);
-    setWatchlist(updated);
-    window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
-    setIsEditModalOpen(false);
-    setEditingItem(null);
+  const handleSave = async (updatedItem: WatchlistItem) => {
+    setWatchlistLoading(true);
+    try {
+      const response = await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedItem),
+      });
+      
+      if (!response.ok) throw new Error('Failed to save watchlist item');
+      
+      await fetchWatchlist();
+      window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
+      setIsEditModalOpen(false);
+      setEditingItem(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save item');
+    } finally {
+      setWatchlistLoading(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    handleRemoveFromWatchlist(id);
+  const handleDelete = async (id: string) => {
+    await handleRemoveFromWatchlist(id);
     setIsEditModalOpen(false);
     setEditingItem(null);
   };
@@ -290,12 +292,11 @@ export default function WatchlistView() {
     setError(null);
   };
 
-  const handleConfirmEnterPosition = (activeTrade: ActiveTrade) => {
+  const handleConfirmEnterPosition = async (activeTrade: ActiveTrade) => {
     console.log('[DEBUG] handleConfirmEnterPosition called', { watchlistId: activeTrade.watchlistId });
 
     // Check for duplicate in active trades
-    const currentActive = storage.getActiveTrades();
-    const isDuplicateInActive = currentActive.some(
+    const isDuplicateInActive = activeTrades.some(
       t => t.ticker.toUpperCase() === activeTrade.ticker.toUpperCase()
     );
 
@@ -305,78 +306,103 @@ export default function WatchlistView() {
     }
 
     setError(null);
+    setActiveTradesLoading(true);
+    setWatchlistLoading(true);
 
-    // 1. Add to active trades
-    const updatedActive = [...currentActive, activeTrade];
-    storage.setActiveTrades(updatedActive);
-    console.log('[DEBUG] Active trades saved:', updatedActive.length);
+    try {
+      // 1. Add to active trades
+      const response = await fetch(`/api/active-trades?userId=${DEFAULT_USER_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(activeTrade),
+      });
+      
+      if (!response.ok) throw new Error('Failed to add active trade');
+      
+      console.log('[DEBUG] Active trade saved');
 
-    // 2. Remove from watchlist (if watchlistId exists)
-    if (activeTrade.watchlistId) {
-      const currentWatchlist = storage.getWatchlist();
-      console.log('[DEBUG] Watchlist before:', currentWatchlist.length, 'items');
-      console.log('[DEBUG] Looking for id:', activeTrade.watchlistId);
+      // 2. Remove from watchlist (if watchlistId exists)
+      if (activeTrade.watchlistId) {
+        console.log('[DEBUG] Removing from watchlist:', activeTrade.watchlistId);
+        const deleteResponse = await fetch(`/api/watchlist?id=${activeTrade.watchlistId}&userId=${DEFAULT_USER_ID}`, {
+          method: 'DELETE',
+        });
+        
+        if (!deleteResponse.ok) {
+          console.warn('Failed to remove from watchlist, but trade was created');
+        }
+      }
+
+      // 3. Refresh data
+      await Promise.all([fetchActiveTrades(), fetchWatchlist()]);
       
-      const updatedPotential = currentWatchlist.filter(w => w.id !== activeTrade.watchlistId);
-      console.log('[DEBUG] Watchlist after:', updatedPotential.length, 'items');
-      
-      storage.setWatchlist(updatedPotential);
-      
-      // Direct state update - immediate
-      setWatchlist(updatedPotential);
+      // 4. Dispatch events
+      window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
+      window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
+
+      // 5. Close modal
+      setIsEnterModalOpen(false);
+      setEnteringItem(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to enter position');
+    } finally {
+      setActiveTradesLoading(false);
+      setWatchlistLoading(false);
     }
-
-    // 3. Update active trades state
-    setActiveTrades(updatedActive);
-
-    // 4. Sync from localStorage to ensure consistency
-    loadData();
-
-    // 5. Dispatch events for other components
-    window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
-    window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
-
-    // 6. Close modal
-    setIsEnterModalOpen(false);
-    setEnteringItem(null);
   };
 
   // ===== CLOSE: Active → Closed =====
-  const handleEndTrade = (trade: ActiveTrade) => {
-    // 1. Create closed position record
-    const closedPosition: ClosedPosition = {
-      id: trade.id,
-      ticker: trade.ticker,
-      plannedEntry: trade.plannedEntry,
-      plannedStop: trade.plannedStop,
-      plannedTarget: trade.plannedTarget,
-      actualEntry: trade.actualEntry,
-      actualShares: trade.actualShares,
-      openedAt: trade.openedAt,
-      closedAt: new Date().toISOString(),
-      notes: trade.notes,
-      // P&L calculation (placeholder - can be updated with actual exit price later)
-      pnl: undefined,
-    };
+  const handleEndTrade = async (trade: ActiveTrade) => {
+    setActiveTradesLoading(true);
+    setClosedPositionsLoading(true);
+    
+    try {
+      // 1. Create closed position record
+      const closedPosition: ClosedPosition = {
+        id: trade.id,
+        ticker: trade.ticker,
+        plannedEntry: trade.plannedEntry,
+        plannedStop: trade.plannedStop,
+        plannedTarget: trade.plannedTarget,
+        actualEntry: trade.actualEntry,
+        actualShares: trade.actualShares,
+        openedAt: trade.openedAt,
+        closedAt: new Date().toISOString(),
+        notes: trade.notes,
+        pnl: undefined,
+      };
 
-    // 2. Add to closed positions (localStorage FIRST, then state)
-    const currentClosed = storage.getClosedPositions();
-    const updatedClosed = [closedPosition, ...currentClosed];
-    storage.setClosedPositions(updatedClosed);
-    setClosedPositions(updatedClosed);
+      // 2. Add to closed positions
+      const addResponse = await fetch(`/api/closed-positions?userId=${DEFAULT_USER_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(closedPosition),
+      });
+      
+      if (!addResponse.ok) throw new Error('Failed to create closed position');
 
-    // 3. Remove from active trades (localStorage FIRST, then state)
-    const currentActive = storage.getActiveTrades();
-    const updatedActive = currentActive.filter(t => t.id !== trade.id);
-    storage.setActiveTrades(updatedActive);
-    setActiveTrades(updatedActive);
+      // 3. Remove from active trades
+      const deleteResponse = await fetch(`/api/active-trades?id=${trade.id}&userId=${DEFAULT_USER_ID}`, {
+        method: 'DELETE',
+      });
+      
+      if (!deleteResponse.ok) throw new Error('Failed to remove active trade');
 
-    // 4. Dispatch events
-    window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
-    window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
+      // 4. Refresh data
+      await Promise.all([fetchActiveTrades(), fetchClosedPositions()]);
 
-    // 5. Close modal
-    setClosingTradeId(null);
+      // 5. Dispatch events
+      window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
+      window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
+
+      // 6. Close modal
+      setClosingTradeId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to close trade');
+    } finally {
+      setActiveTradesLoading(false);
+      setClosedPositionsLoading(false);
+    }
   };
 
   const handleClosePosition = (tradeId: string) => {
@@ -396,16 +422,26 @@ export default function WatchlistView() {
     setEditingTrade(null);
   };
 
-  const handleSaveTrade = (updatedTrade: ActiveTrade) => {
-    const currentActive = storage.getActiveTrades();
-    const updatedActive = currentActive.map(trade => 
-      trade.id === updatedTrade.id ? { ...updatedTrade, currentPrice: trade.currentPrice, unrealizedPnL: trade.unrealizedPnL, unrealizedPnLPercent: trade.unrealizedPnLPercent } : trade
-    );
-    storage.setActiveTrades(updatedActive);
-    setActiveTrades(updatedActive);
-    window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
-    setIsEditTradeModalOpen(false);
-    setEditingTrade(null);
+  const handleSaveTrade = async (updatedTrade: ActiveTrade) => {
+    setActiveTradesLoading(true);
+    try {
+      const response = await fetch(`/api/active-trades?id=${updatedTrade.id}&userId=${DEFAULT_USER_ID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedTrade),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update active trade');
+      
+      await fetchActiveTrades();
+      window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
+      setIsEditTradeModalOpen(false);
+      setEditingTrade(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update trade');
+    } finally {
+      setActiveTradesLoading(false);
+    }
   };
 
   // ===== INLINE EDIT: Active Trade =====
@@ -419,7 +455,7 @@ export default function WatchlistView() {
     setInlineEditing({ ...inlineEditing, value });
   };
 
-  const handleInlineEditSave = () => {
+  const handleInlineEditSave = async () => {
     if (!inlineEditing) return;
 
     const { tradeId, field, value } = inlineEditing;
@@ -452,14 +488,32 @@ export default function WatchlistView() {
       newPositionValue = entryPrice * shares;
     }
 
-    const updatedTrade: ActiveTrade = {
-      ...trade,
+    const updates: Partial<ActiveTradeWithPnL> = {
       [field]: parsedValue,
-      positionValue: newPositionValue
     };
+    
+    if (field === 'actualEntry' || field === 'actualShares') {
+      updates.positionValue = newPositionValue;
+    }
 
-    handleSaveTrade(updatedTrade);
-    setInlineEditing(null);
+    setActiveTradesLoading(true);
+    try {
+      const response = await fetch(`/api/active-trades?id=${tradeId}&userId=${DEFAULT_USER_ID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update trade');
+      
+      await fetchActiveTrades();
+      window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
+      setInlineEditing(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update trade');
+    } finally {
+      setActiveTradesLoading(false);
+    }
   };
 
   const handleInlineEditKeyDown = (e: React.KeyboardEvent) => {
@@ -481,26 +535,46 @@ export default function WatchlistView() {
     setEditingClosedPosition(null);
   };
 
-  const handleSaveClosedPosition = (updatedPosition: ClosedPosition) => {
-    const currentClosed = storage.getClosedPositions();
-    const updated = currentClosed.map(position => 
-      position.id === updatedPosition.id ? updatedPosition : position
-    );
-    storage.setClosedPositions(updated);
-    setClosedPositions(updated);
-    window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
-    setIsEditClosedPositionModalOpen(false);
-    setEditingClosedPosition(null);
+  const handleSaveClosedPosition = async (updatedPosition: ClosedPosition) => {
+    setClosedPositionsLoading(true);
+    try {
+      const response = await fetch(`/api/closed-positions?id=${updatedPosition.id}&userId=${DEFAULT_USER_ID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPosition),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update closed position');
+      
+      await fetchClosedPositions();
+      window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
+      setIsEditClosedPositionModalOpen(false);
+      setEditingClosedPosition(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update position');
+    } finally {
+      setClosedPositionsLoading(false);
+    }
   };
 
   // ===== DELETE: Closed Position (permanent) =====
-  const handleDeleteClosedPosition = (positionId: string) => {
-    const currentClosed = storage.getClosedPositions();
-    const updated = currentClosed.filter(p => p.id !== positionId);
-    storage.setClosedPositions(updated);
-    setClosedPositions(updated);
-    window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
-    setDeletingPositionId(null);
+  const handleDeleteClosedPosition = async (positionId: string) => {
+    setClosedPositionsLoading(true);
+    try {
+      const response = await fetch(`/api/closed-positions?id=${positionId}&userId=${DEFAULT_USER_ID}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) throw new Error('Failed to delete closed position');
+      
+      await fetchClosedPositions();
+      window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
+      setDeletingPositionId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete position');
+    } finally {
+      setClosedPositionsLoading(false);
+    }
   };
 
   // ===== CALENDAR HELPERS =====
@@ -628,10 +702,14 @@ export default function WatchlistView() {
       setAddedToCalendarIds(prev => new Set(prev).add(position.id));
 
       // Remove from closed positions (NEW - PR #156)
-      const updatedClosed = closedPositions.filter(p => p.id !== position.id);
-      setClosedPositions(updatedClosed);
-      localStorage.setItem(CLOSED_POSITIONS_KEY, JSON.stringify(updatedClosed));
-      window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
+      const deleteResponse = await fetch(`/api/closed-positions?id=${position.id}&userId=${DEFAULT_USER_ID}`, {
+        method: 'DELETE',
+      });
+      
+      if (deleteResponse.ok) {
+        await fetchClosedPositions();
+        window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
+      }
 
       // Close modal and show success
       setConfirmingAddToCalendar(null);
@@ -656,107 +734,6 @@ export default function WatchlistView() {
       // Close modal on error
       setConfirmingAddToCalendar(null);
 
-      // Clear error after 5 seconds
-      setTimeout(() => {
-        setError(null);
-      }, 5000);
-    }
-  };
-
-  // ===== ADD TO CALENDAR: Closed Position → Calendar Trade (legacy, replaced by confirmation flow) =====
-  const handleAddToCalendar = async (position: ClosedPosition) => {
-    try {
-      // Calculate P&L dynamically from trade parameters (PR #156: Fix P&L calculation)
-      // DO NOT use stored position.pnl - always calculate from entry/exit/shares/side
-      const entryPrice = position.actualEntry;
-      const exitPrice = position.exitPrice || position.plannedTarget;
-      const shares = position.actualShares;
-      const isLong = position.plannedTarget > position.plannedEntry;
-      
-      // Calculate P&L dynamically based on side (Long/Short)
-      let pnl = 0;
-      if (isLong) {
-        // For LONG trades: pnl = (exitPrice - entryPrice) * shares
-        pnl = (exitPrice - entryPrice) * shares;
-      } else {
-        // For SHORT trades: pnl = (entryPrice - exitPrice) * shares
-        pnl = (entryPrice - exitPrice) * shares;
-      }
-
-      // Extract the original trade date for calendar display
-      // Use closedAt date to ensure trade appears on correct day
-      const displayDate = new Date(position.closedAt).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      });
-
-      // Create trade request with ORIGINAL TRADE DATE
-      const tradeRequest: CreateTradeRequest = {
-        symbol: position.ticker,
-        side: isLong ? TradeSide.LONG : TradeSide.SHORT,
-        strategy: Strategy.DAY_TRADE, // Default strategy
-        entryDate: position.openedAt, // Original entry date
-        entryPrice: position.actualEntry,
-        shares: position.actualShares,
-        entryNotes: `Transferred from Closed Positions. ${position.notes || ''} [Source: closed-position-transfer]`,
-        stopLoss: position.plannedStop,
-        takeProfit: position.plannedTarget,
-      };
-
-      // POST to API to create the trade
-      const response = await fetch('/api/trades', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tradeRequest),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add trade to calendar');
-      }
-
-      const result = await response.json();
-      
-      // Now update the trade with exit info (close it) to match the original closed position
-      if (result.data?.id) {
-        const updateResponse = await fetch(`/api/trades/${result.data.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            exitDate: position.closedAt, // ORIGINAL close date - ensures calendar shows correct date
-            exitPrice: exitPrice,
-            exitNotes: `Closed position transferred from watchlist. P&L: ${formatCurrency(pnl)}`,
-            status: 'CLOSED',
-            // BUG FIX #2: Pass explicit P&L to prevent API recalculation discrepancy
-            grossPnL: pnl,
-            netPnL: pnl, // Use same value for net (fees already accounted for if applicable)
-          }),
-        });
-
-        if (!updateResponse.ok) {
-          console.warn('Trade created but exit info update failed');
-        }
-      }
-
-      // Show success feedback with the date
-      setAddedToCalendarIds(prev => new Set(prev).add(position.id));
-      setSuccessMessage(`Added to ${displayDate} calendar`);
-      
-      // Refresh calendar trades to update button states
-      await fetchCalendarTrades();
-
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-
-      // Dispatch event to refresh calendar if needed
-      window.dispatchEvent(new CustomEvent('juno:calendar-trades-updated'));
-
-    } catch (err) {
-      console.error('Error adding to calendar:', err);
-      setError(err instanceof Error ? err.message : 'Failed to add to calendar');
-      
       // Clear error after 5 seconds
       setTimeout(() => {
         setError(null);
@@ -859,6 +836,14 @@ export default function WatchlistView() {
               </p>
             </div>
           </div>
+          <button
+            onClick={fetchActiveTrades}
+            disabled={activeTradesLoading}
+            className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${activeTradesLoading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         {/* Active Trades List */}
@@ -984,7 +969,15 @@ export default function WatchlistView() {
                     {/* Profit */}
                     <div>
                       <div className="text-xs text-[#8b949e]">Profit</div>
-                      <div className="text-sm font-bold text-green-400">{formatCurrency((trade.plannedTarget - trade.actualEntry) * trade.actualShares)}</div>
+                      <div className="text-sm font-bold text-green-400">
+                        {(() => {
+                          const isLong = trade.plannedTarget > trade.actualEntry;
+                          const profit = isLong
+                            ? (trade.plannedTarget - trade.actualEntry) * trade.actualShares
+                            : (trade.actualEntry - trade.plannedTarget) * trade.actualShares;
+                          return formatCurrency(profit);
+                        })()}
+                      </div>
                     </div>
 
                     {/* Risk Amount */}
@@ -1084,6 +1077,14 @@ export default function WatchlistView() {
               </p>
             </div>
           </div>
+          <button
+            onClick={fetchWatchlist}
+            disabled={watchlistLoading}
+            className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${watchlistLoading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         {/* Potential Trades List */}
@@ -1214,6 +1215,14 @@ export default function WatchlistView() {
               </p>
             </div>
           </div>
+          <button
+            onClick={fetchClosedPositions}
+            disabled={closedPositionsLoading}
+            className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${closedPositionsLoading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         {/* Closed Positions List */}
