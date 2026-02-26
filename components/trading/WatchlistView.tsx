@@ -969,15 +969,27 @@ export default function WatchlistView() {
                     {/* Profit */}
                     <div>
                       <div className="text-xs text-[#8b949e]">Profit</div>
-                      <div className="text-sm font-bold text-green-400">
-                        {(() => {
-                          const isLong = trade.plannedTarget > trade.actualEntry;
-                          const profit = isLong
-                            ? (trade.plannedTarget - trade.actualEntry) * trade.actualShares
-                            : (trade.actualEntry - trade.plannedTarget) * trade.actualShares;
-                          return formatCurrency(profit);
-                        })()}
-                      </div>
+                      {(() => {
+                        // Use unrealized P&L if available from API
+                        if (trade.unrealizedPnL !== undefined) {
+                          const isProfit = trade.unrealizedPnL >= 0;
+                          return (
+                            <div className={`text-sm font-bold ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
+                              {formatCurrency(trade.unrealizedPnL)}
+                            </div>
+                          );
+                        }
+                        // Otherwise calculate potential profit at target
+                        const isLong = trade.plannedTarget > trade.actualEntry;
+                        const profit = isLong
+                          ? (trade.plannedTarget - trade.actualEntry) * trade.actualShares
+                          : (trade.actualEntry - trade.plannedTarget) * trade.actualShares;
+                        return (
+                          <div className="text-sm font-bold text-green-400">
+                            {formatCurrency(profit)}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Risk Amount */}
@@ -1312,19 +1324,22 @@ export default function WatchlistView() {
                     </div>
                     <div>
                       <div className="text-xs text-[#8b949e]">Profit</div>
-                      <div className="text-sm font-bold text-green-400">
-                        {(() => {
-                          const entry = position.actualEntry || position.plannedEntry;
-                          const target = position.plannedTarget;
-                          const isLong = position.plannedTarget > position.plannedEntry;
-                          // For LONG: (target - entry) * shares
-                          // For SHORT: (entry - target) * shares (absolute value)
-                          const profit = isLong
-                            ? (target - entry) * position.actualShares
-                            : (entry - target) * position.actualShares;
-                          return formatCurrency(profit);
-                        })()}
-                      </div>
+                      {(() => {
+                        const entry = position.actualEntry || position.plannedEntry;
+                        const exit = position.exitPrice ?? position.plannedTarget;
+                        const isLong = position.plannedTarget > position.plannedEntry;
+                        // For LONG: (exit - entry) * shares
+                        // For SHORT: (entry - exit) * shares
+                        const profit = isLong
+                          ? (exit - entry) * position.actualShares
+                          : (entry - exit) * position.actualShares;
+                        const isProfit = profit >= 0;
+                        return (
+                          <div className={`text-sm font-bold ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
+                            {formatCurrency(profit)}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div>
                       <div className="text-xs text-[#8b949e]">Value</div>
