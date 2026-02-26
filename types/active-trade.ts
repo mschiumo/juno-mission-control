@@ -20,6 +20,7 @@ export interface ActiveTrade {
   notes?: string;
   // Reference to original watchlist item (for removal when moving to active)
   watchlistId?: string;
+  order?: number; // Optional order index for drag-and-drop sorting
 }
 
 export interface ActiveTradeWithPnL extends ActiveTrade {
