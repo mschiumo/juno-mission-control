@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Calculator, Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { Calculator, Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info, Loader2 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
+import type { ActiveTradeWithPnL } from '@/types/active-trade';
 
 interface CalculatorInputs {
   ticker: string;
@@ -30,7 +31,8 @@ const RISK_RATIO_OPTIONS = [
   { value: '4', label: '4:1' },
 ];
 
-const STORAGE_KEY = 'juno:trade-watchlist';
+// Default user ID (can be made dynamic with auth later)
+const DEFAULT_USER_ID = 'default';
 
 export default function PositionCalculator() {
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_VALUES);
@@ -38,6 +40,7 @@ export default function PositionCalculator() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [addSuccess, setAddSuccess] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'duplicate' | 'success'>('idle');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleInputChange = (field: keyof CalculatorInputs, value: string) => {
     // Allow empty string or valid numbers for numeric fields
@@ -62,27 +65,53 @@ export default function PositionCalculator() {
     setSaveStatus('idle');
   };
 
-  const handleAddToWatchlist = () => {
+  // Fetch watchlist from API
+  const fetchWatchlist = useCallback(async (): Promise<WatchlistItem[]> => {
+    try {
+      const response = await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`);
+      if (!response.ok) throw new Error('Failed to fetch watchlist');
+      const result = await response.json();
+      return result.data || [];
+    } catch (error) {
+      console.error('Error fetching watchlist:', error);
+      return [];
+    }
+  }, []);
+
+  // Fetch active trades from API
+  const fetchActiveTrades = useCallback(async (): Promise<ActiveTradeWithPnL[]> => {
+    try {
+      const response = await fetch(`/api/active-trades?userId=${DEFAULT_USER_ID}`);
+      if (!response.ok) throw new Error('Failed to fetch active trades');
+      const result = await response.json();
+      return result.data || [];
+    } catch (error) {
+      console.error('Error fetching active trades:', error);
+      return [];
+    }
+  }, []);
+
+  const handleAddToWatchlist = async () => {
     if (!isFormValid() || calculations.status !== 'valid') return;
 
+    setIsLoading(true);
+
     try {
-      // Get existing watchlist (Potential Trades)
-      const stored = localStorage.getItem(STORAGE_KEY);
-      const existing: WatchlistItem[] = stored ? JSON.parse(stored) : [];
-      
-      // Get active trades
-      const activeTradesStored = localStorage.getItem('juno:active-trades');
-      const activeTrades = activeTradesStored ? JSON.parse(activeTradesStored) : [];
+      // Fetch existing watchlist and active trades from API
+      const [existingWatchlist, activeTrades] = await Promise.all([
+        fetchWatchlist(),
+        fetchActiveTrades(),
+      ]);
       
       const tickerInput = inputs.ticker.trim().toUpperCase();
       
       // Check for duplicate ticker in watchlist (Potential Trades)
-      const isDuplicateInWatchlist = existing.some((item: WatchlistItem) =>
+      const isDuplicateInWatchlist = existingWatchlist.some((item: WatchlistItem) =>
         item.ticker.toUpperCase() === tickerInput
       );
       
       // Check for duplicate ticker in active trades
-      const isDuplicateInActive = activeTrades.some((trade: any) =>
+      const isDuplicateInActive = activeTrades.some((trade: ActiveTradeWithPnL) =>
         trade.ticker?.toUpperCase() === tickerInput
       );
       
@@ -90,17 +119,18 @@ export default function PositionCalculator() {
       if (isDuplicateInWatchlist) {
         setSaveStatus('duplicate');
         setTimeout(() => setSaveStatus('idle'), 3000);
+        setIsLoading(false);
         return;
       }
       
       if (isDuplicateInActive) {
         setSaveStatus('duplicate');
         setTimeout(() => setSaveStatus('idle'), 3000);
+        setIsLoading(false);
         return;
       }
 
-      const newItem: WatchlistItem = {
-        id: Date.now().toString(),
+      const newItem: Omit<WatchlistItem, 'id' | 'createdAt'> = {
         ticker: inputs.ticker.trim().toUpperCase(),
         entryPrice: calculations.entry,
         stopPrice: calculations.stop,
@@ -110,14 +140,18 @@ export default function PositionCalculator() {
         shareSize: calculations.shareSize,
         potentialReward: calculations.potentialReward,
         positionValue: calculations.positionValue,
-        createdAt: new Date().toISOString(),
       };
-      
-      // Add new item to the beginning
-      const updated = [newItem, ...existing];
-      
-      // Save to localStorage
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+      // Save to API (Redis)
+      const response = await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newItem),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save to watchlist');
+      }
 
       // Dispatch custom event to notify WatchlistView in same tab
       window.dispatchEvent(new CustomEvent('juno:watchlist-updated'));
@@ -130,6 +164,10 @@ export default function PositionCalculator() {
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
       console.error('Error saving to watchlist:', error);
+      setSaveStatus('duplicate'); // Show error state
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -441,18 +479,23 @@ export default function PositionCalculator() {
             <div className="space-y-2">
               <button
                 onClick={handleAddToWatchlist}
-                disabled={!isFormValid() || saveStatus === 'duplicate'}
+                disabled={!isFormValid() || saveStatus === 'duplicate' || isLoading}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
                   saveStatus === 'duplicate'
                     ? 'bg-red-500/20 border border-red-500/50 text-red-400'
                     : addSuccess || saveStatus === 'success'
                       ? 'bg-green-500 text-white'
-                      : isFormValid()
+                      : isFormValid() && !isLoading
                         ? 'bg-[#F97316] hover:bg-[#F97316]/90 text-white'
                         : 'bg-[#262626] text-[#8b949e] cursor-not-allowed'
                 }`}
               >
-                {saveStatus === 'duplicate' ? (
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : saveStatus === 'duplicate' ? (
                   <>
                     <AlertCircle className="w-5 h-5" />
                     {inputs.ticker.trim().toUpperCase()} is already in your watchlist

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Edit3, DollarSign, Layers, FileText, Calendar } from 'lucide-react';
-import type { ClosedPosition } from './WatchlistView';
+import type { ClosedPosition } from '@/lib/db/closed-positions';
 
 interface EditClosedPositionModalProps {
   position: ClosedPosition | null;
