@@ -76,7 +76,12 @@ function getNowInEST(): string {
 
 export function parseTOSCSV(csvText: string): TOSTrade[] {
   // Check if this is a "Position Statement" format (has P/L per position)
-  if (csvText.includes('Position Statement for') && csvText.includes('P/L Day')) {
+  if ((csvText.includes('Position Statement for') || csvText.includes('Account Statement')) && csvText.includes('P/L Day')) {
+    return parseTOSPositionStatement(csvText);
+  }
+  
+  // Check for generic "Statement for" format
+  if (csvText.includes('Statement for') && csvText.includes('P/L Day')) {
     return parseTOSPositionStatement(csvText);
   }
   

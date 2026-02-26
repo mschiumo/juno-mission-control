@@ -327,6 +327,9 @@ export interface UpdateTradeRequest {
   lessons?: string[];
   tags?: string[];
   status?: TradeStatus;
+  // BUG FIX #2: Allow explicit P&L values to be passed (prevents recalculation discrepancies)
+  grossPnL?: number;
+  netPnL?: number;
 }
 
 export interface TradeListResponse {
