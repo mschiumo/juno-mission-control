@@ -634,8 +634,86 @@ export default function CalendarView() {
               </div>
             </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto bg-[#161b22] border border-[#30363d] rounded-lg">
+            {/* Mobile Card Layout */}
+            <div className="md:hidden space-y-2">
+              {sortedTrades.length === 0 ? (
+                <div className="py-8 text-center text-[#8b949e] bg-[#161b22] border border-[#30363d] rounded-lg">
+                  {allTrades.length === 0 ? (
+                    <div className="space-y-2">
+                      <TrendingUp className="w-8 h-8 mx-auto text-[#30363d]" />
+                      <p>No trades yet. Import trades to get started.</p>
+                    </div>
+                  ) : (
+                    <p>No trades match your filters</p>
+                  )}
+                </div>
+              ) : (
+                sortedTrades.map((trade) => (
+                  <div
+                    key={trade.id}
+                    className={`bg-[#161b22] border border-[#30363d] rounded-lg p-3 ${selectedTrades.has(trade.id) ? 'ring-1 ring-[#F97316]' : ''}`}
+                  >
+                    {/* Header Row: Checkbox, Symbol, P&L */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => toggleSelection(trade.id)}
+                          className="text-[#8b949e] hover:text-[#F97316] transition-colors"
+                        >
+                          {selectedTrades.has(trade.id) ? (
+                            <CheckSquare className="w-5 h-5 text-[#F97316]" />
+                          ) : (
+                            <Square className="w-5 h-5" />
+                          )}
+                        </button>
+                        <span className="font-bold text-white text-lg">{trade.symbol}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${trade.side === 'LONG' ? 'bg-[#3fb950]/20 text-[#3fb950]' : 'bg-[#f85149]/20 text-[#f85149]'}`}>
+                          {trade.side === 'LONG' ? (
+                            <TrendingUp className="w-3 h-3" />
+                          ) : (
+                            <TrendingDown className="w-3 h-3" />
+                          )}
+                          {trade.side}
+                        </span>
+                      </div>
+                      <span className={`font-bold ${trade.netPnL && trade.netPnL >= 0 ? 'text-[#3fb950]' : trade.netPnL && trade.netPnL < 0 ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
+                        {trade.netPnL ? `${trade.netPnL >= 0 ? '+' : ''}$${trade.netPnL.toFixed(2)}` : '-'}
+                      </span>
+                    </div>
+
+                    {/* Detail Rows */}
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#8b949e]">Entry:</span>
+                        <span className="text-white">${trade.entryPrice?.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#8b949e]">Shares:</span>
+                        <span className="text-white">{trade.shares}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#8b949e]">Time:</span>
+                        <span className="text-white">{trade.entryDate?.split('T')[1]?.substring(0, 5)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#8b949e]">Status:</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${trade.status === 'CLOSED' ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#d29922]/20 text-[#d29922]'}`}>
+                          {trade.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Date */}
+                    <div className="mt-2 pt-2 border-t border-[#21262d] text-xs text-[#8b949e]">
+                      {trade.entryDate?.split('T')[0]}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table Layout */}
+            <div className="hidden md:block overflow-x-auto bg-[#161b22] border border-[#30363d] rounded-lg">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#30363d] bg-[#0d1117]">
@@ -659,7 +737,7 @@ export default function CalendarView() {
                         )}
                       </button>
                     </th>
-                    <th 
+                    <th
                       className="text-left py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
                       onClick={() => handleSort('date')}
                     >
@@ -670,7 +748,7 @@ export default function CalendarView() {
                         )}
                       </div>
                     </th>
-                    <th 
+                    <th
                       className="text-left py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
                       onClick={() => handleSort('symbol')}
                     >
@@ -681,7 +759,7 @@ export default function CalendarView() {
                         )}
                       </div>
                     </th>
-                    <th 
+                    <th
                       className="text-left py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
                       onClick={() => handleSort('side')}
                     >
@@ -692,7 +770,7 @@ export default function CalendarView() {
                         )}
                       </div>
                     </th>
-                    <th 
+                    <th
                       className="text-right py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
                       onClick={() => handleSort('shares')}
                     >
@@ -703,7 +781,7 @@ export default function CalendarView() {
                         )}
                       </div>
                     </th>
-                    <th 
+                    <th
                       className="text-right py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
                       onClick={() => handleSort('entryPrice')}
                     >
@@ -734,8 +812,8 @@ export default function CalendarView() {
                     </tr>
                   ) : (
                     sortedTrades.map((trade) => (
-                      <tr 
-                        key={trade.id} 
+                      <tr
+                        key={trade.id}
                         className={`border-b border-[#21262d] hover:bg-[#21262d]/50 ${selectedTrades.has(trade.id) ? 'bg-[#F97316]/10' : ''}`}
                       >
                         <td className="py-3 px-2 text-center">
