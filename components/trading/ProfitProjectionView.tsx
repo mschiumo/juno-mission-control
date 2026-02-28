@@ -106,24 +106,24 @@ export default function ProfitProjectionView() {
   const hasErrors = Object.values(errors).some(e => e !== '');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Calculator className="w-6 h-6 text-[#F97316]" />
-          <h2 className="text-xl font-bold text-white">Profit Projection</h2>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Calculator className="w-5 h-5 sm:w-6 sm:h-6 text-[#F97316]" />
+          <h2 className="text-lg sm:text-xl font-bold text-white">Profit Projection</h2>
         </div>
       </div>
 
-      {/* Main Inputs - Like Excel Top Section */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-        <h3 className="text-sm font-medium text-[#8b949e] mb-4 flex items-center gap-2">
+      {/* Main Inputs - Stacked on mobile, grid on larger screens */}
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 sm:p-6">
+        <h3 className="text-xs sm:text-sm font-medium text-[#8b949e] mb-3 sm:mb-4 flex items-center gap-2">
           <Target className="w-4 h-4" />
           Trading Parameters
         </h3>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-3 sm:p-4">
             <label className="block text-xs text-[#fef08a] font-medium mb-1.5 uppercase tracking-wide">
               Trades/Day
             </label>
@@ -133,14 +133,14 @@ export default function ProfitProjectionView() {
               value={inputs.tradesPerDay}
               onChange={(e) => updateInput('tradesPerDay', e.target.value)}
               placeholder="15"
-              className="w-full px-3 py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-[#F97316]"
+              className="w-full px-3 py-2.5 sm:py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-base sm:text-lg font-semibold focus:outline-none focus:border-[#F97316] min-h-[44px]"
             />
             {errors.tradesPerDay && (
               <p className="text-xs text-[#f85149] mt-1">{errors.tradesPerDay}</p>
             )}
           </div>
 
-          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-4">
+          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-3 sm:p-4">
             <label className="block text-xs text-[#fef08a] font-medium mb-1.5 uppercase tracking-wide">
               Risk/Trade ($)
             </label>
@@ -150,14 +150,14 @@ export default function ProfitProjectionView() {
               value={inputs.riskPerTrade}
               onChange={(e) => updateInput('riskPerTrade', e.target.value)}
               placeholder="10"
-              className="w-full px-3 py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-[#F97316]"
+              className="w-full px-3 py-2.5 sm:py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-base sm:text-lg font-semibold focus:outline-none focus:border-[#F97316] min-h-[44px]"
             />
             {errors.riskPerTrade && (
               <p className="text-xs text-[#f85149] mt-1">{errors.riskPerTrade}</p>
             )}
           </div>
 
-          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-4">
+          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-3 sm:p-4">
             <label className="block text-xs text-[#fef08a] font-medium mb-1.5 uppercase tracking-wide">
               Reward to Risk
             </label>
@@ -167,14 +167,14 @@ export default function ProfitProjectionView() {
               value={inputs.rewardToRisk}
               onChange={(e) => updateInput('rewardToRisk', e.target.value)}
               placeholder="2.0"
-              className="w-full px-3 py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-[#F97316]"
+              className="w-full px-3 py-2.5 sm:py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-base sm:text-lg font-semibold focus:outline-none focus:border-[#F97316] min-h-[44px]"
             />
             {errors.rewardToRisk && (
               <p className="text-xs text-[#f85149] mt-1">{errors.rewardToRisk}</p>
             )}
           </div>
 
-          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-4">
+          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-3 sm:p-4">
             <label className="block text-xs text-[#fef08a] font-medium mb-1.5 uppercase tracking-wide">
               Win Rate (%)
             </label>
@@ -184,7 +184,7 @@ export default function ProfitProjectionView() {
               value={inputs.winRate}
               onChange={(e) => updateInput('winRate', e.target.value)}
               placeholder="50"
-              className="w-full px-3 py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-[#F97316]"
+              className="w-full px-3 py-2.5 sm:py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-base sm:text-lg font-semibold focus:outline-none focus:border-[#F97316] min-h-[44px]"
             />
             {errors.winRate && (
               <p className="text-xs text-[#f85149] mt-1">{errors.winRate}</p>
@@ -193,15 +193,79 @@ export default function ProfitProjectionView() {
         </div>
       </div>
 
-      {/* Results Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Current Scenario Breakdown */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-          <h3 className="text-sm font-medium text-[#8b949e] mb-4">
+      {/* Results Grid - Stack on mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        {/* Current Scenario Breakdown - Card layout on mobile */}
+        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 sm:p-6">
+          <h3 className="text-xs sm:text-sm font-medium text-[#8b949e] mb-3 sm:mb-4">
             Trade Breakdown (${isNaN(parseFloat(inputs.riskPerTrade)) ? '0' : inputs.riskPerTrade} Risk)
           </h3>
           
-          <div className="space-y-3">
+          {/* Mobile Card Layout */}
+          <div className="md:hidden space-y-3">
+            {/* Winning Trades Card */}
+            <div className="bg-[#238636]/10 border border-[#238636]/30 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 bg-[#3fb950] rounded-full"></div>
+                <span className="text-sm font-medium text-[#3fb950]">Winning Trades</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-[#8b949e] text-xs">Per Day</span>
+                  <p className="text-white font-semibold">{hasErrors ? '-' : projection.winningTrades.toFixed(2)}</p>
+                </div>
+                <div>
+                  <span className="text-[#8b949e] text-xs">R Per Trade</span>
+                  <p className="text-white font-semibold">{hasErrors ? '-' : params.rewardToRisk.toFixed(1)}</p>
+                </div>
+                <div>
+                  <span className="text-[#8b949e] text-xs">Risk Unit</span>
+                  <p className="text-[#3fb950] font-semibold">{hasErrors ? '-' : '$' + (projection.winningTrades * params.riskPerTrade).toFixed(2)}</p>
+                </div>
+                <div>
+                  <span className="text-[#8b949e] text-xs">Profit</span>
+                  <p className="text-[#3fb950] font-semibold">{hasErrors ? '-' : '$' + projection.profitPerWin.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Losing Trades Card */}
+            <div className="bg-[#da3633]/10 border border-[#da3633]/30 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 bg-[#f85149] rounded-full"></div>
+                <span className="text-sm font-medium text-[#f85149]">Losing Trades</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-[#8b949e] text-xs">Per Day</span>
+                  <p className="text-white font-semibold">{hasErrors ? '-' : projection.losingTrades.toFixed(2)}</p>
+                </div>
+                <div>
+                  <span className="text-[#8b949e] text-xs">R Per Trade</span>
+                  <p className="text-white font-semibold">1.0</p>
+                </div>
+                <div>
+                  <span className="text-[#8b949e] text-xs">Risk Unit</span>
+                  <p className="text-[#f85149] font-semibold">{hasErrors ? '-' : '$' + (projection.losingTrades * params.riskPerTrade).toFixed(2)}</p>
+                </div>
+                <div>
+                  <span className="text-[#8b949e] text-xs">Loss</span>
+                  <p className="text-[#f85149] font-semibold">{hasErrors ? '-' : '-$' + projection.lossPerLoss.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Sharpe Ratio */}
+            <div className="flex items-center justify-between py-2 px-3 bg-[#0d1117] rounded-lg">
+              <span className="text-sm text-[#8b949e]">Sharpe Ratio</span>
+              <span className={`font-semibold ${hasErrors ? 'text-[#8b949e]' : projection.sharpeRatio >= 1 ? 'text-[#3fb950]' : 'text-[#8b949e]'}`}>
+                {hasErrors ? '-' : projection.sharpeRatio.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          {/* Desktop Table Layout */}
+          <div className="hidden md:block space-y-3">
             <div className="grid grid-cols-3 gap-4 text-sm border-b border-[#30363d] pb-2">
               <div></div>
               <div className="text-center text-[#3fb950] font-medium">Winning Trades</div>
@@ -233,7 +297,7 @@ export default function ProfitProjectionView() {
             </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-[#30363d]">
+          <div className="hidden md:block mt-4 pt-4 border-t border-[#30363d]">
             <div className="flex items-center justify-between text-sm">
               <span className="text-[#8b949e]">Sharpe Ratio</span>
               <span className={`font-semibold ${hasErrors ? 'text-[#8b949e]' : projection.sharpeRatio >= 1 ? 'text-[#3fb950]' : 'text-[#8b949e]'}`}>
@@ -244,13 +308,13 @@ export default function ProfitProjectionView() {
         </div>
 
         {/* Income Projection */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-          <h3 className="text-sm font-medium text-[#8b949e] mb-4 flex items-center gap-2">
+        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 sm:p-6">
+          <h3 className="text-xs sm:text-sm font-medium text-[#8b949e] mb-3 sm:mb-4 flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
             Income Projection (${isNaN(parseFloat(inputs.riskPerTrade)) ? '0' : inputs.riskPerTrade} Risk)
           </h3>
           
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             <ProjectionRow label="Per day" value={hasErrors ? null : projection.netPerDay} />
             <ProjectionRow label="Per week" value={hasErrors ? null : projection.netPerWeek} />
             <ProjectionRow label="Per month" value={hasErrors ? null : projection.netPerMonth} />
@@ -260,18 +324,18 @@ export default function ProfitProjectionView() {
       </div>
 
       {/* Summary Card */}
-      <div className="bg-gradient-to-r from-[#F97316]/20 to-[#d97706]/20 border border-[#F97316]/30 rounded-xl p-6">
-        <div className="flex items-center justify-between">
+      <div className="bg-gradient-to-r from-[#F97316]/20 to-[#d97706]/20 border border-[#F97316]/30 rounded-xl p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <p className="text-sm text-[#8b949e] mb-1">Total Yearly Income (${isNaN(parseFloat(inputs.riskPerTrade)) ? '0' : inputs.riskPerTrade} Risk/Trade)</p>
-            <p className="text-3xl font-bold text-white">
+            <p className="text-xs sm:text-sm text-[#8b949e] mb-1">Total Yearly Income (${isNaN(parseFloat(inputs.riskPerTrade)) ? '0' : inputs.riskPerTrade} Risk/Trade)</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white">
               {hasErrors ? '-' : '$' + projection.netPerYear.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-[#8b949e] mb-1">Based on</p>
-            <p className="text-sm text-white">{hasErrors ? '-' : `${inputs.tradesPerDay} trades/day @ ${inputs.winRate}% win rate`}</p>
-            <p className="text-sm text-[#8b949e]">{hasErrors ? '-' : `${inputs.rewardToRisk}:1 Reward/Risk`}</p>
+          <div className="text-left sm:text-right">
+            <p className="text-xs sm:text-sm text-[#8b949e] mb-1">Based on</p>
+            <p className="text-xs sm:text-sm text-white">{hasErrors ? '-' : `${inputs.tradesPerDay} trades/day @ ${inputs.winRate}% win rate`}</p>
+            <p className="text-xs text-[#8b949e]">{hasErrors ? '-' : `${inputs.rewardToRisk}:1 Reward/Risk`}</p>
           </div>
         </div>
       </div>
@@ -293,7 +357,7 @@ function ProjectionRow({
       <div className={`flex items-center justify-between py-2 ${isTotal ? 'border-t border-[#30363d] pt-3' : 'border-b border-[#21262d] last:border-0'}`}>
         <div className="flex items-center gap-2">
           <Calendar className={`w-4 h-4 ${isTotal ? 'text-[#F97316]' : 'text-[#8b949e]'}`} />
-          <span className={isTotal ? 'text-white font-medium' : 'text-[#8b949e]'}>{label}</span>
+          <span className={`text-sm ${isTotal ? 'text-white font-medium' : 'text-[#8b949e]'}`}>{label}</span>
         </div>
         <span className="text-[#8b949e]">-</span>
       </div>
@@ -304,9 +368,9 @@ function ProjectionRow({
     <div className={`flex items-center justify-between py-2 ${isTotal ? 'border-t border-[#30363d] pt-3' : 'border-b border-[#21262d] last:border-0'}`}>
       <div className="flex items-center gap-2">
         <Calendar className={`w-4 h-4 ${isTotal ? 'text-[#F97316]' : 'text-[#8b949e]'}`} />
-        <span className={isTotal ? 'text-white font-medium' : 'text-[#8b949e]'}>{label}</span>
+        <span className={`text-sm ${isTotal ? 'text-white font-medium' : 'text-[#8b949e]'}`}>{label}</span>
       </div>
-      <span className={`font-semibold ${value >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+      <span className={`font-semibold text-sm sm:text-base ${value >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
         ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </span>
     </div>
