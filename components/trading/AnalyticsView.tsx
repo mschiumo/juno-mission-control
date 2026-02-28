@@ -154,13 +154,15 @@ function calculateAnalytics(trades: Trade[]): AnalyticsData | null {
   trades.forEach(trade => {
     const date = new Date(trade.entryDate);
     const dayName = dayNames[date.getDay()];
-    byDayOfWeek[dayName].trades++;
-    if (trade.netPnL !== undefined) {
-      byDayOfWeek[dayName].pnl += trade.netPnL;
-      if (trade.netPnL > 0) {
-        byDayOfWeek[dayName].wins++;
-      } else if (trade.netPnL < 0) {
-        byDayOfWeek[dayName].losses++;
+    if (byDayOfWeek[dayName]) {
+      byDayOfWeek[dayName].trades++;
+      if (trade.netPnL !== undefined) {
+        byDayOfWeek[dayName].pnl += trade.netPnL;
+        if (trade.netPnL > 0) {
+          byDayOfWeek[dayName].wins++;
+        } else if (trade.netPnL < 0) {
+          byDayOfWeek[dayName].losses++;
+        }
       }
     }
   });
@@ -299,7 +301,7 @@ export default function AnalyticsView() {
 
   if (isLoading) {
     return (
-      <div className="p-8 bg-[#161b22] border border-[#30363d] rounded-xl text-center">
+      <div className="p-6 sm:p-8 bg-[#161b22] border border-[#30363d] rounded-xl text-center">
         <div className="w-8 h-8 border-2 border-[#F97316]/30 border-t-[#F97316] rounded-full animate-spin mx-auto mb-4" />
         <p className="text-[#8b949e]">Loading analytics...</p>
       </div>
@@ -308,21 +310,22 @@ export default function AnalyticsView() {
 
   if (!analytics) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Date Range Filter */}
         <div className="flex justify-end">
           <div className="relative">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white hover:border-[#58a6ff] transition-colors"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white text-sm sm:text-base hover:border-[#58a6ff] transition-colors"
             >
               <Calendar className="w-4 h-4 text-[#8b949e]" />
-              <span>{selectedLabel}</span>
+              <span className="hidden sm:inline">{selectedLabel}</span>
+              <span className="sm:hidden">{selectedLabel.split(' ')[0]}</span>
               <ChevronDown className={`w-4 h-4 text-[#8b949e] transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
             
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-[#161b22] border border-[#30363d] rounded-lg shadow-lg z-10">
+              <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-[#161b22] border border-[#30363d] rounded-lg shadow-lg z-10">
                 {DATE_RANGE_OPTIONS.map(option => (
                   <button
                     key={option.value}
@@ -339,10 +342,10 @@ export default function AnalyticsView() {
           </div>
         </div>
 
-        <div className="p-8 bg-[#161b22] border border-[#30363d] rounded-xl text-center">
-          <BarChart3 className="w-12 h-12 text-[#8b949e] mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-white mb-2">No Data Yet</h3>
-          <p className="text-[#8b949e]">No trades found for the selected date range.</p>
+        <div className="p-6 sm:p-8 bg-[#161b22] border border-[#30363d] rounded-xl text-center">
+          <BarChart3 className="w-10 h-10 sm:w-12 sm:h-12 text-[#8b949e] mx-auto mb-4" />
+          <h3 className="text-base sm:text-lg font-semibold text-white mb-2">No Data Yet</h3>
+          <p className="text-sm sm:text-base text-[#8b949e]">No trades found for the selected date range.</p>
         </div>
       </div>
     );
@@ -350,22 +353,27 @@ export default function AnalyticsView() {
 
   const { overview, bySymbol, byDayOfWeek } = analytics;
 
+  // Calculate max values for bar charts
+  const maxDayTrades = Math.max(...Object.values(byDayOfWeek).map(d => d.trades), 1);
+  const maxDayPnL = Math.max(...Object.values(byDayOfWeek).map(d => Math.abs(d.pnl)), 1);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Date Range Filter */}
       <div className="flex justify-end">
         <div className="relative">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white hover:border-[#58a6ff] transition-colors"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white text-sm sm:text-base hover:border-[#58a6ff] transition-colors"
           >
             <Calendar className="w-4 h-4 text-[#8b949e]" />
-            <span>{selectedLabel}</span>
+            <span className="hidden sm:inline">{selectedLabel}</span>
+            <span className="sm:hidden">{selectedLabel.split(' ')[0]}</span>
             <ChevronDown className={`w-4 h-4 text-[#8b949e] transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
           
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-[#161b22] border border-[#30363d] rounded-lg shadow-lg z-10">
+            <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-[#161b22] border border-[#30363d] rounded-lg shadow-lg z-10">
               {DATE_RANGE_OPTIONS.map(option => (
                 <button
                   key={option.value}
@@ -382,8 +390,8 @@ export default function AnalyticsView() {
         </div>
       </div>
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Overview Stats - Mobile: 2 columns, Tablet+: 4 columns */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
         <StatCard 
           title="Total PnL" 
           value={`${overview.totalPnL >= 0 ? '+' : ''}$${overview.totalPnL.toFixed(2)}`}
@@ -397,36 +405,36 @@ export default function AnalyticsView() {
           color={overview.winRate >= 50 ? 'green' : 'yellow'}
         />
         <StatCard 
-          title="Total Trades" 
+          title="Trades" 
           value={overview.totalTrades.toString()}
           icon={BarChart3}
           color="blue"
         />
         <StatCard 
           title="W/L" 
-          value={`${overview.wins}W / ${overview.losses}L`}
+          value={`${overview.wins}/${overview.losses}`}
           icon={overview.wins > overview.losses ? TrendingUp : TrendingDown}
           color={overview.wins > overview.losses ? 'green' : 'red'}
         />
       </div>
 
       {/* By Symbol */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Performance by Symbol</h3>
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Performance by Symbol</h3>
         
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {bySymbol.map(({ symbol, trades, wins, losses, pnl }) => (
-            <div key={symbol} className="flex items-center justify-between p-3 bg-[#0d1117] rounded-lg">
-              <div className="flex items-center gap-4">
-                <span className="font-semibold text-white w-16">{symbol}</span>
-                <span className="text-sm text-[#8b949e]">{trades} trades</span>
-                <span className="text-sm">
+            <div key={symbol} className="flex flex-col sm:flex-row sm:items-center justify-between p-2 sm:p-3 bg-[#0d1117] rounded-lg gap-2 sm:gap-0">
+              <div className="flex items-center justify-between sm:justify-start gap-3 sm:gap-4">
+                <span className="font-semibold text-white text-sm sm:text-base w-12 sm:w-16">{symbol}</span>
+                <span className="text-xs sm:text-sm text-[#8b949e]">{trades} trades</span>
+                <span className="text-xs sm:text-sm">
                   <span className="text-[#3fb950]">{wins}W</span>
                   <span className="text-[#8b949e]"> / </span>
                   <span className="text-[#f85149]">{losses}L</span>
                 </span>
               </div>
-              <span className={`font-semibold ${pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+              <span className={`font-semibold text-sm sm:text-base text-right ${pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
                 {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
               </span>
             </div>
@@ -434,30 +442,93 @@ export default function AnalyticsView() {
         </div>
       </div>
 
-      {/* By Day of Week */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Calendar className="w-5 h-5" />
+      {/* By Day of Week - Mobile: Vertical List with Bars, Desktop: Grid */}
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+          <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
           Performance by Day of Week
         </h3>
         
-        <div className="grid grid-cols-5 gap-2">
+        {/* Desktop: Grid Layout */}
+        <div className="hidden sm:grid sm:grid-cols-5 gap-2 lg:gap-3">
           {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => {
             const data = byDayOfWeek[day];
             const hasTrades = data.trades > 0;
+            const tradeBarWidth = maxDayTrades > 0 ? (data.trades / maxDayTrades) * 100 : 0;
             
             return (
               <div key={day} className={`p-3 rounded-lg text-center ${hasTrades ? 'bg-[#0d1117]' : 'bg-[#161b22]/50'}`}>
-                <div className="text-xs text-[#8b949e] mb-1">{day.slice(0, 3)}</div>
+                <div className="text-xs text-[#8b949e] mb-2">{day.slice(0, 3)}</div>
                 {hasTrades ? (
                   <>
-                    <div className="text-lg font-semibold text-white">{data.trades} <span className="text-xs font-normal">trade{data.trades !== 1 ? 's' : ''}</span></div>
-                    <div className={`text-xs ${data.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                    <div className="text-lg font-semibold text-white mb-1">{data.trades}</div>
+                    <div className="text-xs text-[#8b949e] mb-2">trade{data.trades !== 1 ? 's' : ''}</div>
+                    {/* Trade count bar */}
+                    <div className="w-full bg-[#21262d] rounded-full h-1.5 mb-2">
+                      <div 
+                        className="bg-[#58a6ff] h-1.5 rounded-full transition-all duration-500"
+                        style={{ width: `${tradeBarWidth}%` }}
+                      />
+                    </div>
+                    <div className={`text-xs font-medium ${data.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
                       {data.pnl >= 0 ? '+' : ''}${data.pnl.toFixed(0)}
                     </div>
                   </>
                 ) : (
                   <div className="text-lg text-[#30363d]">-</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Mobile: Vertical List with Progress Bars */}
+        <div className="sm:hidden space-y-3">
+          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => {
+            const data = byDayOfWeek[day];
+            const hasTrades = data.trades > 0;
+            const tradeBarWidth = maxDayTrades > 0 ? (data.trades / maxDayTrades) * 100 : 0;
+            const pnlBarWidth = maxDayPnL > 0 ? (Math.abs(data.pnl) / maxDayPnL) * 100 : 0;
+            
+            return (
+              <div key={day} className={`p-3 rounded-lg ${hasTrades ? 'bg-[#0d1117]' : 'bg-[#161b22]/30'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-white">{day.slice(0, 3)}</span>
+                  {hasTrades ? (
+                    <span className={`text-sm font-semibold ${data.pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                      {data.pnl >= 0 ? '+' : ''}${data.pnl.toFixed(0)}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-[#30363d]">-</span>
+                  )}
+                </div>
+                
+                {hasTrades && (
+                  <div className="space-y-2">
+                    {/* Trades bar */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-[#8b949e] w-12">Trades</span>
+                      <div className="flex-1 bg-[#21262d] rounded-full h-2">
+                        <div 
+                          className="bg-[#58a6ff] h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${tradeBarWidth}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-white w-6 text-right">{data.trades}</span>
+                    </div>
+                    
+                    {/* PnL bar */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-[#8b949e] w-12">PnL</span>
+                      <div className="flex-1 bg-[#21262d] rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-500 ${data.pnl >= 0 ? 'bg-[#3fb950]' : 'bg-[#f85149]'}`}
+                          style={{ width: `${pnlBarWidth}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-white w-6 text-right">{data.wins}/{data.losses}</span>
+                    </div>
+                  </div>
                 )}
               </div>
             );
@@ -487,12 +558,12 @@ function StatCard({
   };
   
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-[#8b949e]">{title}</span>
-        <Icon className={`w-5 h-5 ${colorClasses[color]}`} />
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3 sm:p-4">
+      <div className="flex items-center justify-between mb-1 sm:mb-2">
+        <span className="text-xs sm:text-sm text-[#8b949e]">{title}</span>
+        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${colorClasses[color]}`} />
       </div>
-      <div className="text-2xl font-bold text-white">{value}</div>
+      <div className="text-lg sm:text-2xl font-bold text-white truncate">{value}</div>
     </div>
   );
 }
