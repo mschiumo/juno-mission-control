@@ -41,7 +41,7 @@ payload:
     • [1-2 observations about patterns]
     • [Suggestion for tomorrow if relevant]
     
-    Send summary to MJ via Telegram.
+    Send summary via Telegram to chat ID 8080305413.
     Log to Activity Log via POST /api/activity-log with type: "cron"
     
     If you encounter rate limits, continue with available models.

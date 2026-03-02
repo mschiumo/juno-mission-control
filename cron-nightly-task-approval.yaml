@@ -12,7 +12,7 @@ schedule:
 payload:
   kind: agentTurn
   message: |
-    Send the nightly task approval request to MJ via Telegram.
+    Send the nightly task approval request via Telegram to chat ID 8080305413.
     
     TASKS TO OFFER:
     1. KeepLiving product descriptions
