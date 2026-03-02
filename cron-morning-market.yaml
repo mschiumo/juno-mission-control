@@ -46,7 +46,7 @@ payload:
     • [Headline 2]
     • [Headline 3]
     
-    Send via Telegram to MJ.
+    Send via Telegram to chat ID 8080305413.
     Log to Activity Log via POST /api/activity-log with type: "cron"
     
     TIME LIMIT: Complete within 90 seconds. Skip optional data if running short on time.

@@ -21,7 +21,7 @@ api:
 payload:
   kind: agentTurn
   message: |
-    Send a daily motivational message to MJ via Telegram.
+    Send a daily motivational message via Telegram to chat ID 8080305413.
     
     IMPORTANT: Use the API endpoint first. This AI fallback is only if the API fails.
     
