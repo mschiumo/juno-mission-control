@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, ClipboardList, GripVertical, Cloud, CloudOff, Loader2 } from 'lucide-react';
-import EveningCheckinModal from './EveningCheckinModal';
+import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2 } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -169,7 +168,6 @@ export default function HabitCard() {
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showEveningCheckin, setShowEveningCheckin] = useState(false);
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitIcon, setNewHabitIcon] = useState('⭐');
@@ -483,11 +481,6 @@ export default function HabitCard() {
     return labels;
   };
 
-  const handleEveningCheckinSuccess = () => {
-    setShowSuccessBanner(true);
-    setTimeout(() => setShowSuccessBanner(false), 3000);
-  };
-
   const getSyncIndicator = () => {
     switch (syncStatus) {
       case 'syncing':
@@ -552,13 +545,6 @@ export default function HabitCard() {
         </div>
         
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowEveningCheckin(true)}
-            className="p-2 bg-[#a371f7] text-white rounded-xl hover:bg-[#8957e5] transition-colors"
-            title="See Report"
-          >
-            <ClipboardList className="w-4 h-4" />
-          </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="p-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors"
@@ -750,13 +736,6 @@ export default function HabitCard() {
           </div>
         </div>
       )}
-
-      {/* Evening Check-in Modal */}
-      <EveningCheckinModal 
-        isOpen={showEveningCheckin} 
-        onClose={() => setShowEveningCheckin(false)}
-        onSuccess={handleEveningCheckinSuccess}
-      />
     </div>
   );
 }
