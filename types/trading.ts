@@ -330,6 +330,7 @@ export interface UpdateTradeRequest {
   // BUG FIX #2: Allow explicit P&L values to be passed (prevents recalculation discrepancies)
   grossPnL?: number;
   netPnL?: number;
+  returnPercent?: number;
 }
 
 export interface TradeListResponse {
