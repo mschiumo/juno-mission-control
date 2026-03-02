@@ -121,8 +121,25 @@ export async function PUT(
     if (body.exitPrice !== undefined) {
       updates.exitPrice = body.exitPrice;
       
-      // Auto-calculate P&L if exit price provided and trade wasn't already closed
-      if (body.exitPrice > 0 && trade.entryPrice > 0) {
+      // Use explicit P&L values from request if provided (from trading management tab)
+      if (body.grossPnL !== undefined) {
+        updates.grossPnL = body.grossPnL;
+      }
+      if (body.netPnL !== undefined) {
+        updates.netPnL = body.netPnL;
+      }
+      
+      // Calculate return percent if not provided and we have P&L
+      if (body.returnPercent !== undefined) {
+        updates.returnPercent = body.returnPercent;
+      } else if ((updates.grossPnL !== undefined || updates.netPnL !== undefined) && trade.entryPrice > 0) {
+        const pnl = updates.netPnL ?? updates.grossPnL ?? 0;
+        updates.returnPercent = (pnl / (trade.entryPrice * trade.shares)) * 100;
+      }
+      
+      // Auto-calculate P&L if exit price provided AND no explicit P&L values given
+      if (body.exitPrice > 0 && trade.entryPrice > 0 && 
+          body.grossPnL === undefined && body.netPnL === undefined) {
         const isLong = trade.side === TradeSide.LONG;
         const priceDiff = isLong 
           ? body.exitPrice - trade.entryPrice
@@ -135,11 +152,11 @@ export async function PUT(
         updates.grossPnL = grossPnL;
         updates.netPnL = grossPnL - estimatedFees;
         updates.returnPercent = (priceDiff / trade.entryPrice) * 100;
-        
-        // Auto-update status if exit is provided
-        if (!body.status) {
-          updates.status = TradeStatus.CLOSED;
-        }
+      }
+      
+      // Auto-update status if exit is provided
+      if (!body.status) {
+        updates.status = TradeStatus.CLOSED;
       }
     }
     

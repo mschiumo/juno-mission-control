@@ -285,12 +285,40 @@ export default function WatchlistView() {
     setEditingItem(null);
   };
 
-  // ===== FAVORITE TOGGLE (Frontend only - no API call) =====
-  const handleToggleFavorite = (item: WatchlistItem) => {
-    // Update local state immediately - no API call needed
+  // ===== FAVORITE TOGGLE (Persist to backend) =====
+  const handleToggleFavorite = async (item: WatchlistItem) => {
+    const newFavoriteState = !item.isFavorite;
+    
+    // Update local state immediately for responsive UI
     setWatchlist(prev => 
-      prev.map(i => i.id === item.id ? { ...i, isFavorite: !i.isFavorite } : i)
+      prev.map(i => i.id === item.id ? { ...i, isFavorite: newFavoriteState } : i)
     );
+    
+    // Persist to backend
+    try {
+      const response = await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...item,
+          isFavorite: newFavoriteState,
+        }),
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to update favorite status');
+        // Revert local state on error
+        setWatchlist(prev => 
+          prev.map(i => i.id === item.id ? { ...i, isFavorite: !newFavoriteState } : i)
+        );
+      }
+    } catch (err) {
+      console.error('Error updating favorite:', err);
+      // Revert local state on error
+      setWatchlist(prev => 
+        prev.map(i => i.id === item.id ? { ...i, isFavorite: !newFavoriteState } : i)
+      );
+    }
   };
 
   // ===== DRAG AND DROP HANDLERS (Frontend only - no API calls) =====

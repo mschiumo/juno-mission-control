@@ -77,6 +77,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       potentialReward: body.potentialReward ? parseFloat(body.potentialReward) : 0,
       positionValue: body.positionValue ? parseFloat(body.positionValue) : 0,
       createdAt: body.createdAt || new Date().toISOString(),
+      isFavorite: body.isFavorite || false,
+      order: body.order,
     };
     
     await saveWatchlistItem(item, userId);
