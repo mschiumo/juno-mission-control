@@ -25,6 +25,12 @@ Things like:
 
 - home-server → 192.168.1.100, user: admin
 
+### Messaging Contacts
+
+- **MJ (Telegram)** → 8080305413
+  - Primary contact for all cron job notifications
+  - Use `target: "8080305413"` or `to: "telegram:8080305413"` in message calls
+
 ### TTS
 
 - Preferred voice: "Nova" (warm, slightly British)

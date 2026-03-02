@@ -11,7 +11,7 @@ schedule:
 payload:
   kind: agentTurn
   message: |
-    Send an evening habit check-in reminder via Telegram to chat ID 8080305413.
+    Send an evening habit check-in reminder via Telegram using message tool with target: "8080305413".
     
     The reminder should:
     1. Check if the evening habit check-in has already been completed today
