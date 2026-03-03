@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
-  BarChart3, 
   BookOpen,
   TrendingUp,
   Calculator,
@@ -20,10 +19,9 @@ import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import CalendarView from '@/components/trading/CalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
-import AnalyticsView from '@/components/trading/AnalyticsView';
 import JournalView from '@/components/trading/JournalView';
 
-type TradingSubTab = 'overview' | 'analytics' | 'journal' | 'market' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'journal' | 'market' | 'projection' | 'trade-management';
 
 export default function TradingView() {
   const router = useRouter();
@@ -34,7 +32,7 @@ export default function TradingView() {
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
     const subtab = searchParams.get('subtab');
     if (subtab === 'market' || 
-        subtab === 'analytics' || subtab === 'journal' || subtab === 'projection' ||
+        subtab === 'journal' || subtab === 'projection' ||
         subtab === 'trade-management') {
       return subtab;
     }
@@ -61,7 +59,6 @@ export default function TradingView() {
   const subTabs = [
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
-    { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { id: 'journal' as const, label: 'Journal', icon: BookOpen },
     { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
@@ -144,10 +141,6 @@ export default function TradingView() {
       {/* Content */}
       {activeSubTab === 'overview' && (
         <CalendarView />
-      )}
-
-      {activeSubTab === 'analytics' && (
-        <AnalyticsView />
       )}
 
       {activeSubTab === 'journal' && (
