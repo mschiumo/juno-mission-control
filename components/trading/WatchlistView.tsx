@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   BookmarkX, 
   TrendingUp, 
@@ -693,6 +693,11 @@ export default function WatchlistView() {
     );
   }, [addedToCalendarIds, calendarTrades]);
 
+  // Filter closed positions to exclude ones already in calendar
+  const visibleClosedPositions = useMemo(() => {
+    return closedPositions.filter(position => !isPositionInCalendar(position));
+  }, [closedPositions, isPositionInCalendar]);
+
   // ===== ADD TO CALENDAR: Closed Position → Calendar Trade =====
   const handleAddToCalendarClick = (position: ClosedPosition) => {
     setConfirmingAddToCalendar(position);
@@ -1365,7 +1370,10 @@ export default function WatchlistView() {
             <div>
               <h3 className="text-lg font-semibold text-white">Closed Positions</h3>
               <p className="text-sm text-[#8b949e]">
-                {closedPositions.length} archived position{closedPositions.length !== 1 ? 's' : ''}
+                {visibleClosedPositions.length} archived position{visibleClosedPositions.length !== 1 ? 's' : ''}
+                {closedPositions.length !== visibleClosedPositions.length && (
+                  <span className="text-[#F97316]"> ({closedPositions.length - visibleClosedPositions.length} in calendar)</span>
+                )}
               </p>
             </div>
           </div>
@@ -1380,15 +1388,25 @@ export default function WatchlistView() {
         </div>
 
         {/* Closed Positions List */}
-        {closedPositions.length === 0 ? (
+        {visibleClosedPositions.length === 0 ? (
           <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
             <History className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
-            <p className="text-sm text-[#8b949e]">No closed positions</p>
-            <p className="text-xs text-[#6e7681] mt-1">Closed trades will appear here</p>
+            <p className="text-sm text-[#8b949e]">
+              {closedPositions.length > 0 
+                ? 'All positions have been added to calendar'
+                : 'No closed positions'
+              }
+            </p>
+            <p className="text-xs text-[#6e7681] mt-1">
+              {closedPositions.length > 0 
+                ? 'View them in Calendar Overview'
+                : 'Closed trades will appear here'
+              }
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {closedPositions.map((position) => (
+            {visibleClosedPositions.map((position) => (
               <div
                 key={position.id}
                 draggable
