@@ -897,9 +897,20 @@ export default function CalendarView() {
             
             {/* Transfer Badge */}
             {(() => {
-              const hasTransferBadge = viewingNotesTrade.entryNotes?.includes('Transferred from Closed Positions') || 
-                                       viewingNotesTrade.exitNotes?.includes('Closed position transferred from watchlist');
-              if (hasTransferBadge) {
+              const entryNotes = viewingNotesTrade.entryNotes || '';
+              const exitNotes = viewingNotesTrade.exitNotes || '';
+              const allNotes = entryNotes + ' ' + exitNotes;
+              
+              // Check for transfer from closed positions
+              const isTransferredFromClosed = entryNotes.includes('Transferred from Closed Positions') || 
+                                               exitNotes.includes('Closed position transferred from watchlist');
+              
+              // Check for CSV/spreadsheet upload
+              const isUploadedViaSpreadsheet = allNotes.includes('[Source: csv-import]') || 
+                                               allNotes.includes('Imported from CSV') ||
+                                               allNotes.includes('Imported from spreadsheet');
+              
+              if (isTransferredFromClosed) {
                 return (
                   <div className="mb-4">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-xs font-medium text-purple-400">
@@ -909,6 +920,18 @@ export default function CalendarView() {
                   </div>
                 );
               }
+              
+              if (isUploadedViaSpreadsheet) {
+                return (
+                  <div className="mb-4">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/10 border border-orange-500/20 rounded-full text-xs font-medium text-orange-400">
+                      <span className="w-1.5 h-1.5 bg-orange-400 rounded-full"></span>
+                      Uploaded via spreadsheet
+                    </span>
+                  </div>
+                );
+              }
+              
               return null;
             })()}
             
@@ -916,14 +939,24 @@ export default function CalendarView() {
               {viewingNotesTrade.entryNotes && (
                 <div className="p-4 bg-[#0d1117] rounded-lg border border-[#30363d]">
                   <h4 className="text-sm font-medium text-[#8b949e] mb-2">Entry Notes</h4>
-                  <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.entryNotes.replace(/^Transferred from Closed Positions\.\s*/, '')}</p>
+                  <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.entryNotes
+                    .replace(/^Transferred from Closed Positions\.\s*/, '')
+                    .replace(/\s*\[Source: [^\]]+\]\s*$/, '')
+                    .replace(/\s*\[Source: [^\]]+\]\s*/g, ' ')
+                    .trim()}
+                  </p>
                 </div>
               )}
               
               {viewingNotesTrade.exitNotes && (
                 <div className="p-4 bg-[#0d1117] rounded-lg border border-[#30363d]">
                   <h4 className="text-sm font-medium text-[#8b949e] mb-2">Exit Notes</h4>
-                  <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.exitNotes.replace(/^Closed position transferred from watchlist\.\s*/, '')}</p>
+                  <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.exitNotes
+                    .replace(/^Closed position transferred from watchlist\.\s*/, '')
+                    .replace(/\s*\[Source: [^\]]+\]\s*$/, '')
+                    .replace(/\s*\[Source: [^\]]+\]\s*/g, ' ')
+                    .trim()}
+                  </p>
                 </div>
               )}
               
