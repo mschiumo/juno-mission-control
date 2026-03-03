@@ -195,7 +195,7 @@ export default function MotivationalBanner({
   if (loading) {
     return (
       <div className="bg-gradient-to-r from-[#ff6b35]/10 via-[#ff8c5a]/10 to-[#ff6b35]/10 border-y border-[#ff6b35]/20 py-4 md:py-6">
-        <div className="max-w-7xl mx-auto px-4 flex items-center justify-center gap-3">
+        <div className="max-w-[1600px] mx-auto px-4 flex items-center justify-center gap-3">
           <div className="w-5 h-5 border-2 border-[#ff6b35] border-t-transparent rounded-full animate-spin" />
           <span className="text-[#8b949e] text-sm">Loading today&apos;s inspiration...</span>
         </div>
@@ -205,7 +205,7 @@ export default function MotivationalBanner({
 
   return (
     <div className="bg-gradient-to-r from-[#ff6b35]/10 via-[#ff8c5a]/10 to-[#ff6b35]/10 border-y border-[#ff6b35]/20 py-4 md:py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-start gap-3 md:gap-4">
           <div className="p-2 md:p-3 bg-[#ff6b35]/20 rounded-full flex-shrink-0">
             <Quote className="w-5 h-5 md:w-6 md:h-6 text-[#ff6b35]" />

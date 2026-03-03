@@ -14,10 +14,15 @@ export async function GET() {
     }
     
     // Group trades by date (in EST)
+    // For closed trades, use exitDate; for open trades, use entryDate
     const byDate: Record<string, typeof trades> = {};
     
     trades.forEach(trade => {
-      const date = getESTDateFromTimestamp(trade.entryDate);
+      // Use exitDate for closed trades, entryDate for open trades
+      const dateToUse = trade.status === 'CLOSED' && trade.exitDate 
+        ? trade.exitDate 
+        : trade.entryDate;
+      const date = getESTDateFromTimestamp(dateToUse);
       if (!byDate[date]) byDate[date] = [];
       byDate[date].push(trade);
     });

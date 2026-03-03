@@ -63,7 +63,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Check if this is a TOS format
-    if (csv.includes("Today's Trade Activity") || csv.includes('Filled Orders') || csv.includes('TO OPEN') || csv.includes('Position Statement for')) {
+    if (csv.includes("Today's Trade Activity") || csv.includes('Filled Orders') || csv.includes('TO OPEN') || csv.includes('Position Statement for') || csv.includes('Account Statement') || csv.includes('Statement for')) {
       const tosTrades = parseTOSCSV(csv);
 
       if (tosTrades.length === 0) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw, ChevronDown, ArrowUpDown, Filter, Download, Trash2, X, CheckSquare, Square } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw, ChevronDown, ArrowUpDown, Filter, Download, Trash2, X, CheckSquare, Square, Edit3 } from 'lucide-react';
 import { getTodayInEST, parseDateToEST } from '@/lib/date-utils';
 
 interface DayData {
@@ -41,7 +41,7 @@ export default function CalendarView() {
 
   // Trades section state
   const [allTrades, setAllTrades] = useState<TOSTrade[]>([]);
-  const [tradesExpanded, setTradesExpanded] = useState(false);
+  const [tradesExpanded, setTradesExpanded] = useState(true);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [filterSymbol, setFilterSymbol] = useState('');
@@ -49,6 +49,11 @@ export default function CalendarView() {
   const [selectedTrades, setSelectedTrades] = useState<Set<string>>(new Set());
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Edit trade state
+  const [editingTrade, setEditingTrade] = useState<TOSTrade | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch real data from API
   useEffect(() => {
@@ -327,7 +332,32 @@ export default function CalendarView() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `trades_export_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
     a.click();
+  };
+
+  // ===== EDIT TRADE =====
+  const handleSaveTrade = async (updatedTrade: TOSTrade) => {
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/trades/${updatedTrade.id}?userId=default`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedTrade),
+      });
+
+      if (!response.ok) throw new Error('Failed to update trade');
+
+      await fetchAllTrades();
+      await fetchDailyStats();
+      setShowEditModal(false);
+      setEditingTrade(null);
+    } catch (error) {
+      console.error('Error updating trade:', error);
+      alert('Failed to update trade');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading) {
@@ -716,6 +746,7 @@ export default function CalendarView() {
                     </th>
                     <th className="text-right py-3 px-4 text-[#8b949e] font-medium">PnL</th>
                     <th className="text-left py-3 px-4 text-[#8b949e] font-medium">Status</th>
+                    <th className="text-center py-3 px-4 text-[#8b949e] font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -779,6 +810,18 @@ export default function CalendarView() {
                           <span className={`text-xs px-2 py-1 rounded-full ${trade.status === 'CLOSED' ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#d29922]/20 text-[#d29922]'}`}>
                             {trade.status}
                           </span>
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          <button
+                            onClick={() => {
+                              setEditingTrade(trade);
+                              setShowEditModal(true);
+                            }}
+                            className="p-1.5 text-[#8b949e] hover:text-blue-400 hover:bg-blue-400/10 rounded transition-colors"
+                            title="Edit trade"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -874,6 +917,159 @@ export default function CalendarView() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ===== Edit Trade Modal Component =====
+function EditTradeModal({ 
+  trade, 
+  onClose, 
+  onSave, 
+  isSaving 
+}: { 
+  trade: TOSTrade; 
+  onClose: () => void; 
+  onSave: (trade: TOSTrade) => void;
+  isSaving: boolean;
+}) {
+  const [formData, setFormData] = useState({
+    symbol: trade.symbol,
+    side: trade.side,
+    shares: trade.shares.toString(),
+    entryPrice: trade.entryPrice.toString(),
+    entryDate: trade.entryDate,
+    exitPrice: trade.exitPrice?.toString() || '',
+    exitDate: trade.exitDate || '',
+    status: trade.status,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      ...trade,
+      symbol: formData.symbol.toUpperCase(),
+      side: formData.side as 'LONG' | 'SHORT',
+      shares: parseInt(formData.shares) || 0,
+      entryPrice: parseFloat(formData.entryPrice) || 0,
+      entryDate: formData.entryDate,
+      exitPrice: formData.exitPrice ? parseFloat(formData.exitPrice) : undefined,
+      exitDate: formData.exitDate || undefined,
+      status: formData.status as 'OPEN' | 'CLOSED',
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-md p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-white">Edit Trade</h3>
+          <button onClick={onClose} className="p-2 hover:bg-[#30363d] rounded-lg">
+            <X className="w-5 h-5 text-[#8b949e]" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-[#8b949e] mb-1">Symbol</label>
+              <input
+                type="text"
+                value={formData.symbol}
+                onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[#8b949e] mb-1">Side</label>
+              <select
+                value={formData.side}
+                onChange={(e) => setFormData({ ...formData, side: e.target.value as 'LONG' | 'SHORT' })}
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+              >
+                <option value="LONG">LONG</option>
+                <option value="SHORT">SHORT</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-[#8b949e] mb-1">Shares</label>
+              <input
+                type="number"
+                value={formData.shares}
+                onChange={(e) => setFormData({ ...formData, shares: e.target.value })}
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[#8b949e] mb-1">Entry Price</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.entryPrice}
+                onChange={(e) => setFormData({ ...formData, entryPrice: e.target.value })}
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs text-[#8b949e] mb-1">Entry Date</label>
+            <input
+              type="datetime-local"
+              value={formData.entryDate.slice(0, 16)}
+              onChange={(e) => setFormData({ ...formData, entryDate: e.target.value })}
+              className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+            />
+          </div>
+
+          <div className="border-t border-[#30363d] pt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-[#8b949e] mb-1">Exit Price (optional)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.exitPrice}
+                  onChange={(e) => setFormData({ ...formData, exitPrice: e.target.value })}
+                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-[#8b949e] mb-1">Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'OPEN' | 'CLOSED' })}
+                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+                >
+                  <option value="OPEN">OPEN</option>
+                  <option value="CLOSED">CLOSED</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving}
+              className="flex-1 px-4 py-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="flex-1 px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

@@ -51,9 +51,14 @@ export async function GET() {
 
     // Get all activities from last 48 hours
     const cutoffTime = Date.now() - (48 * 60 * 60 * 1000); // 48 hours ago
-    const recentActivities = activities.filter(a => 
-      new Date(a.timestamp).getTime() > cutoffTime
-    );
+    const recentActivities = activities
+      .filter(a => new Date(a.timestamp).getTime() > cutoffTime)
+      .map(a => ({
+        ...a,
+        // Ensure action and details are always strings
+        action: typeof a.action === 'string' ? a.action : JSON.stringify(a.action),
+        details: typeof a.details === 'string' ? a.details : JSON.stringify(a.details, null, 2)
+      }));
 
     return NextResponse.json({
       success: true,
