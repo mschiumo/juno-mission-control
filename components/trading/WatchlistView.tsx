@@ -729,10 +729,16 @@ export default function WatchlistView() {
 
     const position = confirmingAddToCalendar;
 
+    // VALIDATION: Exit price is required
+    const exitPrice = parseFloat(calendarFormData.exitPrice);
+    if (!exitPrice || exitPrice <= 0) {
+      alert('Exit Price is required. Please fill in the exit price before adding to calendar.');
+      return;
+    }
+
     try {
       // Use editable form values
       const entryPrice = parseFloat(calendarFormData.entryPrice) || position.actualEntry;
-      const exitPrice = parseFloat(calendarFormData.exitPrice) || position.exitPrice || position.plannedTarget;
       const shares = parseFloat(calendarFormData.shares) || position.actualShares;
       const takeProfit = parseFloat(calendarFormData.takeProfit) || position.plannedTarget;
       const isLong = position.plannedTarget > position.plannedEntry;
@@ -1658,14 +1664,24 @@ export default function WatchlistView() {
 
               {/* Exit Price */}
               <div>
-                <label className="block text-xs text-[#8b949e] mb-1.5">Exit Price</label>
+                <label className="block text-xs text-[#8b949e] mb-1.5">
+                  Exit Price <span className="text-[#f85149]">* required</span>
+                </label>
                 <input
                   type="number"
                   step="0.01"
                   value={calendarFormData.exitPrice}
                   onChange={(e) => handleCalendarFormChange('exitPrice', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  className={`w-full px-3 py-2 bg-[#161b22] border rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 transition-colors ${
+                    !calendarFormData.exitPrice || parseFloat(calendarFormData.exitPrice) <= 0
+                      ? 'border-[#f85149] focus:border-[#f85149]'
+                      : 'border-[#30363d]'
+                  }`}
+                  placeholder="Enter exit price"
                 />
+                {(!calendarFormData.exitPrice || parseFloat(calendarFormData.exitPrice) <= 0) && (
+                  <p className="text-xs text-[#f85149] mt-1">Exit price is required to add to calendar</p>
+                )}
               </div>
 
               {/* Shares */}
@@ -1728,7 +1744,8 @@ export default function WatchlistView() {
               </button>
               <button
                 onClick={handleConfirmAddToCalendar}
-                className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium"
+                disabled={!calendarFormData.exitPrice || parseFloat(calendarFormData.exitPrice) <= 0}
+                className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-[#30363d] disabled:text-[#8b949e] disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
               >
                 Add to Calendar
               </button>
