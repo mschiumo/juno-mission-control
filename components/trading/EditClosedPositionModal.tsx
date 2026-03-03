@@ -123,10 +123,16 @@ export default function EditClosedPositionModal({
       plannedTarget,
       actualShares,
       exitPrice,
-      notes: formData.notes.trim() || null,
+      notes: formData.notes.trim() || undefined,
     };
 
-    onSave(updatedPosition);
+    // Ensure notes field is always sent to API (even when undefined, by using null)
+    const positionForApi = {
+      ...updatedPosition,
+      notes: updatedPosition.notes ?? null,
+    };
+
+    onSave(positionForApi as ClosedPosition);
     onClose();
   };
 

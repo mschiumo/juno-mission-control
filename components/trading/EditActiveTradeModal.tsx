@@ -178,10 +178,16 @@ export default function EditActiveTradeModal({
       plannedStop,
       plannedTarget,
       positionValue,
-      notes: formData.notes.trim() || null,
+      notes: formData.notes.trim() || undefined,
     };
 
-    onSave(updatedTrade);
+    // Ensure notes field is always sent to API (even when undefined, by using null)
+    const tradeForApi = {
+      ...updatedTrade,
+      notes: updatedTrade.notes ?? null,
+    };
+
+    onSave(tradeForApi as ActiveTrade);
     onClose();
   };
 
