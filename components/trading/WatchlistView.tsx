@@ -1506,8 +1506,7 @@ export default function WatchlistView() {
                 </>
               );
             })()
-          }
-        </div>
+          </div>
       )}
 
       {/* Divider */}
