@@ -3,13 +3,11 @@
 import { useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import DailyReportsCard from "@/components/DailyReportsCard";
-// import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
 import MarketCard from "@/components/MarketCard";
 import MarketHoursBanner from "@/components/MarketHoursBanner";
 import GapScannerCard from "@/components/GapScannerCard";
 import NewsScreenerCard from "@/components/NewsScreenerCard";
-import ProjectsCard from "@/components/ProjectsCard";
 import ActivityLogCard from "@/components/ActivityLogCard";
 import DailyCronsCard from "@/components/DailyCronsCard";
 import GoalsCard from "@/components/GoalsCard";
@@ -20,9 +18,12 @@ import MotivationalBanner from "@/components/MotivationalBanner";
 import DocumentationCard from "@/components/DocumentationCard";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
-import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
+import MemoryCard from "@/components/MemoryCard";
+import ProjectsCard from "@/components/ProjectsCard";
+import TeamCard from "@/components/TeamCard";
+import { LayoutDashboard, Brain, FolderKanban, Users, Target, TrendingUp, Menu, X, Activity } from 'lucide-react';
 
-type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'activity';
+type TabId = 'dashboard' | 'memory' | 'projects' | 'team' | 'trading' | 'goals' | 'activity';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -33,7 +34,7 @@ function DashboardContent() {
   // Get tab from URL query param, default to 'dashboard'
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
-    if (tab === 'tasks' || tab === 'trading' || tab === 'goals' || tab === 'activity') return tab;
+    if (tab === 'memory' || tab === 'projects' || tab === 'team' || tab === 'trading' || tab === 'goals' || tab === 'activity') return tab;
     return 'dashboard';
   }, [searchParams]);
   
@@ -54,7 +55,9 @@ function DashboardContent() {
 
   const tabs = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tasks' as const, label: 'Tasks', icon: CheckSquare },
+    { id: 'memory' as const, label: 'Memory', icon: Brain },
+    { id: 'projects' as const, label: 'Projects', icon: FolderKanban },
+    { id: 'team' as const, label: 'Team', icon: Users },
     { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
     { id: 'goals' as const, label: 'Goals', icon: Target },
     { id: 'activity' as const, label: 'Activity', icon: Activity },
@@ -83,7 +86,7 @@ function DashboardContent() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
                       activeTab === tab.id
                         ? 'bg-[#ff6b35] text-white'
                         : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
@@ -151,7 +154,7 @@ function DashboardContent() {
       {/* Main Content */}
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
         {activeTab === 'dashboard' ? (
-          /* Dashboard Grid - Single column for better spacing */
+          /* Dashboard Grid */
           <div className="space-y-4">
             <MotivationalBanner compact variant="orange" />
             <EveningCheckinReminder />
@@ -160,13 +163,23 @@ function DashboardContent() {
               <DailyReportsCard />
             </div>
           </div>
-        ) : activeTab === 'tasks' ? (
-          /* Tasks View - Projects and Task Management */
+        ) : activeTab === 'memory' ? (
+          /* Memory View */
+          <div className="max-w-[1600px] mx-auto">
+            <MemoryCard />
+          </div>
+        ) : activeTab === 'projects' ? (
+          /* Projects View */
           <div className="max-w-[1600px] mx-auto">
             <ProjectsCard />
           </div>
+        ) : activeTab === 'team' ? (
+          /* Team View */
+          <div className="max-w-[1600px] mx-auto">
+            <TeamCard />
+          </div>
         ) : activeTab === 'trading' ? (
-          /* Trading View - New Trading Journal */
+          /* Trading View */
           <div className="max-w-[1600px] mx-auto">
             <TradingView />
           </div>

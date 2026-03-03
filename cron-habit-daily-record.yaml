@@ -1,0 +1,18 @@
+# Daily Habit Record
+# Runs daily at 12:00 AM EST (05:00 UTC) to record habit status for the previous day
+# API-based: Direct endpoint call for reliability
+
+name: "Daily Habit Record"
+jobId: "habit-daily-record-001"
+sessionTarget: isolated
+enabled: true
+schedule:
+  kind: cron
+  expr: "0 5 * * *"
+  tz: "UTC"
+api:
+  endpoint: "https://juno-mission-control.vercel.app/api/habits/daily-record"
+  method: "POST"
+  timeout: 30
+  headers:
+    Content-Type: "application/json"
