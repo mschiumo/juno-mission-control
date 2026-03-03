@@ -1052,6 +1052,19 @@ export default function CalendarView() {
           </div>
         </div>
       )}
+
+      {/* Edit Trade Modal */}
+      {showEditModal && editingTrade && (
+        <EditTradeModal
+          trade={editingTrade}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingTrade(null);
+          }}
+          onSave={handleSaveTrade}
+          isSaving={isSaving}
+        />
+      )}
     </div>
   );
 }
