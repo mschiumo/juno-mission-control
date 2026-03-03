@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw, ChevronDown, ArrowUpDown, Filter, Download, Trash2, X, CheckSquare, Square, Edit3 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw, ChevronDown, ArrowUpDown, Filter, Download, Trash2, X, CheckSquare, Square, Edit3, FileText } from 'lucide-react';
 import { getTodayInEST, parseDateToEST } from '@/lib/date-utils';
 
 interface DayData {
@@ -51,6 +51,9 @@ export default function CalendarView() {
   const [selectedTrades, setSelectedTrades] = useState<Set<string>>(new Set());
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // View notes modal state
+  const [viewingNotesTrade, setViewingNotesTrade] = useState<TOSTrade | null>(null);
   
   // Edit trade state
   const [editingTrade, setEditingTrade] = useState<TOSTrade | null>(null);
@@ -811,9 +814,13 @@ export default function CalendarView() {
                         </td>
                         <td className="py-3 px-4 max-w-xs">
                           {trade.entryNotes || trade.exitNotes ? (
-                            <div className="text-xs text-[#8b949e] truncate" title={trade.entryNotes || trade.exitNotes}>
+                            <button
+                              onClick={() => setViewingNotesTrade(trade)}
+                              className="text-left text-xs text-[#8b949e] truncate hover:text-[#F97316] transition-colors cursor-pointer w-full"
+                              title="Click to view full notes"
+                            >
                               {trade.entryNotes || trade.exitNotes}
-                            </div>
+                            </button>
                           ) : (
                             <span className="text-xs text-[#6e7681]">-</span>
                           )}
@@ -864,6 +871,63 @@ export default function CalendarView() {
             setSelectedDateTrades([]);
           }}
         />
+      )}
+
+      {/* View Notes Modal */}
+      {viewingNotesTrade && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-lg p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-500/10 rounded-lg">
+                  <FileText className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Trade Notes</h3>
+                  <p className="text-sm text-[#8b949e]">{viewingNotesTrade.symbol} - {viewingNotesTrade.side}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingNotesTrade(null)}
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-[#8b949e]" />
+              </button>
+            </div>
+            
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+              {viewingNotesTrade.entryNotes && (
+                <div className="p-4 bg-[#0d1117] rounded-lg border border-[#30363d]">
+                  <h4 className="text-sm font-medium text-[#8b949e] mb-2">Entry Notes</h4>
+                  <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.entryNotes}</p>
+                </div>
+              )}
+              
+              {viewingNotesTrade.exitNotes && (
+                <div className="p-4 bg-[#0d1117] rounded-lg border border-[#30363d]">
+                  <h4 className="text-sm font-medium text-[#8b949e] mb-2">Exit Notes</h4>
+                  <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.exitNotes}</p>
+                </div>
+              )}
+              
+              {!viewingNotesTrade.entryNotes && !viewingNotesTrade.exitNotes && (
+                <div className="text-center py-8 text-[#8b949e]">
+                  <FileText className="w-12 h-12 mx-auto mb-3 text-[#30363d]" />
+                  <p>No notes for this trade</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setViewingNotesTrade(null)}
+                className="px-4 py-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Import Modal */}
