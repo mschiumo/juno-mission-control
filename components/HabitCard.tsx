@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2 } from 'lucide-react';
+import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, BarChart3 } from 'lucide-react';
+import HabitsReport from './HabitsReport';
 import {
   DndContext,
   closestCenter,
@@ -168,6 +169,7 @@ export default function HabitCard() {
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitIcon, setNewHabitIcon] = useState('⭐');
@@ -546,8 +548,16 @@ export default function HabitCard() {
         
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowReportModal(true)}
+            className="p-2 bg-[#262626] text-white rounded-xl hover:bg-[#30363d] transition-colors"
+            title="View Habits Report"
+          >
+            <BarChart3 className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => setShowAddModal(true)}
-            className="p-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors"
+            disabled={syncStatus === 'syncing'}
+            className="p-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors disabled:opacity-50"
             title="Add new habit"
           >
             <Plus className="w-4 h-4" />
@@ -736,6 +746,12 @@ export default function HabitCard() {
           </div>
         </div>
       )}
+
+      {/* Habits Report Modal */}
+      <HabitsReport 
+        isOpen={showReportModal} 
+        onClose={() => setShowReportModal(false)} 
+      />
     </div>
   );
 }

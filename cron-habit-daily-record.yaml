@@ -1,23 +1,29 @@
 # Daily Habit Record
-# Runs daily at 11:59 PM EST to record habit status and transfer to evening check-in
-# This ensures all habits are captured even if user forgets to check in manually
+# Runs daily at 12:00 AM EST (05:00 UTC) to record habit status for the previous day
+# API-based: Direct endpoint call for reliability
 
 name: "Daily Habit Record"
+jobId: "habit-daily-record-001"
 sessionTarget: isolated
 enabled: true
 schedule:
   kind: cron
-  expr: "59 23 * * *"
-  tz: "America/New_York"
+  expr: "0 5 * * *"
+  tz: "UTC"
+# API-based approach - faster and more reliable
+api:
+  endpoint: "https://juno-mission-control.vercel.app/api/habits/daily-record"
+  method: "POST"
+  timeout: 30
+  headers:
+    Content-Type: "application/json"
+# Fallback AI configuration (if API fails)
 payload:
   kind: agentTurn
   message: |
-    Record daily habit status for today by calling the API endpoint.
+    Record daily habit status by calling the API endpoint.
     
-    This cron job:
-    1. Calls POST /api/habits/daily-record to capture today's habit completions
-    2. Records a snapshot of all habit statuses
-    3. Transfers completions to evening check-in format for consistency
+    IMPORTANT: Use the API endpoint first. This AI fallback is only if the API fails.
     
     Execute the following curl command:
     ```
@@ -46,3 +52,4 @@ payload:
       }
     }
   timeoutSeconds: 60
+  thinking: off
