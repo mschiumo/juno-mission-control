@@ -178,7 +178,7 @@ export default function EditActiveTradeModal({
       plannedStop,
       plannedTarget,
       positionValue,
-      notes: formData.notes.trim() || undefined,
+      notes: formData.notes.trim() || null,
     };
 
     onSave(updatedTrade);

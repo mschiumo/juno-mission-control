@@ -123,7 +123,7 @@ export default function EditClosedPositionModal({
       plannedTarget,
       actualShares,
       exitPrice,
-      notes: formData.notes.trim() || undefined,
+      notes: formData.notes.trim() || null,
     };
 
     onSave(updatedPosition);
