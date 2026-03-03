@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, UpdateTradeRequest } from '@/types/trading';
 import { TradeStatus, TradeSide } from '@/types/trading';
 import { getTradeById, updateTrade, deleteTrade } from '@/lib/db/trades-v2';
+import { getNowInEST } from '@/lib/date-utils';
 
 interface RouteParams {
   params: Promise<{
@@ -94,7 +95,7 @@ export async function PUT(
       );
     }
     
-    const now = new Date().toISOString();
+    const now = getNowInEST();
     const updates: Partial<Trade> = { updatedAt: now };
     
     // Update basic fields
