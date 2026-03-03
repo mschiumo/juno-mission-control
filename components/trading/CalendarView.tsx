@@ -402,7 +402,6 @@ export default function CalendarView() {
             <span className={`text-lg font-bold ${monthStats.totalPnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
               {monthStats.totalPnl >= 0 ? '+' : ''}{formatCurrency(monthStats.totalPnl)}
             </span>
-            <span className="text-[10px] text-[#6e7681]">Aggregated from {monthStats.winDays + monthStats.lossDays} trading days</span>
           </div>
 
           {/* Month Stats Card */}
@@ -414,6 +413,13 @@ export default function CalendarView() {
                 <span className="text-[#8b949e]">/</span>
                 <span className="text-[#f85149] font-semibold">{monthStats.lossDays}L</span>
               </div>
+            </div>
+            
+            <div className="w-px h-6 bg-[#30363d]" />
+            
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Trading Days</span>
+              <span className="text-white font-semibold">{monthStats.winDays + monthStats.lossDays}</span>
             </div>
             
             <div className="w-px h-6 bg-[#30363d]" />
@@ -476,20 +482,32 @@ export default function CalendarView() {
 
       {/* Mobile Monthly PnL - Shown only on small screens */}
       <div className="sm:hidden bg-[#161b22] border border-[#30363d] rounded-xl p-3 mb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex flex-col">
             <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Monthly PnL (MTD)</span>
             <span className={`text-xl font-bold ${monthStats.totalPnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
               {monthStats.totalPnl >= 0 ? '+' : ''}{formatCurrency(monthStats.totalPnl)}
             </span>
           </div>
-          <div className="text-right">
-            <div className="flex items-center gap-2 text-sm">
+        </div>
+        <div className="flex items-center justify-center gap-4 pt-2 border-t border-[#30363d]">
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Win/Loss</span>
+            <div className="flex items-center gap-1 text-sm">
               <span className="text-[#3fb950] font-semibold">{monthStats.winDays}W</span>
               <span className="text-[#8b949e]">/</span>
               <span className="text-[#f85149] font-semibold">{monthStats.lossDays}L</span>
             </div>
-            <span className="text-[10px] text-[#6e7681]">{monthStats.winDays + monthStats.lossDays} trading days</span>
+          </div>
+          <div className="w-px h-8 bg-[#30363d]" />
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Days</span>
+            <span className="text-white font-semibold">{monthStats.winDays + monthStats.lossDays}</span>
+          </div>
+          <div className="w-px h-8 bg-[#30363d]" />
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Trades</span>
+            <span className="text-white font-semibold">{monthStats.totalTrades}</span>
           </div>
         </div>
       </div>
