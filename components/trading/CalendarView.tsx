@@ -895,18 +895,35 @@ export default function CalendarView() {
               </button>
             </div>
             
+            {/* Transfer Badge */}
+            {(() => {
+              const hasTransferBadge = viewingNotesTrade.entryNotes?.includes('Transferred from Closed Positions') || 
+                                       viewingNotesTrade.exitNotes?.includes('Closed position transferred from watchlist');
+              if (hasTransferBadge) {
+                return (
+                  <div className="mb-4">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-xs font-medium text-purple-400">
+                      <span className="w-1.5 h-1.5 bg-purple-400 rounded-full"></span>
+                      Transferred from Closed Positions
+                    </span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            
             <div className="space-y-4 max-h-[60vh] overflow-y-auto">
               {viewingNotesTrade.entryNotes && (
                 <div className="p-4 bg-[#0d1117] rounded-lg border border-[#30363d]">
                   <h4 className="text-sm font-medium text-[#8b949e] mb-2">Entry Notes</h4>
-                  <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.entryNotes}</p>
+                  <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.entryNotes.replace(/^Transferred from Closed Positions\.\s*/, '')}</p>
                 </div>
               )}
               
               {viewingNotesTrade.exitNotes && (
                 <div className="p-4 bg-[#0d1117] rounded-lg border border-[#30363d]">
                   <h4 className="text-sm font-medium text-[#8b949e] mb-2">Exit Notes</h4>
-                  <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.exitNotes}</p>
+                  <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.exitNotes.replace(/^Closed position transferred from watchlist\.\s*/, '')}</p>
                 </div>
               )}
               
