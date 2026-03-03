@@ -23,7 +23,8 @@ import {
   RefreshCw,
   Star,
   CheckSquare,
-  Square
+  Square,
+  Search
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
@@ -58,6 +59,7 @@ export default function WatchlistView() {
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [enteringItem, setEnteringItem] = useState<WatchlistItem | null>(null);
@@ -1276,14 +1278,35 @@ export default function WatchlistView() {
               </p>
             </div>
           </div>
-          <button
-            onClick={fetchWatchlist}
-            disabled={watchlistLoading}
-            className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${watchlistLoading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 transform -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search ticker..."
+                className="pl-9 pr-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] w-40 sm:w-48"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#8b949e] hover:text-white"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={fetchWatchlist}
+              disabled={watchlistLoading}
+              className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw className={`w-4 h-4 ${watchlistLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {/* Potential Trades List */}
@@ -1303,19 +1326,39 @@ export default function WatchlistView() {
           <div className="space-y-6">
             {/* FAVORITES SECTION */}
             {(() => {
-              const favorites = watchlist.filter(i => i.isFavorite);
-              const others = watchlist.filter(i => !i.isFavorite);
+              // Filter by search query first
+              const filteredWatchlist = searchQuery
+                ? watchlist.filter(item => 
+                    item.ticker.toLowerCase().includes(searchQuery.toLowerCase())
+                  )
+                : watchlist;
+              
+              const favorites = filteredWatchlist.filter(i => i.isFavorite);
+              const others = filteredWatchlist.filter(i => !i.isFavorite);
               
               return (
                 <>
-                  {favorites.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 px-2">
-                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                        <h4 className="text-sm font-semibold text-yellow-400">Favorites</h4>
-                        <span className="text-xs text-[#8b949e]">({favorites.length})</span>
-                      </div>
-                      <div className="space-y-3">
+                  {filteredWatchlist.length === 0 && searchQuery ? (
+                    <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
+                      <Search className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
+                      <p className="text-sm text-[#8b949e]">No trades found for "{searchQuery}"</p>
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="mt-2 text-sm text-[#F97316] hover:underline"
+                      >
+                        Clear search
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {favorites.length > 0 && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 px-2">
+                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                            <h4 className="text-sm font-semibold text-yellow-400">Favorites</h4>
+                            <span className="text-xs text-[#8b949e]">({favorites.length})</span>
+                          </div>
+                          <div className="space-y-3">
                         {favorites.map((item) => (
                           <div
                             key={item.id}
@@ -1545,6 +1588,8 @@ export default function WatchlistView() {
                         ))}
                       </div>
                     </div>
+                  )}
+                    </>
                   )}
                 </>
               );
