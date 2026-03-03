@@ -26,6 +26,8 @@ interface TOSTrade {
   netPnL?: number;
   status: 'OPEN' | 'CLOSED';
   orderType?: string;
+  entryNotes?: string;
+  exitNotes?: string;
 }
 
 type SortField = 'date' | 'symbol' | 'side' | 'entryPrice' | 'shares';
@@ -745,6 +747,7 @@ export default function CalendarView() {
                       </div>
                     </th>
                     <th className="text-right py-3 px-4 text-[#8b949e] font-medium">PnL</th>
+                    <th className="text-left py-3 px-4 text-[#8b949e] font-medium">Notes</th>
                     <th className="text-left py-3 px-4 text-[#8b949e] font-medium">Status</th>
                     <th className="text-center py-3 px-4 text-[#8b949e] font-medium">Actions</th>
                   </tr>
@@ -752,7 +755,7 @@ export default function CalendarView() {
                 <tbody>
                   {sortedTrades.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-[#8b949e]">
+                      <td colSpan={9} className="py-8 text-center text-[#8b949e]">
                         {allTrades.length === 0 ? (
                           <div className="space-y-2">
                             <TrendingUp className="w-8 h-8 mx-auto text-[#30363d]" />
@@ -805,6 +808,15 @@ export default function CalendarView() {
                         <td className="py-3 px-4 text-right text-white">${trade.entryPrice?.toFixed(2)}</td>
                         <td className={`py-3 px-4 text-right ${trade.netPnL && trade.netPnL >= 0 ? 'text-[#3fb950]' : trade.netPnL && trade.netPnL < 0 ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
                           {trade.netPnL ? `${trade.netPnL >= 0 ? '+' : ''}$${trade.netPnL.toFixed(2)}` : '-'}
+                        </td>
+                        <td className="py-3 px-4 max-w-xs">
+                          {trade.entryNotes || trade.exitNotes ? (
+                            <div className="text-xs text-[#8b949e] truncate" title={trade.entryNotes || trade.exitNotes}>
+                              {trade.entryNotes || trade.exitNotes}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-[#6e7681]">-</span>
+                          )}
                         </td>
                         <td className="py-3 px-4">
                           <span className={`text-xs px-2 py-1 rounded-full ${trade.status === 'CLOSED' ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#d29922]/20 text-[#d29922]'}`}>
