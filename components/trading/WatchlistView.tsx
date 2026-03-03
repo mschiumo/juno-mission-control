@@ -21,7 +21,9 @@ import {
   Plus,
   Check,
   RefreshCw,
-  Star
+  Star,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
@@ -81,6 +83,11 @@ export default function WatchlistView() {
   const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
   const [closedPositionsLoading, setClosedPositionsLoading] = useState(false);
   const [deletingPositionId, setDeletingPositionId] = useState<string | null>(null);
+  
+  // Multi-select state for Closed Positions
+  const [selectedClosedPositions, setSelectedClosedPositions] = useState<Set<string>>(new Set());
+  const [showDeleteMultipleModal, setShowDeleteMultipleModal] = useState(false);
+  const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
   
   // Edit Closed Position state
   const [editingClosedPosition, setEditingClosedPosition] = useState<ClosedPosition | null>(null);
@@ -560,7 +567,8 @@ export default function WatchlistView() {
 
   // ===== INLINE EDIT: Active Trade =====
   const handleInlineEditStart = (trade: ActiveTrade, field: 'actualEntry' | 'plannedStop' | 'plannedTarget' | 'actualShares' | 'notes') => {
-    const value = trade[field]?.toString() || '';
+    const rawValue = trade[field];
+    const value = rawValue !== undefined && rawValue !== null ? rawValue.toString() : '';
     setInlineEditing({ tradeId: trade.id, field, value });
   };
 
@@ -688,6 +696,50 @@ export default function WatchlistView() {
       setError(err instanceof Error ? err.message : 'Failed to delete position');
     } finally {
       setClosedPositionsLoading(false);
+    }
+  };
+
+  // ===== MULTI-SELECT: Closed Positions =====
+  const toggleClosedPositionSelection = (positionId: string) => {
+    setSelectedClosedPositions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(positionId)) {
+        newSet.delete(positionId);
+      } else {
+        newSet.add(positionId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAllClosedPositions = () => {
+    if (selectedClosedPositions.size === visibleClosedPositions.length) {
+      setSelectedClosedPositions(new Set());
+    } else {
+      setSelectedClosedPositions(new Set(visibleClosedPositions.map(p => p.id)));
+    }
+  };
+
+  const deleteSelectedClosedPositions = async () => {
+    setIsDeletingMultiple(true);
+    const idsToDelete = Array.from(selectedClosedPositions);
+    
+    try {
+      for (const positionId of idsToDelete) {
+        await fetch(`/api/closed-positions?id=${positionId}&userId=${DEFAULT_USER_ID}`, {
+          method: 'DELETE'
+        });
+      }
+      
+      await fetchClosedPositions();
+      window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
+      setSelectedClosedPositions(new Set());
+      setShowDeleteMultipleModal(false);
+    } catch (error) {
+      console.error('Error deleting positions:', error);
+      setError('Failed to delete some positions');
+    } finally {
+      setIsDeletingMultiple(false);
     }
   };
 
@@ -1169,37 +1221,35 @@ export default function WatchlistView() {
                   </div>
 
                   {/* Notes - Inline Editable */}
-                  {trade.notes && (
-                    <div className="bg-[#161b22] rounded-lg p-4 cursor-pointer hover:bg-[#1c2128] transition-colors"
-                         onClick={() => handleInlineEditStart(trade, 'notes')}>
-                      {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'notes' ? (
-                        <textarea
-                          value={inlineEditing.value}
-                          onChange={(e) => handleInlineEditChange(e.target.value)}
-                          onBlur={handleInlineEditSave}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && e.metaKey) {
-                              handleInlineEditSave();
-                            } else if (e.key === 'Escape') {
-                              setInlineEditing(null);
-                            }
-                          }}
-                          autoFocus
-                          rows={3}
-                          className="w-full px-2 py-1 bg-[#0F0F0F] border border-blue-500 rounded text-sm text-white focus:outline-none resize-none"
-                          placeholder="Add notes..."
-                        />
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-2">
-                            <FileText className="w-3.5 h-3.5" />
-                            Notes (click to edit)
-                          </div>
-                          <p className="text-sm text-white">{trade.notes}</p>
-                        </>
-                      )}
-                    </div>
-                  )}
+                  <div className={`rounded-lg p-4 cursor-pointer transition-colors ${trade.notes ? 'bg-[#161b22] hover:bg-[#1c2128]' : 'bg-[#0F0F0F] border border-dashed border-[#30363d] hover:border-[#8b949e] hover:bg-[#161b22]'}`}
+                       onClick={() => handleInlineEditStart(trade, 'notes')}>
+                    {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'notes' ? (
+                      <textarea
+                        value={inlineEditing.value}
+                        onChange={(e) => handleInlineEditChange(e.target.value)}
+                        onBlur={handleInlineEditSave}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && e.metaKey) {
+                            handleInlineEditSave();
+                          } else if (e.key === 'Escape') {
+                            setInlineEditing(null);
+                          }
+                        }}
+                        autoFocus
+                        rows={3}
+                        className="w-full px-2 py-1 bg-[#0F0F0F] border border-blue-500 rounded text-sm text-white focus:outline-none resize-none"
+                        placeholder="Add notes..."
+                      />
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-2">
+                          <FileText className="w-3.5 h-3.5" />
+                          {trade.notes ? 'Notes (click to edit)' : 'Add notes...'}
+                        </div>
+                        {trade.notes && <p className="text-sm text-white">{trade.notes}</p>}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -1523,14 +1573,48 @@ export default function WatchlistView() {
               </p>
             </div>
           </div>
-          <button
-            onClick={fetchClosedPositions}
-            disabled={closedPositionsLoading}
-            className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${closedPositionsLoading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Select All Checkbox */}
+            {visibleClosedPositions.length > 0 && (
+              <button
+                onClick={toggleSelectAllClosedPositions}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+                title={selectedClosedPositions.size === visibleClosedPositions.length ? 'Deselect all' : 'Select all'}
+              >
+                {selectedClosedPositions.size === visibleClosedPositions.length ? (
+                  <>
+                    <CheckSquare className="w-4 h-4 text-blue-400" />
+                    <span className="hidden sm:inline">Deselect All</span>
+                  </>
+                ) : (
+                  <>
+                    <Square className="w-4 h-4" />
+                    <span className="hidden sm:inline">Select All</span>
+                  </>
+                )}
+              </button>
+            )}
+            
+            {/* Delete Selected Button */}
+            {selectedClosedPositions.size > 0 && (
+              <button
+                onClick={() => setShowDeleteMultipleModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete ({selectedClosedPositions.size})</span>
+              </button>
+            )}
+            
+            <button
+              onClick={fetchClosedPositions}
+              disabled={closedPositionsLoading}
+              className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw className={`w-4 h-4 ${closedPositionsLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {/* Closed Positions List */}
@@ -1565,6 +1649,22 @@ export default function WatchlistView() {
                 {/* Card Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-blue-500/5 gap-4">
                   <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
+                    {/* Checkbox for multi-select */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleClosedPositionSelection(position.id);
+                      }}
+                      className={`p-1.5 rounded transition-colors ${selectedClosedPositions.has(position.id) ? 'text-blue-400' : 'text-[#8b949e] hover:text-white'}`}
+                      title={selectedClosedPositions.has(position.id) ? 'Deselect' : 'Select'}
+                    >
+                      {selectedClosedPositions.has(position.id) ? (
+                        <CheckSquare className="w-5 h-5" />
+                      ) : (
+                        <Square className="w-5 h-5" />
+                      )}
+                    </button>
+                    
                     <div className="px-3 py-1 bg-blue-500/10 rounded-lg shrink-0">
                       <span className="text-lg font-bold text-blue-400">{position.ticker}</span>
                     </div>
@@ -1923,6 +2023,66 @@ export default function WatchlistView() {
                 className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-[#30363d] disabled:text-[#8b949e] disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
               >
                 Add to Calendar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Multiple Confirmation Modal */}
+      {showDeleteMultipleModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Delete Positions</h3>
+              <button
+                onClick={() => setShowDeleteMultipleModal(false)}
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-[#8b949e]" />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-[#da3633]/20 rounded-full">
+                  <Trash2 className="w-6 h-6 text-[#f85149]" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">
+                    Delete {selectedClosedPositions.size} position{selectedClosedPositions.size !== 1 ? 's' : ''}?
+                  </p>
+                  <p className="text-sm text-[#8b949e]">
+                    This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteMultipleModal(false)}
+                disabled={isDeletingMultiple}
+                className="flex-1 px-4 py-3 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteSelectedClosedPositions}
+                disabled={isDeletingMultiple}
+                className="flex-1 px-4 py-3 bg-[#da3633] hover:bg-[#f85149] text-white rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeletingMultiple ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </>
+                )}
               </button>
             </div>
           </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw, ChevronDown, ArrowUpDown, Filter, Download, Trash2, X, CheckSquare, Square, Edit3 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw, ChevronDown, ArrowUpDown, Filter, Download, Trash2, X, CheckSquare, Square, Edit3, FileText } from 'lucide-react';
 import { getTodayInEST, parseDateToEST } from '@/lib/date-utils';
 
 interface DayData {
@@ -26,6 +26,8 @@ interface TOSTrade {
   netPnL?: number;
   status: 'OPEN' | 'CLOSED';
   orderType?: string;
+  entryNotes?: string;
+  exitNotes?: string;
 }
 
 type SortField = 'date' | 'symbol' | 'side' | 'entryPrice' | 'shares';
@@ -49,6 +51,9 @@ export default function CalendarView() {
   const [selectedTrades, setSelectedTrades] = useState<Set<string>>(new Set());
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // View notes modal state
+  const [viewingNotesTrade, setViewingNotesTrade] = useState<TOSTrade | null>(null);
   
   // Edit trade state
   const [editingTrade, setEditingTrade] = useState<TOSTrade | null>(null);
@@ -745,6 +750,7 @@ export default function CalendarView() {
                       </div>
                     </th>
                     <th className="text-right py-3 px-4 text-[#8b949e] font-medium">PnL</th>
+                    <th className="text-left py-3 px-4 text-[#8b949e] font-medium">Notes</th>
                     <th className="text-left py-3 px-4 text-[#8b949e] font-medium">Status</th>
                     <th className="text-center py-3 px-4 text-[#8b949e] font-medium">Actions</th>
                   </tr>
@@ -752,7 +758,7 @@ export default function CalendarView() {
                 <tbody>
                   {sortedTrades.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-[#8b949e]">
+                      <td colSpan={9} className="py-8 text-center text-[#8b949e]">
                         {allTrades.length === 0 ? (
                           <div className="space-y-2">
                             <TrendingUp className="w-8 h-8 mx-auto text-[#30363d]" />
@@ -806,6 +812,28 @@ export default function CalendarView() {
                         <td className={`py-3 px-4 text-right ${trade.netPnL && trade.netPnL >= 0 ? 'text-[#3fb950]' : trade.netPnL && trade.netPnL < 0 ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
                           {trade.netPnL ? `${trade.netPnL >= 0 ? '+' : ''}$${trade.netPnL.toFixed(2)}` : '-'}
                         </td>
+                        <td className="py-3 px-4 max-w-xs">
+                          {(() => {
+                            const notesText = trade.entryNotes || trade.exitNotes || '';
+                            // Clean up transfer/import prefixes for display
+                            const cleanNotes = notesText
+                              .replace(/^Transferred from Closed Positions\.\s*/, '')
+                              .replace(/^Imported from TOS Position Statement\s*-\s*CLOSED\.?\s*/, '')
+                              .replace(/^Closed position transferred from watchlist\.\s*/, '')
+                              .trim();
+                            return cleanNotes ? (
+                              <button
+                                onClick={() => setViewingNotesTrade(trade)}
+                                className="text-left text-xs text-[#8b949e] truncate hover:text-[#F97316] transition-colors cursor-pointer w-full"
+                                title="Click to view full notes"
+                              >
+                                {cleanNotes}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-[#6e7681]">-</span>
+                            );
+                          })()}
+                        </td>
                         <td className="py-3 px-4">
                           <span className={`text-xs px-2 py-1 rounded-full ${trade.status === 'CLOSED' ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#d29922]/20 text-[#d29922]'}`}>
                             {trade.status}
@@ -852,6 +880,113 @@ export default function CalendarView() {
             setSelectedDateTrades([]);
           }}
         />
+      )}
+
+      {/* View Notes Modal */}
+      {viewingNotesTrade && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-500/10 rounded-lg">
+                  <FileText className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Trade Notes</h3>
+                  <p className="text-sm text-[#8b949e]">{viewingNotesTrade.symbol} - {viewingNotesTrade.side}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingNotesTrade(null)}
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-[#8b949e]" />
+              </button>
+            </div>
+            
+            {/* Transfer Badge */}
+            {(() => {
+              const entryNotes = viewingNotesTrade.entryNotes || '';
+              const exitNotes = viewingNotesTrade.exitNotes || '';
+              const allNotes = entryNotes + ' ' + exitNotes;
+              
+              // Check for transfer from closed positions
+              const isTransferredFromClosed = entryNotes.includes('Transferred from Closed Positions') || 
+                                               exitNotes.includes('Closed position transferred from watchlist');
+              
+              // Check for CSV/spreadsheet upload
+              const isUploadedViaSpreadsheet = allNotes.includes('[Source: csv-import]') || 
+                                               allNotes.includes('Imported from CSV') ||
+                                               allNotes.includes('Imported from spreadsheet');
+              
+              if (isTransferredFromClosed) {
+                return (
+                  <div className="mb-4">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-xs font-medium text-purple-400">
+                      <span className="w-1.5 h-1.5 bg-purple-400 rounded-full"></span>
+                      Transferred from Closed Positions
+                    </span>
+                  </div>
+                );
+              }
+              
+              if (isUploadedViaSpreadsheet) {
+                return (
+                  <div className="mb-4">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/10 border border-orange-500/20 rounded-full text-xs font-medium text-orange-400">
+                      <span className="w-1.5 h-1.5 bg-orange-400 rounded-full"></span>
+                      Uploaded via spreadsheet
+                    </span>
+                  </div>
+                );
+              }
+              
+              return null;
+            })()}
+            
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+              {viewingNotesTrade.entryNotes && (
+                <div className="p-4 bg-[#0d1117] rounded-lg border border-[#30363d]">
+                  <h4 className="text-sm font-medium text-[#8b949e] mb-2">Entry Notes</h4>
+                  <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.entryNotes
+                    .replace(/^Transferred from Closed Positions\.\s*/, '')
+                    .replace(/\s*\[Source: [^\]]+\]\s*$/, '')
+                    .replace(/\s*\[Source: [^\]]+\]\s*/g, ' ')
+                    .trim()}
+                  </p>
+                </div>
+              )}
+              
+              {viewingNotesTrade.exitNotes && (
+                <div className="p-4 bg-[#0d1117] rounded-lg border border-[#30363d]">
+                  <h4 className="text-sm font-medium text-[#8b949e] mb-2">Exit Notes</h4>
+                  <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.exitNotes
+                    .replace(/^Closed position transferred from watchlist\.\s*/, '')
+                    .replace(/\s*\[Source: [^\]]+\]\s*$/, '')
+                    .replace(/\s*\[Source: [^\]]+\]\s*/g, ' ')
+                    .trim()}
+                  </p>
+                </div>
+              )}
+              
+              {!viewingNotesTrade.entryNotes && !viewingNotesTrade.exitNotes && (
+                <div className="text-center py-8 text-[#8b949e]">
+                  <FileText className="w-12 h-12 mx-auto mb-3 text-[#30363d]" />
+                  <p>No notes for this trade</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setViewingNotesTrade(null)}
+                className="px-4 py-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Import Modal */}
@@ -917,6 +1052,19 @@ export default function CalendarView() {
           </div>
         </div>
       )}
+
+      {/* Edit Trade Modal */}
+      {showEditModal && editingTrade && (
+        <EditTradeModal
+          trade={editingTrade}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingTrade(null);
+          }}
+          onSave={handleSaveTrade}
+          isSaving={isSaving}
+        />
+      )}
     </div>
   );
 }
@@ -942,6 +1090,8 @@ function EditTradeModal({
     exitPrice: trade.exitPrice?.toString() || '',
     exitDate: trade.exitDate || '',
     status: trade.status,
+    entryNotes: trade.entryNotes || '',
+    exitNotes: trade.exitNotes || '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -956,12 +1106,14 @@ function EditTradeModal({
       exitPrice: formData.exitPrice ? parseFloat(formData.exitPrice) : undefined,
       exitDate: formData.exitDate || undefined,
       status: formData.status as 'OPEN' | 'CLOSED',
+      entryNotes: formData.entryNotes.trim() || undefined,
+      exitNotes: formData.exitNotes.trim() || undefined,
     });
   };
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-md p-6 shadow-2xl">
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-white">Edit Trade</h3>
           <button onClick={onClose} className="p-2 hover:bg-[#30363d] rounded-lg">
@@ -970,6 +1122,7 @@ function EditTradeModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Row 1: Symbol & Side */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-[#8b949e] mb-1">Symbol</label>
@@ -993,6 +1146,7 @@ function EditTradeModal({
             </div>
           </div>
 
+          {/* Row 2: Shares & Entry Price */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-[#8b949e] mb-1">Shares</label>
@@ -1015,6 +1169,7 @@ function EditTradeModal({
             </div>
           </div>
 
+          {/* Row 3: Entry Date (full width) */}
           <div>
             <label className="block text-xs text-[#8b949e] mb-1">Entry Date</label>
             <input
@@ -1025,29 +1180,52 @@ function EditTradeModal({
             />
           </div>
 
-          <div className="border-t border-[#30363d] pt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-[#8b949e] mb-1">Exit Price (optional)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.exitPrice}
-                  onChange={(e) => setFormData({ ...formData, exitPrice: e.target.value })}
-                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-[#8b949e] mb-1">Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'OPEN' | 'CLOSED' })}
-                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
-                >
-                  <option value="OPEN">OPEN</option>
-                  <option value="CLOSED">CLOSED</option>
-                </select>
-              </div>
+          {/* Row 4: Exit Price & Status */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-[#8b949e] mb-1">Exit Price (optional)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.exitPrice}
+                onChange={(e) => setFormData({ ...formData, exitPrice: e.target.value })}
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[#8b949e] mb-1">Status</label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'OPEN' | 'CLOSED' })}
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+              >
+                <option value="OPEN">OPEN</option>
+                <option value="CLOSED">CLOSED</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Notes Section */}
+          <div className="border-t border-[#30363d] pt-4 space-y-3">
+            <div>
+              <label className="block text-xs text-[#8b949e] mb-1">Entry Notes (optional)</label>
+              <textarea
+                value={formData.entryNotes}
+                onChange={(e) => setFormData({ ...formData, entryNotes: e.target.value })}
+                rows={4}
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm resize-none"
+                placeholder="Add entry notes..."
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[#8b949e] mb-1">Exit Notes (optional)</label>
+              <textarea
+                value={formData.exitNotes}
+                onChange={(e) => setFormData({ ...formData, exitNotes: e.target.value })}
+                rows={4}
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm resize-none"
+                placeholder="Add exit notes..."
+              />
             </div>
           </div>
 
