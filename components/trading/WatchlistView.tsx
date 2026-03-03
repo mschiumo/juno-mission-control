@@ -69,6 +69,7 @@ export default function WatchlistView() {
   const [activeTrades, setActiveTrades] = useState<ActiveTradeWithPnL[]>([]);
   const [activeTradesLoading, setActiveTradesLoading] = useState(false);
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
+  const [activeTradesSearchQuery, setActiveTradesSearchQuery] = useState('');
   
   // Edit Active Trade state
   const [editingTrade, setEditingTrade] = useState<ActiveTrade | null>(null);
@@ -85,6 +86,7 @@ export default function WatchlistView() {
   const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
   const [closedPositionsLoading, setClosedPositionsLoading] = useState(false);
   const [deletingPositionId, setDeletingPositionId] = useState<string | null>(null);
+  const [closedPositionsSearchQuery, setClosedPositionsSearchQuery] = useState('');
   
   // Multi-select state for Closed Positions
   const [selectedClosedPositions, setSelectedClosedPositions] = useState<Set<string>>(new Set());
@@ -758,10 +760,19 @@ export default function WatchlistView() {
     );
   }, [addedToCalendarIds, calendarTrades]);
 
-  // Filter closed positions to exclude ones already in calendar
+  // Filter closed positions to exclude ones already in calendar and apply search
   const visibleClosedPositions = useMemo(() => {
-    return closedPositions.filter(position => !isPositionInCalendar(position));
-  }, [closedPositions, isPositionInCalendar]);
+    let filtered = closedPositions.filter(position => !isPositionInCalendar(position));
+    
+    // Apply search filter
+    if (closedPositionsSearchQuery) {
+      filtered = filtered.filter(position =>
+        position.ticker.toLowerCase().includes(closedPositionsSearchQuery.toLowerCase())
+      );
+    }
+    
+    return filtered;
+  }, [closedPositions, isPositionInCalendar, closedPositionsSearchQuery]);
 
   // ===== ADD TO CALENDAR: Closed Position → Calendar Trade =====
   const handleAddToCalendarClick = (position: ClosedPosition) => {
@@ -1028,14 +1039,34 @@ export default function WatchlistView() {
               </p>
             </div>
           </div>
-          <button
-            onClick={fetchActiveTrades}
-            disabled={activeTradesLoading}
-            className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${activeTradesLoading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Search Input */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search ticker..."
+                value={activeTradesSearchQuery}
+                onChange={(e) => setActiveTradesSearchQuery(e.target.value)}
+                className="w-40 px-3 py-1.5 bg-[#0F0F0F] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#6e7681] focus:outline-none focus:border-green-500 transition-colors"
+              />
+              {activeTradesSearchQuery && (
+                <button
+                  onClick={() => setActiveTradesSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6e7681] hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={fetchActiveTrades}
+              disabled={activeTradesLoading}
+              className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw className={`w-4 h-4 ${activeTradesLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {/* Active Trades List */}
@@ -1047,7 +1078,28 @@ export default function WatchlistView() {
           </div>
         ) : (
           <div className="space-y-3">
-            {activeTrades.map((trade) => (
+            {(() => {
+              const filteredActiveTrades = activeTradesSearchQuery
+                ? activeTrades.filter(trade =>
+                    trade.ticker.toLowerCase().includes(activeTradesSearchQuery.toLowerCase())
+                  )
+                : activeTrades;
+              
+              if (filteredActiveTrades.length === 0 && activeTradesSearchQuery) {
+                return (
+                  <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
+                    <p className="text-sm text-[#8b949e]">No active positions found for "{activeTradesSearchQuery}"</p>
+                    <button
+                      onClick={() => setActiveTradesSearchQuery('')}
+                      className="mt-2 text-sm text-green-400 hover:text-green-300"
+                    >
+                      Clear search
+                    </button>
+                  </div>
+                );
+              }
+              
+              return filteredActiveTrades.map((trade) => (
               <div
                 key={trade.id}
                 draggable
@@ -1255,7 +1307,8 @@ export default function WatchlistView() {
                   )}
                 </div>
               </div>
-            ))}
+              ));
+            })()}
           </div>
         )}
       </div>
@@ -1620,6 +1673,25 @@ export default function WatchlistView() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Search Input */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search ticker..."
+                value={closedPositionsSearchQuery}
+                onChange={(e) => setClosedPositionsSearchQuery(e.target.value)}
+                className="w-40 px-3 py-1.5 bg-[#0F0F0F] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#6e7681] focus:outline-none focus:border-blue-500 transition-colors"
+              />
+              {closedPositionsSearchQuery && (
+                <button
+                  onClick={() => setClosedPositionsSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6e7681] hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
             {/* Select All Checkbox */}
             {visibleClosedPositions.length > 0 && (
               <button
@@ -1668,17 +1740,29 @@ export default function WatchlistView() {
           <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
             <History className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
             <p className="text-sm text-[#8b949e]">
-              {closedPositions.length > 0 
-                ? 'All positions have been added to calendar'
-                : 'No closed positions'
+              {closedPositionsSearchQuery
+                ? `No positions found for "${closedPositionsSearchQuery}"`
+                : closedPositions.length > 0 
+                  ? 'All positions have been added to calendar'
+                  : 'No closed positions'
               }
             </p>
             <p className="text-xs text-[#6e7681] mt-1">
-              {closedPositions.length > 0 
-                ? 'View them in Calendar Overview'
-                : 'Closed trades will appear here'
+              {closedPositionsSearchQuery
+                ? ''
+                : closedPositions.length > 0 
+                  ? 'View them in Calendar Overview'
+                  : 'Closed trades will appear here'
               }
             </p>
+            {closedPositionsSearchQuery && (
+              <button
+                onClick={() => setClosedPositionsSearchQuery('')}
+                className="mt-2 text-sm text-blue-400 hover:text-blue-300"
+              >
+                Clear search
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
