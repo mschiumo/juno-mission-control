@@ -329,13 +329,13 @@ export default function EditActiveTradeModal({
                   step="1"
                   value={formData.actualShares}
                   onChange={(e) => handleInputChange('actualShares', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                  className="w-full px-3 py-2 pr-24 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                   placeholder="Enter number of shares"
                 />
                 {sharesManuallyEdited && (
                   <button
                     onClick={resetSharesToAuto}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-2 py-1 rounded transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-2 py-1 rounded transition-colors whitespace-nowrap"
                     type="button"
                   >
                     Reset to Auto
