@@ -1169,7 +1169,7 @@ export default function WatchlistView() {
                   </div>
 
                   {/* Notes - Inline Editable */}
-                  {trade.notes ? (
+                  {trade.notes && (
                     <div className="bg-[#161b22] rounded-lg p-4 cursor-pointer hover:bg-[#1c2128] transition-colors"
                          onClick={() => handleInlineEditStart(trade, 'notes')}>
                       {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'notes' ? (
