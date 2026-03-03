@@ -587,11 +587,13 @@ export default function WatchlistView() {
       return;
     }
 
-    let parsedValue: number | string | undefined;
+    let parsedValue: number | string | null | undefined;
     let numericValue: number | undefined;
     
     if (field === 'notes') {
-      parsedValue = value.trim() || undefined;
+      // Use null for empty notes so API receives the field (undefined gets stripped from JSON)
+      const trimmedValue = value.trim();
+      parsedValue = trimmedValue || null;
     } else {
       numericValue = parseFloat(value);
       if (isNaN(numericValue) || numericValue <= 0) {
