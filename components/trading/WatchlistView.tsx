@@ -1369,7 +1369,7 @@ export default function WatchlistView() {
                                 </div>
                                 <div>
                                   <div className="text-xs text-[#8b949e]">Profit</div>
-                                  <div className="text-sm font-bold text-green-400">{formatCurrency(item.potentialReward)}</div>
+                                  <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
                                 </div>
                                 <div>
                                   <div className="text-xs text-[#8b949e]">Value</div>
@@ -1490,7 +1490,7 @@ export default function WatchlistView() {
                                 </div>
                                 <div>
                                   <div className="text-xs text-[#8b949e]">Profit</div>
-                                  <div className="text-sm font-bold text-green-400">{formatCurrency(item.potentialReward)}</div>
+                                  <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
                                 </div>
                                 <div>
                                   <div className="text-xs text-[#8b949e]">Value</div>
