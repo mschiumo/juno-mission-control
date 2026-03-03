@@ -730,6 +730,14 @@ export default function WatchlistView() {
 
     const position = confirmingAddToCalendar;
 
+    // VALIDATION: Check if already in calendar
+    if (isPositionInCalendar(position)) {
+      alert('This position has already been added to the calendar.');
+      setConfirmingAddToCalendar(null);
+      setCalendarFormData(null);
+      return;
+    }
+
     // VALIDATION: Exit price is required
     const exitPrice = parseFloat(calendarFormData.exitPrice);
     if (!exitPrice || exitPrice <= 0) {
