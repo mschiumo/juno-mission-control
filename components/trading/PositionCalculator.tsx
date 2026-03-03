@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Calculator, RotateCcw, CheckCircle, AlertCircle, XCircle, Info } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { Calculator, Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info, Loader2 } from 'lucide-react';
+import type { WatchlistItem } from '@/types/watchlist';
+import type { ActiveTradeWithPnL } from '@/types/active-trade';
 
 interface CalculatorInputs {
+  ticker: string;
   riskAmount: string;
   entryPrice: string;
   stopPrice: string;
@@ -12,6 +15,7 @@ interface CalculatorInputs {
 }
 
 const DEFAULT_VALUES: CalculatorInputs = {
+  ticker: '',
   riskAmount: '20',
   entryPrice: '',
   stopPrice: '',
@@ -27,19 +31,144 @@ const RISK_RATIO_OPTIONS = [
   { value: '4', label: '4:1' },
 ];
 
+// Default user ID (can be made dynamic with auth later)
+const DEFAULT_USER_ID = 'default';
+
 export default function PositionCalculator() {
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_VALUES);
   const [showTooltips, setShowTooltips] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [addSuccess, setAddSuccess] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'duplicate' | 'success'>('idle');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleInputChange = (field: keyof CalculatorInputs, value: string) => {
-    // Allow empty string or valid numbers
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+    // Allow empty string or valid numbers for numeric fields
+    if (field === 'ticker') {
+      // Convert ticker to uppercase
+      setInputs(prev => ({ ...prev, [field]: value.toUpperCase() }));
+    } else if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setInputs(prev => ({ ...prev, [field]: value }));
     }
   };
 
-  const handleReset = () => {
-    setInputs(DEFAULT_VALUES);
+  const handleClear = () => {
+    setInputs({
+      ticker: '',
+      riskAmount: '',
+      entryPrice: '',
+      stopPrice: '',
+      targetPrice: '',
+      riskRatio: '2',
+    });
+    setAddSuccess(false);
+    setSaveStatus('idle');
+  };
+
+  // Fetch watchlist from API
+  const fetchWatchlist = useCallback(async (): Promise<WatchlistItem[]> => {
+    try {
+      const response = await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`);
+      if (!response.ok) throw new Error('Failed to fetch watchlist');
+      const result = await response.json();
+      return result.data || [];
+    } catch (error) {
+      console.error('Error fetching watchlist:', error);
+      return [];
+    }
+  }, []);
+
+  // Fetch active trades from API
+  const fetchActiveTrades = useCallback(async (): Promise<ActiveTradeWithPnL[]> => {
+    try {
+      const response = await fetch(`/api/active-trades?userId=${DEFAULT_USER_ID}`);
+      if (!response.ok) throw new Error('Failed to fetch active trades');
+      const result = await response.json();
+      return result.data || [];
+    } catch (error) {
+      console.error('Error fetching active trades:', error);
+      return [];
+    }
+  }, []);
+
+  const handleAddToWatchlist = async () => {
+    if (!isFormValid() || calculations.status !== 'valid') return;
+
+    setIsLoading(true);
+
+    try {
+      // Fetch existing watchlist and active trades from API
+      const [existingWatchlist, activeTrades] = await Promise.all([
+        fetchWatchlist(),
+        fetchActiveTrades(),
+      ]);
+      
+      const tickerInput = inputs.ticker.trim().toUpperCase();
+      
+      // Check for duplicate ticker in watchlist (Potential Trades)
+      const isDuplicateInWatchlist = existingWatchlist.some((item: WatchlistItem) =>
+        item.ticker.toUpperCase() === tickerInput
+      );
+      
+      // Check for duplicate ticker in active trades
+      const isDuplicateInActive = activeTrades.some((trade: ActiveTradeWithPnL) =>
+        trade.ticker?.toUpperCase() === tickerInput
+      );
+      
+      // Block if in watchlist or active trades, but allow if only in closed positions
+      if (isDuplicateInWatchlist) {
+        setSaveStatus('duplicate');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (isDuplicateInActive) {
+        setSaveStatus('duplicate');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+        setIsLoading(false);
+        return;
+      }
+
+      const newItem: Omit<WatchlistItem, 'id' | 'createdAt'> = {
+        ticker: inputs.ticker.trim().toUpperCase(),
+        entryPrice: calculations.entry,
+        stopPrice: calculations.stop,
+        targetPrice: calculations.target,
+        riskRatio: calculations.actualRR,
+        stopSize: calculations.stopSize,
+        shareSize: calculations.shareSize,
+        potentialReward: calculations.potentialReward,
+        positionValue: calculations.positionValue,
+      };
+
+      // Save to API (Redis)
+      const response = await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newItem),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save to watchlist');
+      }
+
+      // Dispatch custom event to notify WatchlistView in same tab
+      window.dispatchEvent(new CustomEvent('juno:watchlist-updated'));
+
+      // Clear inputs after successful save
+      handleClear();
+
+      // Show success feedback briefly
+      setSaveStatus('success');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Error saving to watchlist:', error);
+      setSaveStatus('duplicate'); // Show error state
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Calculate all values
@@ -56,8 +185,8 @@ export default function PositionCalculator() {
     // Share Size = Risk / Stop Size
     const shareSize = stopSize > 0 ? Math.floor(risk / stopSize) : 0;
 
-    // Potential Reward = Risk * Risk Ratio
-    const potentialReward = risk * ratio;
+    // Expected Profit = (Target - Entry) * Share Size
+    const potentialReward = entry > 0 && target > 0 && shareSize > 0 ? (target - entry) * shareSize : 0;
 
     // Actual Risk:Reward = (Target - Entry) / Stop Size
     const actualRR = stopSize > 0 && target > 0 && entry > 0
@@ -67,19 +196,25 @@ export default function PositionCalculator() {
     // Total Position Value = Share Size * Entry Price
     const positionValue = shareSize * entry;
 
-    // Validation status
+    // Validation status - use selected riskRatio from inputs
+    const desiredRatio = parseFloat(inputs.riskRatio) || 2;
     let status: 'valid' | 'marginal' | 'invalid' = 'invalid';
     let statusMessage = 'Enter all values to check trade validity';
 
-    if (actualRR >= 2) {
+    // BUG FIX #1: Add epsilon tolerance to avoid floating point precision issues
+    // e.g., 1.9999999 should count as valid when desiredRatio is 2.0
+    const EPSILON = 0.001;
+    const roundedActualRR = Math.round(actualRR * 100) / 100;
+
+    if (roundedActualRR >= desiredRatio - EPSILON) {
       status = 'valid';
-      statusMessage = `✅ Valid Trade - ${actualRR.toFixed(2)}:1 R:R meets minimum 2:1 requirement`;
-    } else if (actualRR >= 1.5) {
+      statusMessage = `✅ Valid Trade - ${roundedActualRR.toFixed(2)}:1 meets minimum ${desiredRatio}:1 requirement`;
+    } else if (roundedActualRR >= desiredRatio * 0.75) {
       status = 'marginal';
-      statusMessage = `⚠️ Marginal Trade - ${actualRR.toFixed(2)}:1 R:R is below 2:1 minimum`;
-    } else if (actualRR > 0) {
+      statusMessage = `⚠️ Marginal Trade - ${roundedActualRR.toFixed(2)}:1 is below ${desiredRatio}:1 minimum`;
+    } else if (roundedActualRR > 0) {
       status = 'invalid';
-      statusMessage = `❌ Invalid Trade - ${actualRR.toFixed(2)}:1 R:R is below 1.5:1 threshold`;
+      statusMessage = `❌ Invalid Trade - ${roundedActualRR.toFixed(2)}:1 is below ${(desiredRatio * 0.75).toFixed(2)}:1 threshold`;
     }
 
     return {
@@ -140,6 +275,20 @@ export default function PositionCalculator() {
 
   const statusColors = getStatusColors();
 
+  // Check if all required form fields are filled for watchlist
+  const isFormValid = () => {
+    return (
+      inputs.ticker.trim() !== '' &&
+      inputs.riskAmount !== '' && parseFloat(inputs.riskAmount) > 0 &&
+      inputs.entryPrice !== '' && parseFloat(inputs.entryPrice) > 0 &&
+      inputs.stopPrice !== '' && parseFloat(inputs.stopPrice) > 0 &&
+      inputs.targetPrice !== '' && parseFloat(inputs.targetPrice) > 0
+    );
+  };
+
+  // Check if add to watchlist button should be enabled
+  const canAddToWatchlist = calculations.status === 'valid' && isFormValid();
+
   return (
     <div className="w-full">
       {/* Header */}
@@ -149,7 +298,7 @@ export default function PositionCalculator() {
             <Calculator className="w-5 h-5 text-[#F97316]" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-white">Position Sizing Calculator</h3>
+            <h3 className="text-lg font-semibold text-white">Trade Management</h3>
             <p className="text-sm text-[#8b949e]">Calculate shares and validate risk/reward</p>
           </div>
         </div>
@@ -162,11 +311,11 @@ export default function PositionCalculator() {
             <Info className="w-4 h-4" />
           </button>
           <button
-            onClick={handleReset}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+            onClick={handleClear}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-[#8b949e] border border-[#30363d] hover:text-white hover:bg-[#262626] hover:border-[#8b949e] rounded-lg transition-colors"
           >
-            <RotateCcw className="w-4 h-4" />
-            Reset
+            <Eraser className="w-4 h-4" />
+            Clear
           </button>
         </div>
       </div>
@@ -176,6 +325,26 @@ export default function PositionCalculator() {
         <div className="space-y-4">
           <h4 className="text-sm font-medium text-[#8b949e] uppercase tracking-wide">Trade Parameters</h4>
           
+          {/* Ticker Symbol */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-white">
+              Stock Ticker
+              {showTooltips && (
+                <span className="text-xs text-[#8b949e] font-normal">
+                  — Symbol for the stock you&apos;re trading
+                </span>
+              )}
+            </label>
+            <input
+              type="text"
+              value={inputs.ticker}
+              onChange={(e) => handleInputChange('ticker', e.target.value)}
+              placeholder="AAPL"
+              className="w-full bg-[#0F0F0F] border border-[#30363d] rounded-lg px-4 py-2.5 text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors uppercase"
+            />
+            <p className="text-xs text-[#8b949e]">Required to save to watchlist</p>
+          </div>
+
           {/* Risk Amount */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm text-white">
@@ -305,6 +474,52 @@ export default function PositionCalculator() {
             </div>
           </div>
 
+          {/* Add to Watchlist Button - Only show for valid trades */}
+          {calculations.status === 'valid' && (
+            <div className="space-y-2">
+              <button
+                onClick={handleAddToWatchlist}
+                disabled={!isFormValid() || saveStatus === 'duplicate' || isLoading}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                  saveStatus === 'duplicate'
+                    ? 'bg-red-500/20 border border-red-500/50 text-red-400'
+                    : addSuccess || saveStatus === 'success'
+                      ? 'bg-green-500 text-white'
+                      : isFormValid() && !isLoading
+                        ? 'bg-[#F97316] hover:bg-[#F97316]/90 text-white'
+                        : 'bg-[#262626] text-[#8b949e] cursor-not-allowed'
+                }`}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : saveStatus === 'duplicate' ? (
+                  <>
+                    <AlertCircle className="w-5 h-5" />
+                    {inputs.ticker.trim().toUpperCase()} is already in your watchlist
+                  </>
+                ) : addSuccess || saveStatus === 'success' ? (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    Added to Watchlist!
+                  </>
+                ) : (
+                  <>
+                    <BookmarkPlus className="w-5 h-5" />
+                    Add to Watchlist
+                  </>
+                )}
+              </button>
+              {!isFormValid() && (
+                <p className="text-xs text-[#8b949e] text-center">
+                  Fill in all fields to save to watchlist
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Results Grid */}
           <div className="grid grid-cols-1 gap-3">
             {/* Stop Size */}
@@ -334,15 +549,15 @@ export default function PositionCalculator() {
               )}
             </div>
 
-            {/* Potential Reward */}
+            {/* Expected Profit */}
             <div className="bg-[#0F0F0F] border border-[#262626] rounded-lg p-4">
-              <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Potential Reward</p>
+              <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Expected Profit</p>
               <p className="text-xl font-bold text-green-400">
                 {calculations.potentialReward > 0 ? formatCurrency(calculations.potentialReward) : '—'}
               </p>
               {showTooltips && calculations.potentialReward > 0 && (
                 <p className="text-xs text-[#8b949e] mt-1">
-                  ${calculations.risk} × {calculations.ratio}R = {formatCurrency(calculations.potentialReward)}
+                  (${calculations.target.toFixed(2)} - ${calculations.entry.toFixed(2)}) × {formatNumber(calculations.shareSize)} = {formatCurrency(calculations.potentialReward)}
                 </p>
               )}
             </div>
@@ -351,8 +566,8 @@ export default function PositionCalculator() {
             <div className="bg-[#0F0F0F] border border-[#262626] rounded-lg p-4">
               <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-1">Actual Risk:Reward</p>
               <p className={`text-xl font-bold ${
-                calculations.actualRR >= 2 ? 'text-green-400' :
-                calculations.actualRR >= 1.5 ? 'text-yellow-400' :
+                calculations.actualRR >= calculations.ratio ? 'text-green-400' :
+                calculations.actualRR >= calculations.ratio * 0.75 ? 'text-yellow-400' :
                 calculations.actualRR > 0 ? 'text-red-400' : 'text-white'
               }`}>
                 {calculations.actualRR > 0 ? `${calculations.actualRR.toFixed(2)}:1` : '—'}
@@ -380,19 +595,19 @@ export default function PositionCalculator() {
 
           {/* Quick Reference */}
           <div className="mt-4 p-3 bg-[#1a1a1a] border border-[#262626] rounded-lg">
-            <p className="text-xs font-medium text-[#8b949e] mb-2">Quick Reference</p>
+            <p className="text-xs font-medium text-[#8b949e] mb-2">Quick Reference (using {parseFloat(inputs.riskRatio) || 2}:1)</p>
             <div className="space-y-1 text-xs">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-[#8b949e]">≥ 2:1 R:R — Valid trade</span>
+                <span className="text-[#8b949e]">≥ {parseFloat(inputs.riskRatio) || 2}:1 R:R — Valid trade</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                <span className="text-[#8b949e]">1.5:1 to 2:1 — Marginal</span>
+                <span className="text-[#8b949e]">{(parseFloat(inputs.riskRatio) || 2) * 0.75}:1 to {parseFloat(inputs.riskRatio) || 2}:1 — Marginal</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-[#8b949e]">&lt; 1.5:1 — Invalid, skip trade</span>
+                <span className="text-[#8b949e]">&lt; {(parseFloat(inputs.riskRatio) || 2) * 0.75}:1 — Invalid, skip trade</span>
               </div>
             </div>
           </div>
