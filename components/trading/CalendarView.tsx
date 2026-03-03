@@ -813,17 +813,26 @@ export default function CalendarView() {
                           {trade.netPnL ? `${trade.netPnL >= 0 ? '+' : ''}$${trade.netPnL.toFixed(2)}` : '-'}
                         </td>
                         <td className="py-3 px-4 max-w-xs">
-                          {trade.entryNotes || trade.exitNotes ? (
-                            <button
-                              onClick={() => setViewingNotesTrade(trade)}
-                              className="text-left text-xs text-[#8b949e] truncate hover:text-[#F97316] transition-colors cursor-pointer w-full"
-                              title="Click to view full notes"
-                            >
-                              {trade.entryNotes || trade.exitNotes}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-[#6e7681]">-</span>
-                          )}
+                          {(() => {
+                            const notesText = trade.entryNotes || trade.exitNotes || '';
+                            // Clean up transfer/import prefixes for display
+                            const cleanNotes = notesText
+                              .replace(/^Transferred from Closed Positions\.\s*/, '')
+                              .replace(/^Imported from TOS Position Statement\s*-\s*CLOSED\.?\s*/, '')
+                              .replace(/^Closed position transferred from watchlist\.\s*/, '')
+                              .trim();
+                            return cleanNotes ? (
+                              <button
+                                onClick={() => setViewingNotesTrade(trade)}
+                                className="text-left text-xs text-[#8b949e] truncate hover:text-[#F97316] transition-colors cursor-pointer w-full"
+                                title="Click to view full notes"
+                              >
+                                {cleanNotes}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-[#6e7681]">-</span>
+                            );
+                          })()}
                         </td>
                         <td className="py-3 px-4">
                           <span className={`text-xs px-2 py-1 rounded-full ${trade.status === 'CLOSED' ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#d29922]/20 text-[#d29922]'}`}>
