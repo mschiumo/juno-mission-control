@@ -81,7 +81,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       // Start of day in EST
       const start = new Date(`${startDate}T00:00:00-05:00`);
       filteredTrades = filteredTrades.filter(
-        (t) => new Date(t.entryDate) >= start
+        (t) => new Date(t.entryDate) >= start || (t.exitDate && new Date(t.exitDate) >= start)
       );
     }
     
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       // End of day in EST (23:59:59)
       const end = new Date(`${endDate}T23:59:59-05:00`);
       filteredTrades = filteredTrades.filter(
-        (t) => new Date(t.entryDate) <= end
+        (t) => new Date(t.entryDate) <= end || (t.exitDate && new Date(t.exitDate) <= end)
       );
     }
     
