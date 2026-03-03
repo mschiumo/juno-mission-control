@@ -41,7 +41,7 @@ export default function CalendarView() {
 
   // Trades section state
   const [allTrades, setAllTrades] = useState<TOSTrade[]>([]);
-  const [tradesExpanded, setTradesExpanded] = useState(false);
+  const [tradesExpanded, setTradesExpanded] = useState(true);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [filterSymbol, setFilterSymbol] = useState('');
