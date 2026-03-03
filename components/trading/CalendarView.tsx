@@ -332,8 +332,7 @@ export default function CalendarView() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `trades_export_${new Date().toISOString().split('T')[0]}.csv`;
-
-[12 more lines in file. Use offset: 322 to the [ (matched lines truncated for brevity...)]
+    document.body.appendChild(a);
     a.click();
   };
 
