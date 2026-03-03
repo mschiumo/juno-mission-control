@@ -131,7 +131,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     if (body.actualEntry !== undefined) updates.actualEntry = parseFloat(body.actualEntry);
     if (body.actualShares !== undefined) updates.actualShares = parseInt(body.actualShares);
     if (body.positionValue !== undefined) updates.positionValue = parseFloat(body.positionValue);
-    if (body.notes !== undefined) updates.notes = body.notes;
+    if (body.notes !== undefined) updates.notes = body.notes || undefined;
     if (body.currentPrice !== undefined) updates.currentPrice = parseFloat(body.currentPrice);
     if (body.unrealizedPnL !== undefined) updates.unrealizedPnL = parseFloat(body.unrealizedPnL);
     if (body.unrealizedPnLPercent !== undefined) updates.unrealizedPnLPercent = parseFloat(body.unrealizedPnLPercent);
