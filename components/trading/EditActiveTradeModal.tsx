@@ -218,6 +218,28 @@ export default function EditActiveTradeModal({
   const currentPositionValue = 
     parseFloat(formData.actualEntry || '0') * parseInt(formData.actualShares || '0');
 
+  // Calculate position-level risk and reward amounts based on current form values
+  const calculatePositionMetrics = () => {
+    const entry = parseFloat(formData.actualEntry) || 0;
+    const stop = parseFloat(formData.plannedStop) || 0;
+    const target = parseFloat(formData.plannedTarget) || 0;
+    const shares = parseInt(formData.actualShares) || 0;
+    
+    if (entry <= 0 || stop <= 0 || target <= 0 || shares <= 0) {
+      return { riskAmount: 0, rewardAmount: 0, ratio: 0 };
+    }
+    
+    const stopSize = Math.abs(entry - stop);
+    const targetSize = Math.abs(target - entry);
+    const riskAmount = stopSize * shares;
+    const rewardAmount = targetSize * shares;
+    const ratio = stopSize > 0 ? targetSize / stopSize : 0;
+    
+    return { riskAmount, rewardAmount, ratio };
+  };
+
+  const { riskAmount, rewardAmount, ratio: positionRatio } = calculatePositionMetrics();
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-[#0F0F0F] border border-[#262626] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
@@ -244,26 +266,22 @@ export default function EditActiveTradeModal({
 
         {/* Content */}
         <div className="p-6 overflow-y-auto">
-          {/* Planned Values Reference */}
+          {/* Current Trade Setup - Shows live position metrics */}
           <div className="bg-[#161b22] border border-[#262626] rounded-xl p-4 mb-6">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium text-[#8b949e] uppercase tracking-wide">
                 Current Trade Setup
               </span>
-              {(() => {
-                const { ratio } = calculateRiskReward();
-                const isValid = ratio >= 2;
-                return (
-                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${isValid ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-                    <span className={`text-xs font-semibold ${isValid ? 'text-green-400' : 'text-red-400'}`}>
-                      R/R: {ratio.toFixed(2)}:1
-                    </span>
-                    {!isValid && ratio > 0 && (
-                      <span className="text-[10px] text-red-400">(Need 2:1)</span>
-                    )}
-                  </div>
-                );
-              })()}
+              {positionRatio > 0 && (
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${positionRatio >= 2 ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+                  <span className={`text-xs font-semibold ${positionRatio >= 2 ? 'text-green-400' : 'text-red-400'}`}>
+                    R/R: {positionRatio.toFixed(2)}:1
+                  </span>
+                  {positionRatio < 2 && (
+                    <span className="text-[10px] text-red-400">(Need 2:1)</span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
@@ -285,21 +303,24 @@ export default function EditActiveTradeModal({
                 </p>
               </div>
             </div>
-            {(() => {
-              const { ratio, reward, risk } = calculateRiskReward();
-              if (ratio <= 0) return null;
-              return (
-                <div className="mt-3 pt-3 border-t border-[#262626]">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#8b949e]">Risk: {formatCurrency(risk)}</span>
-                    <span className="text-[#8b949e]">Reward: {formatCurrency(reward)}</span>
-                    <span className={ratio >= 2 ? 'text-green-400' : 'text-red-400'}>
-                      Ratio: {ratio.toFixed(2)}:1
-                    </span>
+            {riskAmount > 0 && (
+              <div className="mt-3 pt-3 border-t border-[#262626]">
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="text-[#8b949e]">Risk Amount</span>
+                    <p className="text-red-400 font-semibold">-{formatCurrency(riskAmount)}</p>
+                  </div>
+                  <div>
+                    <span className="text-[#8b949e]">Reward Amount</span>
+                    <p className="text-green-400 font-semibold">+{formatCurrency(rewardAmount)}</p>
+                  </div>
+                  <div>
+                    <span className="text-[#8b949e]">Position Value</span>
+                    <p className="text-blue-400 font-semibold">{formatCurrency(currentPositionValue)}</p>
                   </div>
                 </div>
-              );
-            })()}
+              </div>
+            )}
           </div>
 
           {/* Form */}
@@ -361,13 +382,13 @@ export default function EditActiveTradeModal({
                   step="1"
                   value={formData.actualShares}
                   onChange={(e) => handleInputChange('actualShares', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                  className="w-full px-3 py-2 pr-24 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                   placeholder="Enter number of shares"
                 />
                 {sharesManuallyEdited && (
                   <button
                     onClick={resetSharesToAuto}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-2 py-1 rounded transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-2 py-1 rounded transition-colors whitespace-nowrap"
                     type="button"
                   >
                     Reset to Auto
@@ -429,36 +450,6 @@ export default function EditActiveTradeModal({
                 <p className="mt-1 text-xs text-red-400">{errors.plannedTarget}</p>
               )}
             </div>
-
-            {/* Position Value Preview */}
-            {currentPositionValue > 0 && (
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-[#8b949e]">Position Value</span>
-                  <span className="text-lg font-bold text-blue-400">
-                    {formatCurrency(currentPositionValue)}
-                  </span>
-                </div>
-                {/* Risk Amount */}
-                {(() => {
-                  const entry = parseFloat(formData.actualEntry || '0');
-                  const stop = parseFloat(formData.plannedStop || '0');
-                  const shares = parseInt(formData.actualShares || '0', 10);
-                  if (entry > 0 && stop > 0 && shares > 0) {
-                    const riskAmount = Math.abs(entry - stop) * shares;
-                    return (
-                      <div className="flex items-center justify-between pt-2 border-t border-blue-500/20">
-                        <span className="text-sm text-[#8b949e]">Risk Amount</span>
-                        <span className="text-lg font-bold text-red-400">
-                          -{formatCurrency(riskAmount)}
-                        </span>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-              </div>
-            )}
 
             {/* Notes */}
             <div>
