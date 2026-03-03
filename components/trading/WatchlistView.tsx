@@ -567,7 +567,8 @@ export default function WatchlistView() {
 
   // ===== INLINE EDIT: Active Trade =====
   const handleInlineEditStart = (trade: ActiveTrade, field: 'actualEntry' | 'plannedStop' | 'plannedTarget' | 'actualShares' | 'notes') => {
-    const value = trade[field]?.toString() || '';
+    const rawValue = trade[field];
+    const value = rawValue !== undefined && rawValue !== null ? rawValue.toString() : '';
     setInlineEditing({ tradeId: trade.id, field, value });
   };
 
@@ -1220,37 +1221,35 @@ export default function WatchlistView() {
                   </div>
 
                   {/* Notes - Inline Editable */}
-                  {trade.notes && (
-                    <div className="bg-[#161b22] rounded-lg p-4 cursor-pointer hover:bg-[#1c2128] transition-colors"
-                         onClick={() => handleInlineEditStart(trade, 'notes')}>
-                      {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'notes' ? (
-                        <textarea
-                          value={inlineEditing.value}
-                          onChange={(e) => handleInlineEditChange(e.target.value)}
-                          onBlur={handleInlineEditSave}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && e.metaKey) {
-                              handleInlineEditSave();
-                            } else if (e.key === 'Escape') {
-                              setInlineEditing(null);
-                            }
-                          }}
-                          autoFocus
-                          rows={3}
-                          className="w-full px-2 py-1 bg-[#0F0F0F] border border-blue-500 rounded text-sm text-white focus:outline-none resize-none"
-                          placeholder="Add notes..."
-                        />
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-2">
-                            <FileText className="w-3.5 h-3.5" />
-                            Notes (click to edit)
-                          </div>
-                          <p className="text-sm text-white">{trade.notes}</p>
-                        </>
-                      )}
-                    </div>
-                  )}
+                  <div className={`rounded-lg p-4 cursor-pointer transition-colors ${trade.notes ? 'bg-[#161b22] hover:bg-[#1c2128]' : 'bg-[#0F0F0F] border border-dashed border-[#30363d] hover:border-[#8b949e] hover:bg-[#161b22]'}`}
+                       onClick={() => handleInlineEditStart(trade, 'notes')}>
+                    {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'notes' ? (
+                      <textarea
+                        value={inlineEditing.value}
+                        onChange={(e) => handleInlineEditChange(e.target.value)}
+                        onBlur={handleInlineEditSave}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && e.metaKey) {
+                            handleInlineEditSave();
+                          } else if (e.key === 'Escape') {
+                            setInlineEditing(null);
+                          }
+                        }}
+                        autoFocus
+                        rows={3}
+                        className="w-full px-2 py-1 bg-[#0F0F0F] border border-blue-500 rounded text-sm text-white focus:outline-none resize-none"
+                        placeholder="Add notes..."
+                      />
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-2">
+                          <FileText className="w-3.5 h-3.5" />
+                          {trade.notes ? 'Notes (click to edit)' : 'Add notes...'}
+                        </div>
+                        {trade.notes && <p className="text-sm text-white">{trade.notes}</p>}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
