@@ -1413,26 +1413,28 @@ export default function WatchlistView() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                    {/* Edit button - always visible */}
+                    <button
+                      onClick={() => handleEditClosedPosition(position)}
+                      className="flex items-center gap-1 px-1.5 sm:px-2 py-1 text-xs text-blue-400 hover:text-white hover:bg-blue-500 rounded-lg transition-colors whitespace-nowrap"
+                      title="Edit position details"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span className="hidden sm:inline">Edit</span>
+                    </button>
+                    
+                    {/* Add to Calendar - only if not already added */}
                     {!isPositionInCalendar(position) && (
-                      <>
-                        <button
-                          onClick={() => handleAddToCalendarClick(position)}
-                          className="flex items-center gap-1 px-1.5 sm:px-2 py-1 text-xs text-blue-400 hover:text-white hover:bg-blue-500 rounded-lg transition-colors whitespace-nowrap"
-                          title="Add to Calendar"
-                        >
-                          <Plus className="w-3 h-3" />
-                          <span className="hidden sm:inline">Add</span>
-                        </button>
-                        <button
-                          onClick={() => handleEditClosedPosition(position)}
-                          className="flex items-center gap-1 px-1.5 sm:px-2 py-1 text-xs text-blue-400 hover:text-white hover:bg-blue-500 rounded-lg transition-colors whitespace-nowrap"
-                          title="Edit position details"
-                        >
-                          <Edit3 className="w-3 h-3" />
-                          <span className="hidden sm:inline">Edit</span>
-                        </button>
-                      </>
+                      <button
+                        onClick={() => handleAddToCalendarClick(position)}
+                        className="flex items-center gap-1 px-1.5 sm:px-2 py-1 text-xs text-blue-400 hover:text-white hover:bg-blue-500 rounded-lg transition-colors whitespace-nowrap"
+                        title="Add to Calendar"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span className="hidden sm:inline">Add</span>
+                      </button>
                     )}
+                    
                     <button
                       onClick={() => setDeletingPositionId(position.id)}
                       className="flex items-center gap-1 px-1.5 sm:px-2 py-1 text-xs text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors whitespace-nowrap"
