@@ -28,6 +28,7 @@ import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
 import type { CreateTradeRequest } from '@/types/trading';
 import { TradeSide, Strategy } from '@/types/trading';
 import type { ClosedPosition } from '@/lib/db/closed-positions';
+import { getNowInEST } from '@/lib/date-utils';
 import EditWatchlistItemModal from './EditWatchlistItemModal';
 import EnterPositionModal from './EnterPositionModal';
 import EditActiveTradeModal from './EditActiveTradeModal';
@@ -468,7 +469,7 @@ export default function WatchlistView() {
         actualEntry: trade.actualEntry,
         actualShares: trade.actualShares,
         openedAt: trade.openedAt,
-        closedAt: new Date().toISOString(),
+        closedAt: getNowInEST(),
         notes: trade.notes,
         pnl: undefined,
       };
