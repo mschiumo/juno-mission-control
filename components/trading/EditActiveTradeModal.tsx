@@ -12,6 +12,7 @@ interface EditActiveTradeModalProps {
 }
 
 interface FormErrors {
+  ticker?: string;
   actualEntry?: string;
   actualShares?: string;
   plannedStop?: string;
@@ -25,6 +26,7 @@ export default function EditActiveTradeModal({
   onSave,
 }: EditActiveTradeModalProps) {
   const [formData, setFormData] = useState({
+    ticker: '',
     actualEntry: '',
     actualShares: '',
     plannedStop: '',
@@ -66,6 +68,7 @@ export default function EditActiveTradeModal({
   useEffect(() => {
     if (trade) {
       setFormData({
+        ticker: trade.ticker,
         actualEntry: trade.actualEntry.toString(),
         actualShares: trade.actualShares.toString(),
         plannedStop: trade.plannedStop.toString(),
@@ -82,6 +85,7 @@ export default function EditActiveTradeModal({
   useEffect(() => {
     if (!isOpen) {
       setFormData({
+        ticker: '',
         actualEntry: '',
         actualShares: '',
         plannedStop: '',
@@ -95,6 +99,10 @@ export default function EditActiveTradeModal({
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
+
+    if (!formData.ticker.trim()) {
+      newErrors.ticker = 'Ticker symbol is required';
+    }
 
     const actualEntry = parseFloat(formData.actualEntry);
     if (isNaN(actualEntry) || actualEntry <= 0) {
@@ -173,6 +181,7 @@ export default function EditActiveTradeModal({
 
     const updatedTrade: ActiveTrade = {
       ...trade,
+      ticker: formData.ticker.toUpperCase().trim(),
       actualEntry,
       actualShares,
       plannedStop,
@@ -289,6 +298,23 @@ export default function EditActiveTradeModal({
 
           {/* Form */}
           <div className="space-y-4">
+            {/* Ticker Symbol */}
+            <div>
+              <label className="block text-sm font-medium text-[#8b949e] mb-2">
+                Ticker Symbol
+              </label>
+              <input
+                type="text"
+                value={formData.ticker}
+                onChange={(e) => handleInputChange('ticker', e.target.value)}
+                className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors uppercase"
+                placeholder="e.g. AAPL"
+              />
+              {errors.ticker && (
+                <p className="mt-1 text-xs text-red-400">{errors.ticker}</p>
+              )}
+            </div>
+
             {/* Actual Entry Price */}
             <div>
               <label className="block text-sm font-medium text-[#8b949e] mb-2">
