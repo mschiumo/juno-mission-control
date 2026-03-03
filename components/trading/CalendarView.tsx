@@ -1090,6 +1090,8 @@ function EditTradeModal({
     exitPrice: trade.exitPrice?.toString() || '',
     exitDate: trade.exitDate || '',
     status: trade.status,
+    entryNotes: trade.entryNotes || '',
+    exitNotes: trade.exitNotes || '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1104,6 +1106,8 @@ function EditTradeModal({
       exitPrice: formData.exitPrice ? parseFloat(formData.exitPrice) : undefined,
       exitDate: formData.exitDate || undefined,
       status: formData.status as 'OPEN' | 'CLOSED',
+      entryNotes: formData.entryNotes.trim() || undefined,
+      exitNotes: formData.exitNotes.trim() || undefined,
     });
   };
 
@@ -1196,6 +1200,30 @@ function EditTradeModal({
                   <option value="CLOSED">CLOSED</option>
                 </select>
               </div>
+            </div>
+          </div>
+
+          {/* Notes Section */}
+          <div className="border-t border-[#30363d] pt-4 space-y-3">
+            <div>
+              <label className="block text-xs text-[#8b949e] mb-1">Entry Notes (optional)</label>
+              <textarea
+                value={formData.entryNotes}
+                onChange={(e) => setFormData({ ...formData, entryNotes: e.target.value })}
+                rows={2}
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm resize-none"
+                placeholder="Add entry notes..."
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[#8b949e] mb-1">Exit Notes (optional)</label>
+              <textarea
+                value={formData.exitNotes}
+                onChange={(e) => setFormData({ ...formData, exitNotes: e.target.value })}
+                rows={2}
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm resize-none"
+                placeholder="Add exit notes..."
+              />
             </div>
           </div>
 
