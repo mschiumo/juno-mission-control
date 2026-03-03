@@ -1113,7 +1113,7 @@ function EditTradeModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-md p-6 shadow-2xl">
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-white">Edit Trade</h3>
           <button onClick={onClose} className="p-2 hover:bg-[#30363d] rounded-lg">
@@ -1210,7 +1210,7 @@ function EditTradeModal({
               <textarea
                 value={formData.entryNotes}
                 onChange={(e) => setFormData({ ...formData, entryNotes: e.target.value })}
-                rows={2}
+                rows={4}
                 className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm resize-none"
                 placeholder="Add entry notes..."
               />
@@ -1220,7 +1220,7 @@ function EditTradeModal({
               <textarea
                 value={formData.exitNotes}
                 onChange={(e) => setFormData({ ...formData, exitNotes: e.target.value })}
-                rows={2}
+                rows={4}
                 className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm resize-none"
                 placeholder="Add exit notes..."
               />
