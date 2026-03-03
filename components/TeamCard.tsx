@@ -294,7 +294,6 @@ export default function TeamCard() {
       const data: AgentStatusResponse = await response.json();
       
       if (data.success) {
-        // Merge with sample data to get responsibilities
         const mergedAgents = data.data.map(agent => {
           const sample = SAMPLE_AGENTS.find(a => a.id === agent.id);
           return { ...sample, ...agent, responsibilities: sample?.responsibilities || [], recentWork: sample?.recentWork || [] };
@@ -391,7 +390,6 @@ export default function TeamCard() {
     }
   };
 
-  // Organize agents by hierarchy
   const leadAgent = agents.find(a => a.role === 'lead');
   const specialistAgents = agents.filter(a => a.role === 'specialist');
   const placeholderAgents = agents.filter(a => a.role === 'placeholder');

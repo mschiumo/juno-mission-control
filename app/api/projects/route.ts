@@ -33,7 +33,6 @@ interface ActivityItem {
   timestamp: string;
 }
 
-// Sample projects data - in production this would come from a database
 const PROJECTS: Project[] = [
   {
     id: '1',
@@ -122,10 +121,9 @@ const PROJECTS: Project[] = [
 
 export async function GET() {
   try {
-    // Calculate stats
     const totalProjects = PROJECTS.length;
     const activeProjects = PROJECTS.filter(p => p.status === 'active').length;
-    const completedThisMonth = 0; // Would calculate based on completion dates
+    const completedThisMonth = 0;
     const overallProgress = Math.round(
       PROJECTS.reduce((sum, p) => sum + p.progress, 0) / PROJECTS.length
     );
@@ -152,7 +150,6 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    // In production, this would save to a database
     
     return NextResponse.json({
       success: true,

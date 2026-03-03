@@ -64,7 +64,6 @@ export default function MemoryCard() {
     daysTracked: 0
   });
 
-  // Fetch memory data on mount
   useEffect(() => {
     fetchMemoryData();
   }, []);
@@ -85,7 +84,6 @@ export default function MemoryCard() {
     } catch (error) {
       console.error('Failed to fetch memory data:', error);
       setError('Network error');
-      // Use mock data for now
       setEntries(getMockEntries());
     } finally {
       setLoading(false);
