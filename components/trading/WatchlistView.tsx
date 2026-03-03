@@ -1199,14 +1199,6 @@ export default function WatchlistView() {
                         </>
                       )}
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => handleInlineEditStart(trade, 'notes')}
-                      className="w-full text-left text-xs text-[#8b949e] hover:text-blue-400 flex items-center gap-1.5 py-2"
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      + Add notes
-                    </button>
                   )}
                 </div>
               </div>
