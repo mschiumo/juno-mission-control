@@ -1122,51 +1122,54 @@ function EditTradeModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-[#8b949e] mb-1">Symbol</label>
-              <input
-                type="text"
-                value={formData.symbol}
-                onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
-                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-[#8b949e] mb-1">Side</label>
-              <select
-                value={formData.side}
-                onChange={(e) => setFormData({ ...formData, side: e.target.value as 'LONG' | 'SHORT' })}
-                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
-              >
-                <option value="LONG">LONG</option>
-                <option value="SHORT">SHORT</option>
-              </select>
-            </div>
+          {/* Symbol */}
+          <div>
+            <label className="block text-xs text-[#8b949e] mb-1">Symbol</label>
+            <input
+              type="text"
+              value={formData.symbol}
+              onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
+              className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-[#8b949e] mb-1">Shares</label>
-              <input
-                type="number"
-                value={formData.shares}
-                onChange={(e) => setFormData({ ...formData, shares: e.target.value })}
-                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-[#8b949e] mb-1">Entry Price</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.entryPrice}
-                onChange={(e) => setFormData({ ...formData, entryPrice: e.target.value })}
-                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
-              />
-            </div>
+          {/* Side */}
+          <div>
+            <label className="block text-xs text-[#8b949e] mb-1">Side</label>
+            <select
+              value={formData.side}
+              onChange={(e) => setFormData({ ...formData, side: e.target.value as 'LONG' | 'SHORT' })}
+              className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+            >
+              <option value="LONG">LONG</option>
+              <option value="SHORT">SHORT</option>
+            </select>
           </div>
 
+          {/* Shares */}
+          <div>
+            <label className="block text-xs text-[#8b949e] mb-1">Shares</label>
+            <input
+              type="number"
+              value={formData.shares}
+              onChange={(e) => setFormData({ ...formData, shares: e.target.value })}
+              className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+            />
+          </div>
+
+          {/* Entry Price */}
+          <div>
+            <label className="block text-xs text-[#8b949e] mb-1">Entry Price</label>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.entryPrice}
+              onChange={(e) => setFormData({ ...formData, entryPrice: e.target.value })}
+              className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+            />
+          </div>
+
+          {/* Entry Date */}
           <div>
             <label className="block text-xs text-[#8b949e] mb-1">Entry Date</label>
             <input
@@ -1177,40 +1180,39 @@ function EditTradeModal({
             />
           </div>
 
-          <div className="border-t border-[#30363d] pt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-[#8b949e] mb-1">Exit Price (optional)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.exitPrice}
-                  onChange={(e) => setFormData({ ...formData, exitPrice: e.target.value })}
-                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-[#8b949e] mb-1">Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'OPEN' | 'CLOSED' })}
-                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
-                >
-                  <option value="OPEN">OPEN</option>
-                  <option value="CLOSED">CLOSED</option>
-                </select>
-              </div>
-            </div>
+          {/* Exit Price */}
+          <div>
+            <label className="block text-xs text-[#8b949e] mb-1">Exit Price (optional)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.exitPrice}
+              onChange={(e) => setFormData({ ...formData, exitPrice: e.target.value })}
+              className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+            />
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-xs text-[#8b949e] mb-1">Status</label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'OPEN' | 'CLOSED' })}
+              className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+            >
+              <option value="OPEN">OPEN</option>
+              <option value="CLOSED">CLOSED</option>
+            </select>
           </div>
 
           {/* Notes Section */}
-          <div className="border-t border-[#30363d] pt-4 space-y-3">
+          <div className="border-t border-[#30363d] pt-4 space-y-4">
             <div>
               <label className="block text-xs text-[#8b949e] mb-1">Entry Notes (optional)</label>
               <textarea
                 value={formData.entryNotes}
                 onChange={(e) => setFormData({ ...formData, entryNotes: e.target.value })}
-                rows={4}
+                rows={6}
                 className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm resize-none"
                 placeholder="Add entry notes..."
               />
@@ -1220,7 +1222,7 @@ function EditTradeModal({
               <textarea
                 value={formData.exitNotes}
                 onChange={(e) => setFormData({ ...formData, exitNotes: e.target.value })}
-                rows={4}
+                rows={6}
                 className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm resize-none"
                 placeholder="Add exit notes..."
               />
