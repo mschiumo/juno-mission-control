@@ -10,7 +10,7 @@ import MarketHoursBanner from "@/components/MarketHoursBanner";
 import GapScannerCard from "@/components/GapScannerCard";
 import NewsScreenerCard from "@/components/NewsScreenerCard";
 import ProjectsCard from "@/components/ProjectsCard";
-import ActivityLogCard from "@/components/ActivityLogCard";
+import MemoryCard from "@/components/MemoryCard";
 import DailyCronsCard from "@/components/DailyCronsCard";
 import GoalsCard from "@/components/GoalsCard";
 import JunoWidget from "@/components/JunoWidget";
@@ -181,7 +181,7 @@ function DashboardContent() {
           /* Activity Log View */
           <div className="max-w-[1600px] mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-              <ActivityLogCard />
+              <MemoryCard />
               <DailyCronsCard />
               <DocumentationCard className="lg:col-span-2" />
             </div>
