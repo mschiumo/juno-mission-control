@@ -20,7 +20,10 @@ import {
   Filter,
   ArrowUpDown,
   RefreshCw,
-  Info
+  Info,
+  Download,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { getTodayInEST, getESTDateFromTimestamp } from '@/lib/date-utils';
 
@@ -125,6 +128,15 @@ export default function CombinedCalendarView() {
   const [showJournalModal, setShowJournalModal] = useState(false);
   const [selectedDateTrades, setSelectedDateTrades] = useState<Trade[]>([]);
   const [selectedDateJournal, setSelectedDateJournal] = useState<JournalEntry | null>(null);
+
+  // Trades list state (below calendar)
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [filterSymbol, setFilterSymbol] = useState('');
+  const [filterSide, setFilterSide] = useState<'' | 'LONG' | 'SHORT'>('');
+  const [selectedTrades, setSelectedTrades] = useState<Set<string>>(new Set());
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch data on mount
   useEffect(() => {
@@ -275,6 +287,104 @@ export default function CombinedCalendarView() {
     return dateStr === getTodayInEST();
   };
 
+  // Trades list helpers
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const filteredTrades = allTrades.filter(trade => {
+    const matchesSymbol = !filterSymbol || trade.symbol.toLowerCase().includes(filterSymbol.toLowerCase());
+    const matchesSide = !filterSide || trade.side === filterSide;
+    return matchesSymbol && matchesSide;
+  });
+
+  const sortedTrades = [...filteredTrades].sort((a, b) => {
+    let comparison = 0;
+    switch (sortField) {
+      case 'date':
+        comparison = new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime();
+        break;
+      case 'symbol':
+        comparison = a.symbol.localeCompare(b.symbol);
+        break;
+      case 'side':
+        comparison = a.side.localeCompare(b.side);
+        break;
+      case 'entryPrice':
+        comparison = a.entryPrice - b.entryPrice;
+        break;
+      case 'shares':
+        comparison = a.shares - b.shares;
+        break;
+    }
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  const toggleSelection = (tradeId: string) => {
+    const newSelected = new Set(selectedTrades);
+    if (newSelected.has(tradeId)) {
+      newSelected.delete(tradeId);
+    } else {
+      newSelected.add(tradeId);
+    }
+    setSelectedTrades(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTrades.size === sortedTrades.length) {
+      setSelectedTrades(new Set());
+    } else {
+      setSelectedTrades(new Set(sortedTrades.map(t => t.id)));
+    }
+  };
+
+  const deleteSelectedTrades = async () => {
+    setIsDeleting(true);
+    const idsToDelete = Array.from(selectedTrades);
+    
+    try {
+      for (const tradeId of idsToDelete) {
+        await fetch(`/api/trades/${tradeId}?userId=default`, {
+          method: 'DELETE'
+        });
+      }
+      await fetchData();
+      setShowDeleteModal(false);
+    } catch (error) {
+      console.error('Error deleting trades:', error);
+      alert('Failed to delete some trades');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const exportToCSV = () => {
+    const headers = ['Date', 'Symbol', 'Side', 'Shares', 'Entry Price', 'Exit Price', 'PnL', 'Status'];
+    const rows = sortedTrades.map(t => [
+      t.entryDate,
+      t.symbol,
+      t.side,
+      t.shares,
+      t.entryPrice.toFixed(2),
+      t.exitPrice?.toFixed(2) || '',
+      t.netPnL?.toFixed(2) || '',
+      t.status
+    ]);
+    
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trades_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -410,56 +520,56 @@ export default function CombinedCalendarView() {
               <div
                 key={dayData.date}
                 className={`
-                  aspect-square border-r border-b border-[#21262d] p-1 sm:p-2
+                  aspect-square border-r border-b border-[#21262d] p-1.5 sm:p-2
                   relative flex flex-col
                   ${hasTrades ? 'bg-[#21262d]' : 'bg-[#161b22]'}
                   ${today ? 'ring-2 ring-inset ring-[#F97316]' : ''}
                   transition-all hover:bg-[#1f242b]
                 `}
               >
-                {/* Day Number - Top Left */}
-                <div className="flex justify-between items-start mb-1">
+                {/* Day Number - Top Left, P&L - Top Right */}
+                <div className="flex justify-between items-start shrink-0">
                   <span className={`text-xs sm:text-sm font-medium ${today ? 'text-[#F97316]' : 'text-white'}`}>
                     {dayData.dayNumber}
                   </span>
                   {hasTrades && (
-                    <span className={`text-[10px] sm:text-xs font-semibold ${isProfitable ? 'text-[#3fb950]' : isLoss ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
+                    <span className={`text-[10px] sm:text-xs font-bold ${isProfitable ? 'text-[#3fb950]' : isLoss ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
                       {dayData.trades?.pnl && dayData.trades.pnl > 0 ? '+' : ''}{formatCurrency(dayData.trades?.pnl || 0)}
                     </span>
                   )}
                 </div>
 
-                {/* Icons - Centered Vertically & Horizontally */}
-                <div className="flex-1 flex flex-col items-center justify-center gap-1.5">
-                  {/* Trade Icon - Top */}
+                {/* Icons - Perfectly Centered */}
+                <div className="flex-1 flex flex-col items-center justify-center gap-2 min-h-0">
+                  {/* Trade Icon */}
                   {hasTrades && (
                     <button
                       onClick={(e) => handleTradeIconClick(dayData.date, e)}
                       className={`
-                        relative group flex items-center justify-center
-                        w-8 h-8 sm:w-9 sm:h-9 rounded-xl transition-all duration-200
-                        hover:scale-110 hover:shadow-lg
-                        ${isProfitable 
-                          ? 'bg-[#238636]/30 text-[#3fb950] hover:bg-[#238636]/50 ring-1 ring-[#3fb950]/40' 
-                          : isLoss 
-                            ? 'bg-[#da3633]/30 text-[#f85149] hover:bg-[#da3633]/50 ring-1 ring-[#f85149]/40'
+                        relative flex items-center justify-center shrink-0
+                        w-9 h-9 sm:w-10 sm:h-10 rounded-xl transition-all duration-200
+                        hover:scale-110 hover:shadow-xl
+                        ${isProfitable
+                          ? 'bg-gradient-to-br from-[#3fb950]/30 to-[#238636]/20 text-[#3fb950] hover:from-[#3fb950]/40 hover:to-[#238636]/30 ring-1 ring-[#3fb950]/50 shadow-[0_2px_8px_-2px_rgba(63,185,80,0.3)]'
+                          : isLoss
+                            ? 'bg-gradient-to-br from-[#f85149]/30 to-[#da3633]/20 text-[#f85149] hover:from-[#f85149]/40 hover:to-[#da3633]/30 ring-1 ring-[#f85149]/50 shadow-[0_2px_8px_-2px_rgba(248,81,73,0.3)]'
                             : 'bg-[#30363d] text-[#8b949e] hover:bg-[#3d444d] ring-1 ring-[#8b949e]/20'
                         }
                       `}
                       title={`${dayData.trades?.trades} trade(s) - Click to view`}
                     >
-                      <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
+                      <BarChart3 className="w-5 h-5 sm:w-5 sm:h-5" strokeWidth={2} />
                       {/* Trade count badge */}
                       {dayData.trades && dayData.trades.trades > 1 && (
                         <span className={`
-                          absolute -top-1 -right-1 
-                          w-3.5 h-3.5 sm:w-4 sm:h-4 
-                          flex items-center justify-center 
-                          text-[7px] sm:text-[8px] font-bold 
-                          rounded-full
-                          ${isProfitable 
-                            ? 'bg-[#3fb950] text-[#0d1117]' 
-                            : isLoss 
+                          absolute -top-1 -right-1
+                          w-4 h-4 sm:w-4.5 sm:h-4.5
+                          flex items-center justify-center
+                          text-[8px] font-bold
+                          rounded-full border-2 border-[#161b22]
+                          ${isProfitable
+                            ? 'bg-[#3fb950] text-[#0d1117]'
+                            : isLoss
                               ? 'bg-[#f85149] text-[#0d1117]'
                               : 'bg-[#8b949e] text-[#0d1117]'
                           }
@@ -470,34 +580,28 @@ export default function CombinedCalendarView() {
                     </button>
                   )}
 
-                  {/* Journal Icon - Bottom */}
+                  {/* Journal Icon */}
                   {hasJournal && (
                     <button
                       onClick={(e) => handleJournalIconClick(dayData.date, e)}
                       className="
-                        relative group flex items-center justify-center
-                        w-8 h-8 sm:w-9 sm:h-9 rounded-xl
-                        bg-[#1f6feb]/30 text-[#58a6ff]
-                        hover:bg-[#1f6feb]/50 hover:scale-110 hover:shadow-lg
-                        ring-1 ring-[#58a6ff]/40
+                        relative flex items-center justify-center shrink-0
+                        w-9 h-9 sm:w-10 sm:h-10 rounded-xl
+                        bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20
+                        text-[#58a6ff]
+                        hover:from-[#58a6ff]/40 hover:to-[#1f6feb]/30 hover:scale-110 hover:shadow-xl
+                        ring-1 ring-[#58a6ff]/50 shadow-[0_2px_8px_-2px_rgba(88,166,255,0.3)]
                         transition-all duration-200
                       "
                       title="Journal entry - Click to view/edit"
                     >
-                      <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
-                      {/* Checkmark indicator for completed journal */}
-                      <span className="
-                        absolute -top-1 -right-1 
-                        w-3.5 h-3.5 sm:w-4 sm:h-4 
-                        flex items-center justify-center 
-                        bg-[#58a6ff] text-[#0d1117]
-                        rounded-full
-                      ">
-                        <CheckCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3" strokeWidth={3} />
-                      </span>
+                      <BookOpen className="w-5 h-5 sm:w-5 sm:h-5" strokeWidth={2} />
                     </button>
                   )}
                 </div>
+
+                {/* Bottom spacer for visual balance */}
+                <div className="h-2 shrink-0" />
               </div>
             );
           })}
