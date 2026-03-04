@@ -429,24 +429,44 @@ export default function CombinedCalendarView() {
                   )}
                 </div>
 
-                {/* Icons at Bottom */}
-                <div className="flex items-center justify-center gap-2 mt-auto">
+                {/* Icons at Bottom - Bigger with better visibility */}
+                <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-auto">
                   {/* Trade Icon */}
                   {hasTrades && (
                     <button
                       onClick={(e) => handleTradeIconClick(dayData.date, e)}
                       className={`
-                        p-1.5 rounded-lg transition-all hover:scale-110
+                        relative group flex items-center justify-center
+                        w-8 h-8 sm:w-10 sm:h-10 rounded-xl transition-all duration-200
+                        hover:scale-110 hover:shadow-lg
                         ${isProfitable 
-                          ? 'bg-[#238636]/20 text-[#3fb950] hover:bg-[#238636]/30' 
+                          ? 'bg-[#238636]/25 text-[#3fb950] hover:bg-[#238636]/40 ring-1 ring-[#3fb950]/30' 
                           : isLoss 
-                            ? 'bg-[#da3633]/20 text-[#f85149] hover:bg-[#da3633]/30'
-                            : 'bg-[#30363d] text-[#8b949e] hover:bg-[#3d444d]'
+                            ? 'bg-[#da3633]/25 text-[#f85149] hover:bg-[#da3633]/40 ring-1 ring-[#f85149]/30'
+                            : 'bg-[#30363d] text-[#8b949e] hover:bg-[#3d444d] ring-1 ring-[#8b949e]/20'
                         }
                       `}
                       title={`${dayData.trades?.trades} trade(s) - Click to view`}
                     >
-                      <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
+                      {/* Trade count badge */}
+                      {dayData.trades && dayData.trades.trades > 1 && (
+                        <span className={`
+                          absolute -top-1 -right-1 
+                          w-4 h-4 sm:w-5 sm:h-5 
+                          flex items-center justify-center 
+                          text-[8px] sm:text-[10px] font-bold 
+                          rounded-full
+                          ${isProfitable 
+                            ? 'bg-[#3fb950] text-[#0d1117]' 
+                            : isLoss 
+                              ? 'bg-[#f85149] text-[#0d1117]'
+                              : 'bg-[#8b949e] text-[#0d1117]'
+                          }
+                        `}>
+                          {dayData.trades.trades}
+                        </span>
+                      )}
                     </button>
                   )}
 
@@ -454,10 +474,27 @@ export default function CombinedCalendarView() {
                   {hasJournal && (
                     <button
                       onClick={(e) => handleJournalIconClick(dayData.date, e)}
-                      className="p-1.5 rounded-lg bg-[#1f6feb]/20 text-[#58a6ff] hover:bg-[#1f6feb]/30 transition-all hover:scale-110"
+                      className="
+                        relative group flex items-center justify-center
+                        w-8 h-8 sm:w-10 sm:h-10 rounded-xl
+                        bg-[#1f6feb]/25 text-[#58a6ff]
+                        hover:bg-[#1f6feb]/40 hover:scale-110 hover:shadow-lg
+                        ring-1 ring-[#58a6ff]/30
+                        transition-all duration-200
+                      "
                       title="Journal entry - Click to view/edit"
                     >
-                      <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
+                      {/* Checkmark indicator for completed journal */}
+                      <span className="
+                        absolute -top-1 -right-1 
+                        w-4 h-4 sm:w-5 sm:h-5 
+                        flex items-center justify-center 
+                        bg-[#58a6ff] text-[#0d1117]
+                        rounded-full
+                      ">
+                        <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" strokeWidth={3} />
+                      </span>
                     </button>
                   )}
                 </div>
@@ -470,25 +507,28 @@ export default function CombinedCalendarView() {
       {/* Legend */}
       <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs sm:text-sm">
         <div className="flex items-center gap-2">
-          <div className="p-1 bg-[#238636]/20 text-[#3fb950] rounded">
-            <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4" />
+          <div className="flex items-center justify-center w-8 h-8 bg-[#238636]/25 text-[#3fb950] rounded-xl ring-1 ring-[#3fb950]/30">
+            <BarChart3 className="w-5 h-5" strokeWidth={2.5} />
           </div>
           <span className="text-[#8b949e]">Profitable Day</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="p-1 bg-[#da3633]/20 text-[#f85149] rounded">
-            <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4" />
+          <div className="flex items-center justify-center w-8 h-8 bg-[#da3633]/25 text-[#f85149] rounded-xl ring-1 ring-[#f85149]/30">
+            <BarChart3 className="w-5 h-5" strokeWidth={2.5} />
           </div>
           <span className="text-[#8b949e]">Loss Day</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="p-1 bg-[#1f6feb]/20 text-[#58a6ff] rounded">
-            <BookOpen className="w-3 h-3 sm:w-4 sm:h-4" />
+          <div className="flex items-center justify-center w-8 h-8 bg-[#1f6feb]/25 text-[#58a6ff] rounded-xl ring-1 ring-[#58a6ff]/30 relative">
+            <BookOpen className="w-5 h-5" strokeWidth={2.5} />
+            <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center bg-[#58a6ff] text-[#0d1117] rounded-full">
+              <CheckCircle className="w-2.5 h-2.5" strokeWidth={3} />
+            </span>
           </div>
           <span className="text-[#8b949e]">Journal Entry</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 sm:w-5 sm:h-5 ring-2 ring-[#F97316] rounded-sm" />
+          <div className="w-8 h-8 ring-2 ring-[#F97316] rounded-xl" />
           <span className="text-[#8b949e]">Today</span>
         </div>
       </div>
@@ -791,7 +831,7 @@ function JournalModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[#30363d] bg-[#0d1117]">
           <div className="flex items-center gap-3">
@@ -832,7 +872,7 @@ function JournalModal({
                 value={prompt.answer}
                 onChange={(e) => updatePromptAnswer(prompt.id, e.target.value)}
                 placeholder="Type your answer here..."
-                className={`w-full h-24 px-3 py-2 bg-[#0d1117] border rounded-lg text-white placeholder-[#8b949e] resize-none focus:outline-none focus:border-[#F97316] ${
+                className={`w-full h-40 px-3 py-2 bg-[#0d1117] border rounded-lg text-white placeholder-[#8b949e] resize-none focus:outline-none focus:border-[#F97316] ${
                   validationErrors[prompt.id] ? 'border-[#f85149]' : 'border-[#30363d]'
                 }`}
               />
