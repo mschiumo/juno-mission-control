@@ -396,23 +396,13 @@ export default function CalendarView() {
         </div>
         
         <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-          {/* Monthly PnL Summary - Prominent Display */}
-          <div className="hidden sm:flex flex-col items-end mr-3">
-            <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Monthly PnL (MTD)</span>
-            <span className={`text-lg font-bold ${monthStats.totalPnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-              {monthStats.totalPnl >= 0 ? '+' : ''}{formatCurrency(monthStats.totalPnl)}
-            </span>
-          </div>
-
-          {/* Month Stats Card */}
+          {/* Month Stats Card - All 4 stats in same style */}
           <div className="hidden sm:flex items-center gap-3 text-sm bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2">
             <div className="flex flex-col items-center">
-              <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Win/Loss Days</span>
-              <div className="flex items-center gap-1 text-xs">
-                <span className="text-[#3fb950] font-semibold">{monthStats.winDays}W</span>
-                <span className="text-[#8b949e]">/</span>
-                <span className="text-[#f85149] font-semibold">{monthStats.lossDays}L</span>
-              </div>
+              <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Monthly PnL</span>
+              <span className={`font-semibold ${monthStats.totalPnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                {monthStats.totalPnl >= 0 ? '+' : ''}{formatCurrency(monthStats.totalPnl)}
+              </span>
             </div>
             
             <div className="w-px h-6 bg-[#30363d]" />
@@ -420,6 +410,17 @@ export default function CalendarView() {
             <div className="flex flex-col items-center">
               <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Trading Days</span>
               <span className="text-white font-semibold">{monthStats.winDays + monthStats.lossDays}</span>
+            </div>
+            
+            <div className="w-px h-6 bg-[#30363d]" />
+            
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Win/Loss</span>
+              <div className="flex items-center gap-1 text-xs">
+                <span className="text-[#3fb950] font-semibold">{monthStats.winDays}W</span>
+                <span className="text-[#8b949e]">/</span>
+                <span className="text-[#f85149] font-semibold">{monthStats.lossDays}L</span>
+              </div>
             </div>
             
             <div className="w-px h-6 bg-[#30363d]" />
@@ -482,15 +483,19 @@ export default function CalendarView() {
 
       {/* Mobile Monthly PnL - Shown only on small screens */}
       <div className="sm:hidden bg-[#161b22] border border-[#30363d] rounded-xl p-3 mb-2">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Monthly PnL (MTD)</span>
-            <span className={`text-xl font-bold ${monthStats.totalPnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+        <div className="flex items-center justify-center gap-3 pt-1">
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Monthly PnL</span>
+            <span className={`font-semibold ${monthStats.totalPnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
               {monthStats.totalPnl >= 0 ? '+' : ''}{formatCurrency(monthStats.totalPnl)}
             </span>
           </div>
-        </div>
-        <div className="flex items-center justify-center gap-4 pt-2 border-t border-[#30363d]">
+          <div className="w-px h-8 bg-[#30363d]" />
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Days</span>
+            <span className="text-white font-semibold">{monthStats.winDays + monthStats.lossDays}</span>
+          </div>
+          <div className="w-px h-8 bg-[#30363d]" />
           <div className="flex flex-col items-center">
             <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Win/Loss</span>
             <div className="flex items-center gap-1 text-sm">
@@ -498,11 +503,6 @@ export default function CalendarView() {
               <span className="text-[#8b949e]">/</span>
               <span className="text-[#f85149] font-semibold">{monthStats.lossDays}L</span>
             </div>
-          </div>
-          <div className="w-px h-8 bg-[#30363d]" />
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Days</span>
-            <span className="text-white font-semibold">{monthStats.winDays + monthStats.lossDays}</span>
           </div>
           <div className="w-px h-8 bg-[#30363d]" />
           <div className="flex flex-col items-center">
@@ -1151,9 +1151,9 @@ function EditTradeModal({
       exitPrice: formData.exitPrice ? parseFloat(formData.exitPrice) : undefined,
       exitDate: formData.exitDate || undefined,
       status: formData.status as 'OPEN' | 'CLOSED',
-      entryNotes: formData.entryNotes.trim() || undefined,
-      exitNotes: formData.exitNotes.trim() || undefined,
-    });
+      entryNotes: formData.entryNotes.trim() || null,
+      exitNotes: formData.exitNotes.trim() || null,
+    } as TOSTrade);
   };
 
   return (
