@@ -13,7 +13,8 @@ import {
   Save,
   CheckCircle,
   CalendarDays,
-  Clock
+  Clock,
+  FileText
 } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
 
@@ -383,15 +384,16 @@ export default function JournalView() {
                     {/* Entry Indicator */}
                     {hasEntry && (
                       <div className="absolute bottom-2 left-2 right-2">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-full bg-[#1f6feb]" />
-                          <span className="text-[10px] text-[#8b949e] truncate hidden sm:block">
-                            Journal
+                        {/* Badge with icon - more prominent */}
+                        <div className="flex items-center gap-1.5 bg-[#1f6feb]/20 border border-[#1f6feb]/30 rounded-md px-2 py-1">
+                          <FileText className="w-3.5 h-3.5 text-[#58a6ff]" />
+                          <span className="text-[10px] text-[#58a6ff] font-medium truncate">
+                            Entry
                           </span>
                         </div>
                         {/* Preview text on larger screens */}
-                        <p className="text-[10px] text-[#8b949e] truncate mt-1 hidden lg:block">
-                          {day.entry!.prompts[0]?.answer?.slice(0, 25)}...
+                        <p className="text-[10px] text-[#8b949e] truncate mt-1.5 hidden lg:block">
+                          {day.entry!.prompts[0]?.answer?.slice(0, 20)}...
                         </p>
                       </div>
                     )}
@@ -413,7 +415,9 @@ export default function JournalView() {
       {/* Legend */}
       <div className="flex items-center justify-center gap-6 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-[#1f6feb]" />
+          <div className="flex items-center gap-1 bg-[#1f6feb]/20 border border-[#1f6feb]/30 rounded-md px-2 py-1">
+            <FileText className="w-3.5 h-3.5 text-[#58a6ff]" />
+          </div>
           <span className="text-[#8b949e]">Has Entry</span>
         </div>
         <div className="flex items-center gap-2">
