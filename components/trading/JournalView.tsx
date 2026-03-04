@@ -99,17 +99,12 @@ export default function JournalView() {
   
   // Modal states
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState<ModalMode>('view');
-  const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
+  const [modalMode, setModalMode] = useState<ModalMode>('create');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  
-  // Form states
-  const [prompts, setPrompts] = useState<JournalPrompt[]>(DEFAULT_PROMPTS.map(p => ({ ...p })));
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
+  const [prompts, setPrompts] = useState<JournalPrompt[]>(DEFAULT_PROMPTS);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Fetch entries on mount
   useEffect(() => {
@@ -118,12 +113,10 @@ export default function JournalView() {
 
   const fetchEntries = async () => {
     try {
-      setIsLoading(true);
       const response = await fetch('/api/daily-journal');
       const data = await response.json();
-      
-      if (data.success && data.entries) {
-        setEntries(data.entries);
+      if (data.success) {
+        setEntries(data.entries || []);
       }
     } catch (error) {
       console.error('Error fetching journal entries:', error);
@@ -132,7 +125,7 @@ export default function JournalView() {
     }
   };
 
-  // Create a map of date -> entry for quick lookup
+  // Group entries by date for calendar
   const entriesByDate = useMemo(() => {
     const map: Record<string, JournalEntry> = {};
     entries.forEach(entry => {
@@ -141,21 +134,34 @@ export default function JournalView() {
     return map;
   }, [entries]);
 
-  // Calendar data
+  // Calculate month stats
+  const monthStats = useMemo(() => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const monthEntries = entries.filter(entry => {
+      const entryDate = new Date(entry.date);
+      return entryDate.getFullYear() === year && entryDate.getMonth() === month;
+    });
+    return {
+      count: monthEntries.length
+    };
+  }, [entries, currentMonth]);
+
+  // Generate calendar days
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const daysInMonth = getDaysInMonth(year, month);
     const firstDay = getFirstDayOfMonth(year, month);
     
-    const days: Array<{ date: string | null; dayNumber: number | null; entry: JournalEntry | null }> = [];
+    const days: { date: string | null; dayNumber: number | null; entry: JournalEntry | null }[] = [];
     
-    // Empty padding days
+    // Empty slots for days before the 1st
     for (let i = 0; i < firstDay; i++) {
       days.push({ date: null, dayNumber: null, entry: null });
     }
     
-    // Actual days
+    // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       days.push({
@@ -168,90 +174,61 @@ export default function JournalView() {
     return days;
   }, [currentMonth, entriesByDate]);
 
-  // Stats for the month
-  const monthStats = useMemo(() => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const monthEntries = entries.filter(e => {
-      const entryDate = new Date(e.date);
-      return entryDate.getFullYear() === year && entryDate.getMonth() === month;
-    });
-    
-    return {
-      count: monthEntries.length,
-      totalEntries: entries.length
-    };
-  }, [currentMonth, entries]);
+  const isToday = (dateStr: string | null) => {
+    if (!dateStr) return false;
+    return dateStr === getTodayInEST();
+  };
 
-  // Navigation
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentMonth(prev => {
-      const newDate = new Date(prev);
+      const newMonth = new Date(prev);
       if (direction === 'prev') {
-        newDate.setMonth(newDate.getMonth() - 1);
+        newMonth.setMonth(newMonth.getMonth() - 1);
       } else {
-        newDate.setMonth(newDate.getMonth() + 1);
+        newMonth.setMonth(newMonth.getMonth() + 1);
       }
-      return newDate;
+      return newMonth;
     });
   };
 
-  // Modal handlers
   const openDayModal = (date: string, entry: JournalEntry | null) => {
     setSelectedDate(date);
+    setSelectedEntry(entry);
     
     if (entry) {
-      // View existing entry
-      setSelectedEntry(entry);
-      setPrompts(entry.prompts.length > 0 ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p })));
       setModalMode('view');
+      setPrompts(entry.prompts);
     } else {
-      // Create new entry
-      setSelectedEntry(null);
-      setPrompts(DEFAULT_PROMPTS.map(p => ({ ...p })));
       setModalMode('create');
+      setPrompts(DEFAULT_PROMPTS.map(p => ({ ...p, answer: '' })));
     }
     
-    setSaveStatus('idle');
-    setValidationErrors({});
     setShowModal(true);
   };
 
   const openEditModal = () => {
     if (selectedEntry) {
       setModalMode('edit');
-      setValidationErrors({});
+      setPrompts(selectedEntry.prompts.map(p => ({ ...p })));
     }
   };
 
   const closeModal = () => {
     setShowModal(false);
-    setSelectedEntry(null);
     setSelectedDate(null);
-    setSaveStatus('idle');
-    setValidationErrors({});
+    setSelectedEntry(null);
+    setPrompts(DEFAULT_PROMPTS);
+    setShowDeleteConfirm(false);
   };
 
-  // CRUD operations
-  const handleSave = async () => {
-    setSaveStatus('idle');
+  const handlePromptChange = (id: string, answer: string) => {
+    setPrompts(prev => prev.map(p => p.id === id ? { ...p, answer } : p));
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedDate) return;
     
-    // Validate
-    const errors: Record<string, string> = {};
-    
-    prompts.forEach((prompt) => {
-      if (!prompt.answer || prompt.answer.trim() === '') {
-        errors[prompt.id] = 'This field is required';
-      }
-    });
-    
-    if (Object.keys(errors).length > 0) {
-      setValidationErrors(errors);
-      return;
-    }
-    
-    setValidationErrors({});
-    setIsSaving(true);
+    setIsSubmitting(true);
     
     try {
       const response = await fetch('/api/daily-journal', {
@@ -259,70 +236,52 @@ export default function JournalView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           date: selectedDate,
-          prompts
+          prompts: prompts.filter(p => p.answer.trim())
         })
       });
       
-      const result = await response.json();
+      const data = await response.json();
       
-      if (result.success) {
-        setSaveStatus('success');
-        setTimeout(() => {
-          closeModal();
-          fetchEntries();
-        }, 800);
+      if (data.success) {
+        await fetchEntries();
+        closeModal();
       } else {
-        setSaveStatus('error');
+        alert('Failed to save journal entry');
       }
     } catch (error) {
-      console.error('Error saving journal:', error);
-      setSaveStatus('error');
+      console.error('Error saving journal entry:', error);
+      alert('Failed to save journal entry');
     } finally {
-      setIsSaving(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!selectedDate) return;
-    
-    setIsDeleting(true);
+    if (!selectedEntry) return;
     
     try {
-      const response = await fetch(`/api/daily-journal?date=${selectedDate}`, {
+      const response = await fetch(`/api/daily-journal?id=${selectedEntry.id}`, {
         method: 'DELETE'
       });
       
-      const result = await response.json();
+      const data = await response.json();
       
-      if (result.success) {
-        setShowDeleteConfirm(false);
+      if (data.success) {
+        await fetchEntries();
         closeModal();
-        fetchEntries();
+      } else {
+        alert('Failed to delete journal entry');
       }
     } catch (error) {
-      console.error('Error deleting journal:', error);
-    } finally {
-      setIsDeleting(false);
+      console.error('Error deleting journal entry:', error);
+      alert('Failed to delete journal entry');
     }
-  };
-
-  const updatePromptAnswer = (id: string, answer: string) => {
-    setPrompts(prev => prev.map(p => p.id === id ? { ...p, answer } : p));
-  };
-
-  // Check if date is today
-  const isToday = (dateStr: string | null) => {
-    if (!dateStr) return false;
-    return dateStr === getTodayInEST();
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-3 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-500">Loading journal...</p>
-        </div>
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#58a6ff]"></div>
       </div>
     );
   }
@@ -332,18 +291,18 @@ export default function JournalView() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-orange-400 to-rose-500 rounded-xl shadow-lg shadow-orange-200">
+          <div className="p-2 bg-[#1f6feb] rounded-lg">
             <BookOpen className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-800">Trading Journal</h2>
-            <p className="text-sm text-slate-500">{entries.length} entries total</p>
+            <h2 className="text-xl font-bold text-white">Trading Journal</h2>
+            <p className="text-sm text-[#8b949e]">{entries.length} entries total</p>
           </div>
         </div>
         
         <button
           onClick={() => openDayModal(getTodayInEST(), entriesByDate[getTodayInEST()] || null)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-xl transition-all shadow-lg shadow-orange-200 hover:shadow-xl hover:shadow-orange-300 font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors font-medium"
         >
           <Plus className="w-4 h-4" />
           New Entry
@@ -351,39 +310,43 @@ export default function JournalView() {
       </div>
 
       {/* Calendar Container */}
-      <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+      <div className="bg-[#161b22] rounded-xl border border-[#30363d] overflow-hidden">
         {/* Calendar Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[#30363d] bg-[#0d1117]">
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigateMonth('prev')}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600"
+              className="p-2 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e]"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <h3 className="text-lg font-bold text-slate-800 min-w-[180px] text-center">
+            <h3 className="text-lg font-bold text-white min-w-[180px] text-center">
               {getMonthName(currentMonth)}
             </h3>
             <button
               onClick={() => navigateMonth('next')}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600"
+              className="p-2 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e]"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
           
-          <div className="hidden sm:flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-gradient-to-r from-orange-400 to-rose-500" />
-              <span className="text-slate-600">{monthStats.count} entries this month</span>
+              <div className="w-3 h-3 rounded-full bg-[#1f6feb]" />
+              <span className="text-[#8b949e]">Has Entry</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full border border-[#8b949e]" />
+              <span className="text-[#8b949e]">Today</span>
             </div>
           </div>
         </div>
 
         {/* Weekday Headers */}
-        <div className="grid grid-cols-7 bg-slate-50/50">
+        <div className="grid grid-cols-7 bg-[#0d1117] border-b border-[#30363d]">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <div key={day} className="py-3 text-center text-xs font-semibold text-[#8b949e] uppercase tracking-wider">
               {day}
             </div>
           ))}
@@ -400,10 +363,10 @@ export default function JournalView() {
                 key={index}
                 onClick={() => day.date && openDayModal(day.date, day.entry)}
                 className={`
-                  aspect-square border-b border-r border-slate-100 p-2 sm:p-3
+                  aspect-square border-b border-r border-[#30363d] p-2 sm:p-3
                   transition-all duration-200 cursor-pointer relative
-                  ${!day.date ? 'bg-slate-50/30 cursor-default' : 'hover:bg-orange-50/50'}
-                  ${today ? 'bg-orange-50/30' : ''}
+                  ${!day.date ? 'bg-[#0d1117]/50 cursor-default' : 'hover:bg-[#30363d]/50'}
+                  ${today ? 'bg-[#1f6feb]/10' : ''}
                 `}
               >
                 {day.dayNumber && (
@@ -411,7 +374,7 @@ export default function JournalView() {
                     {/* Day Number */}
                     <span className={`
                       text-sm font-medium
-                      ${today ? 'text-orange-600' : 'text-slate-700'}
+                      ${today ? 'text-[#58a6ff]' : 'text-[#c9d1d9]'}
                       ${hasEntry ? 'font-bold' : ''}
                     `}>
                       {day.dayNumber}
@@ -421,13 +384,13 @@ export default function JournalView() {
                     {hasEntry && (
                       <div className="absolute bottom-2 left-2 right-2">
                         <div className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-full bg-gradient-to-r from-orange-400 to-rose-500" />
-                          <span className="text-[10px] text-slate-500 truncate hidden sm:block">
+                          <div className="w-2 h-2 rounded-full bg-[#1f6feb]" />
+                          <span className="text-[10px] text-[#8b949e] truncate hidden sm:block">
                             Journal
                           </span>
                         </div>
                         {/* Preview text on larger screens */}
-                        <p className="text-[10px] text-slate-400 truncate mt-1 hidden lg:block">
+                        <p className="text-[10px] text-[#8b949e] truncate mt-1 hidden lg:block">
                           {day.entry!.prompts[0]?.answer?.slice(0, 25)}...
                         </p>
                       </div>
@@ -436,7 +399,7 @@ export default function JournalView() {
                     {/* Today indicator */}
                     {today && !hasEntry && (
                       <div className="absolute bottom-2 right-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#8b949e]" />
                       </div>
                     )}
                   </>
@@ -450,42 +413,42 @@ export default function JournalView() {
       {/* Legend */}
       <div className="flex items-center justify-center gap-6 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-gradient-to-r from-orange-400 to-rose-500" />
-          <span className="text-slate-600">Has Entry</span>
+          <div className="w-3 h-3 rounded-full bg-[#1f6feb]" />
+          <span className="text-[#8b949e]">Has Entry</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-          <span className="text-slate-600">Today</span>
+          <div className="w-1.5 h-1.5 rounded-full bg-[#8b949e]" />
+          <span className="text-[#8b949e]">Today</span>
         </div>
       </div>
 
       {/* Entry Modal (View/Create/Edit) */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-[#30363d] shadow-2xl">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white rounded-t-2xl">
+            <div className="flex items-center justify-between p-5 border-b border-[#30363d] bg-[#0d1117] rounded-t-xl">
               <div className="flex items-center gap-3">
                 <div className={`
-                  p-2 rounded-xl
-                  ${modalMode === 'view' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}
+                  p-2 rounded-lg
+                  ${modalMode === 'view' ? 'bg-[#1f6feb]/20 text-[#58a6ff]' : 'bg-[#238636]/20 text-[#3fb950]'}
                 `}>
                   {modalMode === 'view' ? <CalendarDays className="w-5 h-5" /> : <BookOpen className="w-5 h-5" />}
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-800">
+                  <h3 className="text-lg font-bold text-white">
                     {modalMode === 'view' ? 'Journal Entry' : modalMode === 'create' ? 'New Entry' : 'Edit Entry'}
                   </h3>
                   {selectedDate && (
-                    <p className="text-sm text-slate-500">{formatDateEST(selectedDate)}</p>
+                    <p className="text-sm text-[#8b949e]">{formatDateEST(selectedDate)}</p>
                   )}
                 </div>
               </div>
               <button
                 onClick={closeModal}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
               >
-                <X className="w-5 h-5 text-slate-500" />
+                <X className="w-5 h-5 text-[#8b949e]" />
               </button>
             </div>
 
@@ -496,19 +459,19 @@ export default function JournalView() {
                 <>
                   <div className="space-y-4">
                     {selectedEntry.prompts.map((prompt) => (
-                      <div key={prompt.id} className="bg-slate-50 rounded-xl p-4">
-                        <h4 className="text-sm font-semibold text-orange-600 mb-2">
+                      <div key={prompt.id} className="bg-[#0d1117] rounded-lg p-4 border border-[#30363d]">
+                        <h4 className="text-sm font-semibold text-[#58a6ff] mb-2">
                           {prompt.question}
                         </h4>
-                        <p className="text-slate-700 text-sm leading-relaxed">
-                          {prompt.answer || <span className="text-slate-400 italic">No answer provided</span>}
+                        <p className="text-[#c9d1d9] text-sm leading-relaxed">
+                          {prompt.answer || <span className="text-[#8b949e] italic">No answer provided</span>}
                         </p>
                       </div>
                     ))}
                   </div>
                   
                   {/* Metadata */}
-                  <div className="flex items-center gap-4 text-xs text-slate-400 pt-3 border-t border-slate-100">
+                  <div className="flex items-center gap-4 text-xs text-[#8b949e] pt-3 border-t border-[#30363d]">
                     <div className="flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5" />
                       <span>Created: {formatDateTimeEST(selectedEntry.createdAt)}</span>
@@ -519,14 +482,14 @@ export default function JournalView() {
                   <div className="flex gap-3 pt-2">
                     <button
                       onClick={openEditModal}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-colors font-medium"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#1f6feb] hover:bg-[#388bfd] text-white rounded-lg transition-colors font-medium"
                     >
                       <Edit2 className="w-4 h-4" />
                       Edit
                     </button>
                     <button
                       onClick={() => setShowDeleteConfirm(true)}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors font-medium"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#da3633]/20 hover:bg-[#da3633]/30 text-[#f85149] rounded-lg transition-colors font-medium"
                     >
                       <Trash2 className="w-4 h-4" />
                       Delete
@@ -538,74 +501,38 @@ export default function JournalView() {
               {/* Create/Edit Mode */}
               {(modalMode === 'create' || modalMode === 'edit') && (
                 <>
-                  {/* Prompts */}
                   <div className="space-y-4">
                     {prompts.map((prompt) => (
                       <div key={prompt.id}>
-                        <label className="block text-sm font-semibold text-orange-600 mb-2">
+                        <label className="block text-sm font-medium text-[#c9d1d9] mb-2">
                           {prompt.question}
                         </label>
                         <textarea
                           value={prompt.answer}
-                          onChange={(e) => updatePromptAnswer(prompt.id, e.target.value)}
-                          placeholder="Write your thoughts..."
-                          className={`
-                            w-full h-24 px-4 py-3 bg-slate-50 border-2 rounded-xl text-slate-700 
-                            placeholder-slate-400 resize-none transition-all
-                            focus:outline-none focus:bg-white
-                            ${validationErrors[prompt.id] 
-                              ? 'border-rose-300 focus:border-rose-500' 
-                              : 'border-slate-200 focus:border-orange-400'
-                            }
-                          `}
+                          onChange={(e) => handlePromptChange(prompt.id, e.target.value)}
+                          placeholder="Write your reflection..."
+                          rows={3}
+                          className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-[#c9d1d9] placeholder-[#8b949e] text-sm resize-none focus:outline-none focus:border-[#58a6ff] transition-colors"
                         />
-                        {validationErrors[prompt.id] && (
-                          <p className="text-xs text-rose-500 mt-1">{validationErrors[prompt.id]}</p>
-                        )}
                       </div>
                     ))}
                   </div>
 
-                  {/* Status Messages */}
-                  {saveStatus === 'success' && (
-                    <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 p-3 rounded-xl">
-                      <CheckCircle className="w-5 h-5" />
-                      <span className="text-sm font-medium">Journal saved successfully!</span>
-                    </div>
-                  )}
-
-                  {saveStatus === 'error' && (
-                    <div className="text-rose-600 text-sm bg-rose-50 p-3 rounded-xl">
-                      Failed to save journal. Please try again.
-                    </div>
-                  )}
-
-                  {/* Footer Actions */}
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      onClick={modalMode === 'edit' ? () => setModalMode('view') : closeModal}
-                      className="flex-1 px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors font-medium"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSave}
-                      disabled={isSaving}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-xl transition-all font-medium disabled:opacity-50"
-                    >
-                      {isSaving ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-4 h-4" />
-                          {modalMode === 'create' ? 'Save Entry' : 'Update Entry'}
-                        </>
-                      )}
-                    </button>
-                  </div>
+                  {/* Submit Button */}
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || !prompts.some(p => p.answer.trim())}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#238636] hover:bg-[#2ea043] disabled:bg-[#30363d] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <>Saving...</>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        {modalMode === 'create' ? 'Save Entry' : 'Update Entry'}
+                      </>
+                    )}
+                  </button>
                 </>
               )}
             </div>
@@ -615,42 +542,29 @@ export default function JournalView() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-[#161b22] rounded-xl w-full max-w-sm p-6 border border-[#30363d] shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-rose-100 rounded-xl">
-                <AlertTriangle className="w-6 h-6 text-rose-600" />
+              <div className="p-2 bg-[#da3633]/20 rounded-lg">
+                <AlertTriangle className="w-6 h-6 text-[#f85149]" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-800">Delete Entry?</h3>
-                <p className="text-sm text-slate-500">
-                  {selectedDate && formatDateEST(selectedDate)}
-                </p>
+                <h3 className="text-lg font-bold text-white">Delete Entry?</h3>
+                <p className="text-sm text-[#8b949e]">This action cannot be undone.</p>
               </div>
             </div>
-            
-            <p className="text-slate-600 text-sm mb-6">
-              This action cannot be undone. Your journal entry will be permanently removed.
-            </p>
             
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                disabled={isDeleting}
-                className="flex-1 px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors font-medium"
+                className="flex-1 px-4 py-2.5 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
-                disabled={isDeleting}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl transition-colors font-medium disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 bg-[#da3633] hover:bg-[#f85149] text-white rounded-lg transition-colors font-medium"
               >
-                {isDeleting ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <Trash2 className="w-4 h-4" />
-                )}
                 Delete
               </button>
             </div>
