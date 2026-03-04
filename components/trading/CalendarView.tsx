@@ -963,6 +963,10 @@ export default function CalendarView() {
               const isUploadedViaSpreadsheet = allNotes.includes('[Source: csv-import]') || 
                                                allNotes.includes('Imported from CSV') ||
                                                allNotes.includes('Imported from spreadsheet');
+
+              // Check for TOS Position Statement import
+              const isTOSImport = entryNotes.includes('Imported from TOS Position Statement') ||
+                                  exitNotes.includes('Imported from TOS Position Statement');
               
               if (isTransferredFromClosed) {
                 return (
@@ -970,6 +974,17 @@ export default function CalendarView() {
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-xs font-medium text-purple-400">
                       <span className="w-1.5 h-1.5 bg-purple-400 rounded-full"></span>
                       Transferred from Closed Positions
+                    </span>
+                  </div>
+                );
+              }
+
+              if (isTOSImport) {
+                return (
+                  <div className="mb-4">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full text-xs font-medium text-green-400">
+                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full"></span>
+                      Imported from TOS Position Statement
                     </span>
                   </div>
                 );
@@ -995,6 +1010,7 @@ export default function CalendarView() {
                   <h4 className="text-sm font-medium text-[#8b949e] mb-2">Entry Notes</h4>
                   <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.entryNotes
                     .replace(/^Transferred from Closed Positions\.\s*/, '')
+                    .replace(/^Imported from TOS Position Statement\s*-\s*CLOSED\.?\s*/i, '')
                     .replace(/\s*\[Source: [^\]]+\]\s*$/, '')
                     .replace(/\s*\[Source: [^\]]+\]\s*/g, ' ')
                     .trim()}
@@ -1007,6 +1023,7 @@ export default function CalendarView() {
                   <h4 className="text-sm font-medium text-[#8b949e] mb-2">Exit Notes</h4>
                   <p className="text-sm text-white whitespace-pre-wrap">{viewingNotesTrade.exitNotes
                     .replace(/^Closed position transferred from watchlist\.\s*/, '')
+                    .replace(/^Imported from TOS Position Statement\s*-\s*CLOSED\.?\s*/i, '')
                     .replace(/\s*\[Source: [^\]]+\]\s*$/, '')
                     .replace(/\s*\[Source: [^\]]+\]\s*/g, ' ')
                     .trim()}
