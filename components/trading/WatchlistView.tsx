@@ -55,6 +55,9 @@ const EVENTS = {
 // Default user ID (can be made dynamic with auth later)
 const DEFAULT_USER_ID = 'default';
 
+// LocalStorage key for order placed state
+const ORDER_PLACED_STORAGE_KEY = 'juno:active-trades-orders';
+
 export default function WatchlistView() {
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -70,6 +73,9 @@ export default function WatchlistView() {
   const [activeTradesLoading, setActiveTradesLoading] = useState(false);
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
   const [activeTradesSearchQuery, setActiveTradesSearchQuery] = useState('');
+  
+  // Order Placed state (persisted in localStorage)
+  const [orderPlacedMap, setOrderPlacedMap] = useState<Record<string, boolean>>({});
   
   // Edit Active Trade state
   const [editingTrade, setEditingTrade] = useState<ActiveTrade | null>(null);
@@ -103,6 +109,10 @@ export default function WatchlistView() {
   // Drag and Drop state
   const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'watchlist' | 'active' | 'closed' } | null>(null);
   const [dragOverItem, setDragOverItem] = useState<string | null>(null);
+  
+  // Drag Active Trade → Potential Trades state
+  const [draggingActiveTradeId, setDraggingActiveTradeId] = useState<string | null>(null);
+  const [isDraggingOverPotential, setIsDraggingOverPotential] = useState(false);
 
   // Calendar trades for duplicate checking
   const [calendarTrades, setCalendarTrades] = useState<Array<{ id: string; symbol: string; entryDate: string }>>([]);
@@ -127,6 +137,27 @@ export default function WatchlistView() {
   useEffect(() => {
     console.log('[DEBUG WatchlistView] watchlist state changed:', watchlist.length, 'items');
   }, [watchlist]);
+
+  // Load order placed state from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ORDER_PLACED_STORAGE_KEY);
+      if (stored) {
+        setOrderPlacedMap(JSON.parse(stored));
+      }
+    } catch (err) {
+      console.error('Error loading order placed state:', err);
+    }
+  }, []);
+
+  // Save order placed state to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(ORDER_PLACED_STORAGE_KEY, JSON.stringify(orderPlacedMap));
+    } catch (err) {
+      console.error('Error saving order placed state:', err);
+    }
+  }, [orderPlacedMap]);
 
   // ===== API FUNCTIONS =====
   
@@ -349,6 +380,20 @@ export default function WatchlistView() {
   const handleDragStart = (e: React.DragEvent, id: string, type: 'watchlist' | 'active' | 'closed') => {
     setDraggedItem({ id, type });
     e.dataTransfer.effectAllowed = 'move';
+    
+    // Set custom data for cross-section dragging
+    e.dataTransfer.setData('application/json', JSON.stringify({ id, type }));
+    
+    // If dragging an active trade, set special state for styling
+    if (type === 'active') {
+      setDraggingActiveTradeId(id);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDraggingActiveTradeId(null);
+    setIsDraggingOverPotential(false);
   };
 
   const handleDragOver = (e: React.DragEvent, id: string) => {
@@ -358,6 +403,137 @@ export default function WatchlistView() {
 
   const handleDragLeave = () => {
     setDragOverItem(null);
+  };
+
+  // ===== DRAG AND DROP: Active Trade → Potential Trades =====
+  const handlePotentialTradesDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Check if dragging an active trade
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
+      if (data.type === 'active') {
+        setIsDraggingOverPotential(true);
+      }
+    } catch {
+      // If can't parse, check if we have draggingActiveTradeId set
+      if (draggingActiveTradeId) {
+        setIsDraggingOverPotential(true);
+      }
+    }
+  };
+
+  const handlePotentialTradesDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOverPotential(true);
+  };
+
+  const handlePotentialTradesDragLeave = (e: React.DragEvent) => {
+    // Only set to false if we're actually leaving the container (not entering a child)
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setIsDraggingOverPotential(false);
+    }
+  };
+
+  const handlePotentialTradesDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOverPotential(false);
+    
+    let tradeId: string | null = null;
+    
+    // Try to get the dragged data
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
+      if (data.type === 'active' && data.id) {
+        tradeId = data.id;
+      }
+    } catch {
+      // Fallback to state
+      tradeId = draggingActiveTradeId;
+    }
+    
+    if (!tradeId) {
+      setDraggingActiveTradeId(null);
+      return;
+    }
+
+    // Find the trade
+    const trade = activeTrades.find(t => t.id === tradeId);
+    if (!trade) {
+      setDraggingActiveTradeId(null);
+      return;
+    }
+
+    // Move the trade from Active to Potential
+    await moveActiveTradeToPotential(trade);
+    setDraggingActiveTradeId(null);
+  };
+
+  // ===== MOVE: Active → Potential Trades =====
+  const moveActiveTradeToPotential = async (trade: ActiveTradeWithPnL) => {
+    setActiveTradesLoading(true);
+    setWatchlistLoading(true);
+    
+    try {
+      // 1. Create watchlist item from active trade
+      const watchlistItem: Omit<WatchlistItem, 'id' | 'createdAt'> = {
+        ticker: trade.ticker,
+        entryPrice: trade.plannedEntry,
+        stopPrice: trade.plannedStop,
+        targetPrice: trade.plannedTarget,
+        riskRatio: Math.abs(trade.plannedTarget - trade.plannedEntry) / Math.abs(trade.plannedEntry - trade.plannedStop),
+        stopSize: Math.abs(trade.plannedEntry - trade.plannedStop),
+        shareSize: trade.actualShares,
+        potentialReward: Math.abs(trade.plannedTarget - trade.plannedEntry) * trade.actualShares,
+        positionValue: trade.plannedEntry * trade.actualShares,
+        isFavorite: false,
+      };
+
+      // 2. Add to watchlist
+      const addResponse = await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(watchlistItem),
+      });
+      
+      if (!addResponse.ok) throw new Error('Failed to add to watchlist');
+
+      // 3. Remove from active trades
+      const deleteResponse = await fetch(`/api/active-trades?id=${trade.id}&userId=${DEFAULT_USER_ID}`, {
+        method: 'DELETE',
+      });
+      
+      if (!deleteResponse.ok) throw new Error('Failed to remove active trade');
+
+      // 4. Refresh data
+      await Promise.all([fetchActiveTrades(), fetchWatchlist()]);
+
+      // 5. Dispatch events
+      window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
+      window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
+
+      // 6. Clean up order placed state for this trade
+      setOrderPlacedMap(prev => {
+        const updated = { ...prev };
+        delete updated[trade.id];
+        return updated;
+      });
+
+      // 7. Show success message
+      setSuccessMessage(`${trade.ticker} moved from Active to Potential Trades`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to move trade');
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setActiveTradesLoading(false);
+      setWatchlistLoading(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent, targetId: string, type: 'watchlist' | 'active' | 'closed') => {
@@ -520,7 +696,14 @@ export default function WatchlistView() {
       window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
       window.dispatchEvent(new CustomEvent(EVENTS.CLOSED_POSITIONS_UPDATED));
 
-      // 6. Close modal
+      // 6. Clean up order placed state for this trade
+      setOrderPlacedMap(prev => {
+        const updated = { ...prev };
+        delete updated[trade.id];
+        return updated;
+      });
+
+      // 7. Close modal
       setClosingTradeId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to close trade');
@@ -650,6 +833,14 @@ export default function WatchlistView() {
     } else if (e.key === 'Escape') {
       setInlineEditing(null);
     }
+  };
+
+  // ===== ORDER PLACED TOGGLE =====
+  const toggleOrderPlaced = (tradeId: string) => {
+    setOrderPlacedMap(prev => ({
+      ...prev,
+      [tradeId]: !prev[tradeId]
+    }));
   };
 
   // ===== EDIT: Closed Position =====
@@ -1107,10 +1298,13 @@ export default function WatchlistView() {
                 key={trade.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, trade.id, 'active')}
+                onDragEnd={handleDragEnd}
                 onDragOver={(e) => handleDragOver(e, trade.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, trade.id, 'active')}
-                className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-green-500/50 transition-all ${dragOverItem === trade.id ? 'border-green-500 ring-2 ring-green-500/20' : 'border-green-500/30'}`}
+                className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-green-500/50 transition-all cursor-move ${
+                  dragOverItem === trade.id ? 'border-green-500 ring-2 ring-green-500/20' : 'border-green-500/30'
+                } ${draggingActiveTradeId === trade.id ? 'opacity-50 shadow-2xl ring-2 ring-green-500/30 scale-[1.02]' : ''}`}
               >
                 {/* Card Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-green-500/5">
@@ -1118,6 +1312,31 @@ export default function WatchlistView() {
                     <div className="px-3 py-1 bg-green-500/10 rounded-lg">
                       <span className="text-lg font-bold text-green-400">{trade.ticker}</span>
                     </div>
+                    
+                    {/* Order Placed Checkbox */}
+                    <label 
+                      className="flex items-center gap-2 px-2 py-1 bg-[#161b22] border border-[#30363d] rounded-lg cursor-pointer hover:border-green-500/50 hover:bg-[#1c2128] transition-colors select-none"
+                      title={orderPlacedMap[trade.id] ? 'Order has been placed with broker' : 'Check when order is placed'}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!orderPlacedMap[trade.id]}
+                        onChange={() => toggleOrderPlaced(trade.id)}
+                        className="w-4 h-4 accent-green-500 cursor-pointer"
+                      />
+                      <span className={`text-xs font-medium ${orderPlacedMap[trade.id] ? 'text-green-400' : 'text-[#8b949e]'}`}>
+                        Order Placed
+                      </span>
+                      
+                      {/* Pulsing Green Dot */}
+                      {orderPlacedMap[trade.id] && (
+                        <span className="relative flex h-2.5 w-2.5 ml-1">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3fb950] opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#238636]"></span>
+                        </span>
+                      )}
+                    </label>
+                    
                     {/* Long/Short Indicator */}
                     {(() => {
                       const isLong = trade.plannedTarget > trade.plannedEntry;
@@ -1318,7 +1537,27 @@ export default function WatchlistView() {
       <div className="border-t border-[#30363d]"></div>
 
       {/* ===== POTENTIAL TRADES SECTION ===== */}
-      <div className="space-y-4">
+      <div 
+        className={`space-y-4 rounded-xl transition-all duration-300 ${
+          isDraggingOverPotential 
+            ? 'bg-[#F97316]/5 ring-2 ring-[#F97316]/50 ring-inset p-4 border-2 border-dashed border-[#F97316]' 
+            : ''
+        }`}
+        onDragOver={handlePotentialTradesDragOver}
+        onDragEnter={handlePotentialTradesDragEnter}
+        onDragLeave={handlePotentialTradesDragLeave}
+        onDrop={handlePotentialTradesDrop}
+      >
+        {/* Drop Zone Indicator */}
+        {isDraggingOverPotential && (
+          <div className="flex items-center justify-center py-4 border-2 border-dashed border-[#F97316]/50 rounded-lg bg-[#F97316]/10 mb-4">
+            <div className="flex items-center gap-3 text-[#F97316]">
+              <ArrowLeft className="w-6 h-6 animate-pulse" />
+              <span className="text-lg font-semibold">Drop here to move back to Potential Trades</span>
+            </div>
+          </div>
+        )}
+        
         {/* Section Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

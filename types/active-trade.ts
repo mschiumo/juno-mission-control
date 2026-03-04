@@ -21,6 +21,7 @@ export interface ActiveTrade {
   // Reference to original watchlist item (for removal when moving to active)
   watchlistId?: string;
   order?: number; // Optional order index for drag-and-drop sorting
+  orderPlaced?: boolean; // Whether the order has been placed with the broker
 }
 
 export interface ActiveTradeWithPnL extends ActiveTrade {
