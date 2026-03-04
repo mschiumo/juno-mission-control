@@ -1123,9 +1123,9 @@ function EditTradeModal({
       exitPrice: formData.exitPrice ? parseFloat(formData.exitPrice) : undefined,
       exitDate: formData.exitDate || undefined,
       status: formData.status as 'OPEN' | 'CLOSED',
-      entryNotes: formData.entryNotes.trim() || undefined,
-      exitNotes: formData.exitNotes.trim() || undefined,
-    });
+      entryNotes: formData.entryNotes.trim() || null,
+      exitNotes: formData.exitNotes.trim() || null,
+    } as TOSTrade);
   };
 
   return (
