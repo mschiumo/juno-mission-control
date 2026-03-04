@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Brain, 
   Clock, 
@@ -16,7 +16,12 @@ import {
   Calendar,
   RefreshCw,
   Edit3,
-  Trash2
+  Trash2,
+  Bot,
+  Activity,
+  FileText,
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
 
 // Memory Entry Types
@@ -29,6 +34,19 @@ interface MemoryEntry {
   importance?: 'low' | 'medium' | 'high';
   title?: string;
   projectStatus?: 'active' | 'paused' | 'completed' | 'archived';
+}
+
+// Subagent Types
+interface SubagentStatus {
+  id: string;
+  label: string;
+  task: string;
+  status: 'running' | 'completed' | 'failed' | 'checking_in';
+  startTime: string;
+  lastUpdate: string;
+  runtime: string;
+  sessionKey: string;
+  transcriptPath?: string;
 }
 
 type TabId = 'journal' | 'insights' | 'context';
@@ -182,6 +200,54 @@ const MOCK_MEMORY_DATA: MemoryEntry[] = [
   }
 ];
 
+// Mock subagent data for initial render
+const MOCK_SUBAGENTS: SubagentStatus[] = [
+  {
+    id: 'subagent-1',
+    label: 'Research Assistant',
+    task: 'Analyzing OAuth platform comparison data',
+    status: 'running',
+    startTime: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    lastUpdate: new Date(Date.now() - 30 * 1000).toISOString(),
+    runtime: '5m 23s',
+    sessionKey: 'agent:main:subagent:oauth-research',
+    transcriptPath: '/home/clawd/.openclaw/agents/main/sessions/oauth-research.jsonl'
+  },
+  {
+    id: 'subagent-2',
+    label: 'Data Sync',
+    task: 'Syncing trading journal entries from Tradervue',
+    status: 'checking_in',
+    startTime: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    lastUpdate: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+    runtime: '15m 47s',
+    sessionKey: 'agent:main:subagent:trading-sync',
+    transcriptPath: '/home/clawd/.openclaw/agents/main/sessions/trading-sync.jsonl'
+  },
+  {
+    id: 'subagent-3',
+    label: 'Report Generator',
+    task: 'Generating daily P&L report',
+    status: 'completed',
+    startTime: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    lastUpdate: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    runtime: '25m 12s',
+    sessionKey: 'agent:main:subagent:daily-report',
+    transcriptPath: '/home/clawd/.openclaw/agents/main/sessions/daily-report.jsonl'
+  },
+  {
+    id: 'subagent-4',
+    label: 'Market Scanner',
+    task: 'Running pre-market gap analysis',
+    status: 'failed',
+    startTime: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    lastUpdate: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+    runtime: '15m 30s',
+    sessionKey: 'agent:main:subagent:gap-scan',
+    transcriptPath: '/home/clawd/.openclaw/agents/main/sessions/gap-scan.jsonl'
+  }
+];
+
 export default function MemoryCard() {
   const [activeTab, setActiveTab] = useState<TabId>('journal');
   const [entries, setEntries] = useState<MemoryEntry[]>(MOCK_MEMORY_DATA);
@@ -192,12 +258,66 @@ export default function MemoryCard() {
   const [newEntryTitle, setNewEntryTitle] = useState('');
   const [newEntryImportance, setNewEntryImportance] = useState<MemoryEntry['importance']>('medium');
   const [newEntryTags, setNewEntryTags] = useState('');
+  
+  // Subagent state
+  const [subagents, setSubagents] = useState<SubagentStatus[]>(MOCK_SUBAGENTS);
+  const [subagentsLoading, setSubagentsLoading] = useState(false);
+  const [subagentsError, setSubagentsError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
   const tabs = [
     { id: 'journal' as const, label: 'Journal', icon: BookOpen },
     { id: 'insights' as const, label: 'Insights', icon: Lightbulb },
     { id: 'context' as const, label: 'Context', icon: ListTodo },
   ];
+
+  // Fetch subagent status
+  const fetchSubagents = useCallback(async () => {
+    if (activeTab !== 'context') return;
+    
+    setSubagentsLoading(true);
+    setSubagentsError(null);
+    
+    try {
+      const response = await fetch('/api/subagent-status?mock=true');
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        setSubagents(data.data);
+        setLastRefresh(new Date());
+      } else {
+        setSubagentsError(data.error || 'Failed to fetch subagents');
+      }
+    } catch (error) {
+      console.error('Error fetching subagents:', error);
+      setSubagentsError('Network error');
+    } finally {
+      setSubagentsLoading(false);
+    }
+  }, [activeTab]);
+
+  // Poll for subagent updates when Context tab is active
+  useEffect(() => {
+    // Initial fetch
+    if (activeTab === 'context') {
+      fetchSubagents();
+    }
+    
+    // Set up polling interval (30 seconds)
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (activeTab === 'context') {
+      interval = setInterval(() => {
+        fetchSubagents();
+      }, 30000);
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [activeTab, fetchSubagents]);
 
   const getFilteredEntries = () => {
     if (activeTab === 'journal') {
@@ -247,6 +367,31 @@ export default function MemoryCard() {
     }
   };
 
+  const getSubagentStatusColor = (status: SubagentStatus['status']) => {
+    switch (status) {
+      case 'running': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'completed': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'failed': return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'checking_in': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+      default: return 'bg-[#8b949e]/20 text-[#8b949e] border-[#8b949e]/30';
+    }
+  };
+
+  const getSubagentStatusIcon = (status: SubagentStatus['status']) => {
+    switch (status) {
+      case 'running': 
+        return <Loader2 className="w-3 h-3 animate-spin" />;
+      case 'completed': 
+        return <Activity className="w-3 h-3" />;
+      case 'failed': 
+        return <AlertCircle className="w-3 h-3" />;
+      case 'checking_in': 
+        return <Clock className="w-3 h-3" />;
+      default: 
+        return <Bot className="w-3 h-3" />;
+    }
+  };
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'journal': return <BookOpen className="w-4 h-4 text-[#58a6ff]" />;
@@ -282,8 +427,16 @@ export default function MemoryCard() {
     setEntries(entries.filter(e => e.id !== id));
   };
 
+  const handleViewTranscript = (transcriptPath?: string) => {
+    if (transcriptPath) {
+      // Open transcript in new tab or show modal
+      window.open(`/api/transcript?path=${encodeURIComponent(transcriptPath)}`, '_blank');
+    }
+  };
+
   const filteredEntries = getFilteredEntries();
   const entryCount = filteredEntries.length;
+  const activeSubagentCount = subagents.filter(s => s.status === 'running' || s.status === 'checking_in').length;
 
   // Group journal entries by date
   const groupedJournalEntries = filteredEntries.reduce((groups, entry) => {
@@ -309,7 +462,10 @@ export default function MemoryCard() {
           <div>
             <h2 className="text-lg font-semibold text-white">Memory</h2>
             <p className="text-xs text-[#8b949e]">
-              {entryCount} {activeTab === 'journal' ? 'journal entries' : activeTab === 'insights' ? 'insights' : 'projects'}
+              {activeTab === 'context' && activeSubagentCount > 0 
+                ? `${activeSubagentCount} active subagent${activeSubagentCount !== 1 ? 's' : ''} • ${entryCount} projects`
+                : `${entryCount} ${activeTab === 'journal' ? 'journal entries' : activeTab === 'insights' ? 'insights' : 'projects'}`
+              }
             </p>
           </div>
         </div>
@@ -333,6 +489,11 @@ export default function MemoryCard() {
           >
             <tab.icon className="w-4 h-4" />
             <span>{tab.label}</span>
+            {tab.id === 'context' && activeSubagentCount > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] rounded-full">
+                {activeSubagentCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -346,7 +507,7 @@ export default function MemoryCard() {
               No {activeTab} entries yet
             </p>
             <p className="text-xs text-[#8b949e]/70">
-              Click "Add" to create your first entry
+              Click &quot;Add&quot; to create your first entry
             </p>
           </div>
         ) : activeTab === 'journal' ? (
@@ -448,40 +609,169 @@ export default function MemoryCard() {
             ))}
           </div>
         ) : (
-          // Context/Projects View
-          <div className="space-y-2">
-            {filteredEntries.map((entry) => (
-              <div
-                key={entry.id}
-                className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#ff6b35]/30 transition-all"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-2">
-                      <h3 className="font-medium text-white text-sm">{entry.title}</h3>
-                      {entry.projectStatus && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${getStatusColor(entry.projectStatus)}`}>
-                          {entry.projectStatus}
-                        </span>
-                      )}
+          // Context View with Active Subagents
+          <div className="space-y-4">
+            {/* Active Subagents Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-[#ff6b35]" />
+                  <h3 className="text-sm font-medium text-white">Active Subagents</h3>
+                  <span className="px-2 py-0.5 bg-[#21262d] text-[#8b949e] text-[10px] rounded-full">
+                    {subagents.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {subagentsLoading && (
+                    <Loader2 className="w-3 h-3 animate-spin text-[#8b949e]" />
+                  )}
+                  <button
+                    onClick={fetchSubagents}
+                    className="p-1.5 hover:bg-[#21262d] rounded-lg transition-colors"
+                    title="Refresh now"
+                  >
+                    <RefreshCw className={`w-3 h-3 text-[#8b949e] ${subagentsLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
+              
+              {subagentsError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <p className="text-xs text-red-400">{subagentsError}</p>
+                </div>
+              )}
+              
+              {/* Subagent Cards */}
+              <div className="grid gap-2">
+                {subagents.map((subagent) => (
+                  <div
+                    key={subagent.id}
+                    className="p-3 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#ff6b35]/30 transition-all group"
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Status Indicator */}
+                      <div className="flex-shrink-0">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          subagent.status === 'running' ? 'bg-blue-500/10' :
+                          subagent.status === 'completed' ? 'bg-green-500/10' :
+                          subagent.status === 'failed' ? 'bg-red-500/10' :
+                          'bg-orange-500/10'
+                        }`}>
+                          {getSubagentStatusIcon(subagent.status)}
+                        </div>
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h4 className="font-medium text-white text-sm">{subagent.label}</h4>
+                            <p className="text-xs text-[#8b949e] mt-0.5 truncate">{subagent.task}</p>
+                          </div>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full border flex items-center gap-1 whitespace-nowrap ${getSubagentStatusColor(subagent.status)}`}>
+                            {getSubagentStatusIcon(subagent.status)}
+                            {subagent.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        
+                        {/* Progress Bar for Running Subagents */}
+                        {subagent.status === 'running' && (
+                          <div className="mt-2">
+                            <div className="h-1 bg-[#21262d] rounded-full overflow-hidden">
+                              <div className="h-full bg-blue-500 rounded-full animate-pulse" style={{ width: '60%' }} />
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Metadata */}
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center gap-3 text-[10px] text-[#8b949e]">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {subagent.runtime}
+                            </span>
+                            <span className="text-[#484f58]">•</span>
+                            <span>
+                              Updated {formatDateShort(subagent.lastUpdate)}
+                            </span>
+                          </div>
+                          
+                          <button
+                            onClick={() => handleViewTranscript(subagent.transcriptPath)}
+                            className="flex items-center gap-1 px-2 py-1 bg-[#21262d] hover:bg-[#30363d] text-[#8b949e] hover:text-white rounded-lg transition-all text-[10px]"
+                          >
+                            <FileText className="w-3 h-3" />
+                            View Details
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-xs text-[#8b949e] leading-relaxed">
-                      {entry.content}
-                    </p>
-                    <div className="flex items-center gap-2 mt-3">
-                      {entry.tags?.map((tag, idx) => (
-                        <span 
-                          key={idx}
-                          className="text-[10px] px-2 py-0.5 bg-[#21262d] text-[#8b949e] rounded-full"
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                  </div>
+                ))}
+              </div>
+              
+              {subagents.length === 0 && !subagentsLoading && (
+                <div className="text-center py-6 bg-[#0d1117] rounded-xl border border-[#30363d]">
+                  <Bot className="w-8 h-8 mx-auto mb-2 text-[#8b949e] opacity-50" />
+                  <p className="text-xs text-[#8b949e]">No active subagents</p>
+                </div>
+              )}
+              
+              {/* Last Refresh Info */}
+              <div className="flex items-center justify-between text-[10px] text-[#8b949e]">
+                <span>Auto-refreshes every 30s</span>
+                <span>Last updated: {lastRefresh.toLocaleTimeString('en-US', { 
+                  timeZone: 'America/New_York',
+                  hour: '2-digit', 
+                  minute: '2-digit',
+                  second: '2-digit'
+                })} EST</span>
+              </div>
+            </div>
+            
+            {/* Divider */}
+            <div className="border-t border-[#30363d] pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <ListTodo className="w-4 h-4 text-[#238636]" />
+                <h3 className="text-sm font-medium text-white">Projects</h3>
+              </div>
+            </div>
+            
+            {/* Projects List */}
+            <div className="space-y-2">
+              {filteredEntries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#ff6b35]/30 transition-all"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-2">
+                        <h3 className="font-medium text-white text-sm">{entry.title}</h3>
+                        {entry.projectStatus && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${getStatusColor(entry.projectStatus)}`}>
+                            {entry.projectStatus}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#8b949e] leading-relaxed">
+                        {entry.content}
+                      </p>
+                      <div className="flex items-center gap-2 mt-3">
+                        {entry.tags?.map((tag, idx) => (
+                          <span 
+                            key={idx}
+                            className="text-[10px] px-2 py-0.5 bg-[#21262d] text-[#8b949e] rounded-full"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </div>
