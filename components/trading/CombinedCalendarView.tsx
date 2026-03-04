@@ -411,14 +411,14 @@ export default function CombinedCalendarView() {
                 key={dayData.date}
                 className={`
                   aspect-square border-r border-b border-[#21262d] p-1 sm:p-2
-                  relative flex flex-col justify-between
+                  relative flex flex-col
                   ${hasTrades ? 'bg-[#21262d]' : 'bg-[#161b22]'}
                   ${today ? 'ring-2 ring-inset ring-[#F97316]' : ''}
                   transition-all hover:bg-[#1f242b]
                 `}
               >
-                {/* Day Number */}
-                <div className="flex justify-between items-start">
+                {/* Day Number - Top Left */}
+                <div className="flex justify-between items-start mb-1">
                   <span className={`text-xs sm:text-sm font-medium ${today ? 'text-[#F97316]' : 'text-white'}`}>
                     {dayData.dayNumber}
                   </span>
@@ -429,33 +429,33 @@ export default function CombinedCalendarView() {
                   )}
                 </div>
 
-                {/* Icons at Bottom - Bigger with better visibility */}
-                <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-auto">
-                  {/* Trade Icon */}
+                {/* Icons - Centered Vertically & Horizontally */}
+                <div className="flex-1 flex flex-col items-center justify-center gap-1.5">
+                  {/* Trade Icon - Top */}
                   {hasTrades && (
                     <button
                       onClick={(e) => handleTradeIconClick(dayData.date, e)}
                       className={`
                         relative group flex items-center justify-center
-                        w-8 h-8 sm:w-10 sm:h-10 rounded-xl transition-all duration-200
+                        w-8 h-8 sm:w-9 sm:h-9 rounded-xl transition-all duration-200
                         hover:scale-110 hover:shadow-lg
                         ${isProfitable 
-                          ? 'bg-[#238636]/25 text-[#3fb950] hover:bg-[#238636]/40 ring-1 ring-[#3fb950]/30' 
+                          ? 'bg-[#238636]/30 text-[#3fb950] hover:bg-[#238636]/50 ring-1 ring-[#3fb950]/40' 
                           : isLoss 
-                            ? 'bg-[#da3633]/25 text-[#f85149] hover:bg-[#da3633]/40 ring-1 ring-[#f85149]/30'
+                            ? 'bg-[#da3633]/30 text-[#f85149] hover:bg-[#da3633]/50 ring-1 ring-[#f85149]/40'
                             : 'bg-[#30363d] text-[#8b949e] hover:bg-[#3d444d] ring-1 ring-[#8b949e]/20'
                         }
                       `}
                       title={`${dayData.trades?.trades} trade(s) - Click to view`}
                     >
-                      <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
+                      <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
                       {/* Trade count badge */}
                       {dayData.trades && dayData.trades.trades > 1 && (
                         <span className={`
                           absolute -top-1 -right-1 
-                          w-4 h-4 sm:w-5 sm:h-5 
+                          w-3.5 h-3.5 sm:w-4 sm:h-4 
                           flex items-center justify-center 
-                          text-[8px] sm:text-[10px] font-bold 
+                          text-[7px] sm:text-[8px] font-bold 
                           rounded-full
                           ${isProfitable 
                             ? 'bg-[#3fb950] text-[#0d1117]' 
@@ -470,30 +470,30 @@ export default function CombinedCalendarView() {
                     </button>
                   )}
 
-                  {/* Journal Icon */}
+                  {/* Journal Icon - Bottom */}
                   {hasJournal && (
                     <button
                       onClick={(e) => handleJournalIconClick(dayData.date, e)}
                       className="
                         relative group flex items-center justify-center
-                        w-8 h-8 sm:w-10 sm:h-10 rounded-xl
-                        bg-[#1f6feb]/25 text-[#58a6ff]
-                        hover:bg-[#1f6feb]/40 hover:scale-110 hover:shadow-lg
-                        ring-1 ring-[#58a6ff]/30
+                        w-8 h-8 sm:w-9 sm:h-9 rounded-xl
+                        bg-[#1f6feb]/30 text-[#58a6ff]
+                        hover:bg-[#1f6feb]/50 hover:scale-110 hover:shadow-lg
+                        ring-1 ring-[#58a6ff]/40
                         transition-all duration-200
                       "
                       title="Journal entry - Click to view/edit"
                     >
-                      <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
+                      <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
                       {/* Checkmark indicator for completed journal */}
                       <span className="
                         absolute -top-1 -right-1 
-                        w-4 h-4 sm:w-5 sm:h-5 
+                        w-3.5 h-3.5 sm:w-4 sm:h-4 
                         flex items-center justify-center 
                         bg-[#58a6ff] text-[#0d1117]
                         rounded-full
                       ">
-                        <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" strokeWidth={3} />
+                        <CheckCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3" strokeWidth={3} />
                       </span>
                     </button>
                   )}
