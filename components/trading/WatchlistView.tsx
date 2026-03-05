@@ -1684,293 +1684,266 @@ export default function WatchlistView() {
         ) : (
           <div className="space-y-6">
             {/* FAVORITES SECTION */}
-            {(() => {
-              // Filter by search query and side filter
-              const filteredWatchlist = watchlist.filter(item => {
-                // Search filter
-                const matchesSearch = !searchQuery || 
-                  item.ticker.toLowerCase().includes(searchQuery.toLowerCase());
-                
-                // Side filter
-                let matchesSide = true;
-                if (sideFilter !== 'all') {
-                  const isLong = item.targetPrice > item.entryPrice;
-                  const isShort = item.targetPrice < item.entryPrice;
-                  if (sideFilter === 'long') matchesSide = isLong;
-                  if (sideFilter === 'short') matchesSide = isShort;
-                }
-                
-                return matchesSearch && matchesSide;
-              });
-              
-              const favorites = filteredWatchlist.filter(i => i.isFavorite);
-              const others = filteredWatchlist.filter(i => !i.isFavorite);
-              
-              return (
-                <>
-                  {filteredWatchlist.length === 0 && (searchQuery || sideFilter !== 'all') ? (
-                    <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
-                      <Search className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
-                      <p className="text-sm text-[#8b949e]">
-                        No trades found
-                        {searchQuery && ` for "${searchQuery}"`}
-                        {sideFilter !== 'all' && ` (${sideFilter === 'long' ? 'Long' : 'Short'} trades)`}
-                      </p>
-                      <button
-                        onClick={() => {
-                          setSearchQuery('');
-                          setSideFilter('all');
-                        }}
-                        className="mt-2 text-sm text-[#F97316] hover:underline"
-                      >
-                        Clear filters
-                      </button>
+            {filteredWatchlist.length === 0 && (searchQuery || sideFilter !== 'all') ? (
+              <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
+                <Search className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
+                <p className="text-sm text-[#8b949e]">
+                  No trades found
+                  {searchQuery && ` for "${searchQuery}"`}
+                  {sideFilter !== 'all' && ` (${sideFilter === 'long' ? 'Long' : 'Short'} trades)`}
+                </p>
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSideFilter('all');
+                  }}
+                  className="mt-2 text-sm text-[#F97316] hover:underline"
+                >
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              <>
+                {favorites.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-2">
+                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                      <h4 className="text-sm font-semibold text-yellow-400">Favorites</h4>
+                      <span className="text-xs text-[#8b949e]">({favorites.length})</span>
                     </div>
-                  ) : (
-                    <>
-                      {favorites.length > 0 && (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 px-2">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                            <h4 className="text-sm font-semibold text-yellow-400">Favorites</h4>
-                            <span className="text-xs text-[#8b949e]">({favorites.length})</span>
+                    <div className="space-y-3 p-3 rounded-xl border-2 border-yellow-400/50 bg-yellow-400/5">
+                  {favorites.map((item) => (
+                    <div
+                      key={item.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, item.id, 'watchlist')}
+                      onDragOver={(e) => handleDragOver(e, item.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, item.id, 'watchlist')}
+                      onClick={() => handleEdit(item)}
+                      className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
+                    >
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
+                            <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
                           </div>
-                          <div className="space-y-3 p-3 rounded-xl border-2 border-yellow-400/50 bg-yellow-400/5">
-                        {favorites.map((item) => (
-                          <div
-                            key={item.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, item.id, 'watchlist')}
-                            onDragOver={(e) => handleDragOver(e, item.id)}
-                            onDragLeave={handleDragLeave}
-                            onDrop={(e) => handleDrop(e, item.id, 'watchlist')}
-                            onClick={() => handleEdit(item)}
-                            className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
-                          >
-                            {/* Card Header */}
-                            <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors">
-                              <div className="flex items-center gap-3">
-                                <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
-                                  <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
-                                </div>
-                                {/* Long/Short Indicator */}
-                                {(() => {
-                                  const isLong = item.targetPrice > item.entryPrice;
-                                  const isShort = item.targetPrice < item.entryPrice;
-                                  if (!isLong && !isShort) return null;
-                                  return (
-                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                      {isLong ? '📈 LONG' : '📉 SHORT'}
-                                    </span>
-                                  );
-                                })()}
-                                <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
-                                  <Calendar className="w-3.5 h-3.5" />
-                                  {formatDate(item.createdAt)}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleFavorite(item);
-                                  }}
-                                  className={`p-2 rounded-lg transition-colors ${item.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-[#8b949e] hover:text-yellow-400 hover:bg-yellow-400/10'}`}
-                                  title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                                >
-                                  <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-current' : ''}`} />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleStartTrade(item);
-                                  }}
-                                  className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
-                                  title="Enter position - Move to Active Trades"
-                                >
-                                  <Play className="w-3.5 h-3.5" />
-                                  Start Trade
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEdit(item);
-                                  }}
-                                  className="p-2 text-[#8b949e] hover:text-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-colors"
-                                  title="Edit trade"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveFromWatchlist(item.id);
-                                  }}
-                                  className="p-2 text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                                  title="Remove from watchlist"
-                                >
-                                  <BookmarkX className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Card Body */}
-                            <div className="p-4">
-                              {/* Unified Stats Row */}
-                              <div className="grid grid-cols-5 gap-2">
-                                <div>
-                                  <div className="text-xs text-[#8b949e]">Entry</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-red-400">Stop</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.stopPrice)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-green-400">Target</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.targetPrice)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-[#8b949e]">Profit</div>
-                                  <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-[#8b949e]">Value</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
-                                </div>
-                              </div>
-                            </div>
+                          {/* Long/Short Indicator */}
+                          {(() => {
+                            const isLong = item.targetPrice > item.entryPrice;
+                            const isShort = item.targetPrice < item.entryPrice;
+                            if (!isLong && !isShort) return null;
+                            return (
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {isLong ? '📈 LONG' : '📉 SHORT'}
+                              </span>
+                            );
+                          })()}
+                          <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {formatDate(item.createdAt)}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* OTHER TRADES SECTION */}
-                  {others.length > 0 && (
-                    <div className="space-y-3">
-                      {favorites.length > 0 && (
-                        <div className="flex items-center gap-2 px-2 pt-2 border-t border-[#30363d]">
-                          <Layers className="w-4 h-4 text-[#8b949e]" />
-                          <h4 className="text-sm font-semibold text-[#8b949e]">Other Trades</h4>
-                          <span className="text-xs text-[#8b949e]">({others.length})</span>
                         </div>
-                      )}
-                      <div className="space-y-3">
-                        {others.map((item) => (
-                          <div
-                            key={item.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, item.id, 'watchlist')}
-                            onDragOver={(e) => handleDragOver(e, item.id)}
-                            onDragLeave={handleDragLeave}
-                            onDrop={(e) => handleDrop(e, item.id, 'watchlist')}
-                            onClick={() => handleEdit(item)}
-                            className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleFavorite(item);
+                            }}
+                            className={`p-2 rounded-lg transition-colors ${item.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-[#8b949e] hover:text-yellow-400 hover:bg-yellow-400/10'}`}
+                            title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                           >
-                            {/* Card Header */}
-                            <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors">
-                              <div className="flex items-center gap-3">
-                                <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
-                                  <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
-                                </div>
-                                {/* Long/Short Indicator */}
-                                {(() => {
-                                  const isLong = item.targetPrice > item.entryPrice;
-                                  const isShort = item.targetPrice < item.entryPrice;
-                                  if (!isLong && !isShort) return null;
-                                  return (
-                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                      {isLong ? '📈 LONG' : '📉 SHORT'}
-                                    </span>
-                                  );
-                                })()}
-                                <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
-                                  <Calendar className="w-3.5 h-3.5" />
-                                  {formatDate(item.createdAt)}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleFavorite(item);
-                                  }}
-                                  className={`p-2 rounded-lg transition-colors ${item.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-[#8b949e] hover:text-yellow-400 hover:bg-yellow-400/10'}`}
-                                  title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                                >
-                                  <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-current' : ''}`} />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleStartTrade(item);
-                                  }}
-                                  className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
-                                  title="Enter position - Move to Active Trades"
-                                >
-                                  <Play className="w-3.5 h-3.5" />
-                                  Start Trade
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEdit(item);
-                                  }}
-                                  className="p-2 text-[#8b949e] hover:text-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-colors"
-                                  title="Edit trade"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveFromWatchlist(item.id);
-                                  }}
-                                  className="p-2 text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                                  title="Remove from watchlist"
-                                >
-                                  <BookmarkX className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
+                            <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-current' : ''}`} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartTrade(item);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                            title="Enter position - Move to Active Trades"
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                            Start Trade
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(item);
+                            }}
+                            className="p-2 text-[#8b949e] hover:text-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-colors"
+                            title="Edit trade"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveFromWatchlist(item.id);
+                            }}
+                            className="p-2 text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                            title="Remove from watchlist"
+                          >
+                            <BookmarkX className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
 
-                            {/* Card Body */}
-                            <div className="p-4">
-                              {/* Unified Stats Row */}
-                              <div className="grid grid-cols-5 gap-2">
-                                <div>
-                                  <div className="text-xs text-[#8b949e]">Entry</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-red-400">Stop</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.stopPrice)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-green-400">Target</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.targetPrice)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-[#8b949e]">Profit</div>
-                                  <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-[#8b949e]">Value</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
-                                </div>
-                              </div>
-                            </div>
+                      {/* Card Body */}
+                      <div className="p-4">
+                        {/* Unified Stats Row */}
+                        <div className="grid grid-cols-5 gap-2">
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Entry</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
                           </div>
-                        ))}
+                          <div>
+                            <div className="text-xs text-red-400">Stop</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.stopPrice)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-green-400">Target</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.targetPrice)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Profit</div>
+                            <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Value</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  )}
-                    </>
-                  )}
-                </>
-              );
-            })()}
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* OTHER TRADES SECTION */}
+            {others.length > 0 && (
+              <div className="space-y-3">
+                {favorites.length > 0 && (
+                  <div className="flex items-center gap-2 px-2 pt-2 border-t border-[#30363d]">
+                    <Layers className="w-4 h-4 text-[#8b949e]" />
+                    <h4 className="text-sm font-semibold text-[#8b949e]">Other Trades</h4>
+                    <span className="text-xs text-[#8b949e]">({others.length})</span>
+                  </div>
+                )}
+                <div className="space-y-3">
+                  {others.map((item) => (
+                    <div
+                      key={item.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, item.id, 'watchlist')}
+                      onDragOver={(e) => handleDragOver(e, item.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, item.id, 'watchlist')}
+                      onClick={() => handleEdit(item)}
+                      className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
+                    >
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
+                            <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
+                          </div>
+                          {/* Long/Short Indicator */}
+                          {(() => {
+                            const isLong = item.targetPrice > item.entryPrice;
+                            const isShort = item.targetPrice < item.entryPrice;
+                            if (!isLong && !isShort) return null;
+                            return (
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {isLong ? '📈 LONG' : '📉 SHORT'}
+                              </span>
+                            );
+                          })()}
+                          <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {formatDate(item.createdAt)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleFavorite(item);
+                            }}
+                            className={`p-2 rounded-lg transition-colors ${item.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-[#8b949e] hover:text-yellow-400 hover:bg-yellow-400/10'}`}
+                            title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                          >
+                            <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-current' : ''}`} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartTrade(item);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                            title="Enter position - Move to Active Trades"
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                            Start Trade
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(item);
+                            }}
+                            className="p-2 text-[#8b949e] hover:text-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-colors"
+                            title="Edit trade"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveFromWatchlist(item.id);
+                            }}
+                            className="p-2 text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                            title="Remove from watchlist"
+                          >
+                            <BookmarkX className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Card Body */}
+                      <div className="p-4">
+                        {/* Unified Stats Row */}
+                        <div className="grid grid-cols-5 gap-2">
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Entry</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-red-400">Stop</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.stopPrice)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-green-400">Target</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.targetPrice)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Profit</div>
+                            <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Value</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+              </>
+            )}
           </div>
         )}
       </div>
