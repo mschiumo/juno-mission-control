@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  BookmarkX, 
-  TrendingUp, 
+import {
+  BookmarkX,
+  TrendingUp,
   Calendar,
   Layers,
   Award,
@@ -24,7 +24,9 @@ import {
   Star,
   CheckSquare,
   Square,
-  Search
+  Search,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
@@ -57,6 +59,9 @@ const DEFAULT_USER_ID = 'default';
 
 // LocalStorage key for order placed state
 const ORDER_PLACED_STORAGE_KEY = 'juno:active-trades-orders';
+
+// LocalStorage key for collapsed sections state
+const COLLAPSED_SECTIONS_STORAGE_KEY = 'juno:watchlist-collapsed-sections';
 
 export default function WatchlistView() {
   // Watchlist (Potential Trades) state
@@ -100,6 +105,17 @@ export default function WatchlistView() {
   
   // Order Placed state (persisted in localStorage)
   const [orderPlacedMap, setOrderPlacedMap] = useState<Record<string, boolean>>({});
+  
+  // Collapsed sections state (persisted in localStorage)
+  const [collapsedSections, setCollapsedSections] = useState<{
+    activeTrades: boolean;
+    potentialTrades: boolean;
+    closedPositions: boolean;
+  }>({
+    activeTrades: false,
+    potentialTrades: false,
+    closedPositions: false,
+  });
   
   // Edit Active Trade state
   const [editingTrade, setEditingTrade] = useState<ActiveTrade | null>(null);
@@ -182,6 +198,27 @@ export default function WatchlistView() {
       console.error('Error saving order placed state:', err);
     }
   }, [orderPlacedMap]);
+
+  // Load collapsed sections state from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(COLLAPSED_SECTIONS_STORAGE_KEY);
+      if (stored) {
+        setCollapsedSections(JSON.parse(stored));
+      }
+    } catch (err) {
+      console.error('Error loading collapsed sections state:', err);
+    }
+  }, []);
+
+  // Save collapsed sections state to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSED_SECTIONS_STORAGE_KEY, JSON.stringify(collapsedSections));
+    } catch (err) {
+      console.error('Error saving collapsed sections state:', err);
+    }
+  }, [collapsedSections]);
 
   // ===== API FUNCTIONS =====
   
@@ -867,6 +904,14 @@ export default function WatchlistView() {
     }));
   };
 
+  // ===== COLLAPSE/EXPAND SECTION TOGGLE =====
+  const toggleSection = (section: 'activeTrades' | 'potentialTrades' | 'closedPositions') => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
   // ===== EDIT: Closed Position =====
   const handleEditClosedPosition = (position: ClosedPosition) => {
     setEditingClosedPosition(position);
@@ -1256,6 +1301,18 @@ export default function WatchlistView() {
                 {activeTrades.length} position{activeTrades.length !== 1 ? 's' : ''}
               </p>
             </div>
+            {/* Collapse/Expand Toggle */}
+            <button
+              onClick={() => toggleSection('activeTrades')}
+              className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+              title={collapsedSections.activeTrades ? 'Expand section' : 'Collapse section'}
+            >
+              {collapsedSections.activeTrades ? (
+                <ChevronDown className="w-5 h-5" />
+              ) : (
+                <ChevronUp className="w-5 h-5" />
+              )}
+            </button>
           </div>
           <div className="flex items-center gap-2">
             {/* Search Input */}
@@ -1287,7 +1344,12 @@ export default function WatchlistView() {
           </div>
         </div>
 
-        {/* Active Trades List */}
+        {/* Active Trades List - Collapsible */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            collapsedSections.activeTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+          }`}
+        >
         {activeTrades.length === 0 ? (
           <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
             <Activity className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
@@ -1567,6 +1629,7 @@ export default function WatchlistView() {
             })()}
           </div>
         )}
+        </div>{/* End of collapsible content */}
       </div>
 
       {/* Divider */}
@@ -1614,6 +1677,18 @@ export default function WatchlistView() {
                 )}
               </p>
             </div>
+            {/* Collapse/Expand Toggle */}
+            <button
+              onClick={() => toggleSection('potentialTrades')}
+              className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+              title={collapsedSections.potentialTrades ? 'Expand section' : 'Collapse section'}
+            >
+              {collapsedSections.potentialTrades ? (
+                <ChevronDown className="w-5 h-5" />
+              ) : (
+                <ChevronUp className="w-5 h-5" />
+              )}
+            </button>
           </div>
           <div className="flex items-center gap-2">
             {/* Side Filter - Pill Buttons */}
@@ -1680,7 +1755,12 @@ export default function WatchlistView() {
           </div>
         </div>
 
-        {/* Potential Trades List */}
+        {/* Potential Trades List - Collapsible */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            collapsedSections.potentialTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+          }`}
+        >
         {watchlist.length === 0 ? (
           <div className="text-center py-12 border border-dashed border-[#30363d] rounded-xl">
             <BookmarkX className="w-12 h-12 text-[#30363d] mx-auto mb-4" />
@@ -1958,6 +2038,7 @@ export default function WatchlistView() {
             )}
           </div>
         )}
+        </div>{/* End of collapsible content */}
       </div>
 
       {/* Divider */}
@@ -1980,6 +2061,18 @@ export default function WatchlistView() {
                 )}
               </p>
             </div>
+            {/* Collapse/Expand Toggle */}
+            <button
+              onClick={() => toggleSection('closedPositions')}
+              className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+              title={collapsedSections.closedPositions ? 'Expand section' : 'Collapse section'}
+            >
+              {collapsedSections.closedPositions ? (
+                <ChevronDown className="w-5 h-5" />
+              ) : (
+                <ChevronUp className="w-5 h-5" />
+              )}
+            </button>
           </div>
           <div className="flex items-center gap-2">
             {/* Search Input */}
@@ -2044,7 +2137,12 @@ export default function WatchlistView() {
           </div>
         </div>
 
-        {/* Closed Positions List */}
+        {/* Closed Positions List - Collapsible */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            collapsedSections.closedPositions ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+          }`}
+        >
         {visibleClosedPositions.length === 0 ? (
           <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
             <History className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
@@ -2249,6 +2347,7 @@ export default function WatchlistView() {
             ))}
           </div>
         )}
+        </div>{/* End of collapsible content */}
       </div>
 
       {/* ===== MODALS ===== */}
