@@ -400,5 +400,14 @@ export interface CSVImportWithDuplicatesResult {
   newTrades: Trade[];
   stats: {
     totalInCSV: number;
+    imported: number;
+    potentialDuplicates: number;
   };
+}
+
+// Extended Trade with merge fields (for internal use)
+export interface MergedTrade extends Trade {
+  isMerged?: boolean;
+  mergedFrom?: string[];
+  mergedAt?: string;
 }
