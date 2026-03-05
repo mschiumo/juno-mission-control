@@ -161,6 +161,79 @@ export async function PUT(
       }
     }
     
+    // Recalculate P&L when entryPrice changes and exitPrice exists (closed trade)
+    // This handles the case where user edits entry/exit prices of a closed trade
+    if (body.entryPrice !== undefined && 
+        (trade.exitPrice !== undefined || body.exitPrice !== undefined) &&
+        body.grossPnL === undefined && body.netPnL === undefined) {
+      const currentExitPrice = body.exitPrice !== undefined ? body.exitPrice : trade.exitPrice;
+      const currentShares = body.shares !== undefined ? body.shares : trade.shares;
+      const currentSide = body.side !== undefined ? body.side : trade.side;
+      
+      if (currentExitPrice !== undefined && currentExitPrice > 0 && body.entryPrice > 0) {
+        const isLong = currentSide === TradeSide.LONG;
+        const priceDiff = isLong 
+          ? currentExitPrice - body.entryPrice
+          : body.entryPrice - currentExitPrice;
+        
+        const grossPnL = priceDiff * currentShares;
+        // Assume $0.01 per share commission + $1 base fee as default
+        const estimatedFees = 1 + (currentShares * 0.01 * 2); // Entry + Exit
+        
+        updates.grossPnL = grossPnL;
+        updates.netPnL = grossPnL - estimatedFees;
+        updates.returnPercent = (priceDiff / body.entryPrice) * 100;
+      }
+    }
+    
+    // Recalculate P&L when shares changes and we have an exit price (closed trade)
+    if (body.shares !== undefined && 
+        (trade.exitPrice !== undefined || body.exitPrice !== undefined) &&
+        body.grossPnL === undefined && body.netPnL === undefined) {
+      const currentExitPrice = body.exitPrice !== undefined ? body.exitPrice : trade.exitPrice;
+      const currentEntryPrice = body.entryPrice !== undefined ? body.entryPrice : trade.entryPrice;
+      const currentSide = body.side !== undefined ? body.side : trade.side;
+      
+      if (currentExitPrice !== undefined && currentExitPrice > 0 && currentEntryPrice > 0) {
+        const isLong = currentSide === TradeSide.LONG;
+        const priceDiff = isLong 
+          ? currentExitPrice - currentEntryPrice
+          : currentEntryPrice - currentExitPrice;
+        
+        const grossPnL = priceDiff * body.shares;
+        // Assume $0.01 per share commission + $1 base fee as default
+        const estimatedFees = 1 + (body.shares * 0.01 * 2); // Entry + Exit
+        
+        updates.grossPnL = grossPnL;
+        updates.netPnL = grossPnL - estimatedFees;
+        updates.returnPercent = (priceDiff / currentEntryPrice) * 100;
+      }
+    }
+    
+    // Recalculate P&L when side changes and we have an exit price (closed trade)
+    if (body.side !== undefined && 
+        (trade.exitPrice !== undefined || body.exitPrice !== undefined) &&
+        body.grossPnL === undefined && body.netPnL === undefined) {
+      const currentExitPrice = body.exitPrice !== undefined ? body.exitPrice : trade.exitPrice;
+      const currentEntryPrice = body.entryPrice !== undefined ? body.entryPrice : trade.entryPrice;
+      const currentShares = body.shares !== undefined ? body.shares : trade.shares;
+      
+      if (currentExitPrice !== undefined && currentExitPrice > 0 && currentEntryPrice > 0) {
+        const isLong = body.side === TradeSide.LONG;
+        const priceDiff = isLong 
+          ? currentExitPrice - currentEntryPrice
+          : currentEntryPrice - currentExitPrice;
+        
+        const grossPnL = priceDiff * currentShares;
+        // Assume $0.01 per share commission + $1 base fee as default
+        const estimatedFees = 1 + (currentShares * 0.01 * 2); // Entry + Exit
+        
+        updates.grossPnL = grossPnL;
+        updates.netPnL = grossPnL - estimatedFees;
+        updates.returnPercent = (priceDiff / currentEntryPrice) * 100;
+      }
+    }
+    
     // Recalculate risk percent if risk amount or entry changed
     if (body.riskAmount !== undefined || body.entryPrice !== undefined) {
       const riskAmount = body.riskAmount ?? trade.riskAmount;

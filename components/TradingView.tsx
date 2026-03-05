@@ -17,6 +17,7 @@ import MarketCard from '@/components/MarketCard';
 import NewsScreenerCard from '@/components/NewsScreenerCard';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import CalendarView from '@/components/trading/CalendarView';
+import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
 import JournalView from '@/components/trading/JournalView';
@@ -140,7 +141,7 @@ export default function TradingView() {
 
       {/* Content */}
       {activeSubTab === 'overview' && (
-        <CalendarView />
+        <CombinedCalendarView />
       )}
 
       {activeSubTab === 'journal' && (
