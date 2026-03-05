@@ -5,7 +5,7 @@
  * using symbol, date, and PnL matching with configurable tolerance.
  */
 
-import { Trade, PotentialDuplicate } from '@/types/trading';
+import { Trade, PotentialDuplicate, MergedTrade } from '@/types/trading';
 
 export interface DuplicateDetectionConfig {
   pnlTolerance: number; // Dollar amount tolerance for PnL matching (default: $2.00)
@@ -183,7 +183,7 @@ export function findPotentialDuplicates(
   }
 
   // Sort by confidence (high first)
-  const confidenceOrder = { high: 0, medium: 1, low: 2 };
+  const confidenceOrder: Record<'high' | 'medium' | 'low', number> = { high: 0, medium: 1, low: 2 };
   return duplicates.sort((a, b) => confidenceOrder[a.confidence] - confidenceOrder[b.confidence]);
 }
 
@@ -201,7 +201,7 @@ export function getNonDuplicateTrades(
 /**
  * Merge two trades, keeping CSV data as primary but preserving dashboard notes
  */
-export function mergeTrades(dashboardTrade: Trade, csvTrade: Trade): Trade {
+export function mergeTrades(dashboardTrade: Trade, csvTrade: Trade): MergedTrade {
   const now = new Date().toISOString();
   
   // Combine notes
