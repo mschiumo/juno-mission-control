@@ -1297,11 +1297,23 @@ export default function WatchlistView() {
         ) : (
           <div className="space-y-3">
             {(() => {
-              const filteredActiveTrades = activeTradesSearchQuery
+              // First filter by search query
+              let filteredActiveTrades = activeTradesSearchQuery
                 ? activeTrades.filter(trade =>
                     trade.ticker.toLowerCase().includes(activeTradesSearchQuery.toLowerCase())
                   )
-                : activeTrades;
+                : [...activeTrades];
+              
+              // Sort by orderPlaced status - trades with orderPlaced=true appear first
+              // Within each group, maintain existing order (by date/time - openedAt)
+              filteredActiveTrades.sort((a, b) => {
+                const aOrderPlaced = !!orderPlacedMap[a.id];
+                const bOrderPlaced = !!orderPlacedMap[b.id];
+                
+                if (aOrderPlaced && !bOrderPlaced) return -1;
+                if (!aOrderPlaced && bOrderPlaced) return 1;
+                return 0; // Keep original order within same group
+              });
               
               if (filteredActiveTrades.length === 0 && activeTradesSearchQuery) {
                 return (
