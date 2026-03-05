@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  BookmarkX, 
-  TrendingUp, 
+import {
+  BookmarkX,
+  TrendingUp,
   Calendar,
   Layers,
   Award,
@@ -24,7 +24,9 @@ import {
   Star,
   CheckSquare,
   Square,
-  Search
+  Search,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
@@ -58,11 +60,38 @@ const DEFAULT_USER_ID = 'default';
 // LocalStorage key for order placed state
 const ORDER_PLACED_STORAGE_KEY = 'juno:active-trades-orders';
 
+// LocalStorage key for collapsed sections state
+const COLLAPSED_SECTIONS_STORAGE_KEY = 'juno:watchlist-collapsed-sections';
+
 export default function WatchlistView() {
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sideFilter, setSideFilter] = useState<'all' | 'long' | 'short'>('all');
+  
+  // Compute filtered watchlist based on search and side filter
+  const filteredWatchlist = useMemo(() => {
+    return watchlist.filter(item => {
+      // Search filter
+      const matchesSearch = !searchQuery || 
+        item.ticker.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Side filter
+      let matchesSide = true;
+      if (sideFilter !== 'all') {
+        const isLong = item.targetPrice > item.entryPrice;
+        const isShort = item.targetPrice < item.entryPrice;
+        if (sideFilter === 'long') matchesSide = isLong;
+        if (sideFilter === 'short') matchesSide = isShort;
+      }
+      
+      return matchesSearch && matchesSide;
+    });
+  }, [watchlist, searchQuery, sideFilter]);
+  
+  const favorites = filteredWatchlist.filter(i => i.isFavorite);
+  const others = filteredWatchlist.filter(i => !i.isFavorite);
   const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [enteringItem, setEnteringItem] = useState<WatchlistItem | null>(null);
@@ -76,6 +105,19 @@ export default function WatchlistView() {
   
   // Order Placed state (persisted in localStorage)
   const [orderPlacedMap, setOrderPlacedMap] = useState<Record<string, boolean>>({});
+  
+  // Collapsed sections state (persisted in localStorage)
+  const [collapsedSections, setCollapsedSections] = useState<{
+    activeTrades: boolean;
+    favorites: boolean;
+    otherTrades: boolean;
+    closedPositions: boolean;
+  }>({
+    activeTrades: false,
+    favorites: false,
+    otherTrades: false,
+    closedPositions: false,
+  });
   
   // Edit Active Trade state
   const [editingTrade, setEditingTrade] = useState<ActiveTrade | null>(null);
@@ -158,6 +200,27 @@ export default function WatchlistView() {
       console.error('Error saving order placed state:', err);
     }
   }, [orderPlacedMap]);
+
+  // Load collapsed sections state from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(COLLAPSED_SECTIONS_STORAGE_KEY);
+      if (stored) {
+        setCollapsedSections(JSON.parse(stored));
+      }
+    } catch (err) {
+      console.error('Error loading collapsed sections state:', err);
+    }
+  }, []);
+
+  // Save collapsed sections state to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSED_SECTIONS_STORAGE_KEY, JSON.stringify(collapsedSections));
+    } catch (err) {
+      console.error('Error saving collapsed sections state:', err);
+    }
+  }, [collapsedSections]);
 
   // ===== API FUNCTIONS =====
   
@@ -843,6 +906,14 @@ export default function WatchlistView() {
     }));
   };
 
+  // ===== COLLAPSE/EXPAND SECTION TOGGLE =====
+  const toggleSection = (section: 'activeTrades' | 'favorites' | 'otherTrades' | 'closedPositions') => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
   // ===== EDIT: Closed Position =====
   const handleEditClosedPosition = (position: ClosedPosition) => {
     setEditingClosedPosition(position);
@@ -1219,7 +1290,7 @@ export default function WatchlistView() {
       )}
 
       {/* ===== ACTIVE TRADES SECTION ===== */}
-      <div className="space-y-4">
+      <div className="space-y-4 p-3 rounded-xl border-2 border-green-500/50 bg-green-500/5">
         {/* Section Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1232,6 +1303,18 @@ export default function WatchlistView() {
                 {activeTrades.length} position{activeTrades.length !== 1 ? 's' : ''}
               </p>
             </div>
+            {/* Collapse/Expand Toggle */}
+            <button
+              onClick={() => toggleSection('activeTrades')}
+              className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+              title={collapsedSections.activeTrades ? 'Expand section' : 'Collapse section'}
+            >
+              {collapsedSections.activeTrades ? (
+                <ChevronDown className="w-5 h-5" />
+              ) : (
+                <ChevronUp className="w-5 h-5" />
+              )}
+            </button>
           </div>
           <div className="flex items-center gap-2">
             {/* Search Input */}
@@ -1263,7 +1346,12 @@ export default function WatchlistView() {
           </div>
         </div>
 
-        {/* Active Trades List */}
+        {/* Active Trades List - Collapsible */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            collapsedSections.activeTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+          }`}
+        >
         {activeTrades.length === 0 ? (
           <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
             <Activity className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
@@ -1273,11 +1361,23 @@ export default function WatchlistView() {
         ) : (
           <div className="space-y-3">
             {(() => {
-              const filteredActiveTrades = activeTradesSearchQuery
+              // First filter by search query
+              let filteredActiveTrades = activeTradesSearchQuery
                 ? activeTrades.filter(trade =>
                     trade.ticker.toLowerCase().includes(activeTradesSearchQuery.toLowerCase())
                   )
-                : activeTrades;
+                : [...activeTrades];
+              
+              // Sort by orderPlaced status - trades with orderPlaced=true appear first
+              // Within each group, maintain existing order (by date/time - openedAt)
+              filteredActiveTrades.sort((a, b) => {
+                const aOrderPlaced = !!orderPlacedMap[a.id];
+                const bOrderPlaced = !!orderPlacedMap[b.id];
+                
+                if (aOrderPlaced && !bOrderPlaced) return -1;
+                if (!aOrderPlaced && bOrderPlaced) return 1;
+                return 0; // Keep original order within same group
+              });
               
               if (filteredActiveTrades.length === 0 && activeTradesSearchQuery) {
                 return (
@@ -1531,6 +1631,7 @@ export default function WatchlistView() {
             })()}
           </div>
         )}
+        </div>{/* End of collapsible content */}
       </div>
 
       {/* Divider */}
@@ -1538,9 +1639,9 @@ export default function WatchlistView() {
 
       {/* ===== POTENTIAL TRADES SECTION ===== */}
       <div 
-        className={`space-y-4 rounded-xl transition-all duration-300 ${
+        className={`space-y-4 transition-all duration-300 ${
           isDraggingOverPotential 
-            ? 'bg-[#F97316]/5 ring-2 ring-[#F97316]/50 ring-inset p-4 border-2 border-dashed border-[#F97316]' 
+            ? 'bg-[#F97316]/5 ring-2 ring-[#F97316]/50 ring-inset p-4 border-2 border-dashed border-[#F97316] rounded-xl' 
             : ''
         }`}
         onDragOver={handlePotentialTradesDragOver}
@@ -1567,11 +1668,53 @@ export default function WatchlistView() {
             <div>
               <h3 className="text-lg font-semibold text-white">Potential Trades</h3>
               <p className="text-sm text-[#8b949e]">
-                {watchlist.length} saved trade{watchlist.length !== 1 ? 's' : ''}
+                {(searchQuery || sideFilter !== 'all') ? (
+                  <>
+                    {filteredWatchlist.length} of {watchlist.length} trade{watchlist.length !== 1 ? 's' : ''}
+                  </>
+                ) : (
+                  <>
+                    {watchlist.length} saved trade{watchlist.length !== 1 ? 's' : ''}
+                  </>
+                )}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Side Filter - Pill Buttons */}
+            <div className="flex items-center bg-[#0d1117] border border-[#30363d] rounded-lg p-1">
+              <button
+                onClick={() => setSideFilter('all')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  sideFilter === 'all'
+                    ? 'bg-[#F97316] text-white'
+                    : 'text-[#8b949e] hover:text-white hover:bg-[#262626]'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setSideFilter('long')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  sideFilter === 'long'
+                    ? 'bg-green-500 text-white'
+                    : 'text-[#8b949e] hover:text-white hover:bg-[#262626]'
+                }`}
+              >
+                Long
+              </button>
+              <button
+                onClick={() => setSideFilter('short')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  sideFilter === 'short'
+                    ? 'bg-red-500 text-white'
+                    : 'text-[#8b949e] hover:text-white hover:bg-[#262626]'
+                }`}
+              >
+                Short
+              </button>
+            </div>
+
             {/* Search Input */}
             <div className="relative">
               <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 transform -translate-y-1/2" />
@@ -1601,8 +1744,6 @@ export default function WatchlistView() {
             </button>
           </div>
         </div>
-
-        {/* Potential Trades List */}
         {watchlist.length === 0 ? (
           <div className="text-center py-12 border border-dashed border-[#30363d] rounded-xl">
             <BookmarkX className="w-12 h-12 text-[#30363d] mx-auto mb-4" />
@@ -1618,275 +1759,306 @@ export default function WatchlistView() {
         ) : (
           <div className="space-y-6">
             {/* FAVORITES SECTION */}
-            {(() => {
-              // Filter by search query first
-              const filteredWatchlist = searchQuery
-                ? watchlist.filter(item => 
-                    item.ticker.toLowerCase().includes(searchQuery.toLowerCase())
-                  )
-                : watchlist;
-              
-              const favorites = filteredWatchlist.filter(i => i.isFavorite);
-              const others = filteredWatchlist.filter(i => !i.isFavorite);
-              
-              return (
-                <>
-                  {filteredWatchlist.length === 0 && searchQuery ? (
-                    <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
-                      <Search className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
-                      <p className="text-sm text-[#8b949e]">No trades found for "{searchQuery}"</p>
+            {filteredWatchlist.length === 0 && (searchQuery || sideFilter !== 'all') ? (
+              <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
+                <Search className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
+                <p className="text-sm text-[#8b949e]">
+                  No trades found
+                  {searchQuery && ` for "${searchQuery}"`}
+                  {sideFilter !== 'all' && ` (${sideFilter === 'long' ? 'Long' : 'Short'} trades)`}
+                </p>
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSideFilter('all');
+                  }}
+                  className="mt-2 text-sm text-[#F97316] hover:underline"
+                >
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              <>
+                {favorites.length > 0 && (
+                  <div className="space-y-3 p-3 rounded-xl border-2 border-yellow-400/50 bg-yellow-400/5">
+                    <div className="flex items-center justify-between px-2">
+                      <div className="flex items-center gap-2">
+                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                        <h4 className="text-sm font-semibold text-yellow-400">Favorites</h4>
+                        <span className="text-xs text-[#8b949e]">({favorites.length})</span>
+                      </div>
+                      {/* Collapse/Expand Toggle */}
                       <button
-                        onClick={() => setSearchQuery('')}
-                        className="mt-2 text-sm text-[#F97316] hover:underline"
+                        onClick={() => toggleSection('favorites')}
+                        className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+                        title={collapsedSections.favorites ? 'Expand section' : 'Collapse section'}
                       >
-                        Clear search
+                        {collapsedSections.favorites ? (
+                          <ChevronDown className="w-5 h-5" />
+                        ) : (
+                          <ChevronUp className="w-5 h-5" />
+                        )}
                       </button>
                     </div>
-                  ) : (
-                    <>
-                      {favorites.length > 0 && (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 px-2">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                            <h4 className="text-sm font-semibold text-yellow-400">Favorites</h4>
-                            <span className="text-xs text-[#8b949e]">({favorites.length})</span>
-                          </div>
-                          <div className="space-y-3">
-                        {favorites.map((item) => (
-                          <div
-                            key={item.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, item.id, 'watchlist')}
-                            onDragOver={(e) => handleDragOver(e, item.id)}
-                            onDragLeave={handleDragLeave}
-                            onDrop={(e) => handleDrop(e, item.id, 'watchlist')}
-                            onClick={() => handleEdit(item)}
-                            className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
-                          >
-                            {/* Card Header */}
-                            <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors">
-                              <div className="flex items-center gap-3">
-                                <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
-                                  <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
-                                </div>
-                                {/* Long/Short Indicator */}
-                                {(() => {
-                                  const isLong = item.targetPrice > item.entryPrice;
-                                  const isShort = item.targetPrice < item.entryPrice;
-                                  if (!isLong && !isShort) return null;
-                                  return (
-                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                      {isLong ? '📈 LONG' : '📉 SHORT'}
-                                    </span>
-                                  );
-                                })()}
-                                <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
-                                  <Calendar className="w-3.5 h-3.5" />
-                                  {formatDate(item.createdAt)}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleFavorite(item);
-                                  }}
-                                  className={`p-2 rounded-lg transition-colors ${item.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-[#8b949e] hover:text-yellow-400 hover:bg-yellow-400/10'}`}
-                                  title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                                >
-                                  <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-current' : ''}`} />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleStartTrade(item);
-                                  }}
-                                  className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
-                                  title="Enter position - Move to Active Trades"
-                                >
-                                  <Play className="w-3.5 h-3.5" />
-                                  Start Trade
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEdit(item);
-                                  }}
-                                  className="p-2 text-[#8b949e] hover:text-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-colors"
-                                  title="Edit trade"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveFromWatchlist(item.id);
-                                  }}
-                                  className="p-2 text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                                  title="Remove from watchlist"
-                                >
-                                  <BookmarkX className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Card Body */}
-                            <div className="p-4">
-                              {/* Unified Stats Row */}
-                              <div className="grid grid-cols-5 gap-2">
-                                <div>
-                                  <div className="text-xs text-[#8b949e]">Entry</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-red-400">Stop</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.stopPrice)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-green-400">Target</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.targetPrice)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-[#8b949e]">Profit</div>
-                                  <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-[#8b949e]">Value</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* OTHER TRADES SECTION */}
-                  {others.length > 0 && (
-                    <div className="space-y-3">
-                      {favorites.length > 0 && (
-                        <div className="flex items-center gap-2 px-2 pt-2 border-t border-[#30363d]">
-                          <Layers className="w-4 h-4 text-[#8b949e]" />
-                          <h4 className="text-sm font-semibold text-[#8b949e]">Other Trades</h4>
-                          <span className="text-xs text-[#8b949e]">({others.length})</span>
-                        </div>
-                      )}
+                    {/* Favorites List - Collapsible */}
+                    <div
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                        collapsedSections.favorites ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+                      }`}
+                    >
                       <div className="space-y-3">
-                        {others.map((item) => (
-                          <div
-                            key={item.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, item.id, 'watchlist')}
-                            onDragOver={(e) => handleDragOver(e, item.id)}
-                            onDragLeave={handleDragLeave}
-                            onDrop={(e) => handleDrop(e, item.id, 'watchlist')}
-                            onClick={() => handleEdit(item)}
-                            className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
-                          >
-                            {/* Card Header */}
-                            <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors">
-                              <div className="flex items-center gap-3">
-                                <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
-                                  <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
-                                </div>
-                                {/* Long/Short Indicator */}
-                                {(() => {
-                                  const isLong = item.targetPrice > item.entryPrice;
-                                  const isShort = item.targetPrice < item.entryPrice;
-                                  if (!isLong && !isShort) return null;
-                                  return (
-                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                      {isLong ? '📈 LONG' : '📉 SHORT'}
-                                    </span>
-                                  );
-                                })()}
-                                <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
-                                  <Calendar className="w-3.5 h-3.5" />
-                                  {formatDate(item.createdAt)}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleFavorite(item);
-                                  }}
-                                  className={`p-2 rounded-lg transition-colors ${item.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-[#8b949e] hover:text-yellow-400 hover:bg-yellow-400/10'}`}
-                                  title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                                >
-                                  <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-current' : ''}`} />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleStartTrade(item);
-                                  }}
-                                  className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
-                                  title="Enter position - Move to Active Trades"
-                                >
-                                  <Play className="w-3.5 h-3.5" />
-                                  Start Trade
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEdit(item);
-                                  }}
-                                  className="p-2 text-[#8b949e] hover:text-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-colors"
-                                  title="Edit trade"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveFromWatchlist(item.id);
-                                  }}
-                                  className="p-2 text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                                  title="Remove from watchlist"
-                                >
-                                  <BookmarkX className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Card Body */}
-                            <div className="p-4">
-                              {/* Unified Stats Row */}
-                              <div className="grid grid-cols-5 gap-2">
-                                <div>
-                                  <div className="text-xs text-[#8b949e]">Entry</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-red-400">Stop</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.stopPrice)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-green-400">Target</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.targetPrice)}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-[#8b949e]">Profit</div>
-                                  <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-[#8b949e]">Value</div>
-                                  <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
-                                </div>
-                              </div>
-                            </div>
+                  {favorites.map((item) => (
+                    <div
+                      key={item.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, item.id, 'watchlist')}
+                      onDragOver={(e) => handleDragOver(e, item.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, item.id, 'watchlist')}
+                      onClick={() => handleEdit(item)}
+                      className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
+                    >
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
+                            <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
                           </div>
-                        ))}
+                          {/* Long/Short Indicator */}
+                          {(() => {
+                            const isLong = item.targetPrice > item.entryPrice;
+                            const isShort = item.targetPrice < item.entryPrice;
+                            if (!isLong && !isShort) return null;
+                            return (
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {isLong ? '📈 LONG' : '📉 SHORT'}
+                              </span>
+                            );
+                          })()}
+                          <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {formatDate(item.createdAt)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleFavorite(item);
+                            }}
+                            className={`p-2 rounded-lg transition-colors ${item.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-[#8b949e] hover:text-yellow-400 hover:bg-yellow-400/10'}`}
+                            title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                          >
+                            <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-current' : ''}`} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartTrade(item);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                            title="Enter position - Move to Active Trades"
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                            Start Trade
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(item);
+                            }}
+                            className="p-2 text-[#8b949e] hover:text-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-colors"
+                            title="Edit trade"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveFromWatchlist(item.id);
+                            }}
+                            className="p-2 text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                            title="Remove from watchlist"
+                          >
+                            <BookmarkX className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Card Body */}
+                      <div className="p-4">
+                        {/* Unified Stats Row */}
+                        <div className="grid grid-cols-5 gap-2">
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Entry</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-red-400">Stop</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.stopPrice)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-green-400">Target</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.targetPrice)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Profit</div>
+                            <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Value</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  )}
-                    </>
-                  )}
-                </>
-              );
-            })()}
+                  ))}
+                      </div>{/* End of favorites items */}
+                    </div>{/* End of collapsible content */}
+                  </div>
+                )}
+            
+            {/* OTHER TRADES SECTION */}
+            {others.length > 0 && (
+              <div className="space-y-3 p-3 rounded-xl border-2 border-blue-500/50 bg-blue-500/5">
+                <div className="flex items-center justify-between px-2">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-blue-400" />
+                    <h4 className="text-sm font-semibold text-blue-400">Other Trades</h4>
+                    <span className="text-xs text-[#8b949e]">({others.length})</span>
+                  </div>
+                  {/* Collapse/Expand Toggle */}
+                  <button
+                    onClick={() => toggleSection('otherTrades')}
+                    className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+                    title={collapsedSections.otherTrades ? 'Expand section' : 'Collapse section'}
+                  >
+                    {collapsedSections.otherTrades ? (
+                      <ChevronDown className="w-5 h-5" />
+                    ) : (
+                      <ChevronUp className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                {/* Other Trades List - Collapsible */}
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    collapsedSections.otherTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+                  }`}
+                >
+                  <div className="space-y-3">
+                  {others.map((item) => (
+                    <div
+                      key={item.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, item.id, 'watchlist')}
+                      onDragOver={(e) => handleDragOver(e, item.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, item.id, 'watchlist')}
+                      onClick={() => handleEdit(item)}
+                      className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
+                    >
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
+                            <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
+                          </div>
+                          {/* Long/Short Indicator */}
+                          {(() => {
+                            const isLong = item.targetPrice > item.entryPrice;
+                            const isShort = item.targetPrice < item.entryPrice;
+                            if (!isLong && !isShort) return null;
+                            return (
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {isLong ? '📈 LONG' : '📉 SHORT'}
+                              </span>
+                            );
+                          })()}
+                          <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {formatDate(item.createdAt)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleFavorite(item);
+                            }}
+                            className={`p-2 rounded-lg transition-colors ${item.isFavorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-[#8b949e] hover:text-yellow-400 hover:bg-yellow-400/10'}`}
+                            title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                          >
+                            <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-current' : ''}`} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartTrade(item);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                            title="Enter position - Move to Active Trades"
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                            Start Trade
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(item);
+                            }}
+                            className="p-2 text-[#8b949e] hover:text-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-colors"
+                            title="Edit trade"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveFromWatchlist(item.id);
+                            }}
+                            className="p-2 text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                            title="Remove from watchlist"
+                          >
+                            <BookmarkX className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Card Body */}
+                      <div className="p-4">
+                        {/* Unified Stats Row */}
+                        <div className="grid grid-cols-5 gap-2">
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Entry</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-red-400">Stop</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.stopPrice)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-green-400">Target</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.targetPrice)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Profit</div>
+                            <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Value</div>
+                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                      </div>{/* End of other trades items */}
+                    </div>{/* End of collapsible content */}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1895,7 +2067,7 @@ export default function WatchlistView() {
       <div className="border-t border-[#30363d]"></div>
 
       {/* ===== CLOSED POSITIONS SECTION ===== */}
-      <div className="space-y-4">
+      <div className="space-y-4 p-3 rounded-xl border-2 border-red-500/50 bg-red-500/5">
         {/* Section Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1911,6 +2083,18 @@ export default function WatchlistView() {
                 )}
               </p>
             </div>
+            {/* Collapse/Expand Toggle */}
+            <button
+              onClick={() => toggleSection('closedPositions')}
+              className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+              title={collapsedSections.closedPositions ? 'Expand section' : 'Collapse section'}
+            >
+              {collapsedSections.closedPositions ? (
+                <ChevronDown className="w-5 h-5" />
+              ) : (
+                <ChevronUp className="w-5 h-5" />
+              )}
+            </button>
           </div>
           <div className="flex items-center gap-2">
             {/* Search Input */}
@@ -1975,7 +2159,12 @@ export default function WatchlistView() {
           </div>
         </div>
 
-        {/* Closed Positions List */}
+        {/* Closed Positions List - Collapsible */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            collapsedSections.closedPositions ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+          }`}
+        >
         {visibleClosedPositions.length === 0 ? (
           <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
             <History className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
@@ -2180,6 +2369,7 @@ export default function WatchlistView() {
             ))}
           </div>
         )}
+        </div>{/* End of collapsible content */}
       </div>
 
       {/* ===== MODALS ===== */}
