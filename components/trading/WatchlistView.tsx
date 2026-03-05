@@ -63,6 +63,30 @@ export default function WatchlistView() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sideFilter, setSideFilter] = useState<'all' | 'long' | 'short'>('all');
+  
+  // Compute filtered watchlist based on search and side filter
+  const filteredWatchlist = useMemo(() => {
+    return watchlist.filter(item => {
+      // Search filter
+      const matchesSearch = !searchQuery || 
+        item.ticker.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Side filter
+      let matchesSide = true;
+      if (sideFilter !== 'all') {
+        const isLong = item.targetPrice > item.entryPrice;
+        const isShort = item.targetPrice < item.entryPrice;
+        if (sideFilter === 'long') matchesSide = isLong;
+        if (sideFilter === 'short') matchesSide = isShort;
+      }
+      
+      return matchesSearch && matchesSide;
+    });
+  }, [watchlist, searchQuery, sideFilter]);
+  
+  const favorites = filteredWatchlist.filter(i => i.isFavorite);
+  const others = filteredWatchlist.filter(i => !i.isFavorite);
   const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [enteringItem, setEnteringItem] = useState<WatchlistItem | null>(null);
@@ -1567,11 +1591,53 @@ export default function WatchlistView() {
             <div>
               <h3 className="text-lg font-semibold text-white">Potential Trades</h3>
               <p className="text-sm text-[#8b949e]">
-                {watchlist.length} saved trade{watchlist.length !== 1 ? 's' : ''}
+                {(searchQuery || sideFilter !== 'all') ? (
+                  <>
+                    {filteredWatchlist.length} of {watchlist.length} trade{watchlist.length !== 1 ? 's' : ''}
+                  </>
+                ) : (
+                  <>
+                    {watchlist.length} saved trade{watchlist.length !== 1 ? 's' : ''}
+                  </>
+                )}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Side Filter - Pill Buttons */}
+            <div className="flex items-center bg-[#0d1117] border border-[#30363d] rounded-lg p-1">
+              <button
+                onClick={() => setSideFilter('all')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  sideFilter === 'all'
+                    ? 'bg-[#F97316] text-white'
+                    : 'text-[#8b949e] hover:text-white hover:bg-[#262626]'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setSideFilter('long')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  sideFilter === 'long'
+                    ? 'bg-green-500 text-white'
+                    : 'text-[#8b949e] hover:text-white hover:bg-[#262626]'
+                }`}
+              >
+                Long
+              </button>
+              <button
+                onClick={() => setSideFilter('short')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  sideFilter === 'short'
+                    ? 'bg-red-500 text-white'
+                    : 'text-[#8b949e] hover:text-white hover:bg-[#262626]'
+                }`}
+              >
+                Short
+              </button>
+            </div>
+
             {/* Search Input */}
             <div className="relative">
               <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 transform -translate-y-1/2" />
@@ -1619,27 +1685,45 @@ export default function WatchlistView() {
           <div className="space-y-6">
             {/* FAVORITES SECTION */}
             {(() => {
-              // Filter by search query first
-              const filteredWatchlist = searchQuery
-                ? watchlist.filter(item => 
-                    item.ticker.toLowerCase().includes(searchQuery.toLowerCase())
-                  )
-                : watchlist;
+              // Filter by search query and side filter
+              const filteredWatchlist = watchlist.filter(item => {
+                // Search filter
+                const matchesSearch = !searchQuery || 
+                  item.ticker.toLowerCase().includes(searchQuery.toLowerCase());
+                
+                // Side filter
+                let matchesSide = true;
+                if (sideFilter !== 'all') {
+                  const isLong = item.targetPrice > item.entryPrice;
+                  const isShort = item.targetPrice < item.entryPrice;
+                  if (sideFilter === 'long') matchesSide = isLong;
+                  if (sideFilter === 'short') matchesSide = isShort;
+                }
+                
+                return matchesSearch && matchesSide;
+              });
               
               const favorites = filteredWatchlist.filter(i => i.isFavorite);
               const others = filteredWatchlist.filter(i => !i.isFavorite);
               
               return (
                 <>
-                  {filteredWatchlist.length === 0 && searchQuery ? (
+                  {filteredWatchlist.length === 0 && (searchQuery || sideFilter !== 'all') ? (
                     <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
                       <Search className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
-                      <p className="text-sm text-[#8b949e]">No trades found for "{searchQuery}"</p>
+                      <p className="text-sm text-[#8b949e]">
+                        No trades found
+                        {searchQuery && ` for "${searchQuery}"`}
+                        {sideFilter !== 'all' && ` (${sideFilter === 'long' ? 'Long' : 'Short'} trades)`}
+                      </p>
                       <button
-                        onClick={() => setSearchQuery('')}
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSideFilter('all');
+                        }}
                         className="mt-2 text-sm text-[#F97316] hover:underline"
                       >
-                        Clear search
+                        Clear filters
                       </button>
                     </div>
                   ) : (
@@ -1651,7 +1735,7 @@ export default function WatchlistView() {
                             <h4 className="text-sm font-semibold text-yellow-400">Favorites</h4>
                             <span className="text-xs text-[#8b949e]">({favorites.length})</span>
                           </div>
-                          <div className="space-y-3">
+                          <div className="space-y-3 p-3 rounded-xl border-2 border-yellow-400/50 bg-yellow-400/5">
                         {favorites.map((item) => (
                           <div
                             key={item.id}
