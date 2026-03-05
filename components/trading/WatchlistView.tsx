@@ -1888,7 +1888,7 @@ export default function WatchlistView() {
                       {/* Card Body */}
                       <div className="p-4">
                         {/* Unified Stats Row */}
-                        <div className="grid grid-cols-5 gap-2">
+                        <div className="grid grid-cols-6 gap-2">
                           <div>
                             <div className="text-xs text-[#8b949e]">Entry</div>
                             <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
@@ -1904,6 +1904,10 @@ export default function WatchlistView() {
                           <div>
                             <div className="text-xs text-[#8b949e]">Profit</div>
                             <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Shares</div>
+                            <div className="text-sm font-semibold">{formatNumber(item.shareSize)}</div>
                           </div>
                           <div>
                             <div className="text-xs text-[#8b949e]">Value</div>
@@ -2028,7 +2032,7 @@ export default function WatchlistView() {
                       {/* Card Body */}
                       <div className="p-4">
                         {/* Unified Stats Row */}
-                        <div className="grid grid-cols-5 gap-2">
+                        <div className="grid grid-cols-6 gap-2">
                           <div>
                             <div className="text-xs text-[#8b949e]">Entry</div>
                             <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
@@ -2044,6 +2048,10 @@ export default function WatchlistView() {
                           <div>
                             <div className="text-xs text-[#8b949e]">Profit</div>
                             <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-[#8b949e]">Shares</div>
+                            <div className="text-sm font-semibold">{formatNumber(item.shareSize)}</div>
                           </div>
                           <div>
                             <div className="text-xs text-[#8b949e]">Value</div>
