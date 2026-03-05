@@ -58,7 +58,7 @@ export default function DuplicateReviewModal({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [decisions, setDecisions] = useState<DuplicateDecision[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showBulkConfirm, setShowBulkConfirm] = useState<ActionType>(null);
+  const [showBulkConfirm, setShowBulkConfirm] = useState<'merge' | 'keep_both' | null>(null);
   const [completed, setCompleted] = useState(false);
   const [selectedDuplicates, setSelectedDuplicates] = useState<Set<string>>(new Set());
 
@@ -77,7 +77,7 @@ export default function DuplicateReviewModal({
   const progress = decisions.filter(d => d.action !== null).length;
   const total = duplicates.length;
 
-  const handleAction = async (action: ActionType) {
+  const handleAction = async (action: ActionType) => {
     if (!currentDuplicate || isProcessing) return;
 
     // Update decision
@@ -245,7 +245,7 @@ export default function DuplicateReviewModal({
           
           <p className="text-[#8b949e] mb-6">
             This will {showBulkConfirm === 'merge' ? 'merge' : 'import'} {selectedDuplicates.size} selected trade{selectedDuplicates.size !== 1 ? 's' : ''}.
-            {showBulkConfirm === 'merge' >
+            {showBulkConfirm === 'merge' ?
               ' Dashboard notes will be preserved in the merged trades.'
               : ' Both dashboard and CSV versions will be kept separate.'}
           </p>
@@ -389,8 +389,8 @@ export default function DuplicateReviewModal({
                   <div className="text-left">
                     <div className="text-sm font-medium text-white">{dup.dashboardTrade.symbol}</div>
                     <div className="text-xs text-[#8b949e]">
-                      {decision?.action === 'merge' > '🟢 Merge'
-                        : decision?.action === 'keep_both' > '🔵 Keep Both'
+                      {decision?.action === 'merge' ? '🟢 Merge'
+                        : decision?.action === 'keep_both' ? '🔵 Keep Both'
                         : decision?.action === 'skip'
                         ? '⚪ Skip'
                         : '⏳ Pending'}
@@ -555,7 +555,7 @@ export default function DuplicateReviewModal({
                     <span className="capitalize">{currentDuplicate.confidence} Confidence Match</span>
                   </div>
                   <ul className="text-sm space-y-1">
-                    {currentDuplicate.matchReasons.map((reason, idx) => (
+                    {currentDuplicate.matchReasons.map((reason: string, idx: number) => (
                       <li key={idx} className="flex items-start gap-2">
                         <span className="text-[#8b949e]">•</span>
                         <span>{reason}</span>
