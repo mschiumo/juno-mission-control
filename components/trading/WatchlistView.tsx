@@ -109,11 +109,13 @@ export default function WatchlistView() {
   // Collapsed sections state (persisted in localStorage)
   const [collapsedSections, setCollapsedSections] = useState<{
     activeTrades: boolean;
-    potentialTrades: boolean;
+    favorites: boolean;
+    otherTrades: boolean;
     closedPositions: boolean;
   }>({
     activeTrades: false,
-    potentialTrades: false,
+    favorites: false,
+    otherTrades: false,
     closedPositions: false,
   });
   
@@ -905,7 +907,7 @@ export default function WatchlistView() {
   };
 
   // ===== COLLAPSE/EXPAND SECTION TOGGLE =====
-  const toggleSection = (section: 'activeTrades' | 'potentialTrades' | 'closedPositions') => {
+  const toggleSection = (section: 'activeTrades' | 'favorites' | 'otherTrades' | 'closedPositions') => {
     setCollapsedSections(prev => ({
       ...prev,
       [section]: !prev[section]
@@ -1288,7 +1290,7 @@ export default function WatchlistView() {
       )}
 
       {/* ===== ACTIVE TRADES SECTION ===== */}
-      <div className="space-y-4">
+      <div className="space-y-4 p-3 rounded-xl border-2 border-green-500/50 bg-green-500/5">
         {/* Section Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1637,9 +1639,9 @@ export default function WatchlistView() {
 
       {/* ===== POTENTIAL TRADES SECTION ===== */}
       <div 
-        className={`space-y-4 rounded-xl transition-all duration-300 ${
+        className={`space-y-4 transition-all duration-300 ${
           isDraggingOverPotential 
-            ? 'bg-[#F97316]/5 ring-2 ring-[#F97316]/50 ring-inset p-4 border-2 border-dashed border-[#F97316]' 
+            ? 'bg-[#F97316]/5 ring-2 ring-[#F97316]/50 ring-inset p-4 border-2 border-dashed border-[#F97316] rounded-xl' 
             : ''
         }`}
         onDragOver={handlePotentialTradesDragOver}
@@ -1677,18 +1679,6 @@ export default function WatchlistView() {
                 )}
               </p>
             </div>
-            {/* Collapse/Expand Toggle */}
-            <button
-              onClick={() => toggleSection('potentialTrades')}
-              className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-              title={collapsedSections.potentialTrades ? 'Expand section' : 'Collapse section'}
-            >
-              {collapsedSections.potentialTrades ? (
-                <ChevronDown className="w-5 h-5" />
-              ) : (
-                <ChevronUp className="w-5 h-5" />
-              )}
-            </button>
           </div>
           <div className="flex items-center gap-2">
             {/* Side Filter - Pill Buttons */}
@@ -1754,13 +1744,6 @@ export default function WatchlistView() {
             </button>
           </div>
         </div>
-
-        {/* Potential Trades List - Collapsible */}
-        <div
-          className={`overflow-hidden transition-all duration-300 ease-in-out ${
-            collapsedSections.potentialTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
-          }`}
-        >
         {watchlist.length === 0 ? (
           <div className="text-center py-12 border border-dashed border-[#30363d] rounded-xl">
             <BookmarkX className="w-12 h-12 text-[#30363d] mx-auto mb-4" />
@@ -1797,13 +1780,33 @@ export default function WatchlistView() {
             ) : (
               <>
                 {favorites.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 px-2">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <h4 className="text-sm font-semibold text-yellow-400">Favorites</h4>
-                      <span className="text-xs text-[#8b949e]">({favorites.length})</span>
+                  <div className="space-y-3 p-3 rounded-xl border-2 border-yellow-400/50 bg-yellow-400/5">
+                    <div className="flex items-center justify-between px-2">
+                      <div className="flex items-center gap-2">
+                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                        <h4 className="text-sm font-semibold text-yellow-400">Favorites</h4>
+                        <span className="text-xs text-[#8b949e]">({favorites.length})</span>
+                      </div>
+                      {/* Collapse/Expand Toggle */}
+                      <button
+                        onClick={() => toggleSection('favorites')}
+                        className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+                        title={collapsedSections.favorites ? 'Expand section' : 'Collapse section'}
+                      >
+                        {collapsedSections.favorites ? (
+                          <ChevronDown className="w-5 h-5" />
+                        ) : (
+                          <ChevronUp className="w-5 h-5" />
+                        )}
+                      </button>
                     </div>
-                    <div className="space-y-3 p-3 rounded-xl border-2 border-yellow-400/50 bg-yellow-400/5">
+                    {/* Favorites List - Collapsible */}
+                    <div
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                        collapsedSections.favorites ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+                      }`}
+                    >
+                      <div className="space-y-3">
                   {favorites.map((item) => (
                     <div
                       key={item.id}
@@ -1910,21 +1913,40 @@ export default function WatchlistView() {
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-            )}
+                      </div>{/* End of favorites items */}
+                    </div>{/* End of collapsible content */}
+                  </div>
+                )}
             
             {/* OTHER TRADES SECTION */}
             {others.length > 0 && (
-              <div className="space-y-3">
-                {favorites.length > 0 && (
-                  <div className="flex items-center gap-2 px-2 pt-2 border-t border-[#30363d]">
-                    <Layers className="w-4 h-4 text-[#8b949e]" />
-                    <h4 className="text-sm font-semibold text-[#8b949e]">Other Trades</h4>
+              <div className="space-y-3 p-3 rounded-xl border-2 border-blue-500/50 bg-blue-500/5">
+                <div className="flex items-center justify-between px-2">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-blue-400" />
+                    <h4 className="text-sm font-semibold text-blue-400">Other Trades</h4>
                     <span className="text-xs text-[#8b949e]">({others.length})</span>
                   </div>
-                )}
-                <div className="space-y-3">
+                  {/* Collapse/Expand Toggle */}
+                  <button
+                    onClick={() => toggleSection('otherTrades')}
+                    className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+                    title={collapsedSections.otherTrades ? 'Expand section' : 'Collapse section'}
+                  >
+                    {collapsedSections.otherTrades ? (
+                      <ChevronDown className="w-5 h-5" />
+                    ) : (
+                      <ChevronUp className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                {/* Other Trades List - Collapsible */}
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    collapsedSections.otherTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+                  }`}
+                >
+                  <div className="space-y-3">
                   {others.map((item) => (
                     <div
                       key={item.id}
@@ -2031,14 +2053,14 @@ export default function WatchlistView() {
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-            )}
+                      </div>{/* End of other trades items */}
+                    </div>{/* End of collapsible content */}
+                  </div>
+                )}
               </>
             )}
           </div>
         )}
-        </div>{/* End of collapsible content */}
       </div>
 
       {/* Divider */}
