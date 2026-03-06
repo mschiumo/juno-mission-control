@@ -4,7 +4,6 @@ import { useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 // import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
-import MarketCard from "@/components/MarketCard";
 import MarketHoursBanner from "@/components/MarketHoursBanner";
 import GapScannerCard from "@/components/GapScannerCard";
 import NewsScreenerCard from "@/components/NewsScreenerCard";
@@ -156,7 +155,6 @@ function DashboardContent() {
             <EveningCheckinReminder />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <HabitCard />
-              <MarketCard />
             </div>
           </div>
         ) : activeTab === 'tasks' ? (
