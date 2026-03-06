@@ -12,11 +12,7 @@ import {
   Video,
   Users,
   AlertCircle,
-  CheckCircle2,
-  Link2,
-  CheckCircle,
-  XCircle,
-  Loader2
+  CheckCircle2
 } from 'lucide-react';
 
 interface CalendarEvent {
@@ -40,12 +36,6 @@ interface CalendarData {
   upcoming: CalendarEvent[];
 }
 
-interface AuthStatus {
-  authorized: boolean;
-  loading: boolean;
-  error?: string;
-}
-
 export default function CalendarCard() {
   const [data, setData] = useState<CalendarData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,9 +43,6 @@ export default function CalendarCard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
   const [isMockData, setIsMockData] = useState(false);
-  const [authStatus, setAuthStatus] = useState<AuthStatus>({ authorized: false, loading: true });
-  const [authInProgress, setAuthInProgress] = useState(false);
-  const [authMessage, setAuthMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const fetchEvents = useCallback(async (forceRefresh = false) => {
     setLoading(true);
@@ -80,74 +67,16 @@ export default function CalendarCard() {
     }
   }, []);
 
-  const checkAuthStatus = useCallback(async () => {
-    try {
-      setAuthStatus(prev => ({ ...prev, loading: true }));
-      const response = await fetch('/api/auth/calendar/status');
-      const result = await response.json();
-      
-      setAuthStatus({
-        authorized: result.authorized || false,
-        loading: false,
-        error: result.error
-      });
-    } catch (err) {
-      console.error('Auth status check error:', err);
-      setAuthStatus({
-        authorized: false,
-        loading: false,
-        error: 'Failed to check auth status'
-      });
-    }
-  }, []);
-
-  // Check for OAuth callback parameters
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const authResult = params.get('calendar_auth');
-      
-      if (authResult === 'success') {
-        setAuthMessage({ type: 'success', message: 'Calendar connected successfully!' });
-        // Remove the query parameter
-        window.history.replaceState({}, '', window.location.pathname);
-        // Refresh auth status and events
-        checkAuthStatus();
-        fetchEvents(true);
-        // Clear message after 5 seconds
-        setTimeout(() => setAuthMessage(null), 5000);
-      } else if (authResult === 'error') {
-        const errorMsg = params.get('error') || 'Authorization failed';
-        setAuthMessage({ type: 'error', message: `Connection failed: ${errorMsg}` });
-        window.history.replaceState({}, '', window.location.pathname);
-        setTimeout(() => setAuthMessage(null), 5000);
-      }
-    }
-  }, [checkAuthStatus, fetchEvents]);
-
   // Fetch on mount and set up auto-refresh every 15 minutes
   useEffect(() => {
     fetchEvents();
-    checkAuthStatus();
     
     const interval = setInterval(() => {
       fetchEvents(false); // Use cache if available
     }, 15 * 60 * 1000); // 15 minutes
     
     return () => clearInterval(interval);
-  }, [fetchEvents, checkAuthStatus]);
-
-  const handleAuthorize = async () => {
-    setAuthInProgress(true);
-    try {
-      // Open OAuth flow in the same window
-      window.location.href = '/api/auth/calendar';
-    } catch (err) {
-      console.error('Auth initiation error:', err);
-      setAuthInProgress(false);
-      setAuthMessage({ type: 'error', message: 'Failed to start authorization' });
-    }
-  };
+  }, [fetchEvents]);
 
   const formatTime = (dateString: string, isAllDay: boolean) => {
     if (isAllDay) return 'All day';
@@ -306,7 +235,6 @@ export default function CalendarCard() {
 
   const todayCount = data?.today?.length || 0;
   const upcomingCount = data?.upcoming?.length || 0;
-  const showAuthorizeButton = !authStatus.loading && !authStatus.authorized;
 
   return (
     <div className="card">
@@ -335,19 +263,10 @@ export default function CalendarCard() {
         <div className="flex items-center gap-2">
           {isMockData && (
             <div className="flex items-center gap-1 text-[10px] text-[#d29922] px-2 py-1 bg-[#d29922]/10 rounded-full"
-              title="Using demo data - connect Google Calendar to see your real events"
+              title="Using demo data - configure service account for real events"
             >
               <AlertCircle className="w-3 h-3" />
               <span className="hidden sm:inline">Demo</span>
-            </div>
-          )}
-          
-          {!authStatus.loading && authStatus.authorized && (
-            <div className="flex items-center gap-1 text-[10px] text-[#22c55e] px-2 py-1 bg-[#22c55e]/10 rounded-full"
-              title="Connected to Google Calendar"
-            >
-              <CheckCircle className="w-3 h-3" />
-              <span className="hidden sm:inline">Connected</span>
             </div>
           )}
           
@@ -373,60 +292,6 @@ export default function CalendarCard() {
           </button>
         </div>
       </div>
-
-      {/* Auth message */}
-      {authMessage && (
-        <div className={`mb-4 p-3 rounded-xl border ${
-          authMessage.type === 'success' 
-            ? 'bg-[#22c55e]/10 border-[#22c55e]/30' 
-            : 'bg-[#da3633]/10 border-[#da3633]/30'
-        }`}>
-          <div className="flex items-center gap-2">
-            {authMessage.type === 'success' ? (
-              <CheckCircle className="w-4 h-4 text-[#22c55e]" />
-            ) : (
-              <XCircle className="w-4 h-4 text-[#da3633]" />
-            )}
-            <span className={`text-sm ${authMessage.type === 'success' ? 'text-[#22c55e]' : 'text-[#da3633]'}`}>
-              {authMessage.message}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Authorization prompt */}
-      {showAuthorizeButton && isExpanded && (
-        <div className="mb-4 p-4 bg-[#F97316]/5 border border-[#F97316]/20 rounded-xl">
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-[#F97316]/10 rounded-lg">
-              <Link2 className="w-5 h-5 text-[#F97316]" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-medium text-white mb-1">Connect Google Calendar</h3>
-              <p className="text-xs text-[#737373] mb-3">
-                Currently showing demo events. Connect your Google Calendar to see your real schedule and get personalized event notifications.
-              </p>
-              <button
-                onClick={handleAuthorize}
-                disabled={authInProgress}
-                className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#F97316]/90 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {authInProgress ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="w-4 h-4" />
-                    Connect Google Calendar
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Error state */}
       {error && (

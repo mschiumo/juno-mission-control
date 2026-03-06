@@ -1,21 +1,23 @@
 /**
- * Google Calendar API - OAuth Integration
+ * Google Calendar API - Service Account Integration
  * 
- * Uses the same OAuth credentials as Gmail:
- * - GOOGLE_CLIENT_ID
- * - GOOGLE_CLIENT_SECRET  
- * - GOOGLE_REFRESH_TOKEN (stored in Redis with key `google:refresh_token:{userId}`)
+ * Uses Google Service Account for server-to-server authentication:
+ * - GOOGLE_SERVICE_ACCOUNT_EMAIL (juno-calendar@juno-487215.iam.gserviceaccount.com)
+ * - GOOGLE_SERVICE_ACCOUNT_KEY (private key)
  * 
- * Required OAuth scope: https://www.googleapis.com/auth/calendar.readonly
+ * No user OAuth flow required - always returns real calendar data
  */
 
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
+import { google } from 'googleapis';
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+// Service Account configuration
+const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || 'juno-calendar@juno-487215.iam.gserviceaccount.com';
+const GOOGLE_SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.replace(/\\n/g, '\n');
+const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'primary';
 
-// Redis client
+// Redis client for caching
 let redisClient: ReturnType<typeof createClient> | null = null;
 
 async function getRedisClient() {
@@ -57,92 +59,51 @@ export interface CalendarEvent {
 }
 
 /**
- * Get access token from refresh token
+ * Initialize Google Auth with service account
  */
-async function getAccessToken(refreshToken: string): Promise<string | null> {
-  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-    console.error('Missing Google OAuth credentials');
-    return null;
+function getGoogleAuth() {
+  if (!GOOGLE_SERVICE_ACCOUNT_KEY) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY not configured');
   }
 
-  try {
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token'
-      })
-    });
-
-    const data = await response.json();
-    
-    if (!response.ok) {
-      console.error('Token refresh error:', data);
-      return null;
-    }
-    
-    return data.access_token;
-  } catch (error) {
-    console.error('Failed to get access token:', error);
-    return null;
-  }
+  return new google.auth.GoogleAuth({
+    credentials: {
+      client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      private_key: GOOGLE_SERVICE_ACCOUNT_KEY,
+    },
+    scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+  });
 }
 
 /**
- * Fetch calendar events from Google Calendar API
+ * Fetch calendar events from Google Calendar API using service account
  */
 async function fetchCalendarEvents(
-  accessToken: string,
-  calendarId: string = 'primary',
+  calendarId: string = GOOGLE_CALENDAR_ID,
   maxResults: number = 20
 ): Promise<CalendarEvent[]> {
-  // Get today's start and end times in ISO format
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7); // Next 7 days
-  
-  const timeMin = startOfDay.toISOString();
-  const timeMax = endOfDay.toISOString();
-
   try {
-    const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`);
-    url.searchParams.append('maxResults', maxResults.toString());
-    url.searchParams.append('timeMin', timeMin);
-    url.searchParams.append('timeMax', timeMax);
-    url.searchParams.append('singleEvents', 'true');
-    url.searchParams.append('orderBy', 'startTime');
+    const auth = getGoogleAuth();
+    const calendar = google.calendar({ version: 'v3', auth });
 
-    const response = await fetch(url.toString(), {
-      headers: { 
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
+    // Get today's start and next 7 days
+    const now = new Date();
+    const timeMin = now.toISOString();
+    const timeMax = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toISOString();
+
+    const response = await calendar.events.list({
+      calendarId,
+      maxResults,
+      timeMin,
+      timeMax,
+      singleEvents: true,
+      orderBy: 'startTime',
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('Calendar API error:', error);
-      return [];
-    }
-
-    const data = await response.json();
-    const events = data.items || [];
+    const events = response.data.items || [];
 
     // Map to our CalendarEvent interface
-    return events.map((event: {
-      id: string;
-      summary?: string;
-      description?: string;
-      location?: string;
-      start?: { dateTime?: string; date?: string };
-      end?: { dateTime?: string; date?: string };
-      colorId?: string;
-      hangoutLink?: string;
-      attendees?: Array<{ email: string; displayName?: string }>;
-    }): CalendarEvent => {
+    return events.map((event): CalendarEvent => {
       const start = event.start?.dateTime || event.start?.date || now.toISOString();
       const end = event.end?.dateTime || event.end?.date || now.toISOString();
       const isAllDay = !event.start?.dateTime && !!event.start?.date;
@@ -187,7 +148,7 @@ async function fetchCalendarEvents(
       }
 
       return {
-        id: event.id,
+        id: event.id || '',
         title: event.summary || 'Untitled Event',
         start,
         end,
@@ -197,13 +158,13 @@ async function fetchCalendarEvents(
         description: event.description || '',
         location: event.location || '',
         isAllDay,
-        hangoutLink: event.hangoutLink,
-        attendees: event.attendees?.map(a => a.displayName || a.email).filter(Boolean) || []
+        hangoutLink: event.hangoutLink || undefined,
+        attendees: event.attendees?.map(a => a.displayName || a.email || '').filter(Boolean) || []
       };
     });
   } catch (error) {
     console.error('Failed to fetch calendar events:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -252,36 +213,7 @@ async function getCachedEvents(userId: string): Promise<{ events: CalendarEvent[
   }
 }
 
-/**
- * Get refresh token for user from Redis
- */
-async function getRefreshToken(userId: string): Promise<string | null> {
-  try {
-    const redis = await getRedisClient();
-    if (!redis) return null;
-
-    // Try different key patterns
-    const keys = [
-      `google:refresh_token:${userId}`,
-      `gmail:refresh_token:${userId}`,
-      'google:refresh_token:default',
-      process.env.GOOGLE_REFRESH_TOKEN // Fallback to env var
-    ];
-
-    for (const key of keys) {
-      if (!key) continue;
-      const token = await redis.get(key);
-      if (token) return token;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Failed to get refresh token:', error);
-    return null;
-  }
-}
-
-// Mock events for development/testing
+// Mock events for fallback when service account is not configured
 const MOCK_EVENTS: CalendarEvent[] = [
   {
     id: '1',
@@ -338,7 +270,7 @@ export async function GET(request: Request) {
     const forceRefresh = searchParams.get('refresh') === 'true';
     const useMock = searchParams.get('mock') === 'true';
 
-    // Return mock data if requested
+    // Return mock data if explicitly requested
     if (useMock) {
       return NextResponse.json({
         success: true,
@@ -348,6 +280,22 @@ export async function GET(request: Request) {
           upcoming: MOCK_EVENTS.filter(e => new Date(e.start).toDateString() !== new Date().toDateString())
         },
         mock: true,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Check if service account is configured
+    if (!GOOGLE_SERVICE_ACCOUNT_KEY) {
+      console.warn('GOOGLE_SERVICE_ACCOUNT_KEY not configured, returning mock data');
+      return NextResponse.json({
+        success: true,
+        data: {
+          events: MOCK_EVENTS,
+          today: MOCK_EVENTS.filter(e => new Date(e.start).toDateString() === new Date().toDateString()),
+          upcoming: MOCK_EVENTS.filter(e => new Date(e.start).toDateString() !== new Date().toDateString())
+        },
+        mock: true,
+        message: 'Service account not configured',
         timestamp: new Date().toISOString()
       });
     }
@@ -374,37 +322,8 @@ export async function GET(request: Request) {
       }
     }
 
-    // Get refresh token
-    const refreshToken = await getRefreshToken(userId);
-    
-    if (!refreshToken) {
-      console.log('No refresh token found, returning mock data');
-      return NextResponse.json({
-        success: true,
-        data: {
-          events: MOCK_EVENTS,
-          today: MOCK_EVENTS.filter(e => new Date(e.start).toDateString() === new Date().toDateString()),
-          upcoming: MOCK_EVENTS.filter(e => new Date(e.start).toDateString() !== new Date().toDateString())
-        },
-        mock: true,
-        message: 'No Google Calendar authorization found. Please authorize the app.',
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // Get access token
-    const accessToken = await getAccessToken(refreshToken);
-    
-    if (!accessToken) {
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to authenticate with Google Calendar',
-        message: 'Please re-authorize the app with Calendar permissions'
-      }, { status: 401 });
-    }
-
-    // Fetch events from Google Calendar
-    const events = await fetchCalendarEvents(accessToken, 'primary', 20);
+    // Fetch events from Google Calendar using service account
+    const events = await fetchCalendarEvents(GOOGLE_CALENDAR_ID, 20);
     
     // Cache the events
     await cacheEvents(userId, events);
@@ -446,49 +365,5 @@ export async function GET(request: Request) {
       durationMs: duration,
       timestamp: new Date().toISOString()
     });
-  }
-}
-
-/**
- * POST handler - Store refresh token
- * 
- * Body:
- * - userId: User identifier
- * - refreshToken: Google refresh token
- */
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { userId = 'default', refreshToken } = body;
-
-    if (!refreshToken) {
-      return NextResponse.json({
-        success: false,
-        error: 'Refresh token is required'
-      }, { status: 400 });
-    }
-
-    const redis = await getRedisClient();
-    if (!redis) {
-      return NextResponse.json({
-        success: false,
-        error: 'Redis unavailable'
-      }, { status: 500 });
-    }
-
-    // Store refresh token
-    const key = `google:refresh_token:${userId}`;
-    await redis.set(key, refreshToken);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Refresh token stored successfully'
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({
-      success: false,
-      error: errorMessage
-    }, { status: 500 });
   }
 }
