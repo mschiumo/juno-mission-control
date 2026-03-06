@@ -32,6 +32,7 @@ import { getTodayInEST, getESTDateFromTimestamp } from '@/lib/date-utils';
 import DuplicateReviewModal from './DuplicateReviewModal';
 import { findPotentialDuplicates, getNonDuplicateTrades, mergeTrades } from '@/lib/trading/duplicate-detection';
 import type { PotentialDuplicate, Trade } from '@/types/trading';
+import { TradeSide, TradeStatus } from '@/types/trading';
 
 // ============================================================================
 // Types
@@ -57,21 +58,6 @@ interface JournalEntry {
   prompts: JournalPrompt[];
   createdAt: string;
   updatedAt: string;
-}
-
-interface Trade {
-  id: string;
-  symbol: string;
-  side: 'LONG' | 'SHORT';
-  shares: number;
-  entryPrice: number;
-  entryDate: string;
-  exitPrice?: number;
-  exitDate?: string;
-  netPnL?: number;
-  status: 'OPEN' | 'CLOSED';
-  entryNotes?: string;
-  exitNotes?: string;
 }
 
 type SortField = 'date' | 'symbol' | 'side' | 'entryPrice' | 'shares';
@@ -1911,7 +1897,7 @@ function EditTradeModal({ trade, onClose, onSave, isSaving }: EditTradeModalProp
               <label className="block text-xs text-[#8b949e] mb-1">Side</label>
               <select
                 value={formData.side}
-                onChange={(e) => setFormData({ ...formData, side: e.target.value as 'LONG' | 'SHORT' })}
+                onChange={(e) => setFormData({ ...formData, side: e.target.value as TradeSide })}
                 className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
               >
                 <option value="LONG">LONG</option>
@@ -1970,7 +1956,7 @@ function EditTradeModal({ trade, onClose, onSave, isSaving }: EditTradeModalProp
               <label className="block text-xs text-[#8b949e] mb-1">Status</label>
               <select
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'OPEN' | 'CLOSED' })}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as TradeStatus })}
                 className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
               >
                 <option value="OPEN">OPEN</option>
