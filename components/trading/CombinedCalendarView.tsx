@@ -646,8 +646,8 @@ export default function CombinedCalendarView() {
                     </button>
                   )}
 
-                  {/* Journal Icon - Only show for weekdays */}
-                  {dayData.isWeekday && (
+                  {/* Journal Icon - Only show for weekdays that are today or in the past */}
+                  {dayData.isWeekday && dayData.date <= getTodayInEST() && (
                     <button
                       onClick={(e) => handleJournalIconClick(dayData.date, e)}
                       className={`
@@ -707,7 +707,7 @@ export default function CombinedCalendarView() {
           <div className="flex items-center justify-center w-8 h-8 bg-[#21262d] text-[#6e7681] rounded-xl ring-1 ring-[#6e7681]/30 border border-dashed border-[#6e7681]/50">
             <BookOpen className="w-5 h-5" strokeWidth={1.5} />
           </div>
-          <span className="text-[#8b949e]">No Entry (Mon-Fri)</span>
+          <span className="text-[#8b949e]">No Entry (today/past weekdays)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 ring-2 ring-[#F97316] rounded-xl" />
