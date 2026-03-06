@@ -480,7 +480,7 @@ export default function WatchlistView() {
     setWatchlistLoading(true);
     
     try {
-      // 1. Create watchlist item from active trade
+      // 1. Create watchlist item from active trade (preserving notes)
       const watchlistItem: Omit<WatchlistItem, 'id' | 'createdAt'> = {
         ticker: trade.ticker,
         entryPrice: trade.plannedEntry,
@@ -492,6 +492,7 @@ export default function WatchlistView() {
         potentialReward: Math.abs(trade.plannedTarget - trade.plannedEntry) * trade.actualShares,
         positionValue: trade.plannedEntry * trade.actualShares,
         isFavorite: false,
+        notes: trade.notes, // Preserve notes from active trade
       };
 
       // 2. Add to watchlist

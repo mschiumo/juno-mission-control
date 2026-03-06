@@ -18,6 +18,7 @@ export interface WatchlistItem {
   createdAt: string; // ISO timestamp
   isFavorite?: boolean; // Optional favorite flag
   order?: number; // Optional order index for drag-and-drop sorting
+  notes?: string; // Optional notes from active trade
 }
 
 export type WatchlistStorageKey = 'juno:trade-watchlist';
