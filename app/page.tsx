@@ -2,7 +2,7 @@
 
 import { useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-// import CalendarCard from "@/components/CalendarCard";
+import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
 import MarketHoursBanner from "@/components/MarketHoursBanner";
 import GapScannerCard from "@/components/GapScannerCard";
@@ -149,12 +149,13 @@ function DashboardContent() {
       {/* Main Content */}
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
         {activeTab === 'dashboard' ? (
-          /* Dashboard Grid - Single column for better spacing */
+          /* Dashboard Grid */
           <div className="space-y-4">
             <MotivationalBanner compact variant="orange" />
             <EveningCheckinReminder />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <HabitCard />
+              <CalendarCard />
             </div>
           </div>
         ) : activeTab === 'tasks' ? (
