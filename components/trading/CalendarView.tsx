@@ -1158,8 +1158,13 @@ function EditTradeModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Extract PnL-related fields that should be recalculated by the API
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { netPnL, grossPnL, returnPercent, ...tradeWithoutPnL } = trade;
+    
     onSave({
-      ...trade,
+      ...tradeWithoutPnL,
       symbol: formData.symbol.toUpperCase(),
       side: formData.side as 'LONG' | 'SHORT',
       shares: parseInt(formData.shares) || 0,
@@ -1170,6 +1175,7 @@ function EditTradeModal({
       status: formData.status as 'OPEN' | 'CLOSED',
       entryNotes: formData.entryNotes.trim() || null,
       exitNotes: formData.exitNotes.trim() || null,
+      // Let the API recalculate PnL based on the new exitPrice
     } as TOSTrade);
   };
 
