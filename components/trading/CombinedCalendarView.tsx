@@ -114,6 +114,13 @@ const formatCurrency = (value: number) => {
   return `$${value.toFixed(0)}`;
 };
 
+// Check if date is a weekday (Mon-Fri = 1-5, Sat-Sun = 0,6)
+const isWeekday = (dateStr: string): boolean => {
+  const date = parseDateAsEST(dateStr);
+  const day = date.getDay();
+  return day >= 1 && day <= 5; // Monday (1) to Friday (5)
+};
+
 // ============================================================================
 // Main Component
 // ============================================================================
@@ -219,6 +226,7 @@ export default function CombinedCalendarView() {
       date: string;
       dayNumber: number;
       isCurrentMonth: boolean;
+      isWeekday: boolean;
       trades?: DayData;
       journal?: JournalEntry;
     } | null)[] = [];
@@ -237,6 +245,7 @@ export default function CombinedCalendarView() {
         date: dateStr,
         dayNumber: day,
         isCurrentMonth: true,
+        isWeekday: isWeekday(dateStr),
         trades: data?.trades,
         journal: data?.journal
       });
@@ -637,22 +646,28 @@ export default function CombinedCalendarView() {
                     </button>
                   )}
 
-                  {/* Journal Icon */}
-                  {hasJournal && (
+                  {/* Journal Icon - Only show for weekdays that are today or in the past */}
+                  {dayData.isWeekday && dayData.date <= getTodayInEST() && (
                     <button
                       onClick={(e) => handleJournalIconClick(dayData.date, e)}
-                      className="
+                      className={`
                         relative flex items-center justify-center shrink-0
                         w-9 h-9 sm:w-10 sm:h-10 rounded-xl
-                        bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20
-                        text-[#58a6ff]
-                        hover:from-[#58a6ff]/40 hover:to-[#1f6feb]/30 hover:scale-110 hover:shadow-xl
-                        ring-1 ring-[#58a6ff]/50 shadow-[0_2px_8px_-2px_rgba(88,166,255,0.3)]
                         transition-all duration-200
-                      "
-                      title="Journal entry - Click to view/edit"
+                        hover:scale-110 hover:shadow-xl
+                        ${hasJournal
+                          ? 'bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20 text-[#58a6ff] hover:from-[#58a6ff]/40 hover:to-[#1f6feb]/30 ring-1 ring-[#58a6ff]/50 shadow-[0_2px_8px_-2px_rgba(88,166,255,0.3)]'
+                          : 'bg-[#21262d] text-[#6e7681] hover:text-[#8b949e] hover:bg-[#30363d] ring-1 ring-[#6e7681]/30 border border-dashed border-[#6e7681]/50'
+                        }
+                      `}
+                      title={hasJournal ? 'Journal entry - Click to view/edit' : 'Add journal entry'}
                     >
-                      <BookOpen className="w-5 h-5 sm:w-5 sm:h-5" strokeWidth={2} />
+                      <BookOpen className="w-5 h-5 sm:w-5 sm:h-5" strokeWidth={hasJournal ? 2 : 1.5} />
+                      {hasJournal && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center bg-[#58a6ff] text-[#0d1117] rounded-full border-2 border-[#161b22]">
+                          <CheckCircle className="w-2.5 h-2.5" strokeWidth={3} />
+                        </span>
+                      )}
                     </button>
                   )}
                 </div>
@@ -680,13 +695,19 @@ export default function CombinedCalendarView() {
           <span className="text-[#8b949e]">Loss Day</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-[#1f6feb]/25 text-[#58a6ff] rounded-xl ring-1 ring-[#58a6ff]/30 relative">
+          <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20 text-[#58a6ff] rounded-xl ring-1 ring-[#58a6ff]/50 relative">
             <BookOpen className="w-5 h-5" strokeWidth={2.5} />
             <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center bg-[#58a6ff] text-[#0d1117] rounded-full">
               <CheckCircle className="w-2.5 h-2.5" strokeWidth={3} />
             </span>
           </div>
           <span className="text-[#8b949e]">Journal Entry</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center w-8 h-8 bg-[#21262d] text-[#6e7681] rounded-xl ring-1 ring-[#6e7681]/30 border border-dashed border-[#6e7681]/50">
+            <BookOpen className="w-5 h-5" strokeWidth={1.5} />
+          </div>
+          <span className="text-[#8b949e]">No Entry (today/past weekdays)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 ring-2 ring-[#F97316] rounded-xl" />
