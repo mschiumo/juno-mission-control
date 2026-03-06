@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
-  BookOpen,
   TrendingUp,
   Calculator,
   Settings,
@@ -20,9 +19,8 @@ import CalendarView from '@/components/trading/CalendarView';
 import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
-import JournalView from '@/components/trading/JournalView';
 
-type TradingSubTab = 'overview' | 'journal' | 'market' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'market' | 'projection' | 'trade-management';
 
 export default function TradingView() {
   const router = useRouter();
@@ -32,9 +30,7 @@ export default function TradingView() {
   // Get subtab from URL or default to 'overview'
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
     const subtab = searchParams.get('subtab');
-    if (subtab === 'market' || 
-        subtab === 'journal' || subtab === 'projection' ||
-        subtab === 'trade-management') {
+    if (subtab === 'market' || subtab === 'projection' || subtab === 'trade-management') {
       return subtab;
     }
     return 'overview';
@@ -60,7 +56,6 @@ export default function TradingView() {
   const subTabs = [
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
-    { id: 'journal' as const, label: 'Journal', icon: BookOpen },
     { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
   ];
@@ -142,10 +137,6 @@ export default function TradingView() {
       {/* Content */}
       {activeSubTab === 'overview' && (
         <CombinedCalendarView />
-      )}
-
-      {activeSubTab === 'journal' && (
-        <JournalView />
       )}
 
       {activeSubTab === 'trade-management' && (

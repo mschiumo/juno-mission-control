@@ -46,34 +46,34 @@ const DOC_CATEGORIES: DocCategory[] = [
     icon: TrendingUp,
     docs: [
       {
-        title: 'Trading Journal Guide',
-        description: 'How to use the trading journal for tracking positions and performance',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/TRADING_JOURNAL.md',
-        tags: ['journal', 'positions', 'analytics']
+        title: 'Trading Strategy Guide',
+        description: 'Comprehensive guide to trading strategies and methodologies',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/TRADING_STRATEGY_GUIDE.md',
+        tags: ['strategy', 'trading', 'methodology']
       },
       {
-        title: 'Position Sizing Calculator',
-        description: 'Risk management and position sizing methodology',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/POSITION_SIZING.md',
-        tags: ['risk', 'calculator', 'sizing']
+        title: 'Trading Rules',
+        description: 'Trading rules and guidelines for consistent performance',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/TRADING_RULES.md',
+        tags: ['rules', 'guidelines', 'discipline']
       },
       {
-        title: 'Watchlist Management',
-        description: 'How to manage and organize your trading watchlists',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/WATCHLIST.md',
-        tags: ['watchlist', 'stocks', 'scanner']
-      },
-      {
-        title: 'Gap Scanner Guide',
+        title: 'Gap Scanner 5000',
         description: 'Using the pre-market gap scanner for trade ideas',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/GAP_SCANNER.md',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/GAP_SCANNER_5000.md',
         tags: ['scanner', 'gaps', 'pre-market']
       },
       {
-        title: 'Trade Import/Export',
-        description: 'Import trades from ThinkOrSwim and export for analysis',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/TRADE_IMPORT.md',
-        tags: ['import', 'export', 'tos']
+        title: 'Trade Deduplication',
+        description: 'How trade deduplication works in the system',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/TRADE_DEDUPLICATION.md',
+        tags: ['trades', 'deduplication', 'data']
+      },
+      {
+        title: 'TraderVue Integration',
+        description: 'TraderVue feature specification and goals',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/TRADERVUE_FEATURE_SPEC.md',
+        tags: ['tradervue', 'integration', 'analytics']
       }
     ]
   },
@@ -85,26 +85,32 @@ const DOC_CATEGORIES: DocCategory[] = [
       {
         title: 'Environment Setup',
         description: 'Initial setup and environment configuration',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/ENVIRONMENT_SETUP.md',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/SETUP.md',
         tags: ['env', 'setup', 'config']
       },
       {
-        title: 'API Keys & Integrations',
-        description: 'Configuring API keys for external services',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/API_KEYS.md',
-        tags: ['api', 'keys', 'integrations']
+        title: 'Calendar Setup',
+        description: 'Google Calendar sync and event management setup',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/CALENDAR_SETUP.md',
+        tags: ['calendar', 'google', 'setup']
       },
       {
-        title: 'Cron Jobs Setup',
-        description: 'Scheduled tasks and automated reporting',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/CRON_JOBS.md',
+        title: 'Cron Migration Guide',
+        description: 'Scheduled tasks and cron job migration instructions',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/CRON_MIGRATION.md',
         tags: ['cron', 'scheduled', 'automation']
       },
       {
-        title: 'Database Configuration',
-        description: 'PostgreSQL and Redis setup instructions',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/DATABASE.md',
-        tags: ['database', 'postgres', 'redis']
+        title: 'Cron Fixes',
+        description: 'Common cron job issues and fixes',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/CRON_FIXES.md',
+        tags: ['cron', 'fixes', 'troubleshooting']
+      },
+      {
+        title: 'Upstash Setup',
+        description: 'Redis/Upstash configuration instructions',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/UPSTASH_SETUP.md',
+        tags: ['redis', 'upstash', 'database']
       }
     ]
   },
@@ -114,28 +120,22 @@ const DOC_CATEGORIES: DocCategory[] = [
     icon: HelpCircle,
     docs: [
       {
-        title: 'Goals & Tasks',
-        description: 'Managing goals, action items, and project tasks',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/GOALS_TASKS.md',
-        tags: ['goals', 'tasks', 'productivity']
+        title: 'Activity Logging',
+        description: 'When and how to log work activities',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/ACTIVITY_LOGGING.md',
+        tags: ['logging', 'activity', 'tracking']
       },
       {
-        title: 'Habit Tracker',
-        description: 'Daily habit tracking and streak management',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/HABIT_TRACKER.md',
-        tags: ['habits', 'tracking', 'streaks']
+        title: 'Dashboard Reports',
+        description: 'Understanding and using dashboard reports',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/DASHBOARD_REPORTS.md',
+        tags: ['dashboard', 'reports', 'analytics']
       },
       {
-        title: 'Calendar Integration',
-        description: 'Google Calendar sync and event management',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/CALENDAR.md',
-        tags: ['calendar', 'google', 'events']
-      },
-      {
-        title: 'Notifications System',
-        description: 'Understanding alerts and notification preferences',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/NOTIFICATIONS.md',
-        tags: ['notifications', 'alerts', 'settings']
+        title: 'Strava Integration',
+        description: 'Connecting and using Strava fitness tracking',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/STRAVA_INTEGRATION.md',
+        tags: ['strava', 'fitness', 'integration']
       }
     ]
   },
@@ -145,34 +145,28 @@ const DOC_CATEGORIES: DocCategory[] = [
     icon: Code,
     docs: [
       {
-        title: 'Project Architecture',
-        description: 'Overview of the codebase structure and patterns',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/ARCHITECTURE.md',
-        tags: ['architecture', 'structure', 'patterns']
+        title: 'Project README',
+        description: 'Project overview and getting started guide',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/README.md',
+        tags: ['readme', 'overview', 'getting-started']
       },
       {
-        title: 'Contributing Guide',
-        description: 'How to contribute code and submit PRs',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/CONTRIBUTING.md',
-        tags: ['contributing', 'prs', 'git']
+        title: 'VPS to Mac Mini Migration',
+        description: 'Guide for migrating from VPS to Mac Mini',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/MIGRATION_VPS_TO_MACMINI.md',
+        tags: ['migration', 'vps', 'mac-mini']
       },
       {
-        title: 'API Documentation',
-        description: 'Internal API endpoints and usage',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/API.md',
-        tags: ['api', 'endpoints', 'rest']
+        title: 'Intergram Setup',
+        description: 'Intergram chat integration setup',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/INTERGRAM_SETUP.md',
+        tags: ['intergram', 'chat', 'integration']
       },
       {
-        title: 'Component Library',
-        description: 'Reusable UI components and styling guide',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/COMPONENTS.md',
-        tags: ['components', 'ui', 'styling']
-      },
-      {
-        title: 'Testing Guide',
-        description: 'Testing strategies and best practices',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/TESTING.md',
-        tags: ['testing', 'jest', 'ci']
+        title: 'Market Data Fix',
+        description: 'Market data issues and fixes summary',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/MARKET_DATA_FIX_SUMMARY.md',
+        tags: ['market-data', 'fixes', 'data']
       }
     ]
   },
@@ -188,22 +182,22 @@ const DOC_CATEGORIES: DocCategory[] = [
         tags: ['index', 'library', 'all-docs']
       },
       {
-        title: 'Activity Logging',
-        description: 'When and how to log work activities',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/ACTIVITY_LOGGING.md',
-        tags: ['logging', 'activity', 'tracking']
+        title: 'Agent Identity',
+        description: 'Agent identity and configuration guide',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/IDENTITY.md',
+        tags: ['agents', 'identity', 'configuration']
       },
       {
-        title: 'Changelog',
-        description: 'Version history and release notes',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/CHANGELOG.md',
-        tags: ['changelog', 'versions', 'releases']
+        title: 'Agent Soul',
+        description: 'Core agent personality and behavior',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/SOUL.md',
+        tags: ['agents', 'soul', 'personality']
       },
       {
-        title: 'Troubleshooting',
-        description: 'Common issues and solutions',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/TROUBLESHOOTING.md',
-        tags: ['troubleshooting', 'issues', 'faq']
+        title: 'Status Guide',
+        description: 'System status and health checks',
+        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/STATUS.md',
+        tags: ['status', 'health', 'monitoring']
       }
     ]
   }
@@ -226,11 +220,11 @@ const QUICK_LINKS = [
 
 const QUICK_TIPS = [
   'All changes go through Pull Requests',
-  'Use the Trading tab to journal your trades',
+  'Use the Trading tab to track your strategies',
   'Set up daily habits in the Dashboard',
   'Goals can have multiple action items',
-  'Import trades from ThinkOrSwim CSV files',
-  'Check the Gap Scanner before market open'
+  'Check the Gap Scanner before market open',
+  'Log activities consistently for better tracking'
 ];
 
 export default function DocumentationCard() {
@@ -245,6 +239,8 @@ export default function DocumentationCard() {
         : [...prev, categoryId]
     );
   };
+
+  const activeCategory = DOC_CATEGORIES.find(cat => cat.id === activeTab);
 
   const filteredCategories = DOC_CATEGORIES.map(category => ({
     ...category,
