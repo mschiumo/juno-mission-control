@@ -400,6 +400,8 @@ export interface CSVImportWithDuplicatesResult {
   newTrades: Trade[];
   stats: {
     totalInCSV: number;
+    imported: number;
+    potentialDuplicates: number;
   };
 }
 

@@ -29,6 +29,10 @@ import {
   Upload
 } from 'lucide-react';
 import { getTodayInEST, getESTDateFromTimestamp } from '@/lib/date-utils';
+import DuplicateReviewModal from './DuplicateReviewModal';
+import { findPotentialDuplicates, getNonDuplicateTrades, mergeTrades } from '@/lib/trading/duplicate-detection';
+import type { PotentialDuplicate, Trade } from '@/types/trading';
+import { TradeSide, TradeStatus } from '@/types/trading';
 
 // ============================================================================
 // Types
@@ -54,21 +58,6 @@ interface JournalEntry {
   prompts: JournalPrompt[];
   createdAt: string;
   updatedAt: string;
-}
-
-interface Trade {
-  id: string;
-  symbol: string;
-  side: 'LONG' | 'SHORT';
-  shares: number;
-  entryPrice: number;
-  entryDate: string;
-  exitPrice?: number;
-  exitDate?: string;
-  netPnL?: number;
-  status: 'OPEN' | 'CLOSED';
-  entryNotes?: string;
-  exitNotes?: string;
 }
 
 type SortField = 'date' | 'symbol' | 'side' | 'entryPrice' | 'shares';
@@ -162,6 +151,12 @@ export default function CombinedCalendarView() {
 
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
+  
+  // Duplicate review modal state
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [potentialDuplicates, setPotentialDuplicates] = useState<PotentialDuplicate[]>([]);
+  const [importedTrades, setImportedTrades] = useState<Trade[]>([]);
+  const [newTradesCount, setNewTradesCount] = useState(0);
 
   // Fetch data on mount
   useEffect(() => {
@@ -435,9 +430,95 @@ export default function CombinedCalendarView() {
     }
   };
 
-  // ===== IMPORT HANDLER =====
-  const handleImportSuccess = () => {
-    console.log('Import success - refreshing data');
+  // ===== IMPORT HANDLER WITH DUPLICATE DETECTION =====
+  const handleImportComplete = async (trades: Trade[]) => {
+    console.log('Import complete - checking for duplicates:', trades.length, 'trades imported');
+    
+    if (trades.length === 0) {
+      // No trades imported, just refresh
+      fetchData();
+      return;
+    }
+
+    // Find potential duplicates with existing trades
+    const duplicates = findPotentialDuplicates(allTrades, trades);
+    console.log('Potential duplicates found:', duplicates.length);
+    
+    if (duplicates.length > 0) {
+      // Show duplicate review modal
+      const nonDuplicates = getNonDuplicateTrades(trades, duplicates);
+      setPotentialDuplicates(duplicates);
+      setImportedTrades(trades);
+      setNewTradesCount(nonDuplicates.length);
+      setShowDuplicateModal(true);
+    } else {
+      // No duplicates, just refresh data
+      fetchData();
+    }
+  };
+
+  // Handle merge action
+  const handleMerge = async (dashboardTrade: Trade, csvTrade: Trade) => {
+    console.log('Merging trades:', dashboardTrade.id, csvTrade.id);
+    try {
+      // Delete the dashboard trade
+      await fetch(`/api/trades/${dashboardTrade.id}?userId=default`, {
+        method: 'DELETE'
+      });
+      
+      // Update the CSV trade with merged notes
+      const mergedTrade = mergeTrades(dashboardTrade, csvTrade);
+      await fetch(`/api/trades/${csvTrade.id}?userId=default`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mergedTrade),
+      });
+    } catch (error) {
+      console.error('Error merging trades:', error);
+      throw error;
+    }
+  };
+
+  // Handle keep both action
+  const handleKeepBoth = async (csvTrade: Trade) => {
+    console.log('Keeping both trades, no action needed for:', csvTrade.id);
+    // Trade is already saved, no action needed
+  };
+
+  // Handle skip action
+  const handleSkip = async (csvTrade: Trade) => {
+    console.log('Skipping trade, deleting:', csvTrade.id);
+    try {
+      await fetch(`/api/trades/${csvTrade.id}?userId=default`, {
+        method: 'DELETE'
+      });
+    } catch (error) {
+      console.error('Error skipping trade:', error);
+      throw error;
+    }
+  };
+
+  // Handle merge all
+  const handleMergeAll = async (duplicates: PotentialDuplicate[]) => {
+    console.log('Merging all duplicates:', duplicates.length);
+    for (const dup of duplicates) {
+      await handleMerge(dup.dashboardTrade, dup.csvTrade);
+    }
+    await fetchData();
+  };
+
+  // Handle keep all
+  const handleKeepAll = async (duplicates: PotentialDuplicate[]) => {
+    console.log('Keeping all duplicates:', duplicates.length);
+    // No action needed, trades are already saved
+    await fetchData();
+  };
+
+  // Handle duplicate modal close
+  const handleDuplicateModalClose = () => {
+    setShowDuplicateModal(false);
+    setPotentialDuplicates([]);
+    setImportedTrades([]);
     fetchData();
   };
 
@@ -1151,7 +1232,26 @@ export default function CombinedCalendarView() {
       )}
       {/* Import Modal */}
       {showImportModal && (
-        <ImportModal onClose={() => setShowImportModal(false)} onSuccess={handleImportSuccess} />
+        <ImportModal 
+          onClose={() => setShowImportModal(false)} 
+          onSuccess={handleImportComplete}
+          existingTrades={allTrades}
+        />
+      )}
+      
+      {/* Duplicate Review Modal */}
+      {showDuplicateModal && (
+        <DuplicateReviewModal
+          isOpen={showDuplicateModal}
+          onClose={handleDuplicateModalClose}
+          duplicates={potentialDuplicates}
+          onMerge={handleMerge}
+          onKeepBoth={handleKeepBoth}
+          onSkip={handleSkip}
+          onMergeAll={handleMergeAll}
+          onKeepAll={handleKeepAll}
+          newTradesCount={newTradesCount}
+        />
       )}
     </div>
   );
@@ -1163,10 +1263,11 @@ export default function CombinedCalendarView() {
 
 interface ImportModalProps {
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (trades: Trade[]) => void;
+  existingTrades: Trade[];
 }
 
-function ImportModal({ onClose, onSuccess }: ImportModalProps) {
+function ImportModal({ onClose, onSuccess, existingTrades }: ImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -1208,15 +1309,18 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
       const result = await response.json();
       
       if (result.success) {
+        const importedTrades = result.data?.trades || [];
         setUploadResult({ 
           success: true, 
           message: `Successfully imported ${result.count || 0} trades`,
           count: result.count 
         });
+        
+        // Call onSuccess with the imported trades for duplicate checking
         setTimeout(() => {
           onClose();
           if (onSuccess) {
-            onSuccess();
+            onSuccess(importedTrades);
           } else {
             window.location.reload();
           }
@@ -1793,7 +1897,7 @@ function EditTradeModal({ trade, onClose, onSave, isSaving }: EditTradeModalProp
               <label className="block text-xs text-[#8b949e] mb-1">Side</label>
               <select
                 value={formData.side}
-                onChange={(e) => setFormData({ ...formData, side: e.target.value as 'LONG' | 'SHORT' })}
+                onChange={(e) => setFormData({ ...formData, side: e.target.value as TradeSide })}
                 className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
               >
                 <option value="LONG">LONG</option>
@@ -1852,7 +1956,7 @@ function EditTradeModal({ trade, onClose, onSave, isSaving }: EditTradeModalProp
               <label className="block text-xs text-[#8b949e] mb-1">Status</label>
               <select
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'OPEN' | 'CLOSED' })}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as TradeStatus })}
                 className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
               >
                 <option value="OPEN">OPEN</option>

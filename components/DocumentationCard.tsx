@@ -7,6 +7,8 @@ import {
   FileText, 
   Github, 
   Search,
+  ChevronDown,
+  ChevronUp,
   Zap,
   Settings,
   TrendingUp,
@@ -228,6 +230,15 @@ const QUICK_TIPS = [
 export default function DocumentationCard() {
   const [activeTab, setActiveTab] = useState('trading');
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['trading']);
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories(prev => 
+      prev.includes(categoryId) 
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
 
   const activeCategory = DOC_CATEGORIES.find(cat => cat.id === activeTab);
 
@@ -285,6 +296,9 @@ export default function DocumentationCard() {
                   key={category.id}
                   onClick={() => {
                     setActiveTab(category.id);
+                    if (!expandedCategories.includes(category.id)) {
+                      setExpandedCategories(prev => [...prev, category.id]);
+                    }
                     setSearchQuery('');
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
@@ -391,30 +405,68 @@ export default function DocumentationCard() {
                   </div>
                 )}
               </div>
-            ) : activeCategory ? (
-              // Single Category View
-              <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 rounded-lg bg-[#ff6b35]/10">
-                    <activeCategory.icon className="w-6 h-6 text-[#ff6b35]" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-white">
-                      {activeCategory.label}
-                    </h2>
-                    <p className="text-sm text-[#8b949e]">
-                      {activeCategory.docs.length} document{activeCategory.docs.length !== 1 ? 's' : ''}
-                    </p>
-                  </div>
+            ) : (
+              // Category View with Accordions
+              DOC_CATEGORIES.map((category) => (
+                <div 
+                  key={category.id}
+                  className={`bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden transition-all ${
+                    activeTab === category.id ? 'ring-1 ring-[#ff6b35]/30' : ''
+                  }`}
+                >
+                  {/* Category Header */}
+                  <button
+                    onClick={() => toggleCategory(category.id)}
+                    className="w-full flex items-center justify-between p-4 hover:bg-[#21262d] transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${
+                        activeTab === category.id 
+                          ? 'bg-[#ff6b35]/10' 
+                          : 'bg-[#0d1117]'
+                      }`}>
+                        <category.icon className={`w-5 h-5 ${
+                          activeTab === category.id ? 'text-[#ff6b35]' : 'text-[#8b949e]'
+                        }`} />
+                      </div>
+                      <div className="text-left">
+                        <h2 className={`font-semibold ${
+                          activeTab === category.id ? 'text-white' : 'text-[#c9d1d9]'
+                        }`}>
+                          {category.label}
+                        </h2>
+                        <p className="text-xs text-[#8b949e]">
+                          {category.docs.length} document{category.docs.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {activeTab === category.id && (
+                        <span className="text-xs px-2 py-1 bg-[#ff6b35]/20 text-[#ff6b35] rounded-full">
+                          Active
+                        </span>
+                      )}
+                      {expandedCategories.includes(category.id) ? (
+                        <ChevronUp className="w-5 h-5 text-[#8b949e]" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-[#8b949e]" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Category Content */}
+                  {expandedCategories.includes(category.id) && (
+                    <div className="p-4 pt-0 border-t border-[#30363d]">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                        {category.docs.map((doc) => (
+                          <DocCard key={doc.title} doc={doc} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {activeCategory.docs.map((doc) => (
-                    <DocCard key={doc.title} doc={doc} />
-                  ))}
-                </div>
-              </div>
-            ) : null}
+              ))
+            )}
           </div>
         </div>
       </div>
