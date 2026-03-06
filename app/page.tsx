@@ -2,16 +2,12 @@
 
 import { useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import DailyReportsCard from "@/components/DailyReportsCard";
 // import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
-import MarketCard from "@/components/MarketCard";
 import MarketHoursBanner from "@/components/MarketHoursBanner";
 import GapScannerCard from "@/components/GapScannerCard";
 import NewsScreenerCard from "@/components/NewsScreenerCard";
 import ProjectsCard from "@/components/ProjectsCard";
-import ActivityLogCard from "@/components/ActivityLogCard";
-import DailyCronsCard from "@/components/DailyCronsCard";
 import GoalsCard from "@/components/GoalsCard";
 import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
@@ -20,9 +16,9 @@ import MotivationalBanner from "@/components/MotivationalBanner";
 import DocumentationCard from "@/components/DocumentationCard";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
-import { LayoutDashboard, Activity, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
 
-type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'activity';
+type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'docs';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -33,7 +29,9 @@ function DashboardContent() {
   // Get tab from URL query param, default to 'dashboard'
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
-    if (tab === 'tasks' || tab === 'trading' || tab === 'goals' || tab === 'activity') return tab;
+    if (tab === 'tasks' || tab === 'trading' || tab === 'goals' || tab === 'docs') return tab;
+    // Support old 'activity' tab redirecting to 'docs'
+    if (tab === 'activity') return 'docs';
     return 'dashboard';
   }, [searchParams]);
   
@@ -57,7 +55,7 @@ function DashboardContent() {
     { id: 'tasks' as const, label: 'Tasks', icon: CheckSquare },
     { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
     { id: 'goals' as const, label: 'Goals', icon: Target },
-    { id: 'activity' as const, label: 'Activity', icon: Activity },
+    { id: 'docs' as const, label: 'Docs', icon: BookOpen },
   ];
 
   return (
@@ -157,7 +155,6 @@ function DashboardContent() {
             <EveningCheckinReminder />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <HabitCard />
-              <DailyReportsCard />
             </div>
           </div>
         ) : activeTab === 'tasks' ? (
@@ -178,13 +175,9 @@ function DashboardContent() {
             </Suspense>
           </div>
         ) : (
-          /* Activity Log View */
+          /* Docs View */
           <div className="max-w-[1600px] mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-              <ActivityLogCard />
-              <DailyCronsCard />
-              <DocumentationCard className="lg:col-span-2" />
-            </div>
+            <DocumentationCard />
           </div>
         )}
       </main>

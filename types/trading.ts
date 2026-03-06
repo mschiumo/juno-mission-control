@@ -99,6 +99,11 @@ export interface Trade {
   
   // Related Journal Entry
   journalEntryId?: string;
+  
+  // Merge tracking
+  isMerged?: boolean;
+  mergedFrom?: string[];
+  mergedAt?: string;
 }
 
 // ============================================================================
@@ -370,4 +375,37 @@ export interface CalendarMonth {
     netPnL: number;
     winRate: number;
   };
+}
+
+// ============================================================================
+// Duplicate Detection Types
+// ============================================================================
+
+export interface PotentialDuplicate {
+  id: string;
+  dashboardTrade: Trade;
+  csvTrade: Trade;
+  confidence: 'high' | 'medium' | 'low';
+  matchReasons: string[];
+}
+
+export interface CSVImportWithDuplicatesResult {
+  success: boolean;
+  imported: number;
+  failed: number;
+  duplicates: PotentialDuplicate[];
+  errors: CSVImportError[];
+  trades: Trade[];
+  potentialDuplicates: PotentialDuplicate[];
+  newTrades: Trade[];
+  stats: {
+    totalInCSV: number;
+  };
+}
+
+// Extended Trade with merge fields (for internal use)
+export interface MergedTrade extends Trade {
+  isMerged?: boolean;
+  mergedFrom?: string[];
+  mergedAt?: string;
 }
