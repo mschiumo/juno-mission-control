@@ -1,0 +1,670 @@
+diff --git a/PR_SUMMARY.md b/PR_SUMMARY.md
+new file mode 100644
+index 0000000..3307291
+--- /dev/null
++++ b/PR_SUMMARY.md
+@@ -0,0 +1,262 @@
++# PR Summary: News Screener + Trading Overview + Market Data
++
++## Branch: `feature/news-screener-and-overview-data`
++
++---
++
++## 1. News API (`/app/api/news/route.ts`)
++
++### Features:
++- Fetches real financial news from RSS feeds:
++  - Reuters Business News
++  - Yahoo Finance headlines
++  - MarketWatch top stories
++  - BBC Business
++
++### News Categories:
++| Category | Keywords | Color |
++|----------|----------|-------|
++| Fed | fed, fomc, powell, interest rate | #8b5cf6 |
++| Policy | white house, sec, treasury, regulation | #3b82f6 |
++| M&A | merger, acquisition, buyout, takeover | #f97316 |
++| IPOs | ipo, public offering, spac, listing | #22c55e |
++| Earnings | earnings, revenue, eps, quarterly | #14b8a6 |
++| Economic | inflation, gdp, cpi, jobs report | #ef4444 |
++
++### Priority Levels:
++- **High**: Breaking news, surge/plunge/crash, Fed announcements
++- **Medium**: Standard market-moving news
++- **Low**: General economic updates
++
++### Fallback:
++- Returns demo data if RSS feeds fail
++- Auto-refreshes every 15 minutes
++
++---
++
++## 2. Trading Overview API (`/app/api/overview/route.ts`)
++
++### Features:
++- Aggregates data from trades database (Redis)
++- Calculates comprehensive trading statistics
++
++### Statistics Provided:
++
++#### Active Trades:
++- Count of active positions
++- Total position value
++- Unrealized P&L
++
++#### Performance Metrics:
++- Total trades, closed trades
++- Win rate (winners/losers/breakeven)
++- Gross profit/loss, net P&L
++- Profit factor
++- Average win/loss/trade
++
++#### Period Stats:
++- Today (trades, P&L, win rate)
++- This Week (trades, P&L, win rate)
++- This Month (trades, P&L, win rate)
++
++#### Streaks:
++- Current win streak
++- Current loss streak
++- Max win streak
++- Max loss streak
++
++#### Best/Worst:
++- Best trade (symbol + P&L)
++- Worst trade (symbol + P&L)
++- Last trade info
++
++### Caching:
++- 60-second cache with stale-while-revalidate
++
++---
++
++## 3. Market Data API (`/app/api/market-data/route.ts`)
++
++### Data Sources:
++1. **Finnhub** (primary) - 60 calls/minute free tier
++2. **Yahoo Finance** (fallback)
++3. **CoinGecko** (crypto)
++
++### Market Categories:
++
++#### Indices (ETFs):
++| Symbol | Name |
++|--------|------|
++| SPY | S&P 500 ETF |
++| QQQ | NASDAQ ETF |
++| DIA | Dow Jones ETF |
++| VXX | VIX Short-Term Futures |
++| UUP | US Dollar Index |
++
++#### Stocks:
++| Symbol | Name |
++|--------|------|
++| TSLA | Tesla Inc. |
++| META | Meta Platforms |
++| NVDA | NVIDIA Corp. |
++| GOOGL | Alphabet Inc. |
++| AMZN | Amazon.com |
++| PLTR | Palantir |
++| AMAT | Applied Materials |
++
++#### Commodities (ETFs):
++| Symbol | Name |
++|--------|------|
++| GLD | SPDR Gold Shares |
++| SLV | iShares Silver Trust |
++| CPER | US Copper Index |
++| PLTM | Platinum Trust |
++| PALL | Palladium Trust |
++
++#### Crypto:
++| Symbol | Name |
++|--------|------|
++| BTC | Bitcoin |
++| ETH | Ethereum |
++| SOL | Solana |
++| HYPE | Hyperliquid |
++| AERO | Aerodrome Finance |
++| VIRTUALS | Virtuals Protocol |
++
++### Fallback:
++- Returns mock data with realistic values if all APIs fail
++- Indicates data source (live/partial/fallback)
++
++---
++
++## 4. Gap Scanner API (`/app/api/gap-scanner/route.ts`)
++
++### Features:
++- Scans 100+ popular stocks for pre-market gaps
++- Real-time market session detection (pre-market/market/post-market/closed)
++
++### Stock Universe:
++- Tech: AAPL, MSFT, GOOGL, AMZN, META, NVDA, etc.
++- Meme/Momentum: PLTR, GME, AMC, etc.
++- Financial: JPM, BAC, GS, etc.
++- Healthcare: JNJ, PFE, UNH, etc.
++- Energy: XOM, CVX, etc.
++- EV/Auto: TSLA, RIVN, LCID, NIO, etc.
++- Semiconductors: TSM, AVGO, AMD, etc.
++- Crypto/Blockchain: COIN, MSTR, RIOT, etc.
++
++### Filters:
++- Minimum 2% gap (up or down)
++- Minimum 100K volume
++- Minimum $50M market cap
++- No ETFs (stocks only)
++
++### Data Sources:
++1. Finnhub (primary)
++2. Yahoo Finance (fallback)
++
++### Returns:
++- Gainers (top 10)
++- Losers (top 10)
++- Gap percentage
++- Volume
++- Market cap
++- Market session status
++
++---
++
++## 5. Updated Components
++
++### NewsScreenerCard.tsx
++- Fetches from `/api/news`
++- Displays live indicator when using real data
++- Category filter pills with counts
++- Priority filter (All/High/Medium/Low)
++- Error handling with retry button
++- Shows related tickers for each news item
++- Links to original article
++
++### DashboardStats.tsx
++- Fetches from `/api/overview`
++- Loading state with spinner
++- Error state with retry button
++- Last updated timestamp
++
++#### Stats Display:
++- **Header**: Total P&L, Win Rate, Total Trades, Profit Factor
++- **Period Cards**: Today, This Week, This Month (trades, P&L, win rate bars)
++- **Active Trades Panel**: Position count, unrealized P&L
++- **Streaks Panel**: Current/max win/loss streaks
++- **Best/Worst Trades**: Highlighted cards
++
++### MarketCard.tsx
++- Already connected to `/api/market-data`
++- Shows indices, stocks, commodities, crypto tabs
++- Grid layout with price, change, change %
++- TradingView chart links
++
++### GapScannerCard.tsx
++- Already connected to `/api/gap-scanner`
++- Shows gainers and losers side-by-side
++- Market session banners (pre-market/open/post-market/closed)
++- Weekend mode detection
++- Volume and market cap display
++
++---
++
++## API Rate Limits & Caching Strategy
++
++| API | Free Tier | Caching |
++|-----|-----------|---------|
++| Finnhub | 60 calls/minute | 60 seconds |
++| Yahoo Finance | Unofficial | 60 seconds |
++| CoinGecko | 10-30 calls/minute | 60 seconds |
++| RSS Feeds | N/A | 15 minutes |
++| Internal APIs | N/A | 30-60 seconds |
++
++---
++
++## Environment Variables Required
++
++```bash
++# Finnhub API (free tier)
++FINNHUB_API_KEY=your_finnhub_api_key
++
++# Redis (Upstash)
++UPSTASH_REDIS_REST_URL=your_redis_url
++UPSTASH_REDIS_REST_TOKEN=your_redis_token
++```
++
++---
++
++## Files Changed
++
++### New Files:
++- `src/app/api/news/route.ts` (416 lines)
++- `src/app/api/overview/route.ts` (297 lines)
++- `src/app/api/gap-scanner/route.ts` (396 lines)
++
++### Modified Files:
++- `src/components/NewsScreenerCard.tsx` (+123 lines)
++- `src/components/trading/DashboardStats.tsx` (+428 lines)
++
++### Total: 1,581 lines added, 79 lines removed
++
++---
++
++## Testing Notes
++
++1. **News API**: Test with RSS feed availability, verify category detection
++2. **Overview API**: Test with empty database, verify all calculations
++3. **Market Data**: Test Finnhub key presence/absence, verify fallback
++4. **Gap Scanner**: Test during different market sessions
++
++---
++
++## Future Enhancements
++
++1. Add WebSocket support for real-time quotes
++2. Implement Redis caching for market data
++3. Add more news sources (Twitter/X, SEC filings)
++4. Create alert system for price thresholds
++5. Add technical indicators to gap scanner
+diff --git a/src/app/api/gap-scanner/route.ts b/src/app/api/gap-scanner/route.ts
+new file mode 100644
+index 0000000..360e3e9
+--- /dev/null
++++ b/src/app/api/gap-scanner/route.ts
+@@ -0,0 +1,396 @@
++/**
++ * Gap Scanner API
++ * 
++ * GET /api/gap-scanner - Get stocks with 2%+ gaps up/down
++ * Scans for pre-market gaps with volume, market cap filters
++ */
++
++import { NextRequest, NextResponse } from 'next/server';
++
++// Stock universe - popular stocks to scan
++const STOCK_UNIVERSE = [
++  // Tech
++  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA', 'NFLX', 'AMD', 'INTC',
++  'CRM', 'ADBE', 'ORCL', 'UBER', 'LYFT', 'ZM', 'SHOP', 'SQ', 'ROKU', 'SNOW',
++  // Meme/Momentum
++  'PLTR', 'GME', 'AMC', 'BB', 'NOK', 'BBBY', 'SPCE', 'TLRY', 'SNDL', 'WKHS',
++  // Financial
++  'JPM', 'BAC', 'GS', 'MS', 'WFC', 'C', 'BLK', 'AXP', 'V', 'MA',
++  // Healthcare
++  'JNJ', 'PFE', 'UNH', 'ABBV', 'MRK', 'LLY', 'TMO', 'ABT', 'DHR', 'BMY',
++  // Energy
++  'XOM', 'CVX', 'COP', 'EOG', 'SLB', 'OXY', 'MPC', 'VLO', 'PSX', 'KMI',
++  // EV/Auto
++  'F', 'GM', 'RIVN', 'LCID', 'NIO', 'XPEV', 'LI', 'FSR', 'GOEV', 'ARVL',
++  // Semiconductors
++  'TSM', 'AVGO', 'QCOM', 'TXN', 'MU', 'LRCX', 'KLAC', 'AMAT', 'ASML', 'NXPI',
++  // Crypto/Blockchain
++  'COIN', 'MSTR', 'RIOT', 'MARA', 'HUT', 'BITF', 'CLSK', 'ARBK', 'CORZ', 'BTBT',
++  // Retail
++  'WMT', 'TGT', 'COST', 'HD', 'LOW', 'NKE', 'LULU', 'TJX', 'ROST', 'BURL',
++  // China
++  'BABA', 'JD', 'PDD', 'NIO', 'XPEV', 'LI', 'DIDI', 'TCEHY', 'BIDU', 'NTES',
++];
++
++export interface GapStock {
++  symbol: string;
++  name: string;
++  price: number;
++  previousClose: number;
++  gapPercent: number;
++  volume: number;
++  marketCap: number;
++  status: 'gainer' | 'loser';
++}
++
++export interface GapData {
++  gainers: GapStock[];
++  losers: GapStock[];
++}
++
++export interface GapResponse {
++  success: boolean;
++  data: GapData;
++  source: 'live' | 'mock' | 'fallback';
++  scanned: number;
++  found: number;
++  isWeekend: boolean;
++  tradingDate: string;
++  previousDate: string;
++  marketSession: 'pre-market' | 'market-open' | 'post-market' | 'closed';
++  timestamp: string;
++}
++
++// Finnhub API - fetch quote
++async function fetchFinnhubQuote(symbol: string): Promise<{
++  c: number; // current
++  pc: number; // previous close
++  v: number; // volume
++} | null> {
++  const apiKey = process.env.FINNHUB_API_KEY;
++  if (!apiKey) return null;
++
++  try {
++    const response = await fetch(
++      `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`,
++      { next: { revalidate: 0 } }
++    );
++    
++    if (!response.ok) return null;
++    
++    const data = await response.json();
++    if (data.c > 0) {
++      return {
++        c: data.c,
++        pc: data.pc,
++        v: data.v || 0,
++      };
++    }
++    return null;
++  } catch {
++    return null;
++  }
++}
++
++// Finnhub API - fetch company profile for market cap
++async function fetchFinnhubProfile(symbol: string): Promise<{
++  marketCapitalization: number; // in millions
++  name: string;
++} | null> {
++  const apiKey = process.env.FINNHUB_API_KEY;
++  if (!apiKey) return null;
++
++  try {
++    const response = await fetch(
++      `https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${apiKey}`,
++      { next: { revalidate: 86400 } } // Cache for 24 hours
++    );
++    
++    if (!response.ok) return null;
++    
++    const data = await response.json();
++    if (data.marketCapitalization) {
++      return {
++        marketCapitalization: data.marketCapitalization,
++        name: data.name || symbol,
++      };
++    }
++    return null;
++  } catch {
++    return null;
++  }
++}
++
++// Yahoo Finance fallback
++async function fetchYahooQuote(symbol: string): Promise<{
++  price: number;
++  previousClose: number;
++  volume: number;
++} | null> {
++  try {
++    const response = await fetch(
++      `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=2d`,
++      {
++        headers: {
++          'Accept': 'application/json',
++          'User-Agent': 'Mozilla/5.0 (compatible; JunoTerminal/1.0)'
++        },
++        next: { revalidate: 0 }
++      }
++    );
++    
++    if (!response.ok) return null;
++    
++    const data = await response.json();
++    const result = data.chart?.result?.[0];
++    if (!result) return null;
++    
++    const meta = result.meta;
++    const price = meta.regularMarketPrice || 0;
++    const previousClose = meta.previousClose || meta.chartPreviousClose || 0;
++    const volume = meta.regularMarketVolume || 0;
++    
++    if (price > 0 && previousClose > 0) {
++      return { price, previousClose, volume };
++    }
++    return null;
++  } catch {
++    return null;
++  }
++}
++
++// Get stock name
++const STOCK_NAMES: Record<string, string> = {
++  'AAPL': 'Apple Inc.',
++  'MSFT': 'Microsoft Corp.',
++  'GOOGL': 'Alphabet Inc.',
++  'AMZN': 'Amazon.com Inc.',
++  'META': 'Meta Platforms',
++  'NVDA': 'NVIDIA Corp.',
++  'TSLA': 'Tesla Inc.',
++  'NFLX': 'Netflix Inc.',
++  'AMD': 'Advanced Micro Devices',
++  'INTC': 'Intel Corp.',
++  'PLTR': 'Palantir Technologies',
++  'GME': 'GameStop Corp.',
++  'AMC': 'AMC Entertainment',
++  'COIN': 'Coinbase Global',
++  'MSTR': 'MicroStrategy Inc.',
++  'RIVN': 'Rivian Automotive',
++  'LCID': 'Lucid Group Inc.',
++  'NIO': 'NIO Inc.',
++  'BABA': 'Alibaba Group',
++};
++
++// Check if market is open
++function getMarketSession(): { session: GapResponse['marketSession']; isWeekend: boolean } {
++  const now = new Date();
++  const estTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
++  const hour = estTime.getHours();
++  const minute = estTime.getMinutes();
++  const day = estTime.getDay();
++  
++  const isWeekend = day === 0 || day === 6;
++  const timeInMinutes = hour * 60 + minute;
++  
++  // Pre-market: 4:00 AM - 9:30 AM
++  const preMarketStart = 4 * 60;
++  const marketOpen = 9 * 60 + 30;
++  const marketClose = 16 * 60;
++  const postMarketEnd = 20 * 60;
++  
++  let session: GapResponse['marketSession'];
++  if (isWeekend) {
++    session = 'closed';
++  } else if (timeInMinutes >= preMarketStart && timeInMinutes < marketOpen) {
++    session = 'pre-market';
++  } else if (timeInMinutes >= marketOpen && timeInMinutes < marketClose) {
++    session = 'market-open';
++  } else if (timeInMinutes >= marketClose && timeInMinutes < postMarketEnd) {
++    session = 'post-market';
++  } else {
++    session = 'closed';
++  }
++  
++  return { session, isWeekend };
++}
++
++// Scan for gaps
++async function scanGaps(): Promise<{ data: GapData; source: 'live' | 'mock' | 'fallback'; scanned: number }> {
++  const gainers: GapStock[] = [];
++  const losers: GapStock[] = [];
++  let liveCount = 0;
++  
++  // Process in batches to avoid rate limits
++  const batchSize = 10;
++  for (let i = 0; i < STOCK_UNIVERSE.length; i += batchSize) {
++    const batch = STOCK_UNIVERSE.slice(i, i + batchSize);
++    
++    await Promise.all(
++      batch.map(async (symbol) => {
++        // Try Finnhub first
++        let quote = await fetchFinnhubQuote(symbol);
++        let source: 'finnhub' | 'yahoo' | 'none' = quote ? 'finnhub' : 'none';
++        
++        // Fallback to Yahoo
++        if (!quote) {
++          const yahoo = await fetchYahooQuote(symbol);
++          if (yahoo) {
++            quote = { c: yahoo.price, pc: yahoo.previousClose, v: yahoo.volume };
++            source = 'yahoo';
++          }
++        }
++        
++        if (!quote || quote.pc === 0) return;
++        
++        const gapPercent = ((quote.c - quote.pc) / quote.pc) * 100;
++        
++        // Filter: 2%+ gaps only
++        if (Math.abs(gapPercent) < 2) return;
++        
++        // Filter: 100K+ volume
++        if (quote.v < 100000) return;
++        
++        // Get company profile for market cap
++        const profile = await fetchFinnhubProfile(symbol);
++        const marketCap = (profile?.marketCapitalization || 0) * 1000000; // Convert to actual value
++        
++        // Filter: $50M+ market cap
++        if (marketCap > 0 && marketCap < 50000000) return;
++        
++        const stock: GapStock = {
++          symbol,
++          name: profile?.name || STOCK_NAMES[symbol] || symbol,
++          price: quote.c,
++          previousClose: quote.pc,
++          gapPercent,
++          volume: quote.v,
++          marketCap: marketCap || 100000000, // Default if unknown
++          status: gapPercent > 0 ? 'gainer' : 'loser',
++        };
++        
++        if (gapPercent > 0) {
++          gainers.push(stock);
++        } else {
++          losers.push(stock);
++        }
++        
++        if (source !== 'none') {
++          liveCount++;
++        }
++      })
++    );
++    
++    // Small delay between batches
++    if (i + batchSize < STOCK_UNIVERSE.length) {
++      await new Promise(resolve => setTimeout(resolve, 100));
++    }
++  }
++  
++  // Sort by gap percentage
++  gainers.sort((a, b) => b.gapPercent - a.gapPercent);
++  losers.sort((a, b) => a.gapPercent - b.gapPercent);
++  
++  // Limit results
++  const limitedGainers = gainers.slice(0, 10);
++  const limitedLosers = losers.slice(0, 10);
++  
++  const source: GapResponse['source'] = liveCount > 0 ? 'live' : 'fallback';
++  
++  return {
++    data: { gainers: limitedGainers, losers: limitedLosers },
++    source,
++    scanned: STOCK_UNIVERSE.length,
++  };
++}
++
++// Generate mock data for fallback
++function getMockGapData(): GapData {
++  return {
++    gainers: [
++      { symbol: 'PLTR', name: 'Palantir Technologies', price: 84.48, previousClose: 76.80, gapPercent: 10.00, volume: 25000000, marketCap: 180000000000, status: 'gainer' },
++      { symbol: 'RIVN', name: 'Rivian Automotive', price: 12.50, previousClose: 11.50, gapPercent: 8.70, volume: 15000000, marketCap: 12500000000, status: 'gainer' },
++      { symbol: 'COIN', name: 'Coinbase Global', price: 245.00, previousClose: 228.50, gapPercent: 7.22, volume: 5200000, marketCap: 62000000000, status: 'gainer' },
++      { symbol: 'TSLA', name: 'Tesla Inc.', price: 355.84, previousClose: 347.34, gapPercent: 2.45, volume: 18500000, marketCap: 1135000000000, status: 'gainer' },
++    ],
++    losers: [
++      { symbol: 'NVDA', name: 'NVIDIA Corp.', price: 138.25, previousClose: 140.40, gapPercent: -1.53, volume: 45000000, marketCap: 3390000000000, status: 'loser' },
++      { symbol: 'META', name: 'Meta Platforms', price: 736.67, previousClose: 743.87, gapPercent: -0.97, volume: 8200000, marketCap: 1880000000000, status: 'loser' },
++    ],
++  };
++}
++
++export async function GET(request: NextRequest): Promise<NextResponse> {
++  const { session, isWeekend } = getMarketSession();
++  const timestamp = new Date().toISOString();
++  
++  // Get trading dates
++  const now = new Date();
++  const estNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
++  const tradingDate = estNow.toISOString().split('T')[0];
++  
++  const previousDate = new Date(estNow);
++  previousDate.setDate(previousDate.getDate() - (isWeekend ? (estNow.getDay() === 0 ? 2 : 1) : 1));
++  
++  try {
++    // Scan for gaps
++    const { data, source, scanned } = await scanGaps();
++    
++    // If no live data and it's a weekday during market hours, use mock data
++    if (source === 'fallback' && !isWeekend) {
++      const mockData = getMockGapData();
++      const response: GapResponse = {
++        success: true,
++        data: mockData,
++        source: 'mock',
++        scanned,
++        found: mockData.gainers.length + mockData.losers.length,
++        isWeekend,
++        tradingDate,
++        previousDate: previousDate.toISOString().split('T')[0],
++        marketSession: session,
++        timestamp,
++      };
++      return NextResponse.json(response);
++    }
++    
++    const response: GapResponse = {
++      success: true,
++      data,
++      source,
++      scanned,
++      found: data.gainers.length + data.losers.length,
++      isWeekend,
++      tradingDate,
++      previousDate: previousDate.toISOString().split('T')[0],
++      marketSession: session,
++      timestamp,
++    };
++    
++    return NextResponse.json(response, {
++      headers: {
++        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
++      },
++    });
++    
++  } catch (error) {
++    console.error('Gap scanner error:', error);
++    
++    // Return mock data on error
++    const mockData = getMockGapData();
++    const response: GapResponse = {
++      success: true,
++      data: mockData,
++      source: 'mock',
++      scanned: STOCK_UNIVERSE.length,
++      found: mockData.gainers.length + mockData.losers.length,
++      isWeekend,
++      tradingDate,
++      previousDate: previousDate.toISOString().split('T')[0],
++      marketSession: session,
++      timestamp,
++    };
++    
++    return NextResponse.json(response);
++  }
++}

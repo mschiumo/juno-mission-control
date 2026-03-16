@@ -16,6 +16,7 @@ interface HabitRecord {
     notes?: string;
   }[];
   summary?: string;
+  recordedAt: string;
 }
 
 export async function POST(request: Request) {
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
     const recordDate = date || new Date().toISOString().split('T')[0];
     
     // Get Redis client
-    const redis = getRedisClient();
+    const redis = await getRedisClient();
     
     // Create record
     const record: HabitRecord = {
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
     }));
     
     // Trim history to last 365 entries
-    await redis.ltrim('habits:daily:history', 0, 364);
+    await redis.lTrim('habits:daily:history', 0, 364);
     
     console.log(`[DailyHabitRecord] Recorded ${habits?.length || 0} habits for ${recordDate}`);
     
@@ -77,7 +78,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     
-    const redis = getRedisClient();
+    const redis = await getRedisClient();
     
     if (date) {
       // Get specific date
@@ -98,12 +99,12 @@ export async function GET(request: Request) {
     }
     
     // Get recent history
-    const history = await redis.lrange('habits:daily:history', 0, 30);
+    const history = await redis.lRange('habits:daily:history', 0, 30);
     
     return NextResponse.json({
       success: true,
       data: {
-        recentRecords: history.map(h => JSON.parse(h)),
+        recentRecords: history.map((h: string) => JSON.parse(h)),
       },
     });
     
