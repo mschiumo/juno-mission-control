@@ -23,6 +23,7 @@ interface Goal {
   source?: 'mj' | 'juno' | 'subagent';  // Who created this goal
   dueDate?: string;  // ISO date string for goal deadline
   createdAt?: string; // ISO timestamp when goal was created
+  order?: number;    // Display order for drag-and-drop reordering
 }
 
 interface GoalsData {
@@ -359,8 +360,54 @@ export async function DELETE(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { goalId, fromCategory, toCategory } = body;
+    const { goalId, fromCategory, toCategory, reorder, category, orderedIds } = body;
     
+    const redis = await getRedisClient();
+    
+    // Get current goals
+    let goals = DEFAULT_GOALS;
+    if (redis) {
+      const stored = await redis.get(STORAGE_KEY);
+      if (stored) {
+        goals = JSON.parse(stored);
+      }
+    }
+    
+    // Handle reorder operation
+    if (reorder && category && orderedIds && Array.isArray(orderedIds)) {
+      // Validate category
+      if (!isValidCategory(category)) {
+        return NextResponse.json({
+          success: false,
+          error: 'Invalid category'
+        }, { status: 400 });
+      }
+      
+      // Update order for each goal in the category
+      goals[category] = goals[category].map((goal: Goal) => {
+        const newIndex = orderedIds.indexOf(goal.id);
+        if (newIndex !== -1) {
+          return { ...goal, order: newIndex };
+        }
+        return goal;
+      });
+      
+      // Sort by order
+      goals[category].sort((a: Goal, b: Goal) => (a.order ?? 0) - (b.order ?? 0));
+      
+      // Save to Redis
+      if (redis) {
+        await redis.set(STORAGE_KEY, JSON.stringify(goals));
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: goals,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Handle move between categories
     if (!goalId || !fromCategory || !toCategory) {
       return NextResponse.json({
         success: false,
@@ -374,17 +421,6 @@ export async function PATCH(request: Request) {
         success: false,
         error: 'Invalid category'
       }, { status: 400 });
-    }
-
-    const redis = await getRedisClient();
-    
-    // Get current goals
-    let goals = DEFAULT_GOALS;
-    if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
-      if (stored) {
-        goals = JSON.parse(stored);
-      }
     }
     
     // Find and remove goal from source category
@@ -415,10 +451,10 @@ export async function PATCH(request: Request) {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Goal move error:', error);
+    console.error('Goal move/reorder error:', error);
     return NextResponse.json({
       success: false,
-      error: 'Failed to move goal'
+      error: 'Failed to update goals'
     }, { status: 500 });
   }
 }
