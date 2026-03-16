@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     await redis.set(key, JSON.stringify(record));
     
     // Also add to a list of all daily records
-    await redis.lpush('habits:daily:history', JSON.stringify({
+    await redis.lPush('habits:daily:history', JSON.stringify({
       date: recordDate,
       habitCount: habits?.length || 0,
       recordedAt: new Date().toISOString(),
