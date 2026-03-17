@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Calculator, Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info, Loader2 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTradeWithPnL } from '@/types/active-trade';
@@ -34,19 +34,35 @@ const RISK_RATIO_OPTIONS = [
 // Default user ID (can be made dynamic with auth later)
 const DEFAULT_USER_ID = 'default';
 
-export default function PositionCalculator() {
-  const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_VALUES);
+interface PositionCalculatorProps {
+  initialTicker?: string;
+  onTickerChange?: (ticker: string) => void;
+}
+
+export default function PositionCalculator({ initialTicker, onTickerChange }: PositionCalculatorProps) {
+  const [inputs, setInputs] = useState<CalculatorInputs>({
+    ...DEFAULT_VALUES,
+    ticker: initialTicker || '',
+  });
   const [showTooltips, setShowTooltips] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [addSuccess, setAddSuccess] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'duplicate' | 'success'>('idle');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Update ticker when initialTicker prop changes
+  useEffect(() => {
+    if (initialTicker !== undefined) {
+      setInputs(prev => ({ ...prev, ticker: initialTicker }));
+    }
+  }, [initialTicker]);
+
   const handleInputChange = (field: keyof CalculatorInputs, value: string) => {
     // Allow empty string or valid numbers for numeric fields
     if (field === 'ticker') {
       // Convert ticker to uppercase
       setInputs(prev => ({ ...prev, [field]: value.toUpperCase() }));
+      onTickerChange?.(value.toUpperCase());
     } else if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setInputs(prev => ({ ...prev, [field]: value }));
     }
