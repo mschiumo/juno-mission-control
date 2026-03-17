@@ -56,10 +56,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     const body = await request.json();
     
-    // Validation
-    if (!body.ticker || !body.entryPrice || !body.stopPrice || !body.targetPrice) {
+    // Validation - only ticker is required
+    if (!body.ticker) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: ticker, entryPrice, stopPrice, targetPrice' },
+        { success: false, error: 'Missing required field: ticker' },
         { status: 400 }
       );
     }
@@ -68,9 +68,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const item: WatchlistItem = {
       id: body.id || generateId(),
       ticker: body.ticker.toUpperCase(),
-      entryPrice: parseFloat(body.entryPrice),
-      stopPrice: parseFloat(body.stopPrice),
-      targetPrice: parseFloat(body.targetPrice),
+      entryPrice: body.entryPrice ? parseFloat(body.entryPrice) : 0,
+      stopPrice: body.stopPrice ? parseFloat(body.stopPrice) : 0,
+      targetPrice: body.targetPrice ? parseFloat(body.targetPrice) : 0,
       riskRatio: body.riskRatio ? parseFloat(body.riskRatio) : 2,
       stopSize: body.stopSize ? parseFloat(body.stopSize) : 0,
       shareSize: body.shareSize ? parseInt(body.shareSize) : 0,
