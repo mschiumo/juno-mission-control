@@ -1,11 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import { Calculator, Bookmark } from 'lucide-react';
 import PositionCalculator from './PositionCalculator';
 import WatchlistView from './WatchlistView';
 import QuickWatchlist from './QuickWatchlist';
 
 export default function TradeManagementView() {
+  const [selectedTicker, setSelectedTicker] = useState<string>('');
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -23,12 +26,15 @@ export default function TradeManagementView() {
               <h3 className="text-lg font-semibold text-white">Position Calculator</h3>
             </div>
             <div className="p-6">
-              <PositionCalculator />
+              <PositionCalculator 
+                initialTicker={selectedTicker}
+                onTickerChange={setSelectedTicker}
+              />
             </div>
           </div>
 
           {/* Quick Watchlist underneath Position Calculator */}
-          <QuickWatchlist />
+          <QuickWatchlist onSelectTicker={setSelectedTicker} />
         </div>
 
         {/* Watchlist Section - Right (contains Active + Potential) */}

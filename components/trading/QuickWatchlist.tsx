@@ -13,7 +13,8 @@ import {
   Star,
   TrendingUp,
   TrendingDown,
-  X
+  X,
+  Calculator
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 
@@ -27,7 +28,11 @@ interface SortState {
   direction: SortDirection;
 }
 
-export default function QuickWatchlist() {
+interface QuickWatchlistProps {
+  onSelectTicker?: (ticker: string) => void;
+}
+
+export default function QuickWatchlist({ onSelectTicker }: QuickWatchlistProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [tickerInput, setTickerInput] = useState('');
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -283,8 +288,8 @@ export default function QuickWatchlist() {
                 >
                   Target {getSortIcon('targetPrice')}
                 </button>
-                <div className="col-span-3 text-[#8b949e]">Side</div>
-                <div className="col-span-2 text-right text-[#8b949e]">Action</div>
+                <div className="col-span-2 text-[#8b949e]">Side</div>
+                <div className="col-span-3 text-right text-[#8b949e]">Actions</div>
               </div>
 
               {/* Table Body */}
@@ -324,7 +329,7 @@ export default function QuickWatchlist() {
                       </div>
 
                       {/* Side */}
-                      <div className="col-span-3">
+                      <div className="col-span-2">
                         {side === 'long' && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-400 text-xs rounded">
                             <TrendingUp className="w-3 h-3" />
@@ -344,8 +349,17 @@ export default function QuickWatchlist() {
                         )}
                       </div>
 
-                      {/* Delete Action */}
-                      <div className="col-span-2 flex justify-end">
+                      {/* Actions */}
+                      <div className="col-span-3 flex justify-end gap-1">
+                        {onSelectTicker && (
+                          <button
+                            onClick={() => onSelectTicker(item.ticker)}
+                            className="p-1 text-[#8b949e] hover:text-[#F97316] transition-colors"
+                            title="Use in calculator"
+                          >
+                            <Calculator className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDelete(item.id)}
                           className="p-1 text-[#8b949e] hover:text-red-400 transition-colors"
