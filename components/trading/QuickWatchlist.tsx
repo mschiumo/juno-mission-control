@@ -204,7 +204,7 @@ export default function QuickWatchlist({ onSelectTicker }: QuickWatchlistProps) 
         className="w-full flex items-center justify-between px-4 py-3 bg-[#0d1117]/50 border-b border-[#30363d] hover:bg-[#0d1117] transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-white">Quick Watchlist</span>
+          <span className="text-sm font-semibold text-white">Daily Favorites</span>
           <span className="text-xs text-[#8b949e]">({watchlist.length})</span>
         </div>
         {isExpanded ? (
