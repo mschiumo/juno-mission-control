@@ -143,7 +143,7 @@ export default function GapScannerCard() {
     const isGainer = stock.status === 'gainer';
     const added = addedTickers.has(stock.symbol);
     return (
-      <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-3 px-4 py-[7px] hover:bg-[#21262d] group cursor-default border-b border-[#21262d]/60 last:border-0">
+      <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-2 px-3 py-[6px] hover:bg-[#21262d] group cursor-default border-b border-[#21262d]/60 last:border-0">
         {/* Symbol */}
         <div className="flex items-center gap-1.5 min-w-0">
           {isGainer
@@ -162,7 +162,7 @@ export default function GapScannerCard() {
         {/* Price */}
         <span className="text-xs text-[#8b949e] tabular-nums">{fmt(stock.price)}</span>
         {/* Gap % */}
-        <span className={`text-xs font-semibold tabular-nums w-16 text-right ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
+        <span className={`text-xs font-semibold tabular-nums w-14 text-right ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
           {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%
         </span>
         {/* Star */}
@@ -225,50 +225,54 @@ export default function GapScannerCard() {
           </div>
         </div>
 
-        {/* Column headers */}
-        <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-3 px-4 py-2 border-b border-[#30363d] bg-[#0d1117]/30 flex-shrink-0">
-          <span className="text-[10px] text-[#8b949e] font-medium uppercase tracking-wide">Symbol</span>
-          <span className="text-[10px] text-[#8b949e] font-medium uppercase tracking-wide">Last</span>
-          <span className="text-[10px] text-[#8b949e] font-medium uppercase tracking-wide w-16 text-right">Chg%</span>
-          <span className="w-3" />
-        </div>
-
         {/* Body */}
         {loading && !data ? (
           <div className="flex items-center justify-center py-12 text-[#8b949e]">
             <RefreshCw className="w-5 h-5 animate-spin text-[#F97316]" />
           </div>
         ) : (
-          <div className="overflow-y-auto flex-1" style={{ maxHeight: '520px' }}>
-            {/* Gainers section */}
-            {data?.gainers && data.gainers.length > 0 && (
-              <>
-                <div className="flex items-center gap-2 px-4 py-1.5 bg-[#238636]/5 border-b border-[#21262d]">
-                  <TrendingUp className="w-3 h-3 text-[#238636]" />
-                  <span className="text-[10px] font-semibold text-[#238636] uppercase tracking-widest">Gainers</span>
-                  <span className="text-[10px] text-[#8b949e] ml-auto">{data.gainers.length}</span>
-                </div>
-                {data.gainers.map(stock => <StockRow key={stock.symbol} stock={stock} />)}
-              </>
-            )}
-
-            {/* Losers section */}
-            {data?.losers && data.losers.length > 0 && (
-              <>
-                <div className="flex items-center gap-2 px-4 py-1.5 bg-[#da3633]/5 border-b border-[#21262d] border-t border-t-[#30363d]">
-                  <TrendingDown className="w-3 h-3 text-[#da3633]" />
-                  <span className="text-[10px] font-semibold text-[#da3633] uppercase tracking-widest">Losers</span>
-                  <span className="text-[10px] text-[#8b949e] ml-auto">{data.losers.length}</span>
-                </div>
-                {data.losers.map(stock => <StockRow key={stock.symbol} stock={stock} />)}
-              </>
-            )}
-
-            {!data?.gainers?.length && !data?.losers?.length && (
-              <div className="text-center py-10 text-[#8b949e] text-xs">
-                {isWeekend ? 'Market closed — gaps resume Monday 4 AM EST' : 'No gaps found (2%+ threshold)'}
+          <div className="grid grid-cols-2 divide-x divide-[#30363d] flex-1 min-h-0">
+            {/* Gainers column */}
+            <div className="flex flex-col min-h-0">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#238636]/5 border-b border-[#30363d] flex-shrink-0">
+                <TrendingUp className="w-3 h-3 text-[#238636]" />
+                <span className="text-[10px] font-semibold text-[#238636] uppercase tracking-widest">Gainers</span>
+                <span className="text-[10px] text-[#8b949e] ml-auto">{data?.gainers.length ?? 0}</span>
               </div>
-            )}
+              <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-2 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
+                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
+                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
+                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide w-14 text-right">Chg%</span>
+                <span className="w-3" />
+              </div>
+              <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
+                {data?.gainers?.length
+                  ? data.gainers.map(stock => <StockRow key={stock.symbol} stock={stock} />)
+                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isWeekend ? 'Market closed' : 'No gainers 2%+'}</div>
+                }
+              </div>
+            </div>
+
+            {/* Losers column */}
+            <div className="flex flex-col min-h-0">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#da3633]/5 border-b border-[#30363d] flex-shrink-0">
+                <TrendingDown className="w-3 h-3 text-[#da3633]" />
+                <span className="text-[10px] font-semibold text-[#da3633] uppercase tracking-widest">Losers</span>
+                <span className="text-[10px] text-[#8b949e] ml-auto">{data?.losers.length ?? 0}</span>
+              </div>
+              <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-2 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
+                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
+                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
+                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide w-14 text-right">Chg%</span>
+                <span className="w-3" />
+              </div>
+              <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
+                {data?.losers?.length
+                  ? data.losers.map(stock => <StockRow key={stock.symbol} stock={stock} />)
+                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isWeekend ? 'Market closed' : 'No losers 2%+'}</div>
+                }
+              </div>
+            </div>
           </div>
         )}
       </div>
