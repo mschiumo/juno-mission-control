@@ -387,8 +387,8 @@ async function scanForGaps(
   
   return {
     data: {
-      gainers: gainers.slice(0, 20), // Top 20 gainers
-      losers: losers.slice(0, 20)    // Top 20 losers
+      gainers: gainers.slice(0, 15), // Top 15 gainers
+      losers: losers.slice(0, 15)    // Top 15 losers
     },
     timestamp: new Date().toISOString(),
     scanned,

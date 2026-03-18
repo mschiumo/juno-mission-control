@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock, ExternalLink, List, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock, ExternalLink, List, X, ChevronUp, ChevronDown, Download } from 'lucide-react';
 
 interface GapStock {
   symbol: string;
@@ -213,6 +213,23 @@ export default function GapScannerCard() {
     );
   };
 
+  const exportToCSV = () => {
+    if (!data) return;
+    const rows = [
+      ['Type', 'Symbol', 'Name', 'Gap %', 'Price', 'Prev Close', 'Volume', 'Market Cap'],
+      ...data.gainers.map(s => ['Gainer', s.symbol, s.name, s.gapPercent.toFixed(2), s.price.toFixed(2), s.previousClose.toFixed(2), s.volume, s.marketCap]),
+      ...data.losers.map(s => ['Loser', s.symbol, s.name, s.gapPercent.toFixed(2), s.price.toFixed(2), s.previousClose.toFixed(2), s.volume, s.marketCap]),
+    ];
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gap-scanner-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const dataSource = response?.source || 'mock';
   const isWeekend = response?.isWeekend;
   const scannedCount = response?.scanned || 0;
@@ -265,18 +282,17 @@ export default function GapScannerCard() {
           </div>
 
           <div className="flex items-center gap-2">
-            {!loading && (
-              <span className={`text-[10px] px-2 py-1 rounded ${
-                dataSource === 'polygon'
-                  ? 'bg-[#58a6ff]/20 text-[#58a6ff]'
-                  : dataSource === 'yahoo'
-                    ? 'bg-[#58a6ff]/20 text-[#58a6ff]'
-                    : dataSource === 'live'
-                      ? 'bg-[#238636]/20 text-[#238636]'
-                      : 'bg-[#d29922]/20 text-[#d29922]'
-              }`}>
-                {dataSource === 'polygon' ? 'POLYGON' : dataSource === 'yahoo' ? 'YAHOO' : dataSource === 'live' ? 'FINNHUB' : 'MOCK'}
-              </span>
+            {!loading && dataSource === 'polygon' && (
+              <span className="text-[10px] px-2 py-1 rounded bg-[#58a6ff]/20 text-[#58a6ff]">POLYGON</span>
+            )}
+            {data && !loading && (
+              <button
+                onClick={exportToCSV}
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+                title="Export to CSV (opens in Excel)"
+              >
+                <Download className="w-4 h-4 text-[#8b949e] hover:text-[#F97316]" />
+              </button>
             )}
             {data && !loading && (
               <button
@@ -377,7 +393,7 @@ export default function GapScannerCard() {
         )}
 
         {/* Scan Stats */}
-        {response && (dataSource === 'live' || dataSource === 'polygon' || dataSource === 'yahoo') && !isWeekend && (
+        {response && (dataSource === 'live' || dataSource === 'polygon') && !isWeekend && (
           <div className="mb-4 flex items-center gap-4 text-xs text-[#8b949e]">
             <span>Scanned: <span className="text-white">{scannedCount.toLocaleString()}+ stocks</span></span>
             <span>Found: <span className="text-white">{foundCount} gaps</span></span>
