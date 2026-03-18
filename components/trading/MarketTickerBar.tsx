@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Minus } from 'lucide-react';
 
 interface TickerData {
   symbol: string;
@@ -77,6 +77,15 @@ export default function MarketTickerBar() {
     return () => clearInterval(interval);
   }, []);
 
+  const bias = (() => {
+    const indices = tickers.filter(t => ['SPY', 'DIA', 'QQQ'].includes(t.symbol));
+    const upCount = indices.filter(t => t.changePercent > 0).length;
+    const downCount = indices.filter(t => t.changePercent < 0).length;
+    if (upCount >= 2) return 'bullish';
+    if (downCount >= 2) return 'bearish';
+    return 'neutral';
+  })();
+
   const TickerItem = ({ symbol, label, price, changePercent }: TickerData) => {
     const isUp = changePercent >= 0;
     const flash = flashing[symbol];
@@ -142,6 +151,18 @@ export default function MarketTickerBar() {
               {tickers.map((t) => <TickerItem key={t.symbol} {...t} />)}
               {tickers.map((t) => <TickerItem key={`${t.symbol}-2`} {...t} />)}
             </div>
+          </div>
+
+          {/* Bias badge — pinned to right */}
+          <div className={`flex items-center gap-1 px-3 shrink-0 border-l border-[#30363d] h-full text-xs font-semibold ${
+            bias === 'bullish' ? 'text-green-400' :
+            bias === 'bearish' ? 'text-red-400' :
+            'text-[#8b949e]'
+          }`}>
+            {bias === 'bullish' && <TrendingUp className="w-3 h-3" />}
+            {bias === 'bearish' && <TrendingDown className="w-3 h-3" />}
+            {bias === 'neutral' && <Minus className="w-3 h-3" />}
+            <span className="capitalize">{bias}</span>
           </div>
         </div>
       )}
