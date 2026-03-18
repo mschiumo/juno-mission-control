@@ -8,6 +8,7 @@ interface TickerData {
   label: string;
   price: number;
   changePercent: number;
+  noPrefix?: boolean;
 }
 
 interface FearGreed {
@@ -19,7 +20,7 @@ const TICKERS = [
   { symbol: 'SPY', label: 'SPY' },
   { symbol: 'DIA', label: 'DOW' },
   { symbol: 'QQQ', label: 'QQQ' },
-  { symbol: '^VIX', label: 'VIX' },
+  { symbol: '^VIX', label: 'VIX', noPrefix: true },
   { symbol: 'GLD', label: 'GOLD' },
   { symbol: 'BTC', label: 'BTC' },
   { symbol: 'ETH', label: 'ETH' },
@@ -60,13 +61,14 @@ export default function MarketTickerBar() {
         ...(json.data?.crypto ?? []),
       ] as { symbol: string; price: number; changePercent: number }[];
 
-      const result: TickerData[] = TICKERS.map(({ symbol, label }) => {
+      const result: TickerData[] = TICKERS.map(({ symbol, label, noPrefix }) => {
         const match = allItems.find((i) => i.symbol === symbol);
         return {
           symbol,
           label,
           price: match?.price ?? 0,
           changePercent: match?.changePercent ?? 0,
+          noPrefix,
         };
       });
 
@@ -110,7 +112,7 @@ export default function MarketTickerBar() {
     return 'neutral';
   })();
 
-  const TickerItem = ({ symbol, label, price, changePercent }: TickerData) => {
+  const TickerItem = ({ symbol, label, price, changePercent, noPrefix }: TickerData) => {
     const isUp = changePercent >= 0;
     const flash = flashing[symbol];
     return (
@@ -123,7 +125,7 @@ export default function MarketTickerBar() {
             transition: 'color 0.15s ease',
           } : { transition: 'color 0.6s ease' }}
         >
-          ${price >= 1000 ? price.toLocaleString('en-US', { maximumFractionDigits: 0 }) : price.toFixed(2)}
+          {noPrefix ? '' : '$'}{price >= 1000 ? price.toLocaleString('en-US', { maximumFractionDigits: 0 }) : price.toFixed(2)}
         </span>
         <span
           className={`flex items-center gap-0.5 text-xs font-semibold ${isUp ? 'text-green-400' : 'text-red-400'}`}
