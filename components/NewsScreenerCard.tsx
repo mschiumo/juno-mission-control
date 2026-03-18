@@ -218,7 +218,7 @@ export default function NewsScreenerCard() {
       )}
 
       {/* News List */}
-      <div className="max-h-[500px] overflow-y-auto pr-1 space-y-3">
+      <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2">
         {loading ? (
           <div className="text-center py-8 text-[#8b949e]">
             <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
@@ -237,7 +237,7 @@ export default function NewsScreenerCard() {
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#ff6b35]/50 transition-all group"
+              className="block p-3 bg-[#0d1117] rounded-lg border border-[#30363d] hover:border-[#ff6b35]/50 transition-all group"
             >
               {/* Header Row */}
               <div className="flex items-start justify-between gap-3 mb-2">
@@ -277,7 +277,7 @@ export default function NewsScreenerCard() {
               </h3>
               
               {/* Summary */}
-              <p className="text-xs text-[#8b949e] line-clamp-2 mb-3">
+              <p className="text-xs text-[#8b949e] line-clamp-1 mb-2">
                 {item.summary}
               </p>
               

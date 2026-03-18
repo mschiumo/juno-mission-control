@@ -146,11 +146,11 @@ export default function TradingView() {
       {activeSubTab === 'market' && (
         <div className="space-y-6">
           <MarketHoursBanner compact />
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
-            <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6 items-stretch">
+            <div className="lg:col-span-2 flex flex-col">
               <GapScannerCard />
             </div>
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-3 flex flex-col">
               <MarketCard />
             </div>
           </div>

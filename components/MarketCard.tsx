@@ -118,7 +118,7 @@ export default function MarketCard() {
   const downCount = currentData.filter(item => item.change < 0).length;
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-[#F97316]/10 rounded-lg">
@@ -146,14 +146,18 @@ export default function MarketCard() {
         </div>
       </div>
 
-      <div className="p-6">
-      {/* Segmented Control Tabs - Mobile Responsive */}
-      <div className="segmented-control mb-5 overflow-x-auto scrollbar-hide">
+      <div className="p-6 flex-1 flex flex-col min-h-0">
+      {/* Compact Pill Tabs */}
+      <div className="flex items-center gap-1 mb-5 overflow-x-auto scrollbar-hide flex-shrink-0">
         {(['indices', 'stocks', 'commodities', 'crypto'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`segmented-btn whitespace-nowrap ${activeTab === tab ? 'active' : ''}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+              activeTab === tab
+                ? 'bg-[#F97316] text-white'
+                : 'text-[#8b949e] hover:bg-[#30363d] hover:text-white'
+            }`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
@@ -178,7 +182,7 @@ export default function MarketCard() {
       )}
 
       {/* Market Data - Grid Layout */}
-      <div className="max-h-[500px] overflow-y-auto pr-1">
+      <div className="flex-1 overflow-y-auto pr-1">
         {loading ? (
           <div className="text-center py-8 text-[#8b949e]">
             <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#F97316]" />

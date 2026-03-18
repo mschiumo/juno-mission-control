@@ -46,7 +46,12 @@ export default function GapScannerCard() {
   const [sortCol, setSortCol] = useState<SortCol>('gap');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [toast, setToast] = useState<string | null>(null);
-  const [addedTickers, setAddedTickers] = useState<Set<string>>(new Set());
+  const [addedTickers, setAddedTickers] = useState<Set<string>>(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('gap-scanner-favorites') : null;
+      return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
+    } catch { return new Set<string>(); }
+  });
   const [confirmTicker, setConfirmTicker] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -88,7 +93,11 @@ export default function GapScannerCard() {
         body: JSON.stringify({ item: { ticker: symbol, entryPrice: 0, stopPrice: 0, targetPrice: 0, riskRatio: 2, stopSize: 0, shareSize: 0, potentialReward: 0, positionValue: 0, isFavorite: false }, userId: 'default' }),
       });
       if (res.ok) {
-        setAddedTickers(prev => new Set([...prev, symbol]));
+        setAddedTickers(prev => {
+          const next = new Set([...prev, symbol]);
+          try { localStorage.setItem('gap-scanner-favorites', JSON.stringify([...next])); } catch { /* ignore */ }
+          return next;
+        });
         if (toastTimer.current) clearTimeout(toastTimer.current);
         setToast(`${symbol} added to your Daily Favorites!`);
         toastTimer.current = setTimeout(() => setToast(null), 3000);
