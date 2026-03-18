@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock, ExternalLink, List, X, ChevronUp, ChevronDown, Download } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock, ExternalLink, List, X, ChevronUp, ChevronDown, Download, Star } from 'lucide-react';
 
 interface GapStock {
   symbol: string;
@@ -45,6 +45,8 @@ export default function GapScannerCard() {
   const [showModal, setShowModal] = useState(false);
   const [sortCol, setSortCol] = useState<SortCol>('gap');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [toast, setToast] = useState<string | null>(null);
+  const [addedTickers, setAddedTickers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchGapData();
@@ -184,9 +186,18 @@ export default function GapScannerCard() {
                   <ExternalLink className="w-3 h-3 opacity-50" />
                 </a>
               </div>
-              <span className={`font-bold ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
-                {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`font-bold ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
+                  {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%
+                </span>
+                <button
+                  onClick={() => addToFavorites(stock.symbol)}
+                  title={addedTickers.has(stock.symbol) ? 'Added to Daily Favorites' : 'Add to Daily Favorites'}
+                  className={`p-1 rounded transition-colors ${addedTickers.has(stock.symbol) ? 'text-[#F97316]' : 'text-[#8b949e] hover:text-[#F97316]'}`}
+                >
+                  <Star className={`w-3.5 h-3.5 ${addedTickers.has(stock.symbol) ? 'fill-[#F97316]' : ''}`} />
+                </button>
+              </div>
             </div>
 
             <p className="text-xs text-[#8b949e] mb-2 truncate">{stock.name || stock.symbol}</p>
@@ -211,6 +222,27 @@ export default function GapScannerCard() {
         ))}
       </div>
     );
+  };
+
+  const addToFavorites = async (symbol: string) => {
+    if (addedTickers.has(symbol)) return;
+    try {
+      const response = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item: { ticker: symbol, entryPrice: 0, stopPrice: 0, targetPrice: 0, riskRatio: 2, stopSize: 0, shareSize: 0, potentialReward: 0, positionValue: 0, isFavorite: false },
+          userId: 'default',
+        }),
+      });
+      if (response.ok) {
+        setAddedTickers(prev => new Set([...prev, symbol]));
+        setToast(`${symbol} added to your Daily Favorites!`);
+        setTimeout(() => setToast(null), 3000);
+      }
+    } catch {
+      // silently fail
+    }
   };
 
   const exportToCSV = () => {
@@ -543,6 +575,13 @@ export default function GapScannerCard() {
               </table>
             </div>
           </div>
+        </div>
+      )}
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-[#161b22] border border-[#F97316]/50 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm animate-in fade-in slide-in-from-bottom-2">
+          <Star className="w-4 h-4 text-[#F97316] fill-[#F97316]" />
+          {toast}
         </div>
       )}
     </>
