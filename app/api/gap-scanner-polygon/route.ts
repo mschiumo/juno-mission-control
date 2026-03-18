@@ -162,6 +162,20 @@ function isETFOrDerivative(symbol: string): boolean {
   return false;
 }
 
+// Polygon free tier doesn't return company names, so detect likely ADRs by symbol pattern.
+// ADRs often have 4-5 character tickers; domestic US blue-chips are 1-4 chars.
+// This is a best-effort filter — Yahoo route uses name-based ADR detection instead.
+function isLikelyADRBySymbol(symbol: string): boolean {
+  // Common known ADR tickers to explicitly exclude
+  const KNOWN_ADRS = new Set([
+    'BABA', 'BIDU', 'JD', 'PDD', 'NIO', 'XPEV', 'LI', 'BILI', 'IQ',
+    'TSM', 'ASML', 'SAP', 'TM', 'NVO', 'SONY', 'SHOP', 'RY', 'TD', 'BNS',
+    'VALE', 'ITUB', 'BBD', 'SAN', 'BBVA', 'UL', 'BP', 'SHELL', 'AZN',
+    'GSK', 'BTI', 'VOD', 'DEO', 'WPP',
+  ]);
+  return KNOWN_ADRS.has(symbol.toUpperCase());
+}
+
 /**
  * Fetch all stock snapshots from Polygon
  * This returns ALL stocks in a single API call!
@@ -215,8 +229,9 @@ function processGaps(
   let skippedPrice = 0;
 
   for (const snap of snapshots) {
-    // Skip ETFs and derivatives
+    // Skip ETFs, derivatives, and known ADRs
     if (isETFOrDerivative(snap.ticker)) continue;
+    if (isLikelyADRBySymbol(snap.ticker)) continue;
 
     // Need both current and previous day data
     if (!snap.day?.c || !snap.prevDay?.c) continue;
@@ -225,14 +240,14 @@ function processGaps(
     const previousClose = snap.prevDay.c;
     const volume = snap.day.v || 0;
 
-    // Skip if price out of range — minPrice acts as a microcap proxy
-    // ($1+ filters most sub-penny junk; $50M cap ≈ $1-5 price for many small caps)
+    // Skip if price out of range — minPrice filters sub-penny junk
     if (currentPrice < minPrice || currentPrice > maxPrice) {
       skippedPrice++;
       continue;
     }
 
-    // Skip if volume too low
+    // Skip if today's volume < 1M (proxy for 90-day avg; Polygon snapshots
+    // don't include historical avg volume on the free tier)
     if (volume < minVolume) {
       skippedVolume++;
       continue;
@@ -282,7 +297,7 @@ export async function GET(request: Request) {
 
   // Parse filters from query params
   const minGapPercent = parseFloat(searchParams.get('minGap') || '2');
-  const minVolume = parseInt(searchParams.get('minVolume') || '100000', 10);
+  const minVolume = parseInt(searchParams.get('minVolume') || '1000000', 10);
   const minPrice = parseFloat(searchParams.get('minPrice') || '1'); // Proxy for microcap filter
   const maxPrice = parseFloat(searchParams.get('maxPrice') || '1000');
 

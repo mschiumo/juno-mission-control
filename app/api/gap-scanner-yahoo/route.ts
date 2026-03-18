@@ -16,7 +16,24 @@ interface YahooQuote {
   regularMarketPreviousClose: number;
   regularMarketChangePercent: number;
   regularMarketVolume: number;
+  averageDailyVolume3Month?: number;
   marketCap?: number;
+  exchange?: string;
+  quoteType?: string;
+}
+
+// Primary US domestic exchange codes — excludes OTC/Pink Sheets where most ADRs debut
+const US_EXCHANGES = new Set(['NYQ', 'NMS', 'NGM', 'NCM', 'ASE', 'PCX', 'BTS', 'BATS', 'NMFGS']);
+
+// Name-suffix patterns that strongly indicate a foreign/ADR listing
+const ADR_NAME_RE = /(\bADR\b|\bplc\.?$|\bAG$|\bS\.A\.?$|\bN\.V\.?$|\bB\.V\.?$|\bAB$|\bASA$|\bA\/S$|\bSE$|\bKGaA$|\bLimited$|\bLtd\.?$|\bS\.p\.A\.?$|\bGmbH$|\bOyj$|\bInc\b.*\bLtd\b)/i;
+
+function isLikelyADR(q: YahooQuote): boolean {
+  const name = q.longName || q.shortName || '';
+  if (ADR_NAME_RE.test(name)) return true;
+  // If exchange is known and not a primary US exchange, exclude
+  if (q.exchange && !US_EXCHANGES.has(q.exchange)) return true;
+  return false;
 }
 
 interface GapStock {
@@ -78,6 +95,9 @@ function getMarketSession(): {
   };
 }
 
+const MIN_AVG_VOLUME = 1_000_000;  // 90-day avg daily volume
+const MIN_MARKET_CAP = 50_000_000; // $50M
+
 async function fetchScreener(scrId: 'day_gainers' | 'day_losers', count: number): Promise<YahooQuote[]> {
   const url = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?count=${count}&scrIds=${scrId}`;
   const res = await fetch(url, {
@@ -87,6 +107,16 @@ async function fetchScreener(scrId: 'day_gainers' | 'day_losers', count: number)
   if (!res.ok) throw new Error(`Yahoo Finance screener error: ${res.status}`);
   const data = await res.json();
   return (data?.finance?.result?.[0]?.quotes ?? []) as YahooQuote[];
+}
+
+function meetsQualityCriteria(q: YahooQuote): boolean {
+  // 90-day avg daily volume >= 1M
+  if ((q.averageDailyVolume3Month ?? 0) < MIN_AVG_VOLUME) return false;
+  // Market cap >= $50M
+  if ((q.marketCap ?? 0) < MIN_MARKET_CAP) return false;
+  // US-listed domestic stock only — no ADRs
+  if (isLikelyADR(q)) return false;
+  return true;
 }
 
 function toGapStock(q: YahooQuote, status: 'gainer' | 'loser'): GapStock {
@@ -105,7 +135,9 @@ function toGapStock(q: YahooQuote, status: 'gainer' | 'loser'): GapStock {
 export async function GET(request: Request) {
   const startTime = Date.now();
   const { searchParams } = new URL(request.url);
-  const count = parseInt(searchParams.get('count') || '20', 10);
+  // Fetch more candidates to account for filter attrition
+  const count = parseInt(searchParams.get('count') || '50', 10);
+  const limit = parseInt(searchParams.get('limit') || '20', 10);
   const marketInfo = getMarketSession();
 
   try {
@@ -114,8 +146,8 @@ export async function GET(request: Request) {
       fetchScreener('day_losers', count),
     ]);
 
-    const gainers = gainersRaw.map((q) => toGapStock(q, 'gainer'));
-    const losers = losersRaw.map((q) => toGapStock(q, 'loser'));
+    const gainers = gainersRaw.filter(meetsQualityCriteria).slice(0, limit).map((q) => toGapStock(q, 'gainer'));
+    const losers = losersRaw.filter(meetsQualityCriteria).slice(0, limit).map((q) => toGapStock(q, 'loser'));
 
     return NextResponse.json({
       success: true,

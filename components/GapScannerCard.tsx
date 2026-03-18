@@ -224,7 +224,7 @@ export default function GapScannerCard() {
             <h2 className="text-lg font-semibold text-white">Gap Scanner</h2>
             <div className="flex items-center gap-2">
               <p className="text-xs text-[#8b949e]">
-                2%+ gaps | Min 100K vol | $50M+ cap | No ETFs
+                2%+ gaps | 1M+ avg vol | $50M+ cap | US only | No ADRs
               </p>
               {lastUpdated && !loading && (
                 <span className="text-[10px] text-[#238636]">
@@ -384,7 +384,7 @@ export default function GapScannerCard() {
 
       <div className="mt-4 pt-3 border-t border-[#30363d]">
         <p className="text-[10px] text-[#8b949e] text-center">
-          Common stocks only — ETFs, warrants, preferred shares excluded • Min 2% gap • 100K+ volume • $50M+ market cap
+          US-listed common stocks only • No ADRs/ETFs/warrants • Min 2% gap • 1M+ avg daily volume (90d) • $50M+ market cap
         </p>
       </div>
       </div>
