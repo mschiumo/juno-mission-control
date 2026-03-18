@@ -175,10 +175,10 @@ export default function MarketTickerBar() {
 
           {/* Fear & Greed — left of carousel */}
           {fearGreed && (
-            <div className={`flex items-center gap-1.5 px-3 shrink-0 border-r border-[#30363d] h-full text-xs font-semibold ${fngColor(fearGreed.score)}`}>
+            <div className="flex items-center gap-1.5 px-3 shrink-0 border-r border-[#30363d] h-full text-xs font-semibold">
               <span className="text-[#484f58] font-normal">F&G</span>
-              <span>{fearGreed.score}</span>
-              <span className="hidden sm:inline text-[10px] font-medium opacity-80">{fngLabel(fearGreed.rating)}</span>
+              <span className={`${fngColor(fearGreed.score)}`}>{fearGreed.score}</span>
+              <span className={`hidden sm:inline text-[10px] font-medium text-white`}>{fngLabel(fearGreed.rating)}</span>
             </div>
           )}
 
