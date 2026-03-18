@@ -118,36 +118,35 @@ export default function MarketCard() {
   const downCount = currentData.filter(item => item.change < 0).length;
 
   return (
-    <div className="card">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-3">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#ff6b35]/10 rounded-xl">
-            <DollarSign className="w-5 h-5 text-[#ff6b35]" />
+          <div className="p-2 bg-[#F97316]/10 rounded-lg">
+            <DollarSign className="w-5 h-5 text-[#F97316]" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-white">Market</h2>
-              <MarketCountdown />
-            </div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-white">Market</h2>
+            <MarketCountdown />
           </div>
         </div>
-        <div className="flex items-center justify-between sm:justify-end gap-3 pl-[52px] sm:pl-0">
+        <div className="flex items-center gap-3">
           {lastUpdated && !loading && (
             <span className="text-[10px] text-[#8b949e]">
               Updated {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
             </span>
           )}
-          <button 
-          onClick={fetchMarketData}
-          disabled={loading}
-          className="pill p-2"
-          title="Refresh market data"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
+          <button
+            onClick={fetchMarketData}
+            disabled={loading}
+            className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+            title="Refresh market data"
+          >
+            <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
+      <div className="p-6">
       {/* Segmented Control Tabs - Mobile Responsive */}
       <div className="segmented-control mb-5 overflow-x-auto scrollbar-hide">
         {(['indices', 'stocks', 'commodities', 'crypto'] as const).map((tab) => (
@@ -182,7 +181,7 @@ export default function MarketCard() {
       <div className="max-h-[500px] overflow-y-auto pr-1">
         {loading ? (
           <div className="text-center py-8 text-[#8b949e]">
-            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#F97316]" />
             <p className="text-sm">Loading market data...</p>
           </div>
         ) : (
@@ -193,7 +192,7 @@ export default function MarketCard() {
                 href={`https://www.tradingview.com/chart/?symbol=${getTradingViewSymbol(item.symbol, activeTab === 'crypto')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#ff6b35]/50 transition-all block group min-w-0"
+                className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#F97316]/50 transition-all block group min-w-0"
               >
                 <div className="flex items-center justify-between mb-2 min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -202,22 +201,22 @@ export default function MarketCard() {
                     ) : (
                       <TrendingDown className="w-3.5 h-3.5 text-[#da3633] flex-shrink-0" />
                     )}
-                    <span className="font-semibold text-white group-hover:text-[#ff6b35] transition-colors flex items-center gap-1 truncate">
+                    <span className="font-semibold text-white group-hover:text-[#F97316] transition-colors flex items-center gap-1 truncate">
                       <span className="truncate">{item.symbol}</span>
                       <ExternalLink className="w-3 h-3 opacity-50 flex-shrink-0" />
                     </span>
                   </div>
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${
-                    item.change >= 0 
-                      ? 'bg-[#238636]/20 text-[#238636]' 
+                    item.change >= 0
+                      ? 'bg-[#238636]/20 text-[#238636]'
                       : 'bg-[#da3633]/20 text-[#da3633]'
                   }`}>
                     {item.change >= 0 ? '+' : ''}{item.changePercent.toFixed(2)}%
                   </span>
                 </div>
-                
+
                 <p className="text-xs text-[#8b949e] mb-3 truncate">{item.name}</p>
-                
+
                 <div className="flex items-baseline justify-between min-w-0">
                   <span className="metric-value text-lg sm:text-xl truncate">{formatPrice(item.price)}</span>
                   <span className={`text-xs font-medium flex-shrink-0 ml-2 ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>
@@ -228,6 +227,7 @@ export default function MarketCard() {
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );
