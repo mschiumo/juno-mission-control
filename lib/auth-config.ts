@@ -109,7 +109,7 @@ export const authConfig: NextAuthConfig = {
         session.user = {
           ...session.user,
           id: token.sub,
-          email: token.email,
+          email: token.email ?? '',
         };
       }
       return session;
