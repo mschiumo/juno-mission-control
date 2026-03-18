@@ -14,8 +14,10 @@ const TICKERS = [
   { symbol: 'SPY', label: 'SPY' },
   { symbol: 'DIA', label: 'DOW' },
   { symbol: 'QQQ', label: 'QQQ' },
+  { symbol: '^VIX', label: 'VIX' },
   { symbol: 'GLD', label: 'GOLD' },
   { symbol: 'BTC', label: 'BTC' },
+  { symbol: 'ETH', label: 'ETH' },
 ];
 
 export default function MarketTickerBar() {

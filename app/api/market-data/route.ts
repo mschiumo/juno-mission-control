@@ -15,6 +15,7 @@ const stockNames: Record<string, string> = {
   'QQQ': 'NASDAQ ETF', 
   'DIA': 'Dow Jones ETF',
   'VXX': 'iPath VIX Short-Term Futures',
+  '^VIX': 'CBOE Volatility Index',
   'UUP': 'US Dollar Index Bullish',
   'TSLA': 'Tesla Inc.',
   'META': 'Meta Platforms',
@@ -260,6 +261,7 @@ function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commo
       { symbol: 'SPY', name: 'S&P 500 ETF', price: 595.32, change: 2.15, changePercent: 0.36, status: 'up' },
       { symbol: 'QQQ', name: 'NASDAQ ETF', price: 518.47, change: 3.21, changePercent: 0.62, status: 'up' },
       { symbol: 'DIA', name: 'Dow Jones ETF', price: 448.92, change: 1.87, changePercent: 0.42, status: 'up' },
+      { symbol: '^VIX', name: 'CBOE Volatility Index', price: 18.45, change: 0.85, changePercent: 4.83, status: 'up' },
       { symbol: 'VXX', name: 'iPath VIX Short-Term Futures', price: 52.35, change: -1.25, changePercent: -2.33, status: 'down' },
       { symbol: 'UUP', name: 'US Dollar Index Bullish', price: 28.45, change: 0.15, changePercent: 0.53, status: 'up' }
     ],
@@ -303,7 +305,7 @@ export async function GET() {
     if (hasFinnhubKey) {
       console.log('Using Finnhub API for market data');
       [indices, stocks, commodities] = await Promise.all([
-        fetchFinnhubStocks(['SPY', 'QQQ', 'DIA', 'VXX', 'UUP']),
+        fetchFinnhubStocks(['SPY', 'QQQ', 'DIA', '^VIX', 'VXX', 'UUP']),
         fetchFinnhubStocks(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR', 'AMAT']),
         fetchFinnhubStocks(['GLD', 'SLV', 'CPER', 'PLTM', 'PALL']) // Gold, Silver, Copper, Platinum, Palladium ETFs
       ]);
@@ -313,7 +315,7 @@ export async function GET() {
     if (indices.length === 0) {
       console.log('Falling back to Yahoo Finance');
       [indices, stocks] = await Promise.all([
-        fetchYahooFinance(['SPY', 'QQQ', 'DIA', 'VXX', 'UUP']),
+        fetchYahooFinance(['SPY', 'QQQ', 'DIA', '^VIX', 'VXX', 'UUP']),
         fetchYahooFinance(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR'])
       ]);
     }
