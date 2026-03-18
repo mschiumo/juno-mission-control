@@ -111,35 +111,38 @@ export default function MarketTickerBar() {
     <div className="flex items-center bg-[#0d1117] border border-[#30363d] rounded-xl overflow-hidden h-10">
       <style>{`
         @keyframes ticker-scroll {
-          0%   { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
+          0%   { transform: translateX(-50%); }
+          100% { transform: translateX(0%); }
         }
       `}</style>
 
       {loading ? (
         <span className="text-xs text-[#8b949e] animate-pulse px-4">Loading market data...</span>
       ) : (
-        <div className="relative flex items-center flex-1 overflow-hidden">
-          {/* Fade edges */}
-          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#0d1117] to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-16 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0d1117] to-transparent z-10 pointer-events-none" />
-
-          {/* Scrolling marquee — two copies for seamless loop */}
-          <div
-            className="flex items-center"
-            style={{ animation: 'ticker-scroll 28s linear infinite', willChange: 'transform' }}
-          >
-            {tickers.map((t) => <TickerItem key={t.symbol} {...t} />)}
-            {tickers.map((t) => <TickerItem key={`${t.symbol}-2`} {...t} />)}
-          </div>
-
-          {/* Timestamp pinned to right */}
+        <div className="flex items-center flex-1 overflow-hidden">
+          {/* Timestamp anchored to left — tickers emerge from just after this */}
           {lastUpdated && (
-            <div className="absolute right-2 z-10 flex items-center gap-1 text-[10px] text-[#484f58] bg-[#0d1117] pl-2">
+            <div className="flex items-center gap-1 text-[10px] text-[#484f58] pl-3 pr-2 shrink-0 z-10 bg-[#0d1117]">
               <RefreshCw className="w-2.5 h-2.5" />
               {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
           )}
+
+          <div className="relative flex items-center flex-1 overflow-hidden">
+            {/* Fade edge where tickers emerge */}
+            <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#0d1117] to-transparent z-10 pointer-events-none" />
+            {/* Fade edge where tickers disappear */}
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0d1117] to-transparent z-10 pointer-events-none" />
+
+            {/* Scrolling marquee — two copies for seamless loop */}
+            <div
+              className="flex items-center"
+              style={{ animation: 'ticker-scroll 28s linear infinite', willChange: 'transform' }}
+            >
+              {tickers.map((t) => <TickerItem key={t.symbol} {...t} />)}
+              {tickers.map((t) => <TickerItem key={`${t.symbol}-2`} {...t} />)}
+            </div>
+          </div>
         </div>
       )}
     </div>
