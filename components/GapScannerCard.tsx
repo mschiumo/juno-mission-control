@@ -22,7 +22,7 @@ interface GapData {
 interface GapResponse {
   success: boolean;
   data: GapData;
-  source: 'live' | 'mock' | 'fallback';
+  source: 'live' | 'mock' | 'fallback' | 'polygon';
   scanned: number;
   found: number;
   isWeekend?: boolean;
@@ -51,9 +51,25 @@ export default function GapScannerCard() {
   const fetchGapData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/gap-scanner');
-      const result: GapResponse = await response.json();
-      if (result.success) {
+      // Try Polygon first (faster), fallback to Finnhub
+      let result: GapResponse | null = null;
+      
+      try {
+        const polygonRes = await fetch('/api/gap-scanner-polygon');
+        if (polygonRes.ok) {
+          result = await polygonRes.json();
+        }
+      } catch (err) {
+        console.log('Polygon failed, trying Finnhub...');
+      }
+      
+      // Fallback to Finnhub if Polygon failed
+      if (!result || !result.success) {
+        const finnhubRes = await fetch('/api/gap-scanner');
+        result = await finnhubRes.json();
+      }
+      
+      if (result && result.success) {
         setData(result.data);
         setResponse(result);
         setLastUpdated(new Date());
@@ -160,9 +176,9 @@ export default function GapScannerCard() {
               </span>
             </div>
             
-            <p className="text-xs text-[#8b949e] mb-2 truncate">{stock.name}</p>
+            <p className="text-xs text-[#8b949e] mb-2 truncate">{stock.name || stock.symbol}</p>
             
-            <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className={`grid gap-2 text-xs ${stock.marketCap ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <div>
                 <p className="text-[#8b949e]">Price</p>
                 <p className="text-white font-medium">{formatPrice(stock.price)}</p>
@@ -171,10 +187,12 @@ export default function GapScannerCard() {
                 <p className="text-[#8b949e]">Volume</p>
                 <p className="text-white font-medium">{formatVolume(stock.volume)}</p>
               </div>
-              <div>
-                <p className="text-[#8b949e]">Market Cap</p>
-                <p className="text-white font-medium">{formatMarketCap(stock.marketCap)}</p>
-              </div>
+              {stock.marketCap > 0 && (
+                <div>
+                  <p className="text-[#8b949e]">Market Cap</p>
+                  <p className="text-white font-medium">{formatMarketCap(stock.marketCap)}</p>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -212,11 +230,13 @@ export default function GapScannerCard() {
         <div className="flex items-center gap-2">
           {!loading && (
             <span className={`text-[10px] px-2 py-1 rounded ${
-              dataSource === 'live' 
-                ? 'bg-[#238636]/20 text-[#238636]' 
-                : 'bg-[#d29922]/20 text-[#d29922]'
+              dataSource === 'polygon'
+                ? 'bg-[#58a6ff]/20 text-[#58a6ff]'
+                : dataSource === 'live' 
+                  ? 'bg-[#238636]/20 text-[#238636]' 
+                  : 'bg-[#d29922]/20 text-[#d29922]'
             }`}>
-              {dataSource === 'live' ? 'LIVE' : 'MOCK'}
+              {dataSource === 'polygon' ? 'POLYGON' : dataSource === 'live' ? 'FINNHUB' : 'MOCK'}
             </span>
           )}
           <button
