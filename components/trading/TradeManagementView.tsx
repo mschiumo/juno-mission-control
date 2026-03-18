@@ -5,6 +5,7 @@ import { Calculator, Bookmark } from 'lucide-react';
 import PositionCalculator from './PositionCalculator';
 import WatchlistView from './WatchlistView';
 import QuickWatchlist from './QuickWatchlist';
+import MarketTickerBar from './MarketTickerBar';
 
 export default function TradeManagementView() {
   const [selectedTicker, setSelectedTicker] = useState<string>('');
@@ -42,7 +43,9 @@ export default function TradeManagementView() {
         </div>
 
         {/* Watchlist Section - Right (contains Active + Potential) */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+        <div className="space-y-3">
+          <MarketTickerBar />
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
           <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
             <Bookmark className="w-5 h-5 text-[#F97316]" />
             <h3 className="text-lg font-semibold text-white">Watchlist</h3>
@@ -50,6 +53,7 @@ export default function TradeManagementView() {
           <div className="p-6">
             <WatchlistView />
           </div>
+        </div>
         </div>
       </div>
     </div>
