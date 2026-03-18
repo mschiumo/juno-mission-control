@@ -12,7 +12,9 @@ import {
   ArrowDown,
   Star,
   X,
-  Calculator
+  Calculator,
+  TrendingUp,
+  TrendingDown
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 
@@ -40,6 +42,15 @@ interface SymbolResult {
   type: string;
 }
 
+interface PremarketData {
+  symbol: string;
+  premarketPrice: number;
+  previousClose: number;
+  change: number;
+  changePercent: number;
+  status: 'up' | 'down' | 'unchanged';
+}
+
 export default function QuickWatchlist({ 
   onSelectTicker, 
   onTickerRemoved,
@@ -59,6 +70,41 @@ export default function QuickWatchlist({
   const [isSearching, setIsSearching] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Premarket data state
+  const [premarketData, setPremarketData] = useState<Record<string, PremarketData>>({});
+
+  // Fetch premarket data for watchlist items
+  useEffect(() => {
+    const fetchPremarketData = async () => {
+      if (watchlist.length === 0) return;
+      
+      const data: Record<string, PremarketData> = {};
+      
+      await Promise.all(
+        watchlist.map(async (item) => {
+          try {
+            const response = await fetch(`/api/premarket?symbol=${item.ticker}`);
+            if (response.ok) {
+              const result = await response.json();
+              if (result.success) {
+                data[item.ticker] = result.data;
+              }
+            }
+          } catch (err) {
+            console.error(`Error fetching premarket for ${item.ticker}:`, err);
+          }
+        })
+      );
+      
+      setPremarketData(data);
+    };
+
+    fetchPremarketData();
+    // Refresh every 60 seconds
+    const interval = setInterval(fetchPremarketData, 60000);
+    return () => clearInterval(interval);
+  }, [watchlist]);
 
   // Search for symbols (debounced)
   useEffect(() => {
@@ -405,48 +451,79 @@ export default function QuickWatchlist({
 
           {filteredAndSortedWatchlist.length > 0 ? (
             <div className="border border-[#30363d] rounded-lg overflow-hidden">
-              {/* Simplified Header - just Ticker and Actions */}
+              {/* Header */}
               <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[#0d1117] border-b border-[#30363d] text-xs">
-                <button onClick={() => handleSort('ticker')} className="col-span-9 flex items-center gap-1 text-[#8b949e] hover:text-white">
+                <button onClick={() => handleSort('ticker')} className="col-span-3 flex items-center gap-1 text-[#8b949e] hover:text-white">
                   Ticker {getSortIcon('ticker')}
                 </button>
+                <div className="col-span-3 text-[#8b949e]">Prev Close</div>
+                <div className="col-span-3 text-[#8b949e]">Pre-market</div>
                 <div className="col-span-3 text-right text-[#8b949e]">Actions</div>
               </div>
               <div className="max-h-64 overflow-y-auto">
-                {filteredAndSortedWatchlist.map((item) => (
-                  <div key={item.id} className="grid grid-cols-12 gap-2 px-3 py-2 border-b border-[#30363d] last:border-b-0 hover:bg-[#0d1117]/50 transition-colors items-center">
-                    <div className="col-span-9 flex items-center gap-2">
-                      <button onClick={() => toggleFavorite(item)} className="text-[#8b949e] hover:text-yellow-400 transition-colors">
-                        <Star className={`w-3 h-3 ${item.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                      </button>
-                      <button 
-                        onClick={() => handleSelectTicker(item.ticker, item.id)}
-                        className="text-sm font-medium text-white hover:text-[#F97316] transition-colors cursor-pointer"
-                        title="Click to use in calculator"
-                      >
-                        {item.ticker}
-                      </button>
-                    </div>
-                    <div className="col-span-3 flex justify-end gap-1">
-                      {onSelectTicker && (
-                        <button 
-                          onClick={() => handleSelectTicker(item.ticker, item.id)} 
-                          className="p-1 text-[#8b949e] hover:text-[#F97316] transition-colors" 
-                          title="Use in calculator"
-                        >
-                          <Calculator className="w-4 h-4" />
+                {filteredAndSortedWatchlist.map((item) => {
+                  const premarket = premarketData[item.ticker];
+                  return (
+                    <div key={item.id} className="grid grid-cols-12 gap-2 px-3 py-2 border-b border-[#30363d] last:border-b-0 hover:bg-[#0d1117]/50 transition-colors items-center">
+                      <div className="col-span-3 flex items-center gap-2">
+                        <button onClick={() => toggleFavorite(item)} className="text-[#8b949e] hover:text-yellow-400 transition-colors">
+                          <Star className={`w-3 h-3 ${item.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
                         </button>
-                      )}
-                      <button 
-                        onClick={() => handleDelete(item.id, item.ticker)} 
-                        className="p-1 text-[#8b949e] hover:text-red-400 transition-colors" 
-                        title="Remove"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                        <button 
+                          onClick={() => handleSelectTicker(item.ticker, item.id)}
+                          className="text-sm font-medium text-white hover:text-[#F97316] transition-colors cursor-pointer"
+                          title="Click to use in calculator"
+                        >
+                          {item.ticker}
+                        </button>
+                      </div>
+                      
+                      {/* Previous Close */}
+                      <div className="col-span-3 text-xs">
+                        {premarket ? (
+                          <span className="text-[#8b949e]">${premarket.previousClose.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-[#6e7681]">-</span>
+                        )}
+                      </div>
+                      
+                      {/* Premarket Price */}
+                      <div className="col-span-3 text-xs">
+                        {premarket ? (
+                          <div className="flex flex-col">
+                            <span className={`font-medium ${premarket.status === 'up' ? 'text-green-400' : premarket.status === 'down' ? 'text-red-400' : 'text-[#8b949e]'}`}>
+                              ${premarket.premarketPrice.toFixed(2)}
+                            </span>
+                            <span className={`text-[10px] ${premarket.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {premarket.change >= 0 ? '+' : ''}{premarket.changePercent.toFixed(2)}%
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[#6e7681]">-</span>
+                        )}
+                      </div>
+                      
+                      <div className="col-span-3 flex justify-end gap-1">
+                        {onSelectTicker && (
+                          <button 
+                            onClick={() => handleSelectTicker(item.ticker, item.id)} 
+                            className="p-1 text-[#8b949e] hover:text-[#F97316] transition-colors" 
+                            title="Use in calculator"
+                          >
+                            <Calculator className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleDelete(item.id, item.ticker)} 
+                          className="p-1 text-[#8b949e] hover:text-red-400 transition-colors" 
+                          title="Remove"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : watchlist.length === 0 ? (
