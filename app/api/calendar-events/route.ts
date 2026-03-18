@@ -2,8 +2,8 @@ import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
-const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'michael@keepliving.com';
-const IMPERSONATE_USER = process.env.GOOGLE_IMPERSONATE_USER || 'michael@keepliving.com';
+const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'mschiumo18@gmail.com';
+const IMPERSONATE_USER = process.env.GOOGLE_IMPERSONATE_USER || 'mschiumo18@gmail.com';
 
 // Mock events for testing UI when credentials aren't working
 const MOCK_EVENTS = [

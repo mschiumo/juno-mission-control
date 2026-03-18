@@ -17,7 +17,7 @@ import { createClient } from 'redis';
 
 // Service Account configuration from env
 const GOOGLE_SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-const IMPERSONATE_USER = process.env.GOOGLE_IMPERSONATE_USER || 'michael@keepliving.com';
+const IMPERSONATE_USER = process.env.GOOGLE_IMPERSONATE_USER || 'mschiumo18@gmail.com';
 
 // Redis client for caching
 let redisClient: ReturnType<typeof createClient> | null = null;
