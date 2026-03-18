@@ -379,75 +379,79 @@ export default function QuickWatchlist({
 
       {isExpanded && (
         <div className="p-4 space-y-4">
-          <form onSubmit={handleAddTicker} className="flex gap-2 relative">
-            <div className="flex-1 relative">
+          {/* Single row: Ticker input + Add button + Search */}
+          <div className="flex gap-2">
+            <form onSubmit={handleAddTicker} className="flex gap-2 flex-1 relative">
+              <div className="flex-1 relative">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={tickerInput}
+                  onChange={(e) => { setTickerInput(e.target.value.toUpperCase()); setError(null); setSelectedIndex(-1); }}
+                  onKeyDown={handleKeyDown}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  onFocus={() => tickerInput.length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
+                  placeholder="Enter ticker"
+                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm placeholder-[#6e7681] focus:outline-none focus:border-[#F97316]"
+                  disabled={isLoading}
+                />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <span className="animate-spin text-xs">⟳</span>
+                  </div>
+                )}
+                
+                {/* Autocomplete Dropdown */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-[#161b22] border border-[#30363d] rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {suggestions.map((suggestion, index) => (
+                      <button
+                        key={suggestion.symbol}
+                        type="button"
+                        onClick={() => handleSelectSuggestion(suggestion.symbol)}
+                        className={`w-full px-3 py-2 text-left text-sm transition-colors ${
+                          index === selectedIndex 
+                            ? 'bg-[#F97316]/20 text-white' 
+                            : 'text-[#8b949e] hover:bg-[#0d1117] hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-white">{suggestion.symbol}</span>
+                          <span className="text-xs text-[#6e7681] truncate max-w-[150px]">{suggestion.name}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading || !tickerInput.trim()}
+                className="flex items-center gap-1 px-3 py-2 bg-[#F97316] hover:bg-[#ea580c] disabled:bg-[#30363d] disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                {isLoading ? <span className="animate-spin">⟳</span> : <Plus className="w-4 h-4" />}
+                Add
+              </button>
+            </form>
+            
+            {/* Search input */}
+            <div className="relative w-40">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6e7681]" />
               <input
-                ref={inputRef}
                 type="text"
-                value={tickerInput}
-                onChange={(e) => { setTickerInput(e.target.value.toUpperCase()); setError(null); setSelectedIndex(-1); }}
-                onKeyDown={handleKeyDown}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                onFocus={() => tickerInput.length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
-                placeholder="Enter ticker (e.g., AAPL)"
-                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm placeholder-[#6e7681] focus:outline-none focus:border-[#F97316]"
-                disabled={isLoading}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search..."
+                className="w-full pl-9 pr-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm placeholder-[#6e7681] focus:outline-none focus:border-[#F97316]"
               />
-              {isSearching && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <span className="animate-spin text-xs">⟳</span>
-                </div>
-              )}
-              
-              {/* Autocomplete Dropdown */}
-              {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-[#161b22] border border-[#30363d] rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {suggestions.map((suggestion, index) => (
-                    <button
-                      key={suggestion.symbol}
-                      type="button"
-                      onClick={() => handleSelectSuggestion(suggestion.symbol)}
-                      className={`w-full px-3 py-2 text-left text-sm transition-colors ${
-                        index === selectedIndex 
-                          ? 'bg-[#F97316]/20 text-white' 
-                          : 'text-[#8b949e] hover:bg-[#0d1117] hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-white">{suggestion.symbol}</span>
-                        <span className="text-xs text-[#6e7681] truncate max-w-[150px]">{suggestion.name}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
-            <button
-              type="submit"
-              disabled={isLoading || !tickerInput.trim()}
-              className="flex items-center gap-1 px-3 py-2 bg-[#F97316] hover:bg-[#ea580c] disabled:bg-[#30363d] disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              {isLoading ? <span className="animate-spin">⟳</span> : <Plus className="w-4 h-4" />}
-              Add
-            </button>
-          </form>
+          </div>
 
           {error && (
             <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded-lg">
               <X className="w-4 h-4" /> {error}
             </div>
           )}
-
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6e7681]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..."
-              className="w-full pl-9 pr-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm placeholder-[#6e7681] focus:outline-none focus:border-[#F97316]"
-            />
-          </div>
 
           {filteredAndSortedWatchlist.length > 0 ? (
             <div className="border border-[#30363d] rounded-lg overflow-hidden">
