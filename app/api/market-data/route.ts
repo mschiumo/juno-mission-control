@@ -252,6 +252,29 @@ async function fetchCryptoPrices(): Promise<MarketItem[]> {
 }
 
 /**
+ * Fetches CNN Fear & Greed Index (0-100)
+ */
+async function fetchFearAndGreed(): Promise<{ score: number; rating: string } | null> {
+  try {
+    const response = await fetch(
+      'https://production.dataviz.cnn.io/index/fearandgreed/graphdata',
+      {
+        headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+        next: { revalidate: 300 }
+      }
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    const score = data.fear_and_greed?.score;
+    const rating = data.fear_and_greed?.rating;
+    if (score === undefined) return null;
+    return { score: Math.round(score), rating: rating ?? 'Unknown' };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fallback mock data when all APIs fail
  */
 function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commodities: MarketItem[]; crypto: MarketItem[] } {
@@ -320,6 +343,9 @@ export async function GET() {
     
     // Always fetch crypto from CoinGecko
     const crypto = await fetchCryptoPrices();
+
+    // Fetch Fear & Greed index (best-effort)
+    const fearAndGreed = await fetchFearAndGreed();
     
     const fallback = getFallbackData();
     
@@ -334,6 +360,7 @@ export async function GET() {
       stocks: hasRealStocks ? stocks : fallback.stocks,
       commodities: hasRealCommodities ? commodities : fallback.commodities,
       crypto: hasRealCrypto ? crypto : fallback.crypto,
+      fearAndGreed: fearAndGreed ?? { score: 50, rating: 'Neutral' },
       lastUpdated: timestamp
     };
     
@@ -365,6 +392,7 @@ export async function GET() {
         stocks: fallback.stocks,
         commodities: fallback.commodities,
         crypto: fallback.crypto,
+        fearAndGreed: { score: 50, rating: 'Neutral' },
         lastUpdated: timestamp
       },
       timestamp,
