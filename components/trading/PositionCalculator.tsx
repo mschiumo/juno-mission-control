@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Calculator, Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info, Loader2 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTradeWithPnL } from '@/types/active-trade';
@@ -34,19 +34,35 @@ const RISK_RATIO_OPTIONS = [
 // Default user ID (can be made dynamic with auth later)
 const DEFAULT_USER_ID = 'default';
 
-export default function PositionCalculator() {
-  const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_VALUES);
+interface PositionCalculatorProps {
+  initialTicker?: string;
+  onTickerChange?: (ticker: string) => void;
+}
+
+export default function PositionCalculator({ initialTicker, onTickerChange }: PositionCalculatorProps) {
+  const [inputs, setInputs] = useState<CalculatorInputs>({
+    ...DEFAULT_VALUES,
+    ticker: initialTicker || '',
+  });
   const [showTooltips, setShowTooltips] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [addSuccess, setAddSuccess] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'duplicate' | 'success'>('idle');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Update ticker when initialTicker prop changes
+  useEffect(() => {
+    if (initialTicker !== undefined) {
+      setInputs(prev => ({ ...prev, ticker: initialTicker }));
+    }
+  }, [initialTicker]);
+
   const handleInputChange = (field: keyof CalculatorInputs, value: string) => {
     // Allow empty string or valid numbers for numeric fields
     if (field === 'ticker') {
       // Convert ticker to uppercase
       setInputs(prev => ({ ...prev, [field]: value.toUpperCase() }));
+      onTickerChange?.(value.toUpperCase());
     } else if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setInputs(prev => ({ ...prev, [field]: value }));
     }
@@ -105,9 +121,13 @@ export default function PositionCalculator() {
       
       const tickerInput = inputs.ticker.trim().toUpperCase();
       
-      // Check for duplicate ticker in watchlist (Potential Trades)
-      const isDuplicateInWatchlist = existingWatchlist.some((item: WatchlistItem) =>
-        item.ticker.toUpperCase() === tickerInput
+      // Check for duplicate ticker in Potential Trades (complete trades with prices > 0)
+      // Exclude Daily Favorites (ticker-only entries with 0 prices)
+      const isDuplicateInPotentialTrades = existingWatchlist.some((item: WatchlistItem) =>
+        item.ticker.toUpperCase() === tickerInput &&
+        item.entryPrice > 0 &&
+        item.stopPrice > 0 &&
+        item.targetPrice > 0
       );
       
       // Check for duplicate ticker in active trades
@@ -115,8 +135,9 @@ export default function PositionCalculator() {
         trade.ticker?.toUpperCase() === tickerInput
       );
       
-      // Block if in watchlist or active trades, but allow if only in closed positions
-      if (isDuplicateInWatchlist) {
+      // Block if in Potential Trades or Active Trades
+      // Note: Daily Favorites (ticker-only) does NOT block - you can have same ticker in Daily Favorites and Potential Trades
+      if (isDuplicateInPotentialTrades) {
         setSaveStatus('duplicate');
         setTimeout(() => setSaveStatus('idle'), 3000);
         setIsLoading(false);
@@ -154,7 +175,9 @@ export default function PositionCalculator() {
       }
 
       // Dispatch custom event to notify WatchlistView in same tab
+      const tickerToRemove = inputs.ticker.trim().toUpperCase();
       window.dispatchEvent(new CustomEvent('juno:watchlist-updated'));
+      window.dispatchEvent(new CustomEvent('juno:ticker-moved-to-potential', { detail: tickerToRemove }));
 
       // Clear inputs after successful save
       handleClear();
