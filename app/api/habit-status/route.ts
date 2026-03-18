@@ -16,7 +16,7 @@ const DEFAULT_HABITS = [
 ];
 
 // Lazy Redis client initialization
-let redisClient: ReturnType<typeof import('@/lib/redis').getRedisClient> | null = null;
+let redisClient: Awaited<ReturnType<typeof import('@/lib/redis').getRedisClient>> | null = null;
 
 async function getRedis() {
   if (redisClient) return redisClient;
