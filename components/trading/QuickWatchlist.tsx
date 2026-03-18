@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Plus,
   Search,
@@ -11,16 +11,15 @@ import {
   ArrowUp,
   ArrowDown,
   Star,
-  TrendingUp,
-  TrendingDown,
   X,
   Calculator
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 
 const DEFAULT_USER_ID = 'default';
+const STORAGE_KEY = 'juno:daily-favorites:last-cleared';
 
-type SortField = 'ticker' | 'entryPrice' | 'targetPrice' | 'addedAt';
+type SortField = 'ticker' | 'addedAt';
 type SortDirection = 'asc' | 'desc';
 
 interface SortState {
@@ -30,9 +29,15 @@ interface SortState {
 
 interface QuickWatchlistProps {
   onSelectTicker?: (ticker: string) => void;
+  onTickerRemoved?: (ticker: string) => void;
+  calculatorRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-export default function QuickWatchlist({ onSelectTicker }: QuickWatchlistProps) {
+export default function QuickWatchlist({ 
+  onSelectTicker, 
+  onTickerRemoved,
+  calculatorRef 
+}: QuickWatchlistProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [tickerInput, setTickerInput] = useState('');
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -41,9 +46,42 @@ export default function QuickWatchlist({ onSelectTicker }: QuickWatchlistProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Check for midnight clear on mount
   useEffect(() => {
+    checkAndClearIfNewDay();
     fetchWatchlist();
   }, []);
+
+  // Check if we need to clear (new trading day)
+  const checkAndClearIfNewDay = async () => {
+    const lastCleared = localStorage.getItem(STORAGE_KEY);
+    const now = new Date();
+    const today = now.toDateString();
+    
+    // If never cleared or last cleared on a different day
+    if (!lastCleared || lastCleared !== today) {
+      // Clear after 12:00 AM (midnight has passed)
+      if (now.getHours() >= 0) {
+        await clearAllFavorites();
+        localStorage.setItem(STORAGE_KEY, today);
+      }
+    }
+  };
+
+  // Clear all favorites
+  const clearAllFavorites = async () => {
+    try {
+      // Delete all items one by one
+      for (const item of watchlist) {
+        await fetch(`/api/watchlist?id=${item.id}&userId=${DEFAULT_USER_ID}`, {
+          method: 'DELETE',
+        });
+      }
+      setWatchlist([]);
+    } catch (err) {
+      console.error('Error clearing favorites:', err);
+    }
+  };
 
   const fetchWatchlist = async () => {
     try {
@@ -105,17 +143,56 @@ export default function QuickWatchlist({ onSelectTicker }: QuickWatchlistProps) 
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, ticker?: string) => {
     try {
       const response = await fetch(`/api/watchlist?id=${id}&userId=${DEFAULT_USER_ID}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Failed to delete');
       setWatchlist(prev => prev.filter(item => item.id !== id));
+      if (ticker) {
+        onTickerRemoved?.(ticker);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete');
     }
   };
+
+  const handleSelectTicker = (ticker: string, id: string) => {
+    onSelectTicker?.(ticker);
+    
+    // Scroll to calculator
+    if (calculatorRef?.current) {
+      calculatorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Remove ticker from favorites (called when moved to potential trades)
+  const removeFromFavorites = useCallback(async (ticker: string) => {
+    const item = watchlist.find(w => w.ticker === ticker);
+    if (item) {
+      await handleDelete(item.id, ticker);
+    }
+  }, [watchlist]);
+
+  // Listen for watchlist updates from PositionCalculator
+  useEffect(() => {
+    const handleWatchlistUpdated = () => {
+      fetchWatchlist();
+    };
+    
+    const handleTickerMovedToPotential = (e: CustomEvent<string>) => {
+      const ticker = e.detail;
+      removeFromFavorites(ticker);
+    };
+    
+    window.addEventListener('juno:watchlist-updated', handleWatchlistUpdated);
+    window.addEventListener('juno:ticker-moved-to-potential' as any, handleTickerMovedToPotential);
+    return () => {
+      window.removeEventListener('juno:watchlist-updated', handleWatchlistUpdated);
+      window.removeEventListener('juno:ticker-moved-to-potential' as any, handleTickerMovedToPotential);
+    };
+  }, [removeFromFavorites]);
 
   const toggleFavorite = async (item: WatchlistItem) => {
     try {
@@ -152,8 +229,6 @@ export default function QuickWatchlist({ onSelectTicker }: QuickWatchlistProps) 
       let comparison = 0;
       switch (sort.field) {
         case 'ticker': comparison = a.ticker.localeCompare(b.ticker); break;
-        case 'entryPrice': comparison = (a.entryPrice || 0) - (b.entryPrice || 0); break;
-        case 'targetPrice': comparison = (a.targetPrice || 0) - (b.targetPrice || 0); break;
         case 'addedAt': default:
           comparison = new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
           break;
@@ -167,11 +242,6 @@ export default function QuickWatchlist({ onSelectTicker }: QuickWatchlistProps) 
     return sort.direction === 'asc' 
       ? <ArrowUp className="w-3 h-3 text-[#F97316]" />
       : <ArrowDown className="w-3 h-3 text-[#F97316]" />;
-  };
-
-  const getTradeSide = (item: WatchlistItem): 'long' | 'short' | 'neutral' => {
-    if (!item.targetPrice || !item.entryPrice) return 'neutral';
-    return item.targetPrice > item.entryPrice ? 'long' : 'short';
   };
 
   return (
@@ -227,50 +297,59 @@ export default function QuickWatchlist({ onSelectTicker }: QuickWatchlistProps) 
 
           {filteredAndSortedWatchlist.length > 0 ? (
             <div className="border border-[#30363d] rounded-lg overflow-hidden">
+              {/* Simplified Header - just Ticker and Actions */}
               <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[#0d1117] border-b border-[#30363d] text-xs">
-                <button onClick={() => handleSort('ticker')} className="col-span-3 flex items-center gap-1 text-[#8b949e] hover:text-white">Ticker {getSortIcon('ticker')}</button>
-                <button onClick={() => handleSort('entryPrice')} className="col-span-2 flex items-center gap-1 text-[#8b949e] hover:text-white">Entry {getSortIcon('entryPrice')}</button>
-                <button onClick={() => handleSort('targetPrice')} className="col-span-2 flex items-center gap-1 text-[#8b949e] hover:text-white">Target {getSortIcon('targetPrice')}</button>
-                <div className="col-span-2 text-[#8b949e]">Side</div>
+                <button onClick={() => handleSort('ticker')} className="col-span-9 flex items-center gap-1 text-[#8b949e] hover:text-white">
+                  Ticker {getSortIcon('ticker')}
+                </button>
                 <div className="col-span-3 text-right text-[#8b949e]">Actions</div>
               </div>
               <div className="max-h-64 overflow-y-auto">
-                {filteredAndSortedWatchlist.map((item) => {
-                  const side = getTradeSide(item);
-                  return (
-                    <div key={item.id} className="grid grid-cols-12 gap-2 px-3 py-2 border-b border-[#30363d] last:border-b-0 hover:bg-[#0d1117]/50 transition-colors">
-                      <div className="col-span-3 flex items-center gap-1">
-                        <button onClick={() => toggleFavorite(item)} className="text-[#8b949e] hover:text-yellow-400 transition-colors">
-                          <Star className={`w-3 h-3 ${item.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                        </button>
-                        <span className="text-sm font-medium text-white">{item.ticker}</span>
-                      </div>
-                      <div className="col-span-2 text-sm text-[#8b949e]">{item.entryPrice > 0 ? `$${item.entryPrice.toFixed(2)}` : '-'}</div>
-                      <div className="col-span-2 text-sm text-[#8b949e]">{item.targetPrice > 0 ? `$${item.targetPrice.toFixed(2)}` : '-'}</div>
-                      <div className="col-span-2">
-                        {side === 'long' && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-400 text-xs rounded"><TrendingUp className="w-3 h-3" />Long</span>}
-                        {side === 'short' && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 text-red-400 text-xs rounded"><TrendingDown className="w-3 h-3" />Short</span>}
-                        {side === 'neutral' && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#30363d] text-[#8b949e] text-xs rounded">-</span>}
-                      </div>
-                      <div className="col-span-3 flex justify-end gap-1">
-                        {onSelectTicker && (
-                          <button onClick={() => onSelectTicker(item.ticker)} className="p-1 text-[#8b949e] hover:text-[#F97316] transition-colors" title="Use in calculator">
-                            <Calculator className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button onClick={() => handleDelete(item.id)} className="p-1 text-[#8b949e] hover:text-red-400 transition-colors" title="Remove">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                {filteredAndSortedWatchlist.map((item) => (
+                  <div key={item.id} className="grid grid-cols-12 gap-2 px-3 py-2 border-b border-[#30363d] last:border-b-0 hover:bg-[#0d1117]/50 transition-colors items-center">
+                    <div className="col-span-9 flex items-center gap-2">
+                      <button onClick={() => toggleFavorite(item)} className="text-[#8b949e] hover:text-yellow-400 transition-colors">
+                        <Star className={`w-3 h-3 ${item.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                      </button>
+                      <button 
+                        onClick={() => handleSelectTicker(item.ticker, item.id)}
+                        className="text-sm font-medium text-white hover:text-[#F97316] transition-colors cursor-pointer"
+                        title="Click to use in calculator"
+                      >
+                        {item.ticker}
+                      </button>
                     </div>
-                  );
-                })}
+                    <div className="col-span-3 flex justify-end gap-1">
+                      {onSelectTicker && (
+                        <button 
+                          onClick={() => handleSelectTicker(item.ticker, item.id)} 
+                          className="p-1 text-[#8b949e] hover:text-[#F97316] transition-colors" 
+                          title="Use in calculator"
+                        >
+                          <Calculator className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => handleDelete(item.id, item.ticker)} 
+                        className="p-1 text-[#8b949e] hover:text-red-400 transition-colors" 
+                        title="Remove"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ) : watchlist.length === 0 ? (
-            <div className="text-center py-6 text-[#8b949e]"><p className="text-sm">No tickers</p><p className="text-xs mt-1">Enter a ticker to add</p></div>
+            <div className="text-center py-6 text-[#8b949e]">
+              <p className="text-sm">No tickers</p>
+              <p className="text-xs mt-1">Enter a ticker to add</p>
+            </div>
           ) : (
-            <div className="text-center py-6 text-[#8b949e]"><p className="text-sm">No matches</p></div>
+            <div className="text-center py-6 text-[#8b949e]">
+              <p className="text-sm">No matches</p>
+            </div>
           )}
 
           {watchlist.length > 0 && (

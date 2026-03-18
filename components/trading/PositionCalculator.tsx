@@ -170,7 +170,9 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
       }
 
       // Dispatch custom event to notify WatchlistView in same tab
+      const tickerToRemove = inputs.ticker.trim().toUpperCase();
       window.dispatchEvent(new CustomEvent('juno:watchlist-updated'));
+      window.dispatchEvent(new CustomEvent('juno:ticker-moved-to-potential', { detail: tickerToRemove }));
 
       // Clear inputs after successful save
       handleClear();
