@@ -253,6 +253,45 @@ async function fetchCryptoPrices(): Promise<MarketItem[]> {
 }
 
 /**
+ * Fetches a single symbol from Yahoo Finance (used for ^VIX which fails in multi-symbol requests)
+ */
+async function fetchYahooSingle(symbol: string): Promise<MarketItem | null> {
+  try {
+    const encodedSymbol = encodeURIComponent(symbol);
+    const response = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?interval=1d&range=1d`,
+      {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        next: { revalidate: 60 }
+      }
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    const result = data.chart?.result?.[0];
+    if (!result?.meta) return null;
+    const meta = result.meta;
+    const price = meta.regularMarketPrice || meta.previousClose || meta.chartPreviousClose || 0;
+    const prevClose = meta.previousClose || meta.chartPreviousClose || price;
+    const change = price - prevClose;
+    const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+    if (price <= 0) return null;
+    return {
+      symbol,
+      name: stockNames[symbol] || meta.shortName || symbol,
+      price: Number(price.toFixed(2)),
+      change: Number(change.toFixed(2)),
+      changePercent: Number(changePercent.toFixed(2)),
+      status: change >= 0 ? 'up' : 'down'
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetches CNN Fear & Greed Index (0-100)
  */
 async function fetchFearAndGreed(): Promise<{ score: number; rating: string } | null> {
@@ -337,10 +376,20 @@ export async function GET() {
     // Fallback to Yahoo Finance if Finnhub returns no data
     if (indices.length === 0) {
       console.log('Falling back to Yahoo Finance');
+      // ^VIX must be fetched individually — multi-symbol Yahoo Finance only returns the first symbol
       [indices, stocks] = await Promise.all([
-        fetchYahooFinance(['SPY', 'QQQ', 'DIA', '^VIX', 'VXX', 'UUP']),
+        fetchYahooFinance(['SPY', 'QQQ', 'DIA', 'VXX', 'UUP']),
         fetchYahooFinance(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR'])
       ]);
+      const vix = await fetchYahooSingle('^VIX');
+      if (vix) indices.push(vix);
+    }
+
+    // Ensure ^VIX is present even when using Finnhub (Finnhub free tier may not support index symbols)
+    const hasVix = indices.some(i => i.symbol === '^VIX');
+    if (!hasVix) {
+      const vix = await fetchYahooSingle('^VIX');
+      if (vix) indices.push(vix);
     }
     
     // Always fetch crypto from CoinGecko
