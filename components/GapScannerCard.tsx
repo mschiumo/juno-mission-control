@@ -57,9 +57,25 @@ export default function GapScannerCard() {
 
   useEffect(() => {
     fetchGapData();
+    fetchExistingFavorites();
     const interval = setInterval(fetchGapData, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  const fetchExistingFavorites = async () => {
+    try {
+      const res = await fetch('/api/watchlist?userId=default');
+      const result = await res.json();
+      if (result.success && Array.isArray(result.data)) {
+        const tickers: string[] = result.data.map((item: { ticker: string }) => item.ticker);
+        setAddedTickers(prev => {
+          const merged = new Set([...prev, ...tickers]);
+          try { localStorage.setItem('gap-scanner-favorites', JSON.stringify([...merged])); } catch { /* ignore */ }
+          return merged;
+        });
+      }
+    } catch { /* silent */ }
+  };
 
   const fetchGapData = async () => {
     setLoading(true);
@@ -176,7 +192,7 @@ export default function GapScannerCard() {
         </span>
         {/* Star */}
         <button
-          onClick={() => !added && setConfirmTicker(stock.symbol)}
+          onClick={() => setConfirmTicker(stock.symbol)}
           className={`transition-colors ${added ? 'text-[#F97316] cursor-default' : 'text-transparent group-hover:text-[#8b949e] hover:!text-[#F97316]'}`}
           title={added ? 'Added to Daily Favorites' : 'Add to Daily Favorites'}
         >
@@ -352,24 +368,43 @@ export default function GapScannerCard() {
       {confirmTicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setConfirmTicker(null)}>
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-[#F97316]/10 rounded-lg">
-                <Star className="w-5 h-5 text-[#F97316]" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-white">Add to Daily Favorites?</h3>
-                <p className="text-xs text-[#8b949e] mt-0.5">{confirmTicker} will appear in your Daily Favorites list</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 justify-end">
-              <button onClick={() => setConfirmTicker(null)} className="px-4 py-2 text-sm text-[#8b949e] hover:text-white hover:bg-[#30363d] rounded-lg transition-colors">Cancel</button>
-              <button
-                onClick={() => { addToFavorites(confirmTicker); setConfirmTicker(null); }}
-                className="px-4 py-2 text-sm font-medium bg-[#F97316] hover:bg-[#F97316]/80 text-white rounded-lg transition-colors"
-              >
-                Add {confirmTicker}
-              </button>
-            </div>
+            {addedTickers.has(confirmTicker) ? (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-[#238636]/10 rounded-lg">
+                    <Star className="w-5 h-5 text-[#F97316] fill-[#F97316]" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white">Already in Daily Favorites</h3>
+                    <p className="text-xs text-[#8b949e] mt-0.5">{confirmTicker} is already on your Daily Favorites list</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end">
+                  <button onClick={() => setConfirmTicker(null)} className="px-4 py-2 text-sm font-medium bg-[#30363d] hover:bg-[#444] text-white rounded-lg transition-colors">Got it</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-[#F97316]/10 rounded-lg">
+                    <Star className="w-5 h-5 text-[#F97316]" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white">Add to Daily Favorites?</h3>
+                    <p className="text-xs text-[#8b949e] mt-0.5">{confirmTicker} will appear in your Daily Favorites list</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 justify-end">
+                  <button onClick={() => setConfirmTicker(null)} className="px-4 py-2 text-sm text-[#8b949e] hover:text-white hover:bg-[#30363d] rounded-lg transition-colors">Cancel</button>
+                  <button
+                    onClick={() => { addToFavorites(confirmTicker); setConfirmTicker(null); }}
+                    className="px-4 py-2 text-sm font-medium bg-[#F97316] hover:bg-[#F97316]/80 text-white rounded-lg transition-colors"
+                  >
+                    Add {confirmTicker}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
