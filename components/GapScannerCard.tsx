@@ -206,11 +206,11 @@ export default function GapScannerCard() {
   const foundCount = response?.found || 0;
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
-            <Activity className="w-5 h-5 text-[#ff6b35]" />
+          <div className="p-2 bg-[#F97316]/10 rounded-lg">
+            <Activity className="w-5 h-5 text-[#F97316]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">Gap Scanner</h2>
@@ -226,14 +226,14 @@ export default function GapScannerCard() {
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {!loading && (
             <span className={`text-[10px] px-2 py-1 rounded ${
               dataSource === 'polygon'
                 ? 'bg-[#58a6ff]/20 text-[#58a6ff]'
-                : dataSource === 'live' 
-                  ? 'bg-[#238636]/20 text-[#238636]' 
+                : dataSource === 'live'
+                  ? 'bg-[#238636]/20 text-[#238636]'
                   : 'bg-[#d29922]/20 text-[#d29922]'
             }`}>
               {dataSource === 'polygon' ? 'POLYGON' : dataSource === 'live' ? 'FINNHUB' : 'MOCK'}
@@ -245,10 +245,11 @@ export default function GapScannerCard() {
             className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
             title="Refresh gap data"
           >
-            <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#ff6b35] ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
+      <div className="p-6">
 
       {/* Weekend/Market Status Banner */}
       {isWeekend && (
@@ -375,6 +376,7 @@ export default function GapScannerCard() {
         <p className="text-[10px] text-[#8b949e] text-center">
           Common stocks only — ETFs, warrants, preferred shares excluded • Min 2% gap • 100K+ volume • $50M+ market cap
         </p>
+      </div>
       </div>
     </div>
   );

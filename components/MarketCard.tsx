@@ -118,36 +118,35 @@ export default function MarketCard() {
   const downCount = currentData.filter(item => item.change < 0).length;
 
   return (
-    <div className="card">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-3">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#ff6b35]/10 rounded-xl">
-            <DollarSign className="w-5 h-5 text-[#ff6b35]" />
+          <div className="p-2 bg-[#F97316]/10 rounded-lg">
+            <DollarSign className="w-5 h-5 text-[#F97316]" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-white">Market</h2>
-              <MarketCountdown />
-            </div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-white">Market</h2>
+            <MarketCountdown />
           </div>
         </div>
-        <div className="flex items-center justify-between sm:justify-end gap-3 pl-[52px] sm:pl-0">
+        <div className="flex items-center gap-3">
           {lastUpdated && !loading && (
             <span className="text-[10px] text-[#8b949e]">
               Updated {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
             </span>
           )}
-          <button 
-          onClick={fetchMarketData}
-          disabled={loading}
-          className="pill p-2"
-          title="Refresh market data"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
+          <button
+            onClick={fetchMarketData}
+            disabled={loading}
+            className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+            title="Refresh market data"
+          >
+            <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
+      <div className="p-6">
       {/* Segmented Control Tabs - Mobile Responsive */}
       <div className="segmented-control mb-5 overflow-x-auto scrollbar-hide">
         {(['indices', 'stocks', 'commodities', 'crypto'] as const).map((tab) => (
@@ -228,6 +227,7 @@ export default function MarketCard() {
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );
