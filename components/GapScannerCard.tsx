@@ -22,7 +22,7 @@ interface GapData {
 interface GapResponse {
   success: boolean;
   data: GapData;
-  source: 'live' | 'mock' | 'fallback' | 'polygon';
+  source: 'live' | 'mock' | 'fallback' | 'polygon' | 'yahoo';
   scanned: number;
   found: number;
   isWeekend?: boolean;
@@ -51,22 +51,30 @@ export default function GapScannerCard() {
   const fetchGapData = async () => {
     setLoading(true);
     try {
-      // Try Polygon first (faster), fallback to Finnhub
+      // 1. Try Polygon (fastest — 1 API call, requires POLYGON_API_KEY)
+      // 2. Fall back to Yahoo Finance (free, no key, pre-computed screener)
       let result: GapResponse | null = null;
-      
+
       try {
         const polygonRes = await fetch('/api/gap-scanner-polygon');
         if (polygonRes.ok) {
-          result = await polygonRes.json();
+          const json: GapResponse = await polygonRes.json();
+          if (json.success) result = json;
         }
-      } catch (err) {
-        console.log('Polygon failed, trying Finnhub...');
+      } catch {
+        // Polygon unavailable — try Yahoo
       }
-      
-      // Fallback to Finnhub if Polygon failed
-      if (!result || !result.success) {
-        const finnhubRes = await fetch('/api/gap-scanner');
-        result = await finnhubRes.json();
+
+      if (!result) {
+        try {
+          const yahooRes = await fetch('/api/gap-scanner-yahoo');
+          if (yahooRes.ok) {
+            const json: GapResponse = await yahooRes.json();
+            if (json.success) result = json;
+          }
+        } catch {
+          // Yahoo also failed
+        }
       }
       
       if (result && result.success) {
@@ -232,11 +240,13 @@ export default function GapScannerCard() {
             <span className={`text-[10px] px-2 py-1 rounded ${
               dataSource === 'polygon'
                 ? 'bg-[#58a6ff]/20 text-[#58a6ff]'
-                : dataSource === 'live'
-                  ? 'bg-[#238636]/20 text-[#238636]'
-                  : 'bg-[#d29922]/20 text-[#d29922]'
+                : dataSource === 'yahoo'
+                  ? 'bg-[#58a6ff]/20 text-[#58a6ff]'
+                  : dataSource === 'live'
+                    ? 'bg-[#238636]/20 text-[#238636]'
+                    : 'bg-[#d29922]/20 text-[#d29922]'
             }`}>
-              {dataSource === 'polygon' ? 'POLYGON' : dataSource === 'live' ? 'FINNHUB' : 'MOCK'}
+              {dataSource === 'polygon' ? 'POLYGON' : dataSource === 'yahoo' ? 'YAHOO' : dataSource === 'live' ? 'FINNHUB' : 'MOCK'}
             </span>
           )}
           <button
@@ -328,7 +338,7 @@ export default function GapScannerCard() {
       )}
 
       {/* Scan Stats */}
-      {response && dataSource === 'live' && !isWeekend && (
+      {response && (dataSource === 'live' || dataSource === 'polygon' || dataSource === 'yahoo') && !isWeekend && (
         <div className="mb-4 flex items-center gap-4 text-xs text-[#8b949e]">
           <span>Scanned: <span className="text-white">{scannedCount.toLocaleString()}+ stocks</span></span>
           <span>Found: <span className="text-white">{foundCount} gaps</span></span>
