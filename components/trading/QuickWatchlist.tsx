@@ -594,32 +594,6 @@ export default function QuickWatchlist({
                   );
                 })}
               </div>
-                          <span className="text-[#6e7681]">-</span>
-                        )}
-                      </div>
-                      
-                      <div className="col-span-3 flex justify-end gap-1">
-                        {onSelectTicker && (
-                          <button 
-                            onClick={() => handleSelectTicker(item.ticker, item.id)} 
-                            className="p-1 text-[#8b949e] hover:text-[#F97316] transition-colors" 
-                            title="Use in calculator"
-                          >
-                            <Calculator className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button 
-                          onClick={() => handleDelete(item.id, item.ticker)} 
-                          className="p-1 text-[#8b949e] hover:text-red-400 transition-colors" 
-                          title="Remove"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           ) : watchlist.length === 0 ? (
             <div className="text-center py-6 text-[#8b949e]">
