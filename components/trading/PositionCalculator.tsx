@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Calculator, Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info, Loader2 } from 'lucide-react';
+import { Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info, Loader2 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTradeWithPnL } from '@/types/active-trade';
 
@@ -314,33 +314,22 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
 
   return (
     <div className="w-full">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#F97316]/10 rounded-lg">
-            <Calculator className="w-5 h-5 text-[#F97316]" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white">Trade Management</h3>
-            <p className="text-sm text-[#8b949e]">Calculate shares and validate risk/reward</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowTooltips(!showTooltips)}
-            className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-            title="Toggle formula explanations"
-          >
-            <Info className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleClear}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-[#8b949e] border border-[#30363d] hover:text-white hover:bg-[#262626] hover:border-[#8b949e] rounded-lg transition-colors"
-          >
-            <Eraser className="w-4 h-4" />
-            Clear
-          </button>
-        </div>
+      {/* Controls row */}
+      <div className="flex items-center justify-end gap-2 mb-4">
+        <button
+          onClick={() => setShowTooltips(!showTooltips)}
+          className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+          title="Toggle formula explanations"
+        >
+          <Info className="w-4 h-4" />
+        </button>
+        <button
+          onClick={handleClear}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-[#8b949e] border border-[#30363d] hover:text-white hover:bg-[#262626] hover:border-[#8b949e] rounded-lg transition-colors"
+        >
+          <Eraser className="w-4 h-4" />
+          Clear
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
