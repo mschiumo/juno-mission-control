@@ -4,7 +4,7 @@ import { getUserId } from '@/lib/db/user-data';
 import { getRedisClient } from '@/lib/redis';
 import { getNowInEST } from '@/lib/date-utils';
 
-const getJournalKey = (userId: string, date: string) =>> `trade-journal:${userId}:${date}`;
+const getJournalKey = (userId: string, date: string) => `trade-journal:${userId}:${date}`;
 
 export async function POST(request: NextRequest) {
   try {
