@@ -191,7 +191,7 @@ export default function GapScannerCard() {
 
     if (stocks.length === 0) {
       return (
-        <div className="text-center py-6 text-[#8b949e] text-sm col-span-3">
+        <div className="text-center py-6 text-[#8b949e] text-sm col-span-full">
           <p>No {isGainer ? 'gainers' : 'losers'} 2%+</p>
           <p className="text-xs mt-1">
             {isWeekend ? 'Market closed — gaps resume Monday 4 AM EST' : 'Low volatility or pre-market not started'}
@@ -396,7 +396,7 @@ export default function GapScannerCard() {
               Scanning for gaps...
             </div>
           ) : (
-            <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-6">
               {/* Gainers */}
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -406,7 +406,7 @@ export default function GapScannerCard() {
                   </h3>
                   <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded">{data?.gainers.length || 0}</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {data?.gainers && renderStockGrid(data.gainers, 'gainer')}
                 </div>
               </div>
@@ -420,7 +420,7 @@ export default function GapScannerCard() {
                   </h3>
                   <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded">{data?.losers.length || 0}</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {data?.losers && renderStockGrid(data.losers, 'loser')}
                 </div>
               </div>
