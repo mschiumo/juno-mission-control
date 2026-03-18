@@ -5,12 +5,11 @@ const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
 const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'mschiumo18@gmail.com';
 const IMPERSONATE_USER = process.env.GOOGLE_IMPERSONATE_USER || 'mschiumo18@gmail.com';
 
-// Mock events for testing UI when credentials aren't working
 const MOCK_EVENTS = [
   {
     id: '1',
     title: 'Trading Review & Analysis',
-    start: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
+    start: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
     end: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
     calendar: 'mschiumo18@gmail.com',
     color: '#ff6b35',
@@ -20,7 +19,7 @@ const MOCK_EVENTS = [
   {
     id: '2',
     title: 'Leg Day Workout',
-    start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
+    start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     end: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(),
     calendar: 'mschiumo18@gmail.com',
     color: '#238636',
@@ -30,7 +29,7 @@ const MOCK_EVENTS = [
   {
     id: '3',
     title: 'KeepLiving Product Planning',
-    start: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // Day after tomorrow
+    start: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
     end: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(),
     calendar: 'mschiumo18@gmail.com',
     color: '#ff6b35',
@@ -41,7 +40,6 @@ const MOCK_EVENTS = [
 
 export async function GET(request: Request) {
   try {
-    // Check for mock mode (for testing UI)
     const { searchParams } = new URL(request.url);
     const useMock = searchParams.get('mock') === 'true';
     
@@ -55,21 +53,35 @@ export async function GET(request: Request) {
       });
     }
 
-    // Get credentials from environment variable (supports both GOOGLE_CALENDAR_CREDENTIALS and GOOGLE_SERVICE_ACCOUNT_JSON)
-    const credentialsEnv = process.env.GOOGLE_CALENDAR_CREDENTIALS || process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+    // PRIORITY: Use GOOGLE_SERVICE_ACCOUNT_JSON first
+    let credentialsEnv = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+    let source = 'GOOGLE_SERVICE_ACCOUNT_JSON';
     
-    console.log('[Calendar API] Checking env vars:');
-    console.log('[Calendar API] GOOGLE_SERVICE_ACCOUNT_JSON set:', !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-    console.log('[Calendar API] GOOGLE_CALENDAR_CREDENTIALS set:', !!process.env.GOOGLE_CALENDAR_CREDENTIALS);
-    
+    // Fallback to GOOGLE_CALENDAR_CREDENTIALS only if primary not set
     if (!credentialsEnv) {
-      console.log('GOOGLE_CALENDAR_CREDENTIALS not set, returning mock data');
+      credentialsEnv = process.env.GOOGLE_CALENDAR_CREDENTIALS;
+      source = 'GOOGLE_CALENDAR_CREDENTIALS';
+    }
+    
+    console.log('[Calendar API] Debug info:');
+    console.log('[Calendar API] Source:', source);
+    console.log('[Calendar API] Credentials length:', credentialsEnv?.length || 0);
+    console.log('[Calendar API] First 50 chars:', credentialsEnv?.substring(0, 50) || 'undefined');
+    
+    if (!credentialsEnv || credentialsEnv.length < 10) {
+      console.log('[Calendar API] No valid credentials found');
       return NextResponse.json({
         success: true,
         data: MOCK_EVENTS,
         count: MOCK_EVENTS.length,
         mock: true,
-        message: 'Using mock data - GOOGLE_SERVICE_ACCOUNT_JSON not configured',
+        message: 'Using mock data - GOOGLE_SERVICE_ACCOUNT_JSON not set or empty',
+        debug: {
+          serviceAccountSet: !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON,
+          calendarCredsSet: !!process.env.GOOGLE_CALENDAR_CREDENTIALS,
+          serviceAccountLength: process.env.GOOGLE_SERVICE_ACCOUNT_JSON?.length || 0,
+          calendarCredsLength: process.env.GOOGLE_CALENDAR_CREDENTIALS?.length || 0,
+        },
         timestamp: new Date().toISOString()
       });
     }
@@ -77,16 +89,17 @@ export async function GET(request: Request) {
     // Try to parse credentials
     let credentials;
     try {
-      // Try base64 decode first
-      const decoded = Buffer.from(credentialsEnv, 'base64').toString('utf-8');
-      credentials = JSON.parse(decoded);
-    } catch {
+      // Try raw JSON first (most common)
+      credentials = JSON.parse(credentialsEnv);
+      console.log('[Calendar API] Parsed as raw JSON');
+    } catch (rawError) {
       try {
-        // If base64 fails, try raw JSON
-        credentials = JSON.parse(credentialsEnv);
-      } catch (parseError) {
-        console.error('Failed to parse credentials:', parseError);
-        // Return mock data instead of error
+        // Try base64 decode
+        const decoded = Buffer.from(credentialsEnv, 'base64').toString('utf-8');
+        credentials = JSON.parse(decoded);
+        console.log('[Calendar API] Parsed as base64');
+      } catch (base64Error) {
+        console.error('[Calendar API] Failed to parse credentials:', base64Error);
         return NextResponse.json({
           success: true,
           data: MOCK_EVENTS,
@@ -98,6 +111,8 @@ export async function GET(request: Request) {
       }
     }
 
+    console.log('[Calendar API] Authenticating with service account:', credentials.client_email);
+
     const auth = new google.auth.GoogleAuth({
       credentials,
       scopes: SCOPES,
@@ -108,10 +123,11 @@ export async function GET(request: Request) {
 
     const calendar = google.calendar({ version: 'v3', auth });
 
-    // Get events for next 7 days
     const now = new Date();
     const timeMin = now.toISOString();
     const timeMax = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    console.log('[Calendar API] Fetching events for:', CALENDAR_ID);
 
     const response = await calendar.events.list({
       calendarId: CALENDAR_ID,
@@ -123,23 +139,23 @@ export async function GET(request: Request) {
     });
 
     const events = response.data.items || [];
+    console.log('[Calendar API] Found', events.length, 'events');
 
     const formattedEvents = events.map(event => {
       const start = event.start?.dateTime || event.start?.date;
       const end = event.end?.dateTime || event.end?.date;
       
-      // Determine color based on event title or colorId
-      let color = '#ff6b35'; // Default tangerine
+      let color = '#ff6b35';
       const summary = (event.summary || '').toLowerCase();
       
       if (summary.includes('lift') || summary.includes('workout')) {
-        color = '#238636'; // Green for fitness
+        color = '#238636';
       } else if (summary.includes('trading') || summary.includes('market')) {
-        color = '#ff6b35'; // Tangerine for trading
+        color = '#ff6b35';
       } else if (summary.includes('lab') || summary.includes('medical')) {
-        color = '#d29922'; // Yellow for appointments
+        color = '#d29922';
       } else if (event.colorId === '6') {
-        color = '#ff6b35'; // Juno's tangerine
+        color = '#ff6b35';
       }
 
       return {
@@ -147,7 +163,7 @@ export async function GET(request: Request) {
         title: event.summary || 'Untitled Event',
         start: start,
         end: end,
-        calendar: 'mschiumo18@gmail.com',
+        calendar: CALENDAR_ID,
         color: color,
         description: event.description || '',
         location: event.location || ''
@@ -162,14 +178,13 @@ export async function GET(request: Request) {
     });
 
   } catch (error) {
-    console.error('Calendar fetch error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Calendar API] Error:', error);
     return NextResponse.json({
       success: true,
       data: MOCK_EVENTS,
       count: MOCK_EVENTS.length,
       mock: true,
-      message: 'Using mock data - API error: ' + errorMessage,
+      error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
     });
   }
