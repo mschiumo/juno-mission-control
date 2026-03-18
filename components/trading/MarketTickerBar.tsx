@@ -10,6 +10,11 @@ interface TickerData {
   changePercent: number;
 }
 
+interface FearGreed {
+  score: number;
+  rating: string;
+}
+
 const TICKERS = [
   { symbol: 'SPY', label: 'SPY' },
   { symbol: 'DIA', label: 'DOW' },
@@ -20,8 +25,24 @@ const TICKERS = [
   { symbol: 'ETH', label: 'ETH' },
 ];
 
+function fngColor(score: number): string {
+  if (score <= 25) return 'text-red-500';
+  if (score <= 45) return 'text-orange-400';
+  if (score <= 55) return 'text-yellow-400';
+  if (score <= 75) return 'text-green-400';
+  return 'text-green-300';
+}
+
+function fngLabel(rating: string): string {
+  // Shorten for the bar
+  if (rating.toLowerCase().includes('extreme fear')) return 'Ext. Fear';
+  if (rating.toLowerCase().includes('extreme greed')) return 'Ext. Greed';
+  return rating;
+}
+
 export default function MarketTickerBar() {
   const [tickers, setTickers] = useState<TickerData[]>([]);
+  const [fearGreed, setFearGreed] = useState<FearGreed | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [flashing, setFlashing] = useState<Record<string, 'up' | 'down'>>({});
@@ -65,6 +86,7 @@ export default function MarketTickerBar() {
       }
 
       setTickers(result);
+      if (json.data?.fearAndGreed) setFearGreed(json.data.fearAndGreed);
       setLastUpdated(new Date());
     } catch {
       // silently fail — stale data stays displayed
@@ -130,15 +152,37 @@ export default function MarketTickerBar() {
       {loading ? (
         <span className="text-xs text-[#8b949e] animate-pulse px-4">Loading market data...</span>
       ) : (
-        <div className="flex items-center flex-1 overflow-hidden">
-          {/* Timestamp anchored to left — tickers emerge from just after this */}
+        <>
+          {/* Timestamp — far left */}
           {lastUpdated && (
-            <div className="flex items-center gap-1 text-[10px] text-[#484f58] pl-3 pr-2 shrink-0 z-10 bg-[#0d1117]">
+            <div className="flex items-center gap-1 text-[10px] text-[#484f58] px-3 shrink-0 border-r border-[#30363d] h-full">
               <RefreshCw className="w-2.5 h-2.5" />
               {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
           )}
 
+          {/* Bias badge — left of carousel */}
+          <div className={`flex items-center gap-1 px-3 shrink-0 border-r border-[#30363d] h-full text-xs font-semibold ${
+            bias === 'bullish' ? 'text-green-400' :
+            bias === 'bearish' ? 'text-red-400' :
+            'text-[#8b949e]'
+          }`}>
+            {bias === 'bullish' && <TrendingUp className="w-3 h-3" />}
+            {bias === 'bearish' && <TrendingDown className="w-3 h-3" />}
+            {bias === 'neutral' && <Minus className="w-3 h-3" />}
+            <span className="capitalize">{bias}</span>
+          </div>
+
+          {/* Fear & Greed — left of carousel */}
+          {fearGreed && (
+            <div className={`flex items-center gap-1.5 px-3 shrink-0 border-r border-[#30363d] h-full text-xs font-semibold ${fngColor(fearGreed.score)}`}>
+              <span className="text-[#484f58] font-normal">F&G</span>
+              <span>{fearGreed.score}</span>
+              <span className="hidden sm:inline text-[10px] font-medium opacity-80">{fngLabel(fearGreed.rating)}</span>
+            </div>
+          )}
+
+          {/* Carousel — fills remaining space */}
           <div className="relative flex items-center flex-1 overflow-hidden">
             {/* Fade edge where tickers emerge */}
             <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#0d1117] to-transparent z-10 pointer-events-none" />
@@ -154,19 +198,7 @@ export default function MarketTickerBar() {
               {tickers.map((t) => <TickerItem key={`${t.symbol}-2`} {...t} />)}
             </div>
           </div>
-
-          {/* Bias badge — pinned to right */}
-          <div className={`flex items-center gap-1 px-3 shrink-0 border-l border-[#30363d] h-full text-xs font-semibold ${
-            bias === 'bullish' ? 'text-green-400' :
-            bias === 'bearish' ? 'text-red-400' :
-            'text-[#8b949e]'
-          }`}>
-            {bias === 'bullish' && <TrendingUp className="w-3 h-3" />}
-            {bias === 'bearish' && <TrendingDown className="w-3 h-3" />}
-            {bias === 'neutral' && <Minus className="w-3 h-3" />}
-            <span className="capitalize">{bias}</span>
-          </div>
-        </div>
+        </>
       )}
     </div>
   );
