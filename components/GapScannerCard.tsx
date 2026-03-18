@@ -52,7 +52,7 @@ export default function GapScannerCard() {
 
   useEffect(() => {
     fetchGapData();
-    const interval = setInterval(fetchGapData, 60000);
+    const interval = setInterval(fetchGapData, 15000);
     return () => clearInterval(interval);
   }, []);
 
