@@ -58,6 +58,10 @@ export async function GET(request: Request) {
     // Get credentials from environment variable (supports both GOOGLE_CALENDAR_CREDENTIALS and GOOGLE_SERVICE_ACCOUNT_JSON)
     const credentialsEnv = process.env.GOOGLE_CALENDAR_CREDENTIALS || process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
     
+    console.log('[Calendar API] Checking env vars:');
+    console.log('[Calendar API] GOOGLE_SERVICE_ACCOUNT_JSON set:', !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+    console.log('[Calendar API] GOOGLE_CALENDAR_CREDENTIALS set:', !!process.env.GOOGLE_CALENDAR_CREDENTIALS);
+    
     if (!credentialsEnv) {
       console.log('GOOGLE_CALENDAR_CREDENTIALS not set, returning mock data');
       return NextResponse.json({
@@ -65,7 +69,7 @@ export async function GET(request: Request) {
         data: MOCK_EVENTS,
         count: MOCK_EVENTS.length,
         mock: true,
-        message: 'Using mock data - GOOGLE_CALENDAR_CREDENTIALS not configured',
+        message: 'Using mock data - GOOGLE_SERVICE_ACCOUNT_JSON not configured',
         timestamp: new Date().toISOString()
       });
     }
