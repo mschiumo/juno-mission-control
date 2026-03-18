@@ -21,7 +21,7 @@ import type { WatchlistItem } from '@/types/watchlist';
 const DEFAULT_USER_ID = 'default';
 const STORAGE_KEY = 'juno:daily-favorites:last-cleared';
 
-type SortField = 'ticker' | 'addedAt';
+type SortField = 'ticker' | 'addedAt' | 'premarket';
 type SortDirection = 'asc' | 'desc';
 
 interface SortState {
@@ -63,6 +63,10 @@ export default function QuickWatchlist({
   const [sort, setSort] = useState<SortState>({ field: 'addedAt', direction: 'desc' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
   
   // Autocomplete state
   const [suggestions, setSuggestions] = useState<SymbolResult[]>([]);
@@ -263,6 +267,63 @@ export default function QuickWatchlist({
     }
   };
 
+  const handleBulkImport = async () => {
+    if (!importText.trim()) return;
+    setImportLoading(true);
+    setImportResult(null);
+
+    // Parse: split on whitespace, commas, newlines — keep only valid ticker-looking strings
+    const tickers = importText
+      .toUpperCase()
+      .split(/[\s,\n\r]+/)
+      .map(t => t.trim())
+      .filter(t => /^[A-Z]{1,5}$/.test(t));
+
+    const unique = [...new Set(tickers)].filter(t => !watchlist.some(w => w.ticker === t));
+
+    if (unique.length === 0) {
+      setImportResult('No new tickers to add.');
+      setImportLoading(false);
+      return;
+    }
+
+    let added = 0;
+    for (const ticker of unique) {
+      try {
+        const newItem: Partial<WatchlistItem> = {
+          ticker,
+          entryPrice: 0,
+          stopPrice: 0,
+          targetPrice: 0,
+          riskRatio: 2,
+          stopSize: 0,
+          shareSize: 0,
+          potentialReward: 0,
+          positionValue: 0,
+          isFavorite: false,
+        };
+        const response = await fetch('/api/watchlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item: newItem, userId: DEFAULT_USER_ID }),
+        });
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setWatchlist(prev => [result.data, ...prev]);
+            added++;
+          }
+        }
+      } catch {
+        // skip failed individual tickers
+      }
+    }
+
+    setImportResult(`Added ${added} of ${unique.length} tickers.`);
+    setImportText('');
+    setImportLoading(false);
+  };
+
   const handleDelete = async (id: string, ticker?: string) => {
     try {
       // Find the item to check if it's a Daily Favorite (0 prices) or Potential Trade
@@ -361,13 +422,23 @@ export default function QuickWatchlist({
       let comparison = 0;
       switch (sort.field) {
         case 'ticker': comparison = a.ticker.localeCompare(b.ticker); break;
+        case 'premarket': {
+          const aData = premarketData[a.ticker];
+          const bData = premarketData[b.ticker];
+          // Items without premarket data sort to the bottom
+          if (!aData && !bData) { comparison = 0; break; }
+          if (!aData) { return 1; }
+          if (!bData) { return -1; }
+          comparison = aData.changePercent - bData.changePercent;
+          break;
+        }
         case 'addedAt': default:
           comparison = new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
           break;
       }
       return sort.direction === 'asc' ? comparison : -comparison;
     });
-  }, [watchlist, searchQuery, sort]);
+  }, [watchlist, searchQuery, sort, premarketData]);
 
   const getSortIcon = (field: SortField) => {
     if (sort.field !== field) return <ArrowUpDown className="w-3 h-3 text-[#8b949e]" />;
@@ -378,19 +449,54 @@ export default function QuickWatchlist({
 
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-[#0d1117]/50 border-b border-[#30363d] hover:bg-[#0d1117] transition-colors"
-      >
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-4 py-3 bg-[#0d1117]/50 border-b border-[#30363d]">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center gap-2 flex-1 text-left"
+        >
           <span className="text-sm font-semibold text-white">Daily Favorites</span>
           <span className="text-xs text-[#8b949e]">({watchlist.length})</span>
-        </div>
-        {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
-      </button>
+          {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
+        </button>
+        {isExpanded && (
+          <button
+            onClick={() => { setShowImport(v => !v); setImportResult(null); }}
+            className={`text-xs px-2 py-1 rounded-md transition-colors ${showImport ? 'bg-[#F97316]/20 text-[#F97316]' : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'}`}
+          >
+            Import
+          </button>
+        )}
+      </div>
 
       {isExpanded && (
         <div className="p-4 space-y-4">
+          {/* Bulk Import Panel */}
+          {showImport && (
+            <div className="p-3 bg-[#0d1117] border border-[#30363d] rounded-lg space-y-2">
+              <p className="text-xs text-[#8b949e]">Paste tickers separated by spaces or new lines (no commas needed)</p>
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder="AAPL TSLA NVDA&#10;MSFT GOOG"
+                rows={3}
+                className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white text-sm placeholder-[#6e7681] focus:outline-none focus:border-[#F97316] resize-none font-mono"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleBulkImport}
+                  disabled={importLoading || !importText.trim()}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-[#F97316] hover:bg-[#ea580c] disabled:bg-[#30363d] disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-colors"
+                >
+                  {importLoading ? <span className="animate-spin">⟳</span> : <Plus className="w-3 h-3" />}
+                  {importLoading ? 'Adding...' : 'Add All'}
+                </button>
+                {importResult && (
+                  <span className="text-xs text-[#238636]">{importResult}</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Single row: Ticker input + Add button + Search */}
           <div className="flex gap-2">
             <form onSubmit={handleAddTicker} className="flex gap-2 flex-1 relative">
@@ -473,7 +579,9 @@ export default function QuickWatchlist({
                   Ticker {getSortIcon('ticker')}
                 </button>
                 <div className="col-span-3 text-[#8b949e]">Prev Close</div>
-                <div className="col-span-3 text-[#8b949e]">Pre-market</div>
+                <button onClick={() => handleSort('premarket')} className="col-span-3 flex items-center gap-1 text-[#8b949e] hover:text-white">
+                  Pre-market {getSortIcon('premarket')}
+                </button>
                 <div className="col-span-3 text-right text-[#8b949e]">Actions</div>
               </div>
               <div className="max-h-64 overflow-y-auto">

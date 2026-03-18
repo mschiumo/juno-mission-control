@@ -115,9 +115,9 @@ export default function MarketTickerBar() {
     const flash = flashing[symbol];
     return (
       <div className="flex items-center gap-2 px-5 shrink-0">
-        <span className="text-xs font-semibold text-[#8b949e] uppercase tracking-wide">{label}</span>
+        <span className="text-sm font-semibold text-[#8b949e] uppercase tracking-wide">{label}</span>
         <span
-          className="text-xs font-mono text-white"
+          className="text-sm font-mono text-white"
           style={flash ? {
             color: flash === 'up' ? '#4ade80' : '#f87171',
             transition: 'color 0.15s ease',
@@ -126,22 +126,22 @@ export default function MarketTickerBar() {
           ${price >= 1000 ? price.toLocaleString('en-US', { maximumFractionDigits: 0 }) : price.toFixed(2)}
         </span>
         <span
-          className={`flex items-center gap-0.5 text-xs font-semibold ${isUp ? 'text-green-400' : 'text-red-400'}`}
+          className={`flex items-center gap-0.5 text-sm font-semibold ${isUp ? 'text-green-400' : 'text-red-400'}`}
           style={flash ? {
             textShadow: flash === 'up' ? '0 0 10px #4ade80' : '0 0 10px #f87171',
             transition: 'text-shadow 0.15s ease',
           } : { textShadow: 'none', transition: 'text-shadow 0.6s ease' }}
         >
-          {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+          {isUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
           {isUp ? '+' : ''}{changePercent.toFixed(2)}%
         </span>
-        <span className="text-[#30363d] text-xs">·</span>
+        <span className="text-[#30363d] text-sm">·</span>
       </div>
     );
   };
 
   return (
-    <div className="flex items-center bg-[#0d1117] border border-[#30363d] rounded-xl overflow-hidden h-10">
+    <div className="flex items-center bg-[#0d1117] border border-[#30363d] rounded-xl overflow-hidden h-12">
       <style>{`
         @keyframes ticker-scroll {
           0%   { transform: translateX(-50%); }
@@ -175,10 +175,10 @@ export default function MarketTickerBar() {
 
           {/* Fear & Greed — left of carousel */}
           {fearGreed && (
-            <div className={`flex items-center gap-1.5 px-3 shrink-0 border-r border-[#30363d] h-full text-xs font-semibold ${fngColor(fearGreed.score)}`}>
-              <span className="text-[#484f58] font-normal">F&G</span>
-              <span>{fearGreed.score}</span>
-              <span className="hidden sm:inline text-[10px] font-medium opacity-80">{fngLabel(fearGreed.rating)}</span>
+            <div className="flex items-center gap-1.5 px-3 shrink-0 border-r border-[#30363d] h-full text-xs font-semibold">
+              <span className="text-white font-normal">F&G</span>
+              <span className={`${fngColor(fearGreed.score)}`}>{fearGreed.score}</span>
+              <span className={`hidden sm:inline text-[10px] font-medium text-white`}>{fngLabel(fearGreed.rating)}</span>
             </div>
           )}
 

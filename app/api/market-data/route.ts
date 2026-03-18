@@ -293,25 +293,55 @@ async function fetchYahooSingle(symbol: string): Promise<MarketItem | null> {
 
 /**
  * Fetches CNN Fear & Greed Index (0-100)
+ * Falls back to alternative.me F&G if CNN is unreachable
  */
 async function fetchFearAndGreed(): Promise<{ score: number; rating: string } | null> {
+  // Try CNN first
   try {
     const response = await fetch(
       'https://production.dataviz.cnn.io/index/fearandgreed/graphdata',
       {
-        headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': 'https://www.cnn.com/markets/fear-and-greed',
+        },
         next: { revalidate: 300 }
       }
     );
-    if (!response.ok) return null;
-    const data = await response.json();
-    const score = data.fear_and_greed?.score;
-    const rating = data.fear_and_greed?.rating;
-    if (score === undefined) return null;
-    return { score: Math.round(score), rating: rating ?? 'Unknown' };
+    if (response.ok) {
+      const data = await response.json();
+      const score = data.fear_and_greed?.score;
+      const rating = data.fear_and_greed?.rating;
+      if (score !== undefined) {
+        return { score: Math.round(score), rating: rating ?? 'Unknown' };
+      }
+    }
   } catch {
-    return null;
+    // CNN unavailable — try fallback
   }
+
+  // Fallback: alternative.me Fear & Greed (crypto-weighted but widely used)
+  try {
+    const response = await fetch(
+      'https://api.alternative.me/fng/?limit=1',
+      {
+        headers: { 'Accept': 'application/json' },
+        next: { revalidate: 300 }
+      }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      const entry = data.data?.[0];
+      if (entry?.value !== undefined) {
+        return { score: Number(entry.value), rating: entry.value_classification ?? 'Unknown' };
+      }
+    }
+  } catch {
+    // Both sources unavailable
+  }
+
+  return null;
 }
 
 /**
@@ -411,7 +441,7 @@ export async function GET() {
       stocks: hasRealStocks ? stocks : fallback.stocks,
       commodities: hasRealCommodities ? commodities : fallback.commodities,
       crypto: hasRealCrypto ? crypto : fallback.crypto,
-      fearAndGreed: fearAndGreed ?? { score: 50, rating: 'Neutral' },
+      fearAndGreed: fearAndGreed ?? null,
       lastUpdated: timestamp
     };
     
