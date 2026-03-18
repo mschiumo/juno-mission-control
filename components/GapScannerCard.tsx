@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock, ExternalLink } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock, ExternalLink, Download } from 'lucide-react';
 
 interface GapStock {
   symbol: string;
@@ -182,6 +182,23 @@ export default function GapScannerCard() {
     );
   };
 
+  const exportToCSV = () => {
+    if (!data) return;
+    const rows = [
+      ['Type', 'Symbol', 'Name', 'Gap %', 'Price', 'Prev Close', 'Volume', 'Market Cap'],
+      ...data.gainers.map(s => ['Gainer', s.symbol, s.name, s.gapPercent.toFixed(2), s.price.toFixed(2), s.previousClose.toFixed(2), s.volume, s.marketCap]),
+      ...data.losers.map(s => ['Loser', s.symbol, s.name, s.gapPercent.toFixed(2), s.price.toFixed(2), s.previousClose.toFixed(2), s.volume, s.marketCap]),
+    ];
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gap-scanner-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const dataSource = response?.source || 'mock';
   const isWeekend = response?.isWeekend;
   const scannedCount = response?.scanned || 0;
@@ -218,6 +235,15 @@ export default function GapScannerCard() {
             }`}>
               {dataSource === 'live' ? 'LIVE' : 'MOCK'}
             </span>
+          )}
+          {data && !loading && (
+            <button
+              onClick={exportToCSV}
+              className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              title="Export to CSV (opens in Excel)"
+            >
+              <Download className="w-4 h-4 text-[#8b949e] hover:text-[#ff6b35]" />
+            </button>
           )}
           <button
             onClick={fetchGapData}
