@@ -14,6 +14,8 @@ const TICKERS = [
   { symbol: 'SPY', label: 'SPY' },
   { symbol: 'DIA', label: 'DOW' },
   { symbol: 'QQQ', label: 'QQQ' },
+  { symbol: 'GLD', label: 'GOLD' },
+  { symbol: 'BTC', label: 'BTC' },
 ];
 
 export default function MarketTickerBar() {
@@ -27,9 +29,13 @@ export default function MarketTickerBar() {
       const json = await res.json();
       if (!json.success) return;
 
-      const indices: { symbol: string; price: number; changePercent: number }[] = json.data?.indices ?? [];
+      const allItems = [
+        ...(json.data?.indices ?? []),
+        ...(json.data?.commodities ?? []),
+        ...(json.data?.crypto ?? []),
+      ] as { symbol: string; price: number; changePercent: number }[];
       const result: TickerData[] = TICKERS.map(({ symbol, label }) => {
-        const match = indices.find((i) => i.symbol === symbol);
+        const match = allItems.find((i) => i.symbol === symbol);
         return {
           symbol,
           label,
@@ -65,7 +71,7 @@ export default function MarketTickerBar() {
               <div key={symbol} className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-[#8b949e] uppercase tracking-wide">{label}</span>
                 <span className="text-xs font-mono text-white">
-                  ${price.toFixed(2)}
+                  ${price >= 1000 ? price.toLocaleString('en-US', { maximumFractionDigits: 0 }) : price.toFixed(2)}
                 </span>
                 <span className={`flex items-center gap-0.5 text-xs font-semibold ${isUp ? 'text-green-400' : 'text-red-400'}`}>
                   {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
