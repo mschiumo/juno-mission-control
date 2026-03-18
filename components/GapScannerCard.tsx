@@ -203,55 +203,49 @@ export default function GapScannerCard() {
     return stocks.map((stock) => (
       <div
         key={stock.symbol}
-        className={`p-3 rounded-lg border transition-all hover:shadow-lg flex flex-col gap-1.5 ${
+        className={`p-2 rounded-lg border transition-all flex flex-col gap-1 ${
           isGainer
             ? 'bg-[#238636]/10 border-[#238636]/30 hover:border-[#238636]/60'
             : 'bg-[#da3633]/10 border-[#da3633]/30 hover:border-[#da3633]/60'
         }`}
       >
-        {/* Row 1: icon + ticker + star */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 min-w-0">
+        {/* Ticker + star */}
+        <div className="flex items-center justify-between gap-1">
+          <div className="flex items-center gap-1 min-w-0">
             {isGainer
-              ? <TrendingUp className="w-3.5 h-3.5 text-[#238636] flex-shrink-0" />
-              : <TrendingDown className="w-3.5 h-3.5 text-[#da3633] flex-shrink-0" />
+              ? <TrendingUp className="w-3 h-3 text-[#238636] flex-shrink-0" />
+              : <TrendingDown className="w-3 h-3 text-[#da3633] flex-shrink-0" />
             }
             <a
               href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-bold text-sm text-white hover:text-[#ff6b35] transition-colors flex items-center gap-0.5 truncate"
+              className="font-bold text-xs text-white hover:text-[#ff6b35] transition-colors truncate"
             >
               {stock.symbol}
-              <ExternalLink className="w-2.5 h-2.5 opacity-40 flex-shrink-0" />
             </a>
           </div>
           <button
             onClick={() => !addedTickers.has(stock.symbol) && setConfirmTicker(stock.symbol)}
             title={addedTickers.has(stock.symbol) ? 'Added to Daily Favorites' : 'Add to Daily Favorites'}
-            className={`p-0.5 rounded transition-colors flex-shrink-0 ${
+            className={`flex-shrink-0 transition-colors ${
               addedTickers.has(stock.symbol) ? 'text-[#F97316] cursor-default' : 'text-[#8b949e] hover:text-[#F97316]'
             }`}
           >
-            <Star className={`w-3.5 h-3.5 ${addedTickers.has(stock.symbol) ? 'fill-[#F97316]' : ''}`} />
+            <Star className={`w-3 h-3 ${addedTickers.has(stock.symbol) ? 'fill-[#F97316]' : ''}`} />
           </button>
         </div>
 
-        {/* Gap % — prominent */}
-        <div className={`text-base font-bold leading-none ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
+        {/* Gap % */}
+        <div className={`text-sm font-bold leading-none ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
           {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%
         </div>
 
         {/* Price + Volume */}
-        <div className="flex items-center justify-between text-[10px]">
-          <span className="text-white font-medium">{formatPrice(stock.price)}</span>
+        <div className="flex items-center justify-between text-[9px]">
+          <span className="text-white">{formatPrice(stock.price)}</span>
           <span className="text-[#8b949e]">{formatVolume(stock.volume)}</span>
         </div>
-
-        {/* Company name */}
-        {stock.name && stock.name !== stock.symbol && (
-          <p className="text-[10px] text-[#8b949e] truncate leading-none">{stock.name}</p>
-        )}
       </div>
     ));
   };
@@ -406,8 +400,10 @@ export default function GapScannerCard() {
                   </h3>
                   <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded">{data?.gainers.length || 0}</span>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {data?.gainers && renderStockGrid(data.gainers, 'gainer')}
+                <div className="max-h-64 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {data?.gainers && renderStockGrid(data.gainers, 'gainer')}
+                  </div>
                 </div>
               </div>
 
@@ -420,8 +416,10 @@ export default function GapScannerCard() {
                   </h3>
                   <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded">{data?.losers.length || 0}</span>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {data?.losers && renderStockGrid(data.losers, 'loser')}
+                <div className="max-h-64 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {data?.losers && renderStockGrid(data.losers, 'loser')}
+                  </div>
                 </div>
               </div>
             </div>
