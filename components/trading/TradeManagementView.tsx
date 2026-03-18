@@ -1,10 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import { Calculator, Bookmark } from 'lucide-react';
 import PositionCalculator from './PositionCalculator';
 import WatchlistView from './WatchlistView';
+import QuickWatchlist from './QuickWatchlist';
 
 export default function TradeManagementView() {
+  const [selectedTicker, setSelectedTicker] = useState<string>('');
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -14,15 +18,23 @@ export default function TradeManagementView() {
 
       {/* Side-by-Side Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Calculator Section - Left */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-          <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
-            <Calculator className="w-5 h-5 text-[#F97316]" />
-            <h3 className="text-lg font-semibold text-white">Position Calculator</h3>
+        {/* Calculator + Quick Watchlist Section - Left */}
+        <div className="space-y-6">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
+              <Calculator className="w-5 h-5 text-[#F97316]" />
+              <h3 className="text-lg font-semibold text-white">Position Calculator</h3>
+            </div>
+            <div className="p-6">
+              <PositionCalculator 
+                initialTicker={selectedTicker}
+                onTickerChange={setSelectedTicker}
+              />
+            </div>
           </div>
-          <div className="p-6">
-            <PositionCalculator />
-          </div>
+
+          {/* Quick Watchlist underneath Position Calculator */}
+          <QuickWatchlist onSelectTicker={setSelectedTicker} />
         </div>
 
         {/* Watchlist Section - Right (contains Active + Potential) */}
