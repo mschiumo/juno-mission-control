@@ -265,6 +265,16 @@ export default function QuickWatchlist({
 
   const handleDelete = async (id: string, ticker?: string) => {
     try {
+      // Find the item to check if it's a Daily Favorite (0 prices) or Potential Trade
+      const item = watchlist.find(w => w.id === id);
+      
+      // Safety check: Only allow deletion from Daily Favorites if it's ticker-only (0 prices)
+      // Potential Trades (with prices > 0) should be deleted from WatchlistView, not here
+      if (item && (item.entryPrice > 0 || item.stopPrice > 0 || item.targetPrice > 0)) {
+        setError('Cannot delete Potential Trade from Daily Favorites. Use the Watchlist instead.');
+        return;
+      }
+      
       const response = await fetch(`/api/watchlist?id=${id}&userId=${DEFAULT_USER_ID}`, {
         method: 'DELETE',
       });
@@ -288,9 +298,11 @@ export default function QuickWatchlist({
   };
 
   // Remove ticker from favorites (called when moved to potential trades)
+  // Only deletes if it's a ticker-only favorite (entryPrice, stopPrice, targetPrice all = 0)
   const removeFromFavorites = useCallback(async (ticker: string) => {
     const item = watchlist.find(w => w.ticker === ticker);
-    if (item) {
+    // Only delete if it's a Daily Favorite (ticker-only, no prices)
+    if (item && item.entryPrice === 0 && item.stopPrice === 0 && item.targetPrice === 0) {
       await handleDelete(item.id, ticker);
     }
   }, [watchlist]);
