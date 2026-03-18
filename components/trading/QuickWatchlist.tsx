@@ -51,6 +51,14 @@ interface PremarketData {
   status: 'up' | 'down' | 'unchanged';
 }
 
+interface SMAData {
+  symbol: string;
+  period: number;
+  sma: number;
+  currentPrice: number;
+  status: 'above' | 'below' | 'at';
+}
+
 export default function QuickWatchlist({ 
   onSelectTicker, 
   onTickerRemoved,
@@ -74,35 +82,59 @@ export default function QuickWatchlist({
   // Premarket data state
   const [premarketData, setPremarketData] = useState<Record<string, PremarketData>>({});
 
-  // Fetch premarket data for watchlist items
+  // SMA data state
+  const [smaData, setSmaData] = useState<Record<string, { sma20: number; sma200: number }>>({});
+
+  // Fetch premarket data and SMAs for watchlist items
   useEffect(() => {
-    const fetchPremarketData = async () => {
+    const fetchMarketData = async () => {
       if (watchlist.length === 0) return;
       
-      const data: Record<string, PremarketData> = {};
+      const premarket: Record<string, PremarketData> = {};
+      const sma: Record<string, { sma20: number; sma200: number }> = {};
       
       await Promise.all(
         watchlist.map(async (item) => {
           try {
-            const response = await fetch(`/api/premarket?symbol=${item.ticker}`);
-            if (response.ok) {
-              const result = await response.json();
+            // Fetch premarket data
+            const premarketRes = await fetch(`/api/premarket?symbol=${item.ticker}`);
+            if (premarketRes.ok) {
+              const result = await premarketRes.json();
               if (result.success) {
-                data[item.ticker] = result.data;
+                premarket[item.ticker] = result.data;
+              }
+            }
+
+            // Fetch 20-day SMA
+            const sma20Res = await fetch(`/api/technical/sma?symbol=${item.ticker}&period=20`);
+            if (sma20Res.ok) {
+              const result = await sma20Res.json();
+              if (result.success) {
+                sma[item.ticker] = { ...sma[item.ticker], sma20: result.data.sma };
+              }
+            }
+
+            // Fetch 200-day SMA
+            const sma200Res = await fetch(`/api/technical/sma?symbol=${item.ticker}&period=200`);
+            if (sma200Res.ok) {
+              const result = await sma200Res.json();
+              if (result.success) {
+                sma[item.ticker] = { ...sma[item.ticker], sma200: result.data.sma };
               }
             }
           } catch (err) {
-            console.error(`Error fetching premarket for ${item.ticker}:`, err);
+            console.error(`Error fetching data for ${item.ticker}:`, err);
           }
         })
       );
       
-      setPremarketData(data);
+      setPremarketData(premarket);
+      setSmaData(sma);
     };
 
-    fetchPremarketData();
+    fetchMarketData();
     // Refresh every 60 seconds
-    const interval = setInterval(fetchPremarketData, 60000);
+    const interval = setInterval(fetchMarketData, 60000);
     return () => clearInterval(interval);
   }, [watchlist]);
 
@@ -468,34 +500,55 @@ export default function QuickWatchlist({
           {filteredAndSortedWatchlist.length > 0 ? (
             <div className="border border-[#30363d] rounded-lg overflow-hidden">
               {/* Header */}
-              <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[#0d1117] border-b border-[#30363d] text-xs">
-                <button onClick={() => handleSort('ticker')} className="col-span-3 flex items-center gap-1 text-[#8b949e] hover:text-white">
+              <div className="grid grid-cols-12 gap-1 px-2 py-2 bg-[#0d1117] border-b border-[#30363d] text-xs">
+                <button onClick={() => handleSort('ticker')} className="col-span-2 flex items-center gap-1 text-[#8b949e] hover:text-white">
                   Ticker {getSortIcon('ticker')}
                 </button>
-                <div className="col-span-3 text-[#8b949e]">Prev Close</div>
-                <div className="col-span-3 text-[#8b949e]">Pre-market</div>
-                <div className="col-span-3 text-right text-[#8b949e]">Actions</div>
+                <div className="col-span-2 text-[#8b949e]">SMA 20</div>
+                <div className="col-span-2 text-[#8b949e]">SMA 200</div>
+                <div className="col-span-2 text-[#8b949e]">Prev Close</div>
+                <div className="col-span-2 text-[#8b949e]">Pre-mkt</div>
+                <div className="col-span-2 text-right text-[#8b949e]">Act</div>
               </div>
               <div className="max-h-64 overflow-y-auto">
                 {filteredAndSortedWatchlist.map((item) => {
                   const premarket = premarketData[item.ticker];
+                  const sma = smaData[item.ticker];
                   return (
-                    <div key={item.id} className="grid grid-cols-12 gap-2 px-3 py-2 border-b border-[#30363d] last:border-b-0 hover:bg-[#0d1117]/50 transition-colors items-center">
-                      <div className="col-span-3 flex items-center gap-2">
+                    <div key={item.id} className="grid grid-cols-12 gap-1 px-2 py-2 border-b border-[#30363d] last:border-b-0 hover:bg-[#0d1117]/50 transition-colors items-center">
+                      <div className="col-span-2 flex items-center gap-1">
                         <button onClick={() => toggleFavorite(item)} className="text-[#8b949e] hover:text-yellow-400 transition-colors">
                           <Star className={`w-3 h-3 ${item.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
                         </button>
                         <button 
                           onClick={() => handleSelectTicker(item.ticker, item.id)}
-                          className="text-sm font-medium text-white hover:text-[#F97316] transition-colors cursor-pointer"
+                          className="text-xs font-medium text-white hover:text-[#F97316] transition-colors cursor-pointer truncate"
                           title="Click to use in calculator"
                         >
                           {item.ticker}
                         </button>
                       </div>
                       
+                      {/* SMA 20 */}
+                      <div className="col-span-2 text-[10px]">
+                        {sma?.sma20 ? (
+                          <span className="text-[#8b949e]">${sma.sma20.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-[#6e7681]">-</span>
+                        )}
+                      </div>
+                      
+                      {/* SMA 200 */}
+                      <div className="col-span-2 text-[10px]">
+                        {sma?.sma200 ? (
+                          <span className="text-[#8b949e]">${sma.sma200.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-[#6e7681]">-</span>
+                        )}
+                      </div>
+                      
                       {/* Previous Close */}
-                      <div className="col-span-3 text-xs">
+                      <div className="col-span-2 text-[10px]">
                         {premarket ? (
                           <span className="text-[#8b949e]">${premarket.previousClose.toFixed(2)}</span>
                         ) : (
@@ -504,17 +557,43 @@ export default function QuickWatchlist({
                       </div>
                       
                       {/* Premarket Price */}
-                      <div className="col-span-3 text-xs">
+                      <div className="col-span-2 text-[10px]">
                         {premarket ? (
                           <div className="flex flex-col">
                             <span className={`font-medium ${premarket.status === 'up' ? 'text-green-400' : premarket.status === 'down' ? 'text-red-400' : 'text-[#8b949e]'}`}>
                               ${premarket.premarketPrice.toFixed(2)}
                             </span>
-                            <span className={`text-[10px] ${premarket.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                              {premarket.change >= 0 ? '+' : ''}{premarket.changePercent.toFixed(2)}%
+                            <span className={`text-[9px] ${premarket.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {premarket.change >= 0 ? '+' : ''}{premarket.changePercent.toFixed(1)}%
                             </span>
                           </div>
                         ) : (
+                          <span className="text-[#6e7681]">-</span>
+                        )}
+                      </div>
+                      
+                      <div className="col-span-2 flex justify-end gap-1">
+                        {onSelectTicker && (
+                          <button 
+                            onClick={() => handleSelectTicker(item.ticker, item.id)} 
+                            className="p-1 text-[#8b949e] hover:text-[#F97316] transition-colors" 
+                            title="Use in calculator"
+                          >
+                            <Calculator className="w-3 h-3" />
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleDelete(item.id, item.ticker)} 
+                          className="p-1 text-[#8b949e] hover:text-red-400 transition-colors" 
+                          title="Remove"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
                           <span className="text-[#6e7681]">-</span>
                         )}
                       </div>
