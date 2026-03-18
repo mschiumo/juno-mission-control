@@ -1,155 +1,151 @@
 import { NextResponse } from 'next/server';
+import { createClient } from 'redis';
 
-// OpenClaw Gateway endpoint
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://127.0.0.1:18789';
-const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || '';
+const STORAGE_KEY = 'cron_results';
 
-interface CronJob {
-  id: string;
-  name: string;
-  schedule: string;
-  lastRun: string;
-  status: 'active' | 'completed' | 'paused' | 'error';
-  description: string;
-}
+// Cron job definitions with their schedules - sorted chronologically (earliest to latest)
+const CRON_JOBS = [
+  { id: 'daily-motivational', name: 'Daily Motivational Message', schedule: '6:00 AM EST', cronExpression: '0 6 * * *', frequency: 'Daily', status: 'active' },
+  { id: 'morning-wake', name: 'Morning Wake-up Check', schedule: '7:30 AM EST', cronExpression: '30 7 * * *', frequency: 'Daily', status: 'active' },
+  { id: 'gap-scanner', name: 'Gap Scanner Pre-Market', schedule: 'Mon-Fri 8:30 AM EST', cronExpression: '30 8 * * 1-5', frequency: 'Mon-Fri', status: 'active' },
+  { id: 'midday-checkin', name: 'Mid-Day Trading Check-in', schedule: '12:30 PM EST', cronExpression: '30 12 * * 0-4', frequency: 'Mon-Fri', status: 'active' },
+  { id: 'market-close', name: 'Market Close Report', schedule: '5:00 PM EST', cronExpression: '30 21 * * 0-4', frequency: 'Mon-Fri', status: 'active' },
+  { id: 'weekly-review', name: 'Weekly Habit Review', schedule: 'Friday 7:00 PM EST', cronExpression: '0 19 * * 5', frequency: 'Weekly', status: 'active' },
+  { id: 'evening-checkin', name: 'Evening Habit Check-in', schedule: '8:00 PM EST', cronExpression: '0 20 * * *', frequency: 'Daily', status: 'active' },
+  { id: 'task-approval', name: 'Nightly Task Approval', schedule: '10:00 PM EST', cronExpression: '0 22 * * *', frequency: 'Daily', status: 'active' },
+  { id: 'token-summary', name: 'Daily Token Usage Summary', schedule: '11:00 PM EST', cronExpression: '0 23 * * *', frequency: 'Daily', status: 'active' },
+];
 
-export async function GET() {
+// Map job names to cron result jobNames for matching
+const JOB_NAME_MAP: Record<string, string[]> = {
+  'daily-motivational': ['Daily Motivational Message'],
+  'morning-wake': ['Morning Wake-up Check'],
+  'gap-scanner': ['Gap Scanner Pre-Market', 'Gap Scanner Monday Test'],
+  'midday-checkin': ['Mid-Day Trading Check-in'],
+  'market-close': ['Market Close Report'],
+  'weekly-review': ['Weekly Habit Review'],
+  'evening-checkin': ['Evening Habit Check-in'],
+  'task-approval': ['Nightly Task Approval', 'Nightly Task Approval Request'],
+  'token-summary': ['Daily Token Usage Summary'],
+};
+
+// Redis client - lazy initialization
+let redisClient: ReturnType<typeof createClient> | null = null;
+
+async function getRedisClient() {
+  if (redisClient?.isReady) {
+    return redisClient;
+  }
+  
   try {
-    // Try to fetch from OpenClaw gateway
-    const response = await fetch(`${GATEWAY_URL}/api/cron/list`, {
-      headers: {
-        'Authorization': `Bearer ${GATEWAY_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      next: { revalidate: 30 }
+    const client = createClient({
+      url: process.env.UPSTASH_REDIS_URL || process.env.REDIS_URL || undefined,
     });
-
-    if (response.ok) {
-      const data = await response.json();
-      
-      const jobs: CronJob[] = data.jobs?.map((job: { id: string; name: string; schedule: { expr: string; tz?: string }; state?: { lastRunAtMs?: number; consecutiveErrors?: number }; enabled: boolean }) => ({
-        id: job.id,
-        name: job.name,
-        schedule: formatSchedule(job.schedule),
-        lastRun: job.state?.lastRunAtMs 
-          ? new Date(job.state.lastRunAtMs).toISOString()
-          : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        status: job.enabled 
-          ? ((job.state?.consecutiveErrors ?? 0) > 0 ? 'error' : 'active')
-          : 'paused',
-        description: getJobDescription(job.name)
-      })) || [];
-
-      return NextResponse.json({
-        success: true,
-        data: jobs,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    throw new Error('Failed to fetch from gateway');
-
-  } catch (error) {
-    console.error('Cron status fetch error:', error);
     
-    // Return known cron jobs as fallback
-    const fallbackJobs: CronJob[] = [
-      {
-        id: '1',
-        name: 'Asia Session Update',
-        schedule: '0 19 * * 1-5',
-        lastRun: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '7 PM EST - Asia market open'
-      },
-      {
-        id: '2',
-        name: 'London Session Update',
-        schedule: '0 3 * * 1-5',
-        lastRun: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '3 AM EST - Europe market open'
-      },
-      {
-        id: '3',
-        name: 'Morning Market Briefing',
-        schedule: '0 13 * * 1-5',
-        lastRun: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '8 AM EST - US pre-market'
-      },
-      {
-        id: '4',
-        name: 'Mid-Day Trading Check',
-        schedule: '30 12 * * 1-5',
-        lastRun: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '12:30 PM EST - Discipline check'
-      },
-      {
-        id: '5',
-        name: 'Post-Market Review',
-        schedule: '0 17 * * 1-5',
-        lastRun: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '5 PM EST - Trading review'
-      },
-      {
-        id: '6',
-        name: 'Daily Token Usage Summary',
-        schedule: '0 23 * * *',
-        lastRun: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '11 PM EST - Usage report'
-      },
-      {
-        id: '7',
-        name: 'Daily Motivational',
-        schedule: '0 12 * * *',
-        lastRun: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        description: '7 AM EST - Morning quote'
-      }
-    ];
-
-    return NextResponse.json({
-      success: true,
-      data: fallbackJobs,
-      timestamp: new Date().toISOString()
+    client.on('error', (err) => {
+      console.error('Redis Client Error:', err);
     });
+    
+    await client.connect();
+    redisClient = client;
+    return client;
+  } catch (error) {
+    console.error('Failed to connect to Redis:', error);
+    return null;
   }
 }
 
-function formatSchedule(schedule: { expr?: string } | null): string {
-  if (!schedule) return 'Unknown';
+export async function GET() {
+  const timestamp = new Date().toISOString();
   
-  if (schedule.expr === '0 19 * * 1-5') return 'Weekdays at 7:00 PM';
-  if (schedule.expr === '0 3 * * 1-5') return 'Weekdays at 3:00 AM';
-  if (schedule.expr === '0 13 * * 1-5') return 'Weekdays at 8:00 AM';
-  if (schedule.expr === '30 12 * * 1-5') return 'Weekdays at 12:30 PM';
-  if (schedule.expr === '0 17 * * 1-5') return 'Weekdays at 5:00 PM';
-  if (schedule.expr === '0 23 * * *') return 'Daily at 11:00 PM';
-  if (schedule.expr === '0 12 * * *') return 'Daily at 7:00 AM';
-  if (schedule.expr === '30 7 * * *') return 'Daily at 7:30 AM';
-  if (schedule.expr === '0 20 * * *') return 'Daily at 8:00 PM';
-  if (schedule.expr === '0 22 * * *') return 'Daily at 10:00 PM';
-  
-  return schedule.expr || 'Unknown';
-}
-
-function getJobDescription(name: string): string {
-  const descriptions: Record<string, string> = {
-    'Asia Session Update': '7 PM EST - Asia market open',
-    'London Session Update': '3 AM EST - Europe market open',
-    'Morning Market Briefing': '8 AM EST - US pre-market data',
-    'Mid-Day Trading Check': '12:30 PM - Discipline check-in',
-    'Post-Market Trading Review': '5 PM - Trading review',
-    'Daily Token Usage Summary': '11 PM - Usage analytics',
-    'Daily Motivational Message': '7 AM - Morning inspiration',
-    'Morning Wake-up Check': '7:30 AM - Daily check-in',
-    'Evening Habit Check-in': '8 PM - Habit tracking',
-    'Nightly Task Approval Request': '10 PM - Task approval'
-  };
-  
-  return descriptions[name] || 'Automated task';
+  try {
+    const redis = await getRedisClient();
+    
+    // Fetch all cron results from last 24 hours
+    let cronResults: Array<{ jobName?: string; timestamp: string; type?: string; content?: string }> = [];
+    
+    if (redis) {
+      const stored = await redis.get(STORAGE_KEY);
+      if (stored) {
+        try {
+          cronResults = JSON.parse(stored);
+          // Sort by timestamp descending (newest first)
+          cronResults.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        } catch (e) {
+          console.error('Failed to parse cron results:', e);
+        }
+      }
+    }
+    
+    // Fetch last run status for each cron job
+    const cronStatus = CRON_JOBS.map((job) => {
+      // Find matching results for this job
+      const matchingNames = JOB_NAME_MAP[job.id] || [job.name];
+      const jobResults = cronResults.filter((r) => 
+        matchingNames.some(name => r.jobName?.includes(name))
+      );
+      
+      // Get the most recent result
+      const lastResult = jobResults[0];
+      
+      let lastStatus = 'pending';
+      if (lastResult) {
+        if (lastResult.type === 'error' || lastResult.content?.includes('FAILED') || lastResult.content?.includes('❌')) {
+          lastStatus = 'failed';
+        } else if (lastResult.content?.includes('timeout') || lastResult.content?.includes('timed out')) {
+          lastStatus = 'timeout';
+        } else {
+          lastStatus = 'completed';
+        }
+      }
+      
+      return {
+        ...job,
+        lastRun: lastResult ? new Date(lastResult.timestamp).toISOString() : null,
+        lastStatus,
+        lastOutput: lastResult ? lastResult.content?.substring(0, 100) + '...' : null,
+      };
+    });
+    
+    // Calculate summary stats
+    const completed = cronStatus.filter(c => c.lastStatus === 'completed').length;
+    const failed = cronStatus.filter(c => c.lastStatus === 'failed' || c.lastStatus === 'timeout').length;
+    const pending = cronStatus.filter(c => c.lastStatus === 'pending').length;
+    
+    return NextResponse.json({
+      success: true,
+      crons: cronStatus,
+      summary: {
+        total: CRON_JOBS.length,
+        completed,
+        failed,
+        pending,
+        active: CRON_JOBS.filter(j => j.status === 'active').length,
+      },
+      timestamp,
+    });
+    
+  } catch (error) {
+    console.error('Cron status fetch error:', error);
+    
+    // Return job list without status if Redis fails
+    return NextResponse.json({
+      success: true,
+      crons: CRON_JOBS.map(job => ({
+        ...job,
+        lastRun: null,
+        lastStatus: 'unknown',
+        lastOutput: null,
+      })),
+      summary: {
+        total: CRON_JOBS.length,
+        completed: 0,
+        failed: 0,
+        pending: CRON_JOBS.length,
+        active: CRON_JOBS.filter(j => j.status === 'active').length,
+      },
+      timestamp,
+      error: 'Failed to fetch run status from Redis',
+    });
+  }
 }

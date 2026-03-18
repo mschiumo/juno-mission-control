@@ -1,0 +1,45 @@
+# Nightly Task Approval Request
+# Runs daily at 10:00 PM EST (3:00 AM UTC next day)
+# OPTIMIZED: Increased timeout from 60s to 120s to handle Telegram API delays
+
+name: "Nightly Task Approval"
+sessionTarget: isolated
+enabled: true
+schedule:
+  kind: cron
+  expr: "0 3 * * *"
+  tz: "UTC"
+payload:
+  kind: agentTurn
+  message: |
+    Send the nightly task approval request to MJ via Telegram.
+    
+    TASKS TO OFFER:
+    1. KeepLiving product descriptions
+    2. KeepLiving About page content
+    3. KeepLiving FAQ page
+    4. Domain availability check
+    5. Instagram hashtag research
+    6. Email template drafts
+    7. Blog post drafts
+    8. Trello card updates
+    
+    MESSAGE FORMAT:
+    "🌙 **Overnight Task Approval**
+    
+    I can work on KeepLiving stuff while you sleep. Which tasks should I queue for tonight (starting 11:30pm)?
+    
+    1. Draft 15 product descriptions (poetry/quotes angle)
+    2. Write About page content (brand story + memoir)
+    3. Draft FAQ page
+    4. Check if keeplivingproject.com is available
+    5. Research Instagram hashtag strategy
+    6. Create email template drafts
+    7. Write blog post: 'The Story Behind KeepLiving'
+    8. Update Trello cards with new details
+    
+    Reply with numbers (e.g., \"1, 3, 5\") to approve. I'll start at 11:30pm EST."
+    
+    Log to Activity Log via POST /api/activity-log with type: "cron"
+  timeoutSeconds: 120
+  thinking: off

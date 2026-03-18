@@ -7,6 +7,7 @@ interface ActivityItem {
   action: string;
   details: string;
   type: 'cron' | 'api' | 'user' | 'system';
+  url?: string;
 }
 
 const STORAGE_KEY = 'activity_log';
@@ -48,16 +49,21 @@ export async function GET() {
       activities = data ? JSON.parse(data) : [];
     }
 
-    // Get all activities for today
-    const today = new Date().toDateString();
-    const todayActivities = activities.filter(a => 
-      new Date(a.timestamp).toDateString() === today
-    );
+    // Get all activities from last 48 hours
+    const cutoffTime = Date.now() - (48 * 60 * 60 * 1000); // 48 hours ago
+    const recentActivities = activities
+      .filter(a => new Date(a.timestamp).getTime() > cutoffTime)
+      .map(a => ({
+        ...a,
+        // Ensure action and details are always strings
+        action: typeof a.action === 'string' ? a.action : JSON.stringify(a.action),
+        details: typeof a.details === 'string' ? a.details : JSON.stringify(a.details, null, 2)
+      }));
 
     return NextResponse.json({
       success: true,
-      data: todayActivities,
-      count: todayActivities.length
+      data: recentActivities,
+      count: recentActivities.length
     });
   } catch (error) {
     console.error('Activity log GET error:', error);
@@ -71,7 +77,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, details, type } = body;
+    const { action, details, type, url } = body;
 
     if (!action) {
       return NextResponse.json({
@@ -99,12 +105,13 @@ export async function POST(request: Request) {
       timestamp: new Date().toISOString(),
       action,
       details: details || '',
-      type: type || 'system'
+      type: type || 'system',
+      url: url || undefined
     };
 
-    // Add to activities (keep last 200 to prevent unbounded growth)
+    // Add to activities (keep last 25 max)
     activities.push(newActivity);
-    if (activities.length > 200) {
+    if (activities.length > 25) {
       activities.shift(); // Remove oldest
     }
 

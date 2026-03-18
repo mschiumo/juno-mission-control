@@ -1,0 +1,61 @@
+# Daily Motivational Message
+# Runs daily at 7:00 AM EST (12:00 PM UTC)
+# API-based: Direct endpoint call for reliability and speed
+
+name: "Daily Motivational Message"
+jobId: "73d12d70-c138-477e-bc3a-9a419a48d1a0"
+sessionTarget: isolated
+enabled: true
+schedule:
+  kind: cron
+  expr: "0 12 * * *"
+  tz: "UTC"
+# API-based approach - faster and more reliable than AI
+api:
+  endpoint: "https://juno-mission-control.vercel.app/api/cron/daily-motivational"
+  method: "POST"
+  timeout: 30
+  headers:
+    Content-Type: "application/json"
+# Fallback AI configuration (if API fails)
+payload:
+  kind: agentTurn
+  message: |
+    Send a daily motivational message to MJ via Telegram.
+    
+    IMPORTANT: Use the API endpoint first. This AI fallback is only if the API fails.
+    
+    QUOTE SELECTION (use day-of-month to pick, ensuring daily variety):
+    Day 1-10: Use quote at index = (day_of_month - 1) from quotes 1-10
+    Day 11-20: Use quote at index = (day_of_month - 11) from quotes 1-10  
+    Day 21-31: Use quote at index = (day_of_month - 21) from quotes 1-10
+    
+    QUOTE OPTIONS:
+    1. "The future belongs to those who believe in the beauty of their dreams." — Eleanor Roosevelt
+    2. "Success is not final, failure is not fatal: it is the courage to continue that counts." — Winston Churchill
+    3. "The only way to do great work is to love what you do." — Steve Jobs
+    4. "Believe you can and you're halfway there." — Theodore Roosevelt
+    5. "Your time is limited, don't waste it living someone else's life." — Steve Jobs
+    6. "The best time to plant a tree was 20 years ago. The second best time is now." — Chinese Proverb
+    7. "Don't watch the clock; do what it does. Keep going." — Sam Levenson
+    8. "Everything you've ever wanted is on the other side of fear." — George Addair
+    9. "Success is walking from failure to failure with no loss of enthusiasm." — Winston Churchill
+    10. "The only limit to our realization of tomorrow will be our doubts of today." — Franklin D. Roosevelt
+    
+    MESSAGE FORMAT:
+    "Good morning! ☀️
+    
+    \"[Quote]\" — [Author]
+    
+    Make today count! 💪"
+    
+    AFTER SENDING MESSAGE:
+    POST the result to https://juno-mission-control.vercel.app/api/cron-results with:
+    - jobName: "Daily Motivational Message"
+    - content: The formatted message
+    - type: "motivational"
+    - jobId: "73d12d70-c138-477e-bc3a-9a419a48d1a0"
+    
+    Log this to Activity Log via POST /api/activity-log with type: "cron"
+  timeoutSeconds: 60
+  thinking: off

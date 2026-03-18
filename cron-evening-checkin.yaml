@@ -1,0 +1,43 @@
+# Evening Habit Check-in Reminder
+# Runs daily at 8:00 PM EST
+
+name: "Evening Habit Check-in Reminder"
+sessionTarget: isolated
+enabled: true
+schedule:
+  kind: cron
+  expr: "0 20 * * *"
+  tz: "America/New_York"
+payload:
+  kind: agentTurn
+  message: |
+    Send an evening habit check-in reminder to MJ via Telegram.
+    
+    The reminder should:
+    1. Check if the evening habit check-in has already been completed today
+    2. If NOT completed, send a friendly reminder message
+    3. Include a link to the dashboard
+    
+    Use the /api/evening-checkin endpoint to check status.
+    
+    Message format:
+    "🌙 Evening Habit Check-in
+    
+    Time to check in on today's habits!
+    
+    Did you:
+    • Work out / lift?
+    • Run?
+    • Read?
+    • Journal?
+    • Trade?
+    • Make your bed?
+    • Take your meds?
+    
+    Open your dashboard to check in:
+    https://juno-mission-control.vercel.app
+    
+    (Tap the 🌙 moon icon in the Habits card)"
+    
+    Log this to the Activity Log via POST /api/activity-log
+  timeoutSeconds: 60

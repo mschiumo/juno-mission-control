@@ -1,0 +1,48 @@
+# Nightly Juno-Assisted Goals Audit
+# Runs daily at 10:00 PM EST (3:00 AM UTC next day)
+# OPTIMIZED: Added model fallback for rate limiting issues
+
+name: "Nightly Juno-Assisted Goals Audit"
+sessionTarget: isolated
+enabled: true
+schedule:
+  kind: cron
+  expr: "0 3 * * *"
+  tz: "UTC"
+payload:
+  kind: agentTurn
+  thinking: off
+  model: "kimi-coding/k2p5"  # Primary model
+  fallbackModels:             # Fallback chain if primary is rate limited
+    - "anthropic/claude-3-5-sonnet"
+    - "anthropic/claude-3-haiku"
+    - "openai/gpt-4o-mini"
+  message: |
+    Perform a nightly goals audit for MJ.
+    
+    STEPS:
+    1. Fetch today's goals from /api/goals?date=today
+    2. Fetch habit status from /api/habit-status?date=today
+    3. Analyze completion rates
+    4. Generate summary
+    
+    AUDIT FORMAT:
+    "🌙 **Nightly Goals Audit** — [Date]
+    
+    **DAILY GOALS**
+    • Completed: [X/Y] ([Z]%)
+    • Pending: [list if any]
+    
+    **HABITS**
+    • Tracked: [list with status]
+    • Completion: [X/Y] ([Z]%)
+    
+    **INSIGHTS**
+    • [1-2 observations about patterns]
+    • [Suggestion for tomorrow if relevant]
+    
+    Send summary to MJ via Telegram.
+    Log to Activity Log via POST /api/activity-log with type: "cron"
+    
+    If you encounter rate limits, continue with available models.
+  timeoutSeconds: 180

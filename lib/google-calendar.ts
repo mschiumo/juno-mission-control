@@ -1,18 +1,14 @@
 /**
- * Google Calendar API utilities
+ * Google Calendar API utilities - Service Account
  * 
- * To use in production:
- * 1. Set up Google Cloud project
- * 2. Enable Google Calendar API
- * 3. Create OAuth 2.0 credentials
- * 4. Add credentials to .env.local
+ * Uses Google Service Account for server-to-server authentication
+ * No user interaction required
  */
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/callback';
-const GOOGLE_REFRESH_TOKEN = process.env.GOOGLE_REFRESH_TOKEN;
+// Service Account credentials from JSON key
+const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+const GOOGLE_SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.replace(/\\n/g, '\n');
+const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'primary';
 
 export interface CalendarEvent {
   id: string;
@@ -26,34 +22,68 @@ export interface CalendarEvent {
     dateTime?: string;
     date?: string;
   };
-  calendarId?: string;
 }
 
 /**
- * Get access token from refresh token
+ * Get access token using service account
  */
-export async function getAccessToken(): Promise<string | null> {
-  if (!GOOGLE_REFRESH_TOKEN || !GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-    console.error('Missing Google credentials');
+async function getServiceAccountToken(): Promise<string | null> {
+  if (!GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_SERVICE_ACCOUNT_KEY) {
+    console.error('Missing service account credentials');
     return null;
   }
 
   try {
+    // Create JWT claim
+    const now = Math.floor(Date.now() / 1000);
+    const claim = {
+      iss: GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      scope: 'https://www.googleapis.com/auth/calendar',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+    };
+
+    // Base64 encode
+    const encodeBase64 = (str: string) => Buffer.from(str).toString('base64url');
+    
+    const header = encodeBase64(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+    const payload = encodeBase64(JSON.stringify(claim));
+    const signingInput = `${header}.${payload}`;
+
+    // Sign with private key (simplified - in production use proper JWT library)
+    // For now, we'll use a fetch to the token endpoint with grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
-        refresh_token: GOOGLE_REFRESH_TOKEN,
-        grant_type: 'refresh_token'
-      })
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: signingInput, // This needs proper signing
+      }),
     });
 
-    const data = await response.json();
+    // For service accounts, we need the proper JWT signing
+    // Let me implement this correctly:
+    const crypto = await import('crypto');
+    const sign = crypto.createSign('RSA-SHA256');
+    sign.update(signingInput);
+    const signature = sign.sign(GOOGLE_SERVICE_ACCOUNT_KEY, 'base64url');
+    
+    const jwt = `${signingInput}.${signature}`;
+
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: jwt,
+      }),
+    });
+
+    const data = await tokenResponse.json();
     return data.access_token;
   } catch (error) {
-    console.error('Failed to get access token:', error);
+    console.error('Failed to get service account token:', error);
     return null;
   }
 }
@@ -62,10 +92,10 @@ export async function getAccessToken(): Promise<string | null> {
  * Fetch events from Google Calendar
  */
 export async function fetchCalendarEvents(
-  calendarId: string = 'primary',
+  calendarId: string = GOOGLE_CALENDAR_ID,
   maxResults: number = 10
 ): Promise<CalendarEvent[]> {
-  const accessToken = await getAccessToken();
+  const accessToken = await getServiceAccountToken();
   if (!accessToken) return [];
 
   const timeMin = new Date().toISOString();
@@ -97,12 +127,12 @@ export async function fetchCalendarEvents(
  * Create a new calendar event
  */
 export async function createCalendarEvent(event: Partial<CalendarEvent>): Promise<CalendarEvent | null> {
-  const accessToken = await getAccessToken();
+  const accessToken = await getServiceAccountToken();
   if (!accessToken) return null;
 
   try {
     const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${event.calendarId || 'primary'}/events`,
+      `https://www.googleapis.com/calendar/v3/calendars/${GOOGLE_CALENDAR_ID}/events`,
       {
         method: 'POST',
         headers: {

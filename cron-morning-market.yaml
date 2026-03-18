@@ -1,0 +1,54 @@
+# Morning Market Briefing
+# Runs weekdays at 8:00 AM EST (13:00 UTC)
+# OPTIMIZED: Reduced search scope, parallel requests, focused on key data
+
+name: "Morning Market Briefing"
+sessionTarget: isolated
+enabled: true
+schedule:
+  kind: cron
+  expr: "0 13 * * 0-4"
+  tz: "UTC"
+payload:
+  kind: agentTurn
+  message: |
+    Generate a concise morning market briefing for MJ. Be quick and focused.
+    
+    PRIORITY DATA (get these in parallel if possible):
+    1. Major indices: SPY, QQQ, DIA, VIX (use web_search: "S\&P 500 Nasdaq Dow futures today")
+    2. Key tech stocks: AAPL, NVDA, MSFT, TSLA (use web_search: "AAPL NVDA MSFT TSLA stock price today")
+    3. Bitcoin price (use web_search: "Bitcoin BTC price today")
+    
+    OPTIONAL (only if time permits):
+    - Top 3 market-moving news headlines
+    - Earnings announcements for today
+    
+    FORMAT (keep it under 300 tokens):
+    🪐 **Morning Market Briefing** — [Day Month Date, Year]
+    
+    **MAJOR INDICES**
+    • S&P 500: [price] ([change]%)
+    • Nasdaq: [price] ([change]%)
+    • Dow: [price] ([change]%)
+    • VIX: [value]
+    
+    **KEY STOCKS**
+    • AAPL: $[price] ([change]%)
+    • NVDA: $[price] ([change]%)
+    • MSFT: $[price] ([change]%)
+    • TSLA: $[price] ([change]%)
+    
+    **CRYPTO**
+    • BTC: $[price]
+    
+    **TOP NEWS**
+    • [Headline 1]
+    • [Headline 2]
+    • [Headline 3]
+    
+    Send via Telegram to MJ.
+    Log to Activity Log via POST /api/activity-log with type: "cron"
+    
+    TIME LIMIT: Complete within 90 seconds. Skip optional data if running short on time.
+  timeoutSeconds: 120
+  thinking: off

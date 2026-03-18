@@ -1,16 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sparkles, Bot } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 interface JunoStatus {
   isProcessing: boolean;
   lastActivity: number;
-}
-
-interface SubAgentStatus {
-  count: number;
-  hasSubAgents: boolean;
 }
 
 type JunoState = 'ready' | 'thinking' | 'idle';
@@ -18,16 +13,17 @@ type JunoState = 'ready' | 'thinking' | 'idle';
 export default function JunoWidget() {
   const [status, setStatus] = useState<JunoStatus>({
     isProcessing: false,
-    lastActivity: Date.now()
+    lastActivity: 0
   });
   const [currentState, setCurrentState] = useState<JunoState>('ready');
-  const [subAgents, setSubAgents] = useState<SubAgentStatus>({
-    count: 0,
-    hasSubAgents: false
-  });
 
   useEffect(() => {
-    // Check state every 5 seconds
+    // Initialize lastActivity on client side only
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStatus(prev => ({ ...prev, lastActivity: Date.now() }));
+  }, []);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
       const timeSinceActivity = now - status.lastActivity;
@@ -61,29 +57,6 @@ export default function JunoWidget() {
       window.removeEventListener('click', handleActivity);
       window.removeEventListener('keydown', handleActivity);
     };
-  }, []);
-
-  // Fetch sub-agent status
-  useEffect(() => {
-    const fetchSubAgents = async () => {
-      try {
-        const response = await fetch('/api/subagent-status');
-        const data = await response.json();
-        if (data.success) {
-          setSubAgents({
-            count: data.count,
-            hasSubAgents: data.hasSubAgents
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch sub-agent status:', error);
-      }
-    };
-
-    fetchSubAgents();
-    // Refresh every 10 seconds
-    const interval = setInterval(fetchSubAgents, 10000);
-    return () => clearInterval(interval);
   }, []);
 
   const getStatusConfig = () => {
@@ -120,19 +93,6 @@ export default function JunoWidget() {
 
   return (
     <div className="flex items-center gap-2">
-      {/* Sub-agents Badge */}
-      <div 
-        className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border ${
-          subAgents.hasSubAgents 
-            ? 'bg-[#238636]/10 text-[#238636] border-[#238636]/30' 
-            : 'bg-[#da3633]/10 text-[#da3633] border-[#da3633]/30'
-        }`}
-        title={subAgents.hasSubAgents ? `${subAgents.count} sub-agent${subAgents.count !== 1 ? 's' : ''} active` : 'No sub-agents deployed'}
-      >
-        <Bot className="w-3 h-3" />
-        <span>{subAgents.count} Sub-agent{subAgents.count !== 1 ? 's' : ''}</span>
-      </div>
-
       {/* Juno Status Indicator */}
       <div className="flex items-center gap-2 px-3 py-1.5 bg-[#0d1117] rounded-full border border-[#30363d]">
         <div className="relative">

@@ -1,27 +1,28 @@
-import { createClient } from 'redis';
 import { NextResponse } from 'next/server';
+import { createClient } from 'redis';
 
 interface CronResult {
   id: string;
   jobName: string;
   timestamp: string;
   content: string;
-  type: 'market' | 'motivational' | 'check-in' | 'review';
+  type: 'market' | 'motivational' | 'check-in' | 'review' | 'error';
 }
 
 const STORAGE_KEY = 'cron_results';
+const MAX_RESULTS = 100;
 
-// Lazy Redis client initialization
+// Redis client - lazy initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
 
 async function getRedisClient() {
-  if (redisClient) {
+  if (redisClient?.isReady) {
     return redisClient;
   }
   
   try {
     const client = createClient({
-      url: process.env.REDIS_URL || undefined
+      url: process.env.UPSTASH_REDIS_URL || process.env.REDIS_URL || undefined,
     });
     
     client.on('error', (err) => {
@@ -44,7 +45,6 @@ export async function GET(request: Request) {
     
     const redis = await getRedisClient();
     
-    // Get all results from Redis (or use empty array if Redis unavailable)
     let results: CronResult[] = [];
     if (redis) {
       const data = await redis.get(STORAGE_KEY);
@@ -52,7 +52,6 @@ export async function GET(request: Request) {
     }
 
     if (jobName) {
-      // Get latest result for specific job
       const result = results
         .filter(r => r.jobName === jobName)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
@@ -76,13 +75,24 @@ export async function GET(request: Request) {
       new Date(r.timestamp).toDateString() === today
     );
 
+    // Deduplicate: keep only the latest report per job name
+    const latestByJob = new Map<string, CronResult>();
+    todayResults.forEach(result => {
+      const existing = latestByJob.get(result.jobName);
+      if (!existing || new Date(result.timestamp) > new Date(existing.timestamp)) {
+        latestByJob.set(result.jobName, result);
+      }
+    });
+    
+    const dedupedResults = Array.from(latestByJob.values());
+
     return NextResponse.json({
       success: true,
-      data: todayResults,
-      count: todayResults.length
+      data: dedupedResults,
+      count: dedupedResults.length
     });
   } catch (error) {
-    console.error('Redis GET error:', error);
+    console.error('Cron results GET error:', error);
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch results'
@@ -124,13 +134,13 @@ export async function POST(request: Request) {
       type: type || 'check-in'
     };
 
-    // Add to results (keep last 100 to prevent unbounded growth)
+    // Add to results (keep last 100)
     results.push(newResult);
-    if (results.length > 100) {
-      results.shift(); // Remove oldest
+    while (results.length > MAX_RESULTS) {
+      results.shift();
     }
 
-    // Save back to Redis
+    // Save to Redis
     await redis.set(STORAGE_KEY, JSON.stringify(results));
 
     return NextResponse.json({
@@ -138,7 +148,7 @@ export async function POST(request: Request) {
       data: newResult
     });
   } catch (error) {
-    console.error('Redis POST error:', error);
+    console.error('Cron results POST error:', error);
     return NextResponse.json({
       success: false,
       error: 'Failed to store result'

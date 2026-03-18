@@ -1,0 +1,179 @@
+{
+  "yearly": [
+    {
+      "id": "y1",
+      "title": "Generate steady self-generated income",
+      "phase": "in-progress",
+      "category": "yearly",
+      "source": "mj"
+    },
+    {
+      "id": "y2",
+      "title": "Master physical health & fitness",
+      "phase": "in-progress",
+      "category": "yearly",
+      "source": "mj"
+    },
+    {
+      "id": "y3",
+      "title": "Launch KeepLiving brand",
+      "phase": "not-started",
+      "category": "yearly",
+      "source": "mj"
+    },
+    {
+      "id": "y4",
+      "title": "Move overseas successfully",
+      "phase": "not-started",
+      "category": "yearly",
+      "source": "mj"
+    }
+  ],
+  "weekly": [
+    {
+      "id": "w1",
+      "title": "Lift 4x this week",
+      "phase": "in-progress",
+      "category": "weekly",
+      "source": "mj"
+    },
+    {
+      "id": "w2",
+      "title": "Run 5x this week",
+      "phase": "in-progress",
+      "category": "weekly",
+      "source": "mj"
+    },
+    {
+      "id": "w3",
+      "title": "Trade daily with discipline",
+      "phase": "in-progress",
+      "category": "weekly",
+      "source": "mj"
+    },
+    {
+      "id": "w4",
+      "title": "Publish 1 blog post",
+      "phase": "not-started",
+      "category": "weekly",
+      "source": "mj"
+    }
+  ],
+  "daily": [
+    {
+      "id": "d1",
+      "title": "Make bed",
+      "phase": "achieved",
+      "category": "daily",
+      "source": "mj"
+    },
+    {
+      "id": "d2",
+      "title": "Take morning meds",
+      "phase": "in-progress",
+      "category": "daily",
+      "source": "mj"
+    },
+    {
+      "id": "d3",
+      "title": "Read market brief",
+      "phase": "not-started",
+      "category": "daily",
+      "source": "mj"
+    },
+    {
+      "id": "d4",
+      "title": "Exercise/Lift",
+      "phase": "not-started",
+      "category": "daily",
+      "source": "mj"
+    }
+  ],
+  "collaborative": [
+    {
+      "id": "c1",
+      "title": "Dashboard Theme Improvements",
+      "phase": "in-progress",
+      "category": "collaborative",
+      "source": "juno",
+      "junoAssisted": true,
+      "actionItems": [
+        {
+          "id": "ai-1",
+          "text": "Update GoalsCard with tabs",
+          "status": "completed",
+          "createdAt": "2026-02-18T19:05:32.099Z"
+        }
+      ]
+    },
+    {
+      "id": "c2",
+      "title": "Email Integration Setup",
+      "phase": "not-started",
+      "category": "collaborative",
+      "source": "subagent",
+      "junoAssisted": true
+    },
+    {
+      "id": "c1771335662046",
+      "title": "Gap Scanner API Improvements",
+      "phase": "in-progress",
+      "category": "collaborative",
+      "notes": "### Market Data Cron Jobs - Timeout Fixes (2026-02-18)\n\n**Issue:** London Session and Asia Session cron jobs were timing out due to slow web_search calls\n\n**Solution Applied:**\n- London Session: Timeout increased from 180s → 240s\n- Asia Session: Timeout increased from 120s → 180s\n- Simplified web_search queries to 3 targeted searches per job\n\n**Current Status:**\n- London Session: Next run tomorrow 3:00 AM EST\n- Asia Session: Next run tonight 7:00 PM EST\n\n**Related:** These jobs post market updates to the dashboard's Daily Reports section",
+      "junoAssisted": true,
+      "source": "juno"
+    },
+    {
+      "id": "c1771441532104",
+      "title": "Create Documents Page for Research & Notes",
+      "phase": "not-started",
+      "category": "collaborative",
+      "description": "Build a dedicated Documents page in the dashboard to store research reports, project briefs, and shared notes between MJ and Juno. This will centralize knowledge and make it easier to reference past research and decisions.",
+      "notes": "## Documents Page - Research & Notes Repository\n\n### Purpose\nCentral repository for all research, reports, and notes shared between MJ and Juno.\n\n### Content Types\n- Research reports\n- Project briefs  \n- Meeting notes\n- Decision logs\n\n### Integration\n- Link from Goals section\n- Link from Projects section\n- Link from other dashboard sections as needed\n\n### Access\n- Both MJ and Juno can add/edit documents\n- Collaborative editing supported\n- Version history tracking",
+      "junoAssisted": true,
+      "source": "juno"
+    },
+    {
+      "id": "c1771441800000",
+      "title": "Implement AI Agency Architecture",
+      "phase": "in-progress",
+      "category": "collaborative",
+      "description": "Deploy multi-agent system with specialized agents on different models (Kimi for operations, Sonnet for coding/writing). Juno acts as VP of Operations supervising specialists.",
+      "notes": "## AI Agency Architecture\n\n### Overview\nMulti-agent, multi-model system with specialized agents reporting to Juno (VP Operations)\n\n### Agents\n- **Juno** (Kimi K2.5) - VP Operations, supervision, PR review, coordination\n- **KeepLiving-Shopify** (Sonnet 4.6) - Ecommerce automation, product descriptions\n- **Content-Creator** (Sonnet 4.6) - Buffer automation, social content\n\n### Key Features\n- One API key powers multiple agents (shared rate limits)\n- Spawn specialists on-demand (JIT)\n- Activity Log monitoring\n- PR review workflow\n\n### Document\nFull architecture: docs/AI_AGENCY_ARCHITECTURE.md\n\n### Implementation Steps\n1. Configure specialist agent definitions\n2. Set up model routing\n3. Deploy Shopify agent for KeepLiving\n4. Deploy Content agent for Buffer automation\n5. Test coordination workflow",
+      "junoAssisted": true,
+      "source": "juno",
+      "actionItems": [
+        {
+          "id": "ai-c1771441800000-1",
+          "text": "Configure specialist agent definitions",
+          "status": "pending",
+          "createdAt": "2026-02-18T20:30:00.000Z"
+        },
+        {
+          "id": "ai-c1771441800000-2",
+          "text": "Set up model routing",
+          "status": "pending",
+          "createdAt": "2026-02-18T20:30:00.000Z"
+        },
+        {
+          "id": "ai-c1771441800000-3",
+          "text": "Deploy Shopify agent for KeepLiving",
+          "status": "pending",
+          "createdAt": "2026-02-18T20:30:00.000Z"
+        },
+        {
+          "id": "ai-c1771441800000-4",
+          "text": "Deploy Content agent for Buffer automation",
+          "status": "pending",
+          "createdAt": "2026-02-18T20:30:00.000Z"
+        },
+        {
+          "id": "ai-c1771441800000-5",
+          "text": "Test coordination workflow",
+          "status": "pending",
+          "createdAt": "2026-02-18T20:30:00.000Z"
+        }
+      ]
+    }
+  ]
+}

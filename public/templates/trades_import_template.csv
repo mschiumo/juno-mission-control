@@ -1,0 +1,27 @@
+Date,Symbol,Side,Entry_Price,Exit_Price,Shares,Entry_Time,Exit_Time,Fees,Strategy,Setup_Type,Tags,Emotion,Notes
+2024-01-15,AAPL,long,185.50,188.25,100,09:35,10:15,4.95,breakout,morning_breakout,"gap,momentum",confident,Followed plan perfectly. Good entry on volume spike.
+2024-01-15,TSLA,long,210.00,208.50,50,11:20,11:45,4.95,pullback,20ma_bounce,"pullback",patient,Should have waited for better entry. Cut loss quickly.
+2024-01-16,NVDA,long,520.00,535.00,25,09:45,14:30,4.95,trend_following,opening_drive,"strong_trend",confident,Let winner run. Added to position on pullback.
+2024-01-16,META,short,380.00,375.50,40,13:15,15:45,4.95,mean_reversion,overbought,"oversold,fear",neutral,Good technical setup. Took profits into close.
+2024-01-17,AMD,long,145.00,148.50,200,10:00,11:30,4.95,breakout,resistance_break,"earnings",fomo,Chased entry. Should have waited for pullback.
+
+# Instructions:
+# 1. Copy this template and fill in your trade data
+# 2. Save as CSV or XLSX format
+# 3. Upload via Calendar > Import button
+# 
+# Field Descriptions:
+# - Date: YYYY-MM-DD format
+# - Symbol: Stock ticker (e.g., AAPL, TSLA)
+# - Side: "long" or "short"
+# - Entry_Price: Your entry price
+# - Exit_Price: Your exit price (leave blank if still open)
+# - Shares: Number of shares traded
+# - Entry_Time: HH:MM format (optional)
+# - Exit_Time: HH:MM format (optional)
+# - Fees: Total commissions/fees (optional, defaults to 0)
+# - Strategy: breakout, pullback, trend_following, mean_reversion, scalp, other
+# - Setup_Type: Describe your specific setup
+# - Tags: Comma-separated tags for filtering (optional)
+# - Emotion: confident, fearful, greedy, fomo, patient, impatient, neutral
+# - Notes: Any additional thoughts (optional)

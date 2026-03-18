@@ -1,7 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Habit {
   id: string;
@@ -12,6 +30,7 @@ interface Habit {
   target: string;
   category: string;
   history: boolean[]; // Last 7 days (oldest to newest)
+  order: number;
 }
 
 interface HabitStats {
@@ -21,35 +40,117 @@ interface HabitStats {
   weeklyCompletion: number;
 }
 
-interface GroupedHabits {
-  [category: string]: Habit[];
+interface PendingChange {
+  habitId: string;
+  previousState: boolean;
 }
 
-const categoryLabels: Record<string, string> = {
-  fitness: 'Fitness',
-  health: 'Health',
-  wellness: 'Wellness',
-  mindfulness: 'Mindfulness',
-  learning: 'Learning',
-  trading: 'Trading',
-  productivity: 'Productivity',
-  social: 'Social',
-  finance: 'Finance',
-  other: 'Other'
-};
+type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 
-const categoryColors: Record<string, string> = {
-  fitness: '#ff6b35',
-  health: '#238636',
-  wellness: '#58a6ff',
-  mindfulness: '#a371f7',
-  learning: '#d29922',
-  trading: '#f78166',
-  productivity: '#3fb950',
-  social: '#f778ba',
-  finance: '#79c0ff',
-  other: '#8b949e'
-};
+const EMOJI_OPTIONS = ['💪', '🏃', '📚', '💧', '🧘', '🛏️', '💊', '📝', '📊', '🎯', '🔥', '⭐', '🌟', '✨', '🎨', '🎵', '🌱', '☀️', '🌙', '🍎', '🥗', '💤', '🧠', '❤️', '🌈'];
+
+const STORAGE_KEY = 'juno_habits_cache';
+const STORAGE_STATS_KEY = 'juno_habits_stats_cache';
+const STORAGE_TIMESTAMP_KEY = 'juno_habits_timestamp';
+
+// Sortable habit item component
+interface SortableHabitItemProps {
+  habit: Habit;
+  onToggle: (habitId: string) => void;
+  onDelete: (habitId: string) => void;
+  dayLabels: string[];
+  disabled?: boolean;
+}
+
+function SortableHabitItem({ habit, onToggle, onDelete, dayLabels, disabled }: SortableHabitItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: habit.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`p-4 rounded-xl border transition-all ${
+        habit.completedToday
+          ? 'bg-[#22c55e]/10 border-[#22c55e]/30'
+          : 'bg-[#0F0F0F] border-[#262626] hover:border-[#F97316]/50'
+      } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''} ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
+    >
+      <div className="flex items-center gap-3">
+        <button
+          {...attributes}
+          {...listeners}
+          className="p-1.5 hover:bg-[#262626] rounded-lg cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+          title="Drag to reorder"
+        >
+          <GripVertical className="w-4 h-4 text-[#737373]" />
+        </button>
+
+        <button
+          onClick={() => onToggle(habit.id)}
+          disabled={disabled}
+          className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center disabled:opacity-50 ${
+            habit.completedToday
+              ? 'bg-[#22c55e] border-[#22c55e]'
+              : 'border-[#737373] hover:border-[#F97316]'
+          }`}
+        >
+          {habit.completedToday && <Check className="w-4 h-4 text-white" />}
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-lg flex-shrink-0">{habit.icon}</span>
+            <span className={`font-medium truncate ${habit.completedToday ? 'text-[#737373] line-through' : 'text-white'}`}>
+              {habit.name}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Flame className={`w-3 h-3 ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#737373]'}`} />
+              <span className={`text-xs ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#737373]'}`}>
+                {habit.streak} day{habit.streak !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <span className="text-xs text-[#737373] truncate">{habit.target}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="hidden sm:flex items-center gap-1">
+            {habit.history.map((completed, idx) => (
+              <div
+                key={idx}
+                className={`w-2 h-2 rounded-full ${completed ? 'bg-[#22c55e]' : 'bg-[#262626]'}`}
+                title={dayLabels[idx]}
+              />
+            ))}
+          </div>
+          <button
+            onClick={() => onDelete(habit.id)}
+            disabled={disabled}
+            className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors disabled:opacity-50"
+            title="Delete habit"
+          >
+            <Trash2 className="w-4 h-4 text-[#737373] hover:text-[#da3633]" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function HabitCard() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -61,44 +162,160 @@ export default function HabitCard() {
   });
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('syncing');
+  const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map());
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Modal states
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [newHabitName, setNewHabitName] = useState('');
+  const [newHabitIcon, setNewHabitIcon] = useState('⭐');
+  const [newHabitTarget, setNewHabitTarget] = useState('Daily');
 
+  // Sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Load from localStorage on mount
   useEffect(() => {
-    fetchHabits();
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchHabits, 300000);
-    return () => clearInterval(interval);
+    const loadFromCache = () => {
+      try {
+        const cachedHabits = localStorage.getItem(STORAGE_KEY);
+        const cachedStats = localStorage.getItem(STORAGE_STATS_KEY);
+        const cachedTimestamp = localStorage.getItem(STORAGE_TIMESTAMP_KEY);
+
+        if (cachedHabits) {
+          setHabits(JSON.parse(cachedHabits));
+        }
+        if (cachedStats) {
+          setStats(JSON.parse(cachedStats));
+        }
+        if (cachedTimestamp) {
+          setLastUpdated(new Date(cachedTimestamp));
+        }
+        
+        // If we have cached data, we're in offline mode until server confirms
+        if (cachedHabits) {
+          setSyncStatus('offline');
+        }
+      } catch (error) {
+        console.error('Failed to load from localStorage:', error);
+      }
+    };
+
+    loadFromCache();
   }, []);
 
-  const fetchHabits = async () => {
-    setLoading(true);
+  // Save to localStorage whenever habits/stats change
+  useEffect(() => {
+    try {
+      if (habits.length > 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
+        localStorage.setItem(STORAGE_STATS_KEY, JSON.stringify(stats));
+        localStorage.setItem(STORAGE_TIMESTAMP_KEY, new Date().toISOString());
+      }
+    } catch (error) {
+      console.error('Failed to save to localStorage:', error);
+    }
+  }, [habits, stats]);
+
+  // Fetch habits from server
+  const fetchHabits = useCallback(async () => {
+    setSyncStatus('syncing');
     try {
       const response = await fetch('/api/habit-status');
       const data = await response.json();
+      
       if (data.success) {
         setHabits(data.data.habits);
         setStats(data.data.stats);
         setLastUpdated(new Date());
-        
-        // Auto-expand all categories by default
-        const categories = new Set<string>(data.data.habits.map((h: Habit) => h.category));
-        setExpandedCategories(categories);
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus('error');
       }
     } catch (error) {
       console.error('Failed to fetch habits:', error);
+      setSyncStatus('offline');
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHabits();
+    const interval = setInterval(fetchHabits, 300000); // 5 minutes
+    return () => clearInterval(interval);
+  }, [fetchHabits]);
+
+  // Clear sync status after a delay
+  useEffect(() => {
+    if (syncStatus === 'synced') {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+      syncTimeoutRef.current = setTimeout(() => {
+        // Keep synced status but visually fade it
+      }, 2000);
+    }
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [syncStatus]);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setHabits((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        
+        // Save the new order to the server
+        const habitIds = newItems.map(h => h.id);
+        fetch('/api/habit-status', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ habitIds })
+        }).catch(error => {
+          console.error('Failed to save habit order:', error);
+        });
+        
+        return newItems;
+      });
     }
   };
 
   const toggleHabit = async (habitId: string) => {
-    // Find the habit being toggled
     const habit = habits.find(h => h.id === habitId);
-    if (!habit) return;
+    if (!habit || pendingChanges.has(habitId)) return;
     
     const newCompletedState = !habit.completedToday;
+    const previousState = habit.completedToday;
     
-    // Update habits
+    // Track pending change for revert
+    setPendingChanges(prev => new Map(prev.set(habitId, { habitId, previousState })));
+    setSyncStatus('syncing');
+    
+    // Optimistic update - update UI immediately
     const updatedHabits = habits.map(h => 
       h.id === habitId 
         ? { ...h, completedToday: newCompletedState }
@@ -106,12 +323,11 @@ export default function HabitCard() {
     );
     setHabits(updatedHabits);
     
-    // Recalculate stats
+    // Recalculate stats optimistically
     const completedToday = updatedHabits.filter(h => h.completedToday).length;
     const totalHabits = updatedHabits.length;
     const longestStreak = Math.max(...updatedHabits.map(h => h.streak), 0);
     
-    // Calculate weekly completion (7-day history + today)
     const totalPossibleCompletions = totalHabits * 7;
     const actualCompletions = updatedHabits.reduce((acc, h) => 
       acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
@@ -120,72 +336,140 @@ export default function HabitCard() {
       ? Math.round((actualCompletions / totalPossibleCompletions) * 100)
       : 0;
     
-    setStats({
-      totalHabits,
-      completedToday,
-      longestStreak,
-      weeklyCompletion
-    });
+    setStats({ totalHabits, completedToday, longestStreak, weeklyCompletion });
     
-    // Persist to Redis via API
     try {
-      await fetch('/api/habit-status', {
+      const response = await fetch('/api/habit-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ habitId, completed: newCompletedState })
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        // Server confirmed - update with server data to ensure consistency
+        setHabits(data.data.habits);
+        setStats(data.data.stats);
+        setLastUpdated(new Date());
+        setSyncStatus('synced');
+      } else {
+        throw new Error(data.error || 'Server returned error');
+      }
     } catch (error) {
       console.error('Failed to persist habit:', error);
+      
+      // REVERT: Restore previous state on error
+      const revertedHabits = habits.map(h => 
+        h.id === habitId 
+          ? { ...h, completedToday: previousState }
+          : h
+      );
+      setHabits(revertedHabits);
+      
+      // Recalculate stats with reverted state
+      const revertedCompletedToday = revertedHabits.filter(h => h.completedToday).length;
+      const revertedTotalHabits = revertedHabits.length;
+      const revertedLongestStreak = Math.max(...revertedHabits.map(h => h.streak), 0);
+      
+      const revertedTotalPossibleCompletions = revertedTotalHabits * 7;
+      const revertedActualCompletions = revertedHabits.reduce((acc, h) => 
+        acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
+      );
+      const revertedWeeklyCompletion = revertedTotalPossibleCompletions > 0 
+        ? Math.round((revertedActualCompletions / revertedTotalPossibleCompletions) * 100)
+        : 0;
+      
+      setStats({ 
+        totalHabits: revertedTotalHabits, 
+        completedToday: revertedCompletedToday, 
+        longestStreak: revertedLongestStreak, 
+        weeklyCompletion: revertedWeeklyCompletion 
+      });
+      
+      setSyncStatus('error');
+    } finally {
+      setPendingChanges(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(habitId);
+        return newMap;
+      });
     }
   };
 
-  const toggleCategory = (category: string) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(category)) {
-      newExpanded.delete(category);
-    } else {
-      newExpanded.add(category);
+  const addHabit = async () => {
+    if (!newHabitName.trim()) return;
+
+    setSyncStatus('syncing');
+    try {
+      const response = await fetch('/api/habit-status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newHabitName,
+          icon: newHabitIcon,
+          target: newHabitTarget,
+          category: 'other'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setHabits(data.data.habits);
+        setStats(data.data.stats);
+        setNewHabitName('');
+        setNewHabitIcon('⭐');
+        setNewHabitTarget('Daily');
+        setShowAddModal(false);
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus('error');
+      }
+    } catch (error) {
+      console.error('Failed to add habit:', error);
+      setSyncStatus('error');
     }
-    setExpandedCategories(newExpanded);
+  };
+
+  const deleteHabit = async (habitId: string) => {
+    if (!confirm('Are you sure you want to delete this habit?')) return;
+
+    setSyncStatus('syncing');
+    try {
+      const response = await fetch(`/api/habit-status?habitId=${habitId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setHabits(data.data.habits);
+        setStats(data.data.stats);
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus('error');
+      }
+    } catch (error) {
+      console.error('Failed to delete habit:', error);
+      setSyncStatus('error');
+    }
   };
 
   const formatLastUpdated = () => {
     if (!lastUpdated) return '';
-    const now = new Date();
-    const diff = Math.floor((now.getTime() - lastUpdated.getTime()) / 1000);
-    if (diff < 5) return 'just now';
-    if (diff < 60) return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    return `${Math.floor(diff / 3600)}h ago`;
+    return lastUpdated.toLocaleString('en-US', {
+      month: '2-digit', day: '2-digit', year: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true,
+      timeZone: 'America/New_York'
+    }).replace(',', ' @');
   };
-
-  // Group habits by category
-  const groupedHabits: GroupedHabits = habits.reduce((acc, habit) => {
-    const category = habit.category || 'other';
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(habit);
-    return acc;
-  }, {} as GroupedHabits);
-
-  // Sort categories by number of habits (most first)
-  const sortedCategories = Object.keys(groupedHabits).sort(
-    (a, b) => groupedHabits[b].length - groupedHabits[a].length
-  );
 
   const completionRate = stats.totalHabits > 0 
     ? Math.round((stats.completedToday / stats.totalHabits) * 100) 
     : 0;
 
-  // Calculate weekly completion for a specific habit
-  const getWeeklyCompletion = (history: boolean[]) => {
-    if (!history || history.length === 0) return 0;
-    const completed = history.filter(Boolean).length;
-    return Math.round((completed / history.length) * 100);
-  };
-
-  // Get day labels for the past week (M, T, W, T, F, S, S)
   const getDayLabels = () => {
     const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
     const today = new Date().getDay();
@@ -197,254 +481,257 @@ export default function HabitCard() {
     return labels;
   };
 
+  const getSyncIndicator = () => {
+    switch (syncStatus) {
+      case 'syncing':
+        return (
+          <span className="flex items-center gap-1 text-[10px] text-[#F97316]" title="Syncing...">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Syncing
+          </span>
+        );
+      case 'synced':
+        return (
+          <span className="flex items-center gap-1 text-[10px] text-[#22c55e]" title="All changes saved">
+            <Cloud className="w-3 h-3" />
+            Saved
+          </span>
+        );
+      case 'offline':
+        return (
+          <span className="flex items-center gap-1 text-[10px] text-[#737373]" title="Using cached data - will sync when online">
+            <CloudOff className="w-3 h-3" />
+            Offline
+          </span>
+        );
+      case 'error':
+        return (
+          <span className="flex items-center gap-1 text-[10px] text-[#da3633]" title="Sync failed - click refresh to retry">
+            <CloudOff className="w-3 h-3" />
+            Error
+          </span>
+        );
+    }
+  };
+
   const dayLabels = getDayLabels();
+  const hasPendingChanges = pendingChanges.size > 0;
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
+    <div className="card">
+      {/* Success Banner */}
+      {showSuccessBanner && (
+        <div className="mb-4 p-3 bg-[#22c55e]/20 border border-[#22c55e] rounded-xl flex items-center gap-2">
+          <Check className="w-5 h-5 text-[#22c55e]" />
+          <span className="text-[#22c55e] font-medium">Evening check-in saved!</span>
+        </div>
+      )}
+      
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
-            <Activity className="w-5 h-5 text-[#ff6b35]" />
+          <div className="p-2 bg-[#F97316]/10 rounded-xl">
+            <Activity className="w-5 h-5 text-[#F97316]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">Habits</h2>
             <div className="flex items-center gap-2">
-              <p className="text-xs text-[#8b949e]">
+              <p className="text-xs text-[#737373]">
                 {stats.completedToday} of {stats.totalHabits} completed today
               </p>
-              {lastUpdated && !loading && (
-                <span className="text-[10px] text-[#238636]">
-                  updated {formatLastUpdated()}
-                </span>
-              )}
+              {getSyncIndicator()}
             </div>
           </div>
         </div>
         
-        <button
-          onClick={fetchHabits}
-          disabled={loading}
-          className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
-          title="Refresh habits"
-        >
-          <RefreshCw className={`w-5 h-5 text-[#8b949e] hover:text-[#ff6b35] ${loading ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
-        <div className="bg-[#0d1117] rounded-lg p-3 text-center">
-          <div className="text-xl font-bold text-[#ff6b35]">{completionRate}%</div>
-          <div className="text-[10px] text-[#8b949e] uppercase tracking-wide">Today</div>
-        </div>
-        <div className="bg-[#0d1117] rounded-lg p-3 text-center">
-          <div className="text-xl font-bold text-[#ff6b35]">{stats.longestStreak}</div>
-          <div className="text-[10px] text-[#8b949e] uppercase tracking-wide">Best Streak</div>
-        </div>
-        <div className="bg-[#0d1117] rounded-lg p-3 text-center">
-          <div className="text-xl font-bold text-[#ff6b35]">{stats.weeklyCompletion}%</div>
-          <div className="text-[10px] text-[#8b949e] uppercase tracking-wide">This Week</div>
-        </div>
-        <div className="bg-[#0d1117] rounded-lg p-3 text-center">
-          <div className="text-xl font-bold text-[#ff6b35]">{habits.length}</div>
-          <div className="text-[10px] text-[#8b949e] uppercase tracking-wide">Total</div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="p-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors"
+            title="Add new habit"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <button
+            onClick={fetchHabits}
+            disabled={loading}
+            className="p-2 hover:bg-[#262626] rounded-xl transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 text-[#737373] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
-      {/* Weekly Progress Mini-Chart */}
+      {/* Stats Grid with metric classes */}
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        {[
+          { value: `${completionRate}%`, label: 'Today' },
+          { value: stats.longestStreak, label: 'Best Streak' },
+          { value: `${stats.weeklyCompletion}%`, label: 'This Week' },
+          { value: habits.length, label: 'Total' }
+        ].map((stat, i) => (
+          <div key={i} className="bg-[#0F0F0F] rounded-xl p-3 text-center border border-[#262626]">
+            <div className="metric-value text-[#F97316]">{stat.value}</div>
+            <div className="metric-label mt-1">{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Weekly Progress with new progress bar */}
       {habits.length > 0 && !loading && (
-        <div className="mb-5 p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
+        <div className="mb-6 p-4 bg-[#0F0F0F] rounded-xl border border-[#262626]">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-[#8b949e]" />
-              <span className="text-xs text-[#8b949e]">Weekly Progress</span>
+              <TrendingUp className="w-4 h-4 text-[#737373]" />
+              <span className="text-xs text-[#737373] uppercase tracking-wider font-medium">Weekly Progress</span>
             </div>
-            <span className="text-xs text-[#238636] font-medium">{stats.weeklyCompletion}% avg</span>
+            <span className="text-xs text-[#22c55e] font-medium">{stats.weeklyCompletion}% avg</span>
           </div>
-          <div className="h-2 bg-[#21262d] rounded-full overflow-hidden">
+          <div className="progress-bar">
             <div 
-              className="h-full bg-gradient-to-r from-[#ff6b35] to-[#238636] transition-all duration-500"
+              className="progress-fill"
               style={{ width: `${stats.weeklyCompletion}%` }}
             />
           </div>
         </div>
       )}
 
-      {/* Habits List by Category */}
-      <div className="space-y-4 max-h-[500px] overflow-y-auto">
-        {loading && habits.length === 0 ? (
-          <div className="text-center py-8 text-[#8b949e]">
-            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
-            <p>Loading habits...</p>
-          </div>
-        ) : habits.length === 0 ? (
-          <div className="text-center py-10">
-            <Activity className="w-12 h-12 mx-auto mb-3 text-[#8b949e] opacity-50" />
-            <p className="text-[#8b949e] mb-2">No habits configured</p>
-            <p className="text-xs text-[#8b949e] mb-4 max-w-xs mx-auto">
-              Start building better routines by adding habits like &quot;Morning Meditation&quot;, &quot;Exercise&quot;, or &quot;Read 30 Minutes&quot;
-            </p>
-            <button 
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#ff6b35]/10 text-[#ff6b35] rounded-lg text-sm hover:bg-[#ff6b35]/20 transition-colors"
-              onClick={() => {/* Open habit configuration */}}
+      {/* Habits List - Draggable */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="space-y-3">
+          {loading && habits.length === 0 ? (
+            <div className="text-center py-8 text-[#737373]">
+              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#F97316]" />
+              <p>Loading habits...</p>
+            </div>
+          ) : habits.length === 0 ? (
+            <div className="text-center py-10">
+              <Activity className="w-12 h-12 mx-auto mb-3 text-[#737373] opacity-50" />
+              <p className="text-[#737373] mb-2">No habits configured</p>
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#F97316]/10 text-[#F97316] rounded-xl text-sm hover:bg-[#F97316]/20 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Your First Habit
+              </button>
+            </div>
+          ) : (
+            <SortableContext 
+              items={habits.map(h => h.id)} 
+              strategy={verticalListSortingStrategy}
             >
-              <Plus className="w-4 h-4" />
-              Add Your First Habit
-            </button>
-          </div>
-        ) : (
-          sortedCategories.map((category) => {
-            const categoryHabits = groupedHabits[category];
-            const isExpanded = expandedCategories.has(category);
-            const categoryColor = categoryColors[category] || '#8b949e';
-            const categoryLabel = categoryLabels[category] || category.charAt(0).toUpperCase() + category.slice(1);
-            const completedInCategory = categoryHabits.filter(h => h.completedToday).length;
-            
-            return (
-              <div key={category} className="border border-[#30363d] rounded-lg overflow-hidden">
-                {/* Category Header */}
-                <button
-                  onClick={() => toggleCategory(category)}
-                  className="w-full flex items-center justify-between p-3 bg-[#0d1117] hover:bg-[#161b22] transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: categoryColor }}
-                    />
-                    <span className="font-medium text-white text-sm">{categoryLabel}</span>
-                    <span className="text-xs text-[#8b949e]">
-                      ({completedInCategory}/{categoryHabits.length})
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      {categoryHabits.slice(0, 3).map((habit, i) => (
-                        <span key={i} className="text-xs">{habit.icon}</span>
-                      ))}
-                      {categoryHabits.length > 3 && (
-                        <span className="text-xs text-[#8b949e]">+{categoryHabits.length - 3}</span>
-                      )}
-                    </div>
-                    <svg 
-                      className={`w-4 h-4 text-[#8b949e] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </button>
-                
-                {/* Habits in Category */}
-                {isExpanded && (
-                  <div className="divide-y divide-[#30363d]">
-                    {categoryHabits.map((habit) => (
-                      <div 
-                        key={habit.id}
-                        className={`p-3 transition-all ${
-                          habit.completedToday 
-                            ? 'bg-[#238636]/5' 
-                            : 'bg-[#161b22]'
-                        }`}
-                      >
-                        {/* Main Habit Row */}
-                        <div className="flex items-center gap-3">
-                          <div className="text-xl">{habit.icon}</div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className={`font-medium text-sm truncate ${
-                              habit.completedToday ? 'text-[#238636] line-through' : 'text-white'
-                            }`}>
-                              {habit.name}
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] text-[#8b949e]">
-                              <Target className="w-3 h-3" />
-                              <span>{habit.target}</span>
-                              <span className="text-[#30363d]">•</span>
-                              <Flame className="w-3 h-3 text-[#ff6b35]" />
-                              <span className="text-[#ff6b35]">{habit.streak} day streak</span>
-                            </div>
-                          </div>
-
-                          {/* Weekly History Dots */}
-                          <div className="flex items-center gap-1 mr-2">
-                            {habit.history.map((completed, index) => (
-                              <div
-                                key={index}
-                                className={`w-2 h-2 rounded-full ${
-                                  completed 
-                                    ? 'bg-[#238636]' 
-                                    : 'bg-[#30363d]'
-                                }`}
-                                title={`${dayLabels[index]}: ${completed ? 'Done' : 'Missed'}`}
-                              />
-                            ))}
-                          </div>
-
-                          {/* Toggle Button */}
-                          <button
-                            onClick={() => toggleHabit(habit.id)}
-                            className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${
-                              habit.completedToday 
-                                ? 'bg-[#238636] border-[#238636]' 
-                                : 'border-[#8b949e] hover:border-[#ff6b35]'
-                            }`}
-                          >
-                            {habit.completedToday && <Check className="w-4 h-4 text-white" />}
-                          </button>
-                        </div>
-                        
-                        {/* Mini Progress Bar for this habit */}
-                        <div className="mt-2 flex items-center gap-2">
-                          <div className="flex-1 h-1 bg-[#21262d] rounded-full overflow-hidden">
-                            <div 
-                              className="h-full rounded-full transition-all duration-300"
-                              style={{ 
-                                width: `${getWeeklyCompletion(habit.history)}%`,
-                                backgroundColor: categoryColor
-                              }}
-                            />
-                          </div>
-                          <span className="text-[10px] text-[#8b949e] w-8 text-right">
-                            {getWeeklyCompletion(habit.history)}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
-      </div>
+              {habits.map((habit) => (
+                <SortableHabitItem
+                  key={habit.id}
+                  habit={habit}
+                  onToggle={toggleHabit}
+                  onDelete={deleteHabit}
+                  dayLabels={dayLabels}
+                  disabled={hasPendingChanges}
+                />
+              ))}
+            </SortableContext>
+          )}
+        </div>
+      </DndContext>
       
-      {/* Day Labels Legend */}
+      {/* Legend */}
       {habits.length > 0 && !loading && (
-        <div className="mt-4 pt-3 border-t border-[#30363d]">
-          <div className="flex items-center justify-between">
+        <div className="mt-4 pt-4 border-t border-[#262626]">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-3">
-              <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last 7 Days</span>
+              <span className="metric-label">Last 7 Days</span>
               <div className="flex items-center gap-1">
                 {dayLabels.map((day, i) => (
-                  <span key={i} className="text-[10px] text-[#8b949e] w-2 text-center">
-                    {day}
-                  </span>
+                  <span key={i} className="text-[10px] text-[#737373] w-2 text-center">{day}</span>
                 ))}
               </div>
             </div>
-            <div className="flex items-center gap-3 text-[10px] text-[#8b949e]">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-[#238636]" />
-                <span>Done</span>
+            <div className="flex items-center gap-3 text-[10px] text-[#737373]">
+              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#22c55e]" /><span>Done</span></div>
+              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#262626]" /><span>Missed</span></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Habit Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Add New Habit</h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-2 hover:bg-[#262626] rounded-lg"
+              >
+                <X className="w-5 h-5 text-[#737373]" />
+              </button>
+            </div>
+            
+            {/* Name Input */}
+            <div className="mb-4">
+              <label className="block text-sm text-[#737373] mb-2">Habit Name</label>
+              <input
+                type="text"
+                value={newHabitName}
+                onChange={(e) => setNewHabitName(e.target.value)}
+                placeholder="e.g., Morning Meditation"
+                className="w-full px-4 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316]"
+              />
+            </div>
+            
+            {/* Icon Selector */}
+            <div className="mb-4">
+              <label className="block text-sm text-[#737373] mb-2">Icon</label>
+              <div className="flex flex-wrap gap-2">
+                {EMOJI_OPTIONS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => setNewHabitIcon(emoji)}
+                    className={`text-2xl p-2 rounded-lg border transition-all ${
+                      newHabitIcon === emoji
+                        ? 'border-[#F97316] bg-[#F97316]/20'
+                        : 'border-[#262626] hover:border-[#737373]'
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
               </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-[#30363d]" />
-                <span>Missed</span>
-              </div>
+            </div>
+            
+            {/* Target Input */}
+            <div className="mb-6">
+              <label className="block text-sm text-[#737373] mb-2">Target</label>
+              <input
+                type="text"
+                value={newHabitTarget}
+                onChange={(e) => setNewHabitTarget(e.target.value)}
+                placeholder="e.g., Daily, 3x/week, 30 min"
+                className="w-full px-4 py-2 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#F97316]"
+              />
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 px-4 py-2 bg-[#262626] text-white rounded-xl hover:bg-[#404040] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addHabit}
+                disabled={!newHabitName.trim()}
+                className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-xl hover:bg-[#ff8c5a] transition-colors disabled:opacity-50"
+              >
+                Add Habit
+              </button>
             </div>
           </div>
         </div>

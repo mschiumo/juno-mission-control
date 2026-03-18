@@ -22,7 +22,13 @@ const fallbackQuotes = [
   { quote: "Everything you've ever wanted is on the other side of fear.", author: "George Addair" }
 ];
 
-export default function MotivationalBanner() {
+export default function MotivationalBanner({ 
+  compact = false, 
+  variant = 'dark' 
+}: { 
+  compact?: boolean;
+  variant?: 'dark' | 'orange';
+}) {
   const [data, setData] = useState<MotivationalData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -124,10 +130,72 @@ export default function MotivationalBanner() {
     }
   };
 
+  // Compact version for Trading tab sidebar
+  if (compact) {
+    // Orange variant for Dashboard (compact with orange bg)
+    if (variant === 'orange') {
+      if (loading) {
+        return (
+          <div className="max-w-md bg-gradient-to-r from-[#ff6b35]/20 via-[#ff8c5a]/20 to-[#ff6b35]/20 border border-[#ff6b35]/30 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-[#ff6b35] border-t-transparent rounded-full animate-spin" />
+              <span className="text-[#ff8c5a] text-xs">Loading...</span>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="max-w-md bg-gradient-to-r from-[#ff6b35]/10 via-[#ff8c5a]/10 to-[#ff6b35]/10 border border-[#ff6b35]/30 rounded-lg p-4">
+          <div className="flex items-start gap-2">
+            <Quote className="w-4 h-4 text-[#ff6b35] flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-white line-clamp-3">
+                &ldquo;{data?.quote}&rdquo;
+              </p>
+              <cite className="text-xs text-[#ff8c5a] not-italic block mt-2">
+                — {data?.author}
+              </cite>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Dark variant for Trading tab (default compact)
+    if (loading) {
+      return (
+        <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-[#ff6b35] border-t-transparent rounded-full animate-spin" />
+            <span className="text-[#8b949e] text-xs">Loading...</span>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+        <div className="flex items-start gap-2">
+          <Quote className="w-4 h-4 text-[#ff6b35] flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-white line-clamp-3">
+              &ldquo;{data?.quote}&rdquo;
+            </p>
+            <cite className="text-xs text-[#8b949e] not-italic block mt-2">
+              — {data?.author}
+            </cite>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Full-width version for Dashboard
   if (loading) {
     return (
       <div className="bg-gradient-to-r from-[#ff6b35]/10 via-[#ff8c5a]/10 to-[#ff6b35]/10 border-y border-[#ff6b35]/20 py-4 md:py-6">
-        <div className="max-w-7xl mx-auto px-4 flex items-center justify-center gap-3">
+        <div className="max-w-[1600px] mx-auto px-4 flex items-center justify-center gap-3">
           <div className="w-5 h-5 border-2 border-[#ff6b35] border-t-transparent rounded-full animate-spin" />
           <span className="text-[#8b949e] text-sm">Loading today&apos;s inspiration...</span>
         </div>
@@ -137,7 +205,7 @@ export default function MotivationalBanner() {
 
   return (
     <div className="bg-gradient-to-r from-[#ff6b35]/10 via-[#ff8c5a]/10 to-[#ff6b35]/10 border-y border-[#ff6b35]/20 py-4 md:py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-start gap-3 md:gap-4">
           <div className="p-2 md:p-3 bg-[#ff6b35]/20 rounded-full flex-shrink-0">
             <Quote className="w-5 h-5 md:w-6 md:h-6 text-[#ff6b35]" />

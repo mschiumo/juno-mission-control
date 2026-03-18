@@ -1,0 +1,31 @@
+# Daily Habit Auto-Record
+# Runs daily at 11:59 PM EST to record the day's habits
+
+name: "Daily Habit Auto-Record"
+sessionTarget: isolated
+enabled: true
+schedule:
+  kind: cron
+  expr: "59 23 * * *"
+  tz: "America/New_York"
+payload:
+  kind: agentTurn
+  message: |
+    Trigger the daily habit auto-record at 11:59 PM EST.
+    
+    Call the /api/habits/daily-record endpoint with today's habits.
+    
+    STEPS:
+    1. Fetch today's habit status from /api/habit-status
+    2. POST to /api/habits/daily-record with:
+       - date: today's date (YYYY-MM-DD format)
+       - habits: array of habit names and completion status
+       - summary: brief summary of the day's habit performance
+    
+    The endpoint will store the record in Redis and maintain a history
+    of the last 365 daily records.
+    
+    Log this action to the Activity Log via POST /api/activity-log with type: "cron"
+    
+    If the API call fails, retry up to 3 times with exponential backoff.
+  timeoutSeconds: 60
