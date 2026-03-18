@@ -15,6 +15,7 @@ const stockNames: Record<string, string> = {
   'QQQ': 'NASDAQ ETF', 
   'DIA': 'Dow Jones ETF',
   'VXX': 'iPath VIX Short-Term Futures',
+  '^VIX': 'CBOE Volatility Index',
   'UUP': 'US Dollar Index Bullish',
   'TSLA': 'Tesla Inc.',
   'META': 'Meta Platforms',
@@ -252,10 +253,51 @@ async function fetchCryptoPrices(): Promise<MarketItem[]> {
 }
 
 /**
- * Fetches CNN Fear & Greed Index (0-100).
- * Falls back to alternative.me if CNN is unreachable.
+/**
+ * Fetches a single symbol from Yahoo Finance (used for ^VIX which fails in multi-symbol requests)
+ */
+async function fetchYahooSingle(symbol: string): Promise<MarketItem | null> {
+  try {
+    const encodedSymbol = encodeURIComponent(symbol);
+    const response = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?interval=1d&range=1d`,
+      {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        next: { revalidate: 60 }
+      }
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    const result = data.chart?.result?.[0];
+    if (!result?.meta) return null;
+    const meta = result.meta;
+    const price = meta.regularMarketPrice || meta.previousClose || meta.chartPreviousClose || 0;
+    const prevClose = meta.previousClose || meta.chartPreviousClose || price;
+    const change = price - prevClose;
+    const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+    if (price <= 0) return null;
+    return {
+      symbol,
+      name: stockNames[symbol] || meta.shortName || symbol,
+      price: Number(price.toFixed(2)),
+      change: Number(change.toFixed(2)),
+      changePercent: Number(changePercent.toFixed(2)),
+      status: change >= 0 ? 'up' : 'down'
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetches CNN Fear & Greed Index (0-100)
+ * Falls back to alternative.me F&G if CNN is unreachable
  */
 async function fetchFearAndGreed(): Promise<{ score: number; rating: string } | null> {
+  // Try CNN first
   try {
     const response = await fetch(
       'https://production.dataviz.cnn.io/index/fearandgreed/graphdata',
@@ -272,16 +314,22 @@ async function fetchFearAndGreed(): Promise<{ score: number; rating: string } | 
       const data = await response.json();
       const score = data.fear_and_greed?.score;
       const rating = data.fear_and_greed?.rating;
-      if (score !== undefined) return { score: Math.round(score), rating: rating ?? 'Unknown' };
+      if (score !== undefined) {
+        return { score: Math.round(score), rating: rating ?? 'Unknown' };
+      }
     }
   } catch {
     // CNN unavailable — try fallback
   }
 
+  // Fallback: alternative.me Fear & Greed (crypto-weighted but widely used)
   try {
     const response = await fetch(
       'https://api.alternative.me/fng/?limit=1',
-      { headers: { 'Accept': 'application/json' }, next: { revalidate: 300 } }
+      {
+        headers: { 'Accept': 'application/json' },
+        next: { revalidate: 300 }
+      }
     );
     if (response.ok) {
       const data = await response.json();
@@ -306,6 +354,7 @@ function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commo
       { symbol: 'SPY', name: 'S&P 500 ETF', price: 595.32, change: 2.15, changePercent: 0.36, status: 'up' },
       { symbol: 'QQQ', name: 'NASDAQ ETF', price: 518.47, change: 3.21, changePercent: 0.62, status: 'up' },
       { symbol: 'DIA', name: 'Dow Jones ETF', price: 448.92, change: 1.87, changePercent: 0.42, status: 'up' },
+      { symbol: '^VIX', name: 'CBOE Volatility Index', price: 18.45, change: 0.85, changePercent: 4.83, status: 'up' },
       { symbol: 'VXX', name: 'iPath VIX Short-Term Futures', price: 52.35, change: -1.25, changePercent: -2.33, status: 'down' },
       { symbol: 'UUP', name: 'US Dollar Index Bullish', price: 28.45, change: 0.15, changePercent: 0.53, status: 'up' }
     ],
@@ -349,7 +398,7 @@ export async function GET() {
     if (hasFinnhubKey) {
       console.log('Using Finnhub API for market data');
       [indices, stocks, commodities] = await Promise.all([
-        fetchFinnhubStocks(['SPY', 'QQQ', 'DIA', 'VXX', 'UUP']),
+        fetchFinnhubStocks(['SPY', 'QQQ', 'DIA', '^VIX', 'VXX', 'UUP']),
         fetchFinnhubStocks(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR', 'AMAT']),
         fetchFinnhubStocks(['GLD', 'SLV', 'CPER', 'PLTM', 'PALL']) // Gold, Silver, Copper, Platinum, Palladium ETFs
       ]);
@@ -358,18 +407,28 @@ export async function GET() {
     // Fallback to Yahoo Finance if Finnhub returns no data
     if (indices.length === 0) {
       console.log('Falling back to Yahoo Finance');
+      // ^VIX must be fetched individually — multi-symbol Yahoo Finance only returns the first symbol
       [indices, stocks] = await Promise.all([
         fetchYahooFinance(['SPY', 'QQQ', 'DIA', 'VXX', 'UUP']),
         fetchYahooFinance(['TSLA', 'META', 'NVDA', 'GOOGL', 'AMZN', 'PLTR'])
       ]);
+      const vix = await fetchYahooSingle('^VIX');
+      if (vix) indices.push(vix);
+    }
+
+    // Ensure ^VIX is present even when using Finnhub (Finnhub free tier may not support index symbols)
+    const hasVix = indices.some(i => i.symbol === '^VIX');
+    if (!hasVix) {
+      const vix = await fetchYahooSingle('^VIX');
+      if (vix) indices.push(vix);
     }
     
     // Always fetch crypto from CoinGecko
     const crypto = await fetchCryptoPrices();
 
-    // Fetch Fear & Greed index (best-effort, null if both sources fail)
+    // Fetch Fear & Greed index (best-effort)
     const fearAndGreed = await fetchFearAndGreed();
-
+    
     const fallback = getFallbackData();
     
     // Use live data if available, otherwise fallback
@@ -415,6 +474,7 @@ export async function GET() {
         stocks: fallback.stocks,
         commodities: fallback.commodities,
         crypto: fallback.crypto,
+        fearAndGreed: { score: 50, rating: 'Neutral' },
         lastUpdated: timestamp
       },
       timestamp,
