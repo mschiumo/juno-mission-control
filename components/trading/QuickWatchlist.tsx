@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Plus,
   Search,
@@ -33,6 +33,13 @@ interface QuickWatchlistProps {
   calculatorRef?: React.RefObject<HTMLDivElement | null>;
 }
 
+interface SymbolResult {
+  symbol: string;
+  displaySymbol: string;
+  name: string;
+  type: string;
+}
+
 export default function QuickWatchlist({ 
   onSelectTicker, 
   onTickerRemoved,
@@ -45,8 +52,75 @@ export default function QuickWatchlist({
   const [sort, setSort] = useState<SortState>({ field: 'addedAt', direction: 'desc' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<SymbolResult[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Check for midnight clear on mount
+  // Search for symbols (debounced)
+  useEffect(() => {
+    if (tickerInput.length < 1) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const response = await fetch(`/api/symbols/search?q=${encodeURIComponent(tickerInput)}`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setSuggestions(result.data);
+            setShowSuggestions(result.data.length > 0);
+          }
+        }
+      } catch (err) {
+        console.error('Error searching symbols:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [tickerInput]);
+
+  const handleSelectSuggestion = (symbol: string) => {
+    setTickerInput(symbol);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setSelectedIndex(-1);
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSuggestions) return;
+    
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : prev));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => (prev > 0 ? prev - 1 : -1));
+        break;
+      case 'Enter':
+        if (selectedIndex >= 0) {
+          e.preventDefault();
+          handleSelectSuggestion(suggestions[selectedIndex].symbol);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setSelectedIndex(-1);
+        break;
+    }
+  };
   useEffect(() => {
     checkAndClearIfNewDay();
     fetchWatchlist();
@@ -259,15 +333,49 @@ export default function QuickWatchlist({
 
       {isExpanded && (
         <div className="p-4 space-y-4">
-          <form onSubmit={handleAddTicker} className="flex gap-2">
-            <input
-              type="text"
-              value={tickerInput}
-              onChange={(e) => { setTickerInput(e.target.value.toUpperCase()); setError(null); }}
-              placeholder="Enter ticker (e.g., AAPL)"
-              className="flex-1 px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm placeholder-[#6e7681] focus:outline-none focus:border-[#F97316]"
-              disabled={isLoading}
-            />
+          <form onSubmit={handleAddTicker} className="flex gap-2 relative">
+            <div className="flex-1 relative">
+              <input
+                ref={inputRef}
+                type="text"
+                value={tickerInput}
+                onChange={(e) => { setTickerInput(e.target.value.toUpperCase()); setError(null); setSelectedIndex(-1); }}
+                onKeyDown={handleKeyDown}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                onFocus={() => tickerInput.length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
+                placeholder="Enter ticker (e.g., AAPL)"
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm placeholder-[#6e7681] focus:outline-none focus:border-[#F97316]"
+                disabled={isLoading}
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <span className="animate-spin text-xs">⟳</span>
+                </div>
+              )}
+              
+              {/* Autocomplete Dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-[#161b22] border border-[#30363d] rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {suggestions.map((suggestion, index) => (
+                    <button
+                      key={suggestion.symbol}
+                      type="button"
+                      onClick={() => handleSelectSuggestion(suggestion.symbol)}
+                      className={`w-full px-3 py-2 text-left text-sm transition-colors ${
+                        index === selectedIndex 
+                          ? 'bg-[#F97316]/20 text-white' 
+                          : 'text-[#8b949e] hover:bg-[#0d1117] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-white">{suggestion.symbol}</span>
+                        <span className="text-xs text-[#6e7681] truncate max-w-[150px]">{suggestion.name}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               type="submit"
               disabled={isLoading || !tickerInput.trim()}
