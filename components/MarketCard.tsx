@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { TrendingUp, TrendingDown, RefreshCw, DollarSign, ExternalLink } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, DollarSign, ExternalLink, Star } from 'lucide-react';
 import MarketCountdown from './MarketCountdown';
 
 interface MarketItem {
@@ -41,6 +41,10 @@ export default function MarketCard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeTab, setActiveTabState] = useState<MarketTab>(getTabFromUrl);
   const [dataSource, setDataSource] = useState<DataSource>('fallback');
+  const [favoritedTickers, setFavoritedTickers] = useState<Set<string>>(new Set());
+  const [tickerIdMap, setTickerIdMap] = useState<Record<string, string>>({});
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Update URL when tab changes (using replace to avoid bloating history)
   const setActiveTab = (tab: MarketTab) => {
@@ -61,6 +65,7 @@ export default function MarketCard() {
 
   useEffect(() => {
     fetchMarketData();
+    fetchExistingFavorites();
     // Auto-refresh every 60 seconds
     const interval = setInterval(fetchMarketData, 60000);
     return () => clearInterval(interval);
@@ -80,6 +85,57 @@ export default function MarketCard() {
       console.error('Failed to fetch market data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchExistingFavorites = async () => {
+    try {
+      const res = await fetch('/api/watchlist?userId=default');
+      const result = await res.json();
+      if (result.success && Array.isArray(result.data)) {
+        const idMap: Record<string, string> = {};
+        result.data.forEach((item: { ticker: string; id: string }) => { idMap[item.ticker] = item.id; });
+        setTickerIdMap(idMap);
+        setFavoritedTickers(new Set(result.data.map((item: { ticker: string }) => item.ticker)));
+      }
+    } catch { /* silent */ }
+  };
+
+  const showToast = (msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(msg);
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  };
+
+  const toggleFavorite = async (e: React.MouseEvent, symbol: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (favoritedTickers.has(symbol)) {
+      const id = tickerIdMap[symbol];
+      if (!id) return;
+      try {
+        const res = await fetch(`/api/watchlist?id=${id}&userId=default`, { method: 'DELETE' });
+        if (res.ok) {
+          setFavoritedTickers(prev => { const next = new Set(prev); next.delete(symbol); return next; });
+          setTickerIdMap(prev => { const next = { ...prev }; delete next[symbol]; return next; });
+          showToast(`${symbol} was removed from your Daily Favorites`);
+        }
+      } catch { /* silent */ }
+    } else {
+      try {
+        const res = await fetch('/api/watchlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item: { ticker: symbol, entryPrice: 0, stopPrice: 0, targetPrice: 0, riskRatio: 2, stopSize: 0, shareSize: 0, potentialReward: 0, positionValue: 0, isFavorite: false }, userId: 'default' }),
+        });
+        if (res.ok) {
+          const result = await res.json();
+          const newId: string = result.data?.id;
+          setFavoritedTickers(prev => new Set([...prev, symbol]));
+          if (newId) setTickerIdMap(prev => ({ ...prev, [symbol]: newId }));
+          showToast(`${symbol} added to Daily Favorites!`);
+        }
+      } catch { /* silent */ }
     }
   };
 
@@ -118,6 +174,7 @@ export default function MarketCard() {
   const downCount = currentData.filter(item => item.change < 0).length;
 
   return (
+    <>
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
         <div className="flex items-center gap-3">
@@ -190,49 +247,69 @@ export default function MarketCard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {currentData.map((item) => (
-              <a
-                key={item.symbol}
-                href={`https://www.tradingview.com/chart/?symbol=${getTradingViewSymbol(item.symbol, activeTab === 'crypto')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#F97316]/50 transition-all block group min-w-0"
-              >
-                <div className="flex items-center justify-between mb-2 min-w-0">
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    {item.change >= 0 ? (
-                      <TrendingUp className="w-3.5 h-3.5 text-[#238636] flex-shrink-0" />
-                    ) : (
-                      <TrendingDown className="w-3.5 h-3.5 text-[#da3633] flex-shrink-0" />
-                    )}
-                    <span className="font-semibold text-white group-hover:text-[#F97316] transition-colors flex items-center gap-1 truncate">
-                      <span className="truncate">{item.symbol}</span>
-                      <ExternalLink className="w-3 h-3 opacity-50 flex-shrink-0" />
+            {currentData.map((item) => {
+              const favorited = favoritedTickers.has(item.symbol);
+              return (
+                <a
+                  key={item.symbol}
+                  href={`https://www.tradingview.com/chart/?symbol=${getTradingViewSymbol(item.symbol, activeTab === 'crypto')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#F97316]/50 transition-all block group min-w-0"
+                >
+                  <div className="flex items-center justify-between mb-2 min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      {item.change >= 0 ? (
+                        <TrendingUp className="w-3.5 h-3.5 text-[#238636] flex-shrink-0" />
+                      ) : (
+                        <TrendingDown className="w-3.5 h-3.5 text-[#da3633] flex-shrink-0" />
+                      )}
+                      <span className="font-semibold text-white group-hover:text-[#F97316] transition-colors flex items-center gap-1 truncate">
+                        <span className="truncate">{item.symbol}</span>
+                        <ExternalLink className="w-3 h-3 opacity-50 flex-shrink-0" />
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        item.change >= 0
+                          ? 'bg-[#238636]/20 text-[#238636]'
+                          : 'bg-[#da3633]/20 text-[#da3633]'
+                      }`}>
+                        {item.change >= 0 ? '+' : ''}{item.changePercent.toFixed(2)}%
+                      </span>
+                      <button
+                        onClick={(e) => toggleFavorite(e, item.symbol)}
+                        className={`p-1 rounded transition-colors ${favorited ? 'text-[#F97316]' : 'text-transparent group-hover:text-[#8b949e] hover:!text-[#F97316]'}`}
+                        title={favorited ? 'Remove from Daily Favorites' : 'Add to Daily Favorites'}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${favorited ? 'fill-[#F97316]' : ''}`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-[#8b949e] mb-3 truncate">{item.name}</p>
+
+                  <div className="flex items-baseline justify-between min-w-0">
+                    <span className="metric-value text-lg sm:text-xl truncate">{formatPrice(item.price)}</span>
+                    <span className={`text-xs font-medium flex-shrink-0 ml-2 ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>
+                      {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}
                     </span>
                   </div>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${
-                    item.change >= 0
-                      ? 'bg-[#238636]/20 text-[#238636]'
-                      : 'bg-[#da3633]/20 text-[#da3633]'
-                  }`}>
-                    {item.change >= 0 ? '+' : ''}{item.changePercent.toFixed(2)}%
-                  </span>
-                </div>
-
-                <p className="text-xs text-[#8b949e] mb-3 truncate">{item.name}</p>
-
-                <div className="flex items-baseline justify-between min-w-0">
-                  <span className="metric-value text-lg sm:text-xl truncate">{formatPrice(item.price)}</span>
-                  <span className={`text-xs font-medium flex-shrink-0 ml-2 ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>
-                    {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}
-                  </span>
-                </div>
-              </a>
-            ))}
+                </a>
+              );
+            })}
           </div>
         )}
       </div>
       </div>
     </div>
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-[#161b22] border border-[#F97316]/50 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm">
+          <Star className="w-4 h-4 text-[#F97316] fill-[#F97316] flex-shrink-0" />
+          {toast}
+        </div>
+      )}
+    </>
   );
 }
