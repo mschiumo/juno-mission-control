@@ -1,0 +1,25 @@
+# Clear Daily Favorites
+# Runs daily at 12:00 AM EST (midnight) to clear all Daily Favorites
+
+name: "Clear Daily Favorites"
+sessionTarget: isolated
+enabled: true
+schedule:
+  kind: cron
+  expr: "0 0 * * *"
+  tz: "America/New_York"
+payload:
+  kind: agentTurn
+  message: |
+    Clear all Daily Favorites at midnight.
+    
+    Call the /api/cron/clear-daily-favorites endpoint to remove all
+    watchlist items from the default user's Daily Favorites.
+    
+    The endpoint will:
+    1. Fetch all watchlist items for user 'default'
+    2. Delete each item one by one
+    3. Return the count of deleted items
+    
+    Log this action to the Activity Log via POST /api/activity-log with type: "cron"
+  timeoutSeconds: 30
