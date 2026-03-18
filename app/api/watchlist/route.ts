@@ -56,8 +56,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     const body = await request.json();
     
+    // Support both { item: {...} } and direct fields format
+    const itemData = body.item || body;
+    
     // Validation - only ticker is required
-    if (!body.ticker) {
+    if (!itemData.ticker) {
       return NextResponse.json(
         { success: false, error: 'Missing required field: ticker' },
         { status: 400 }
@@ -66,19 +69,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     // Create or update watchlist item
     const item: WatchlistItem = {
-      id: body.id || generateId(),
-      ticker: body.ticker.toUpperCase(),
-      entryPrice: body.entryPrice ? parseFloat(body.entryPrice) : 0,
-      stopPrice: body.stopPrice ? parseFloat(body.stopPrice) : 0,
-      targetPrice: body.targetPrice ? parseFloat(body.targetPrice) : 0,
-      riskRatio: body.riskRatio ? parseFloat(body.riskRatio) : 2,
-      stopSize: body.stopSize ? parseFloat(body.stopSize) : 0,
-      shareSize: body.shareSize ? parseInt(body.shareSize) : 0,
-      potentialReward: body.potentialReward ? parseFloat(body.potentialReward) : 0,
-      positionValue: body.positionValue ? parseFloat(body.positionValue) : 0,
-      createdAt: body.createdAt || new Date().toISOString(),
-      isFavorite: body.isFavorite || false,
-      order: body.order,
+      id: itemData.id || generateId(),
+      ticker: itemData.ticker.toUpperCase(),
+      entryPrice: itemData.entryPrice ? parseFloat(itemData.entryPrice) : 0,
+      stopPrice: itemData.stopPrice ? parseFloat(itemData.stopPrice) : 0,
+      targetPrice: itemData.targetPrice ? parseFloat(itemData.targetPrice) : 0,
+      riskRatio: itemData.riskRatio ? parseFloat(itemData.riskRatio) : 2,
+      stopSize: itemData.stopSize ? parseFloat(itemData.stopSize) : 0,
+      shareSize: itemData.shareSize ? parseInt(itemData.shareSize) : 0,
+      potentialReward: itemData.potentialReward ? parseFloat(itemData.potentialReward) : 0,
+      positionValue: itemData.positionValue ? parseFloat(itemData.positionValue) : 0,
+      createdAt: itemData.createdAt || new Date().toISOString(),
+      isFavorite: itemData.isFavorite || false,
+      order: itemData.order,
     };
     
     await saveWatchlistItem(item, userId);
