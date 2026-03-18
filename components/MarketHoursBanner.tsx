@@ -66,12 +66,14 @@ export default function MarketHoursBanner({ compact = false }: { compact?: boole
   // Compact version for sidebar
   if (compact) {
     return (
-      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Globe className="w-4 h-4 text-[#ff6b35]" />
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50">
+          <div className="p-1.5 bg-[#F97316]/10 rounded-lg">
+            <Globe className="w-4 h-4 text-[#F97316]" />
+          </div>
           <span className="text-sm font-semibold text-white">Markets</span>
         </div>
-        <div className="space-y-2">
+        <div className="p-4 space-y-2">
           {marketStatus.map((market) => (
             <div key={market.name} className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
@@ -88,12 +90,14 @@ export default function MarketHoursBanner({ compact = false }: { compact?: boole
 
   // Full-width version (horizontal layout)
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Globe className="w-5 h-5 text-[#ff6b35]" />
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50">
+        <div className="p-1.5 bg-[#F97316]/10 rounded-lg">
+          <Globe className="w-5 h-5 text-[#F97316]" />
+        </div>
         <span className="font-semibold text-white">Market Hours</span>
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="p-4 grid grid-cols-3 gap-4">
         {marketStatus.map((market) => (
           <div key={market.name} className="text-center">
             <div className="flex items-center justify-center gap-2 mb-1">

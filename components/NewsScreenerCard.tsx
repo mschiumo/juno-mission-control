@@ -120,46 +120,43 @@ export default function NewsScreenerCard() {
   const dataSource = response?.source || 'mock';
 
   return (
-    <div className="card">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#ff6b35]/10 rounded-xl">
-            <Newspaper className="w-5 h-5 text-[#ff6b35]" />
+          <div className="p-2 bg-[#F97316]/10 rounded-lg">
+            <Newspaper className="w-5 h-5 text-[#F97316]" />
           </div>
-          <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <h2 className="text-lg font-semibold text-white">News Screener</h2>
-              {!loading && dataSource === 'live' && (
-                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[#238636]/20 text-[#238636]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#238636] animate-pulse"></span>
-                  LIVE
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {lastUpdated && !loading && (
-                <span className="text-[10px] text-[#238636]">
-                  updated {formatLastUpdated()}
-                </span>
-              )}
-              {dataSource === 'mock' && !loading && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#d29922]/20 text-[#d29922]">
-                  DEMO
-                </span>
-              )}
-            </div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-white">News Screener</h2>
+            {!loading && dataSource === 'live' && (
+              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[#238636]/20 text-[#238636]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#238636] animate-pulse"></span>
+                LIVE
+              </span>
+            )}
+            {lastUpdated && !loading && (
+              <span className="text-[10px] text-[#8b949e]">
+                updated {formatLastUpdated()}
+              </span>
+            )}
+            {dataSource === 'mock' && !loading && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#d29922]/20 text-[#d29922]">
+                DEMO
+              </span>
+            )}
           </div>
         </div>
-        <button 
+        <button
           onClick={fetchNews}
           disabled={loading}
-          className="pill p-2"
+          className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
           title="Refresh news"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
+      <div className="p-6">
 
       {/* Category Filters */}
       <div className="mb-4">
@@ -317,6 +314,7 @@ export default function NewsScreenerCard() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
