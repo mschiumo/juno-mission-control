@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# Add credential files to gitignore
+google-service-account.json
+client_secret.json
