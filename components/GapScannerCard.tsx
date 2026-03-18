@@ -52,7 +52,7 @@ export default function GapScannerCard() {
       return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
     } catch { return new Set<string>(); }
   });
-  const [confirmTicker, setConfirmTicker] = useState<string | null>(null);
+  const [tickerIdMap, setTickerIdMap] = useState<Record<string, string>>({});
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -67,7 +67,10 @@ export default function GapScannerCard() {
       const res = await fetch('/api/watchlist?userId=default');
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
-        const tickers: string[] = result.data.map((item: { ticker: string }) => item.ticker);
+        const tickers: string[] = result.data.map((item: { ticker: string; id: string }) => item.ticker);
+        const idMap: Record<string, string> = {};
+        result.data.forEach((item: { ticker: string; id: string }) => { idMap[item.ticker] = item.id; });
+        setTickerIdMap(idMap);
         setAddedTickers(prev => {
           const merged = new Set([...prev, ...tickers]);
           try { localStorage.setItem('gap-scanner-favorites', JSON.stringify([...merged])); } catch { /* ignore */ }
@@ -101,24 +104,51 @@ export default function GapScannerCard() {
   const fmtCap = (c: number) => c >= 1e12 ? (c/1e12).toFixed(1)+'T' : c >= 1e9 ? (c/1e9).toFixed(1)+'B' : c >= 1e6 ? (c/1e6).toFixed(1)+'M' : String(c);
   const fmtTime = () => !lastUpdated ? '' : lastUpdated.toLocaleString('en-US', { month:'2-digit', day:'2-digit', year:'numeric', hour:'numeric', minute:'2-digit', hour12:true, timeZone:'America/New_York' }).replace(',', ' @');
 
-  const addToFavorites = async (symbol: string) => {
-    try {
-      const res = await fetch('/api/watchlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ item: { ticker: symbol, entryPrice: 0, stopPrice: 0, targetPrice: 0, riskRatio: 2, stopSize: 0, shareSize: 0, potentialReward: 0, positionValue: 0, isFavorite: false }, userId: 'default' }),
-      });
-      if (res.ok) {
-        setAddedTickers(prev => {
-          const next = new Set([...prev, symbol]);
-          try { localStorage.setItem('gap-scanner-favorites', JSON.stringify([...next])); } catch { /* ignore */ }
-          return next;
+  const showToast = (msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(msg);
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  };
+
+  const toggleFavorite = async (symbol: string) => {
+    if (addedTickers.has(symbol)) {
+      // Remove
+      const id = tickerIdMap[symbol];
+      if (!id) return;
+      try {
+        const res = await fetch(`/api/watchlist?id=${id}&userId=default`, { method: 'DELETE' });
+        if (res.ok) {
+          setAddedTickers(prev => {
+            const next = new Set(prev);
+            next.delete(symbol);
+            try { localStorage.setItem('gap-scanner-favorites', JSON.stringify([...next])); } catch { /* ignore */ }
+            return next;
+          });
+          setTickerIdMap(prev => { const next = { ...prev }; delete next[symbol]; return next; });
+          showToast(`${symbol} was removed from your Daily Favorites`);
+        }
+      } catch { /* silent */ }
+    } else {
+      // Add
+      try {
+        const res = await fetch('/api/watchlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item: { ticker: symbol, entryPrice: 0, stopPrice: 0, targetPrice: 0, riskRatio: 2, stopSize: 0, shareSize: 0, potentialReward: 0, positionValue: 0, isFavorite: false }, userId: 'default' }),
         });
-        if (toastTimer.current) clearTimeout(toastTimer.current);
-        setToast(`${symbol} added to your Daily Favorites!`);
-        toastTimer.current = setTimeout(() => setToast(null), 3000);
-      }
-    } catch { /* silent */ }
+        if (res.ok) {
+          const result = await res.json();
+          const newId: string = result.data?.id;
+          setAddedTickers(prev => {
+            const next = new Set([...prev, symbol]);
+            try { localStorage.setItem('gap-scanner-favorites', JSON.stringify([...next])); } catch { /* ignore */ }
+            return next;
+          });
+          if (newId) setTickerIdMap(prev => ({ ...prev, [symbol]: newId }));
+          showToast(`${symbol} added to Daily Favorites!`);
+        }
+      } catch { /* silent */ }
+    }
   };
 
   const exportToCSV = () => {
@@ -192,7 +222,7 @@ export default function GapScannerCard() {
         </span>
         {/* Star */}
         <button
-          onClick={() => setConfirmTicker(stock.symbol)}
+          onClick={() => toggleFavorite(stock.symbol)}
           className={`transition-colors ${added ? 'text-[#F97316] cursor-default' : 'text-transparent group-hover:text-[#8b949e] hover:!text-[#F97316]'}`}
           title={added ? 'Added to Daily Favorites' : 'Add to Daily Favorites'}
         >
@@ -364,50 +394,7 @@ export default function GapScannerCard() {
         </div>
       )}
 
-      {/* Confirm Modal */}
-      {confirmTicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setConfirmTicker(null)}>
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-            {addedTickers.has(confirmTicker) ? (
-              <>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-[#238636]/10 rounded-lg">
-                    <Star className="w-5 h-5 text-[#F97316] fill-[#F97316]" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-white">Already in Daily Favorites</h3>
-                    <p className="text-xs text-[#8b949e] mt-0.5">{confirmTicker} is already on your Daily Favorites list</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-end">
-                  <button onClick={() => setConfirmTicker(null)} className="px-4 py-2 text-sm font-medium bg-[#30363d] hover:bg-[#444] text-white rounded-lg transition-colors">Got it</button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-[#F97316]/10 rounded-lg">
-                    <Star className="w-5 h-5 text-[#F97316]" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-white">Add to Daily Favorites?</h3>
-                    <p className="text-xs text-[#8b949e] mt-0.5">{confirmTicker} will appear in your Daily Favorites list</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 justify-end">
-                  <button onClick={() => setConfirmTicker(null)} className="px-4 py-2 text-sm text-[#8b949e] hover:text-white hover:bg-[#30363d] rounded-lg transition-colors">Cancel</button>
-                  <button
-                    onClick={() => { addToFavorites(confirmTicker); setConfirmTicker(null); }}
-                    className="px-4 py-2 text-sm font-medium bg-[#F97316] hover:bg-[#F97316]/80 text-white rounded-lg transition-colors"
-                  >
-                    Add {confirmTicker}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+
 
       {/* Toast */}
       {toast && (
