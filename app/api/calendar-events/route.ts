@@ -2,7 +2,8 @@ import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
-const CALENDAR_ID = 'mschiumo18@gmail.com';
+const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'michael@keepliving.com';
+const IMPERSONATE_USER = process.env.GOOGLE_IMPERSONATE_USER || 'michael@keepliving.com';
 
 // Mock events for testing UI when credentials aren't working
 const MOCK_EVENTS = [
@@ -54,8 +55,8 @@ export async function GET(request: Request) {
       });
     }
 
-    // Get credentials from environment variable
-    const credentialsEnv = process.env.GOOGLE_CALENDAR_CREDENTIALS;
+    // Get credentials from environment variable (supports both GOOGLE_CALENDAR_CREDENTIALS and GOOGLE_SERVICE_ACCOUNT_JSON)
+    const credentialsEnv = process.env.GOOGLE_CALENDAR_CREDENTIALS || process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
     
     if (!credentialsEnv) {
       console.log('GOOGLE_CALENDAR_CREDENTIALS not set, returning mock data');
@@ -96,6 +97,9 @@ export async function GET(request: Request) {
     const auth = new google.auth.GoogleAuth({
       credentials,
       scopes: SCOPES,
+      clientOptions: {
+        subject: IMPERSONATE_USER,
+      },
     });
 
     const calendar = google.calendar({ version: 'v3', auth });
