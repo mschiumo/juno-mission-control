@@ -20,11 +20,11 @@ const NOTABLE_TICKERS = new Set([
 
 // Key government/legislative events with direct market impact
 // Update as new dates are confirmed. Keep to only the most consequential items.
-const GOV_EVENTS: { date: string; label: string; sublabel: string }[] = [
-  { date: '2025-05-06', label: 'CLARITY Act', sublabel: 'Senate vote · Crypto regulation' },
-  { date: '2025-07-15', label: 'Stablecoin Bill', sublabel: 'Senate floor vote' },
-  { date: '2026-01-15', label: 'Debt Ceiling', sublabel: 'Treasury X-date estimate' },
-  { date: '2026-04-15', label: 'Tax Deadline', sublabel: 'IRS · market liquidity impact' },
+const GOV_EVENTS: { date: string; label: string; sublabel: string; time?: string }[] = [
+  { date: '2025-05-06', label: 'CLARITY Act', sublabel: 'Senate vote · Crypto regulation', time: 'Senate floor session' },
+  { date: '2025-07-15', label: 'Stablecoin Bill', sublabel: 'Senate floor vote', time: 'Senate floor session' },
+  { date: '2026-01-15', label: 'Debt Ceiling', sublabel: 'Treasury X-date estimate', time: 'All day' },
+  { date: '2026-04-15', label: 'Tax Deadline', sublabel: 'IRS · market liquidity impact', time: 'All day' },
 ];
 
 // FOMC rate decision dates — second day of each 2-day meeting
@@ -66,6 +66,7 @@ export interface MarketEvent {
   date: string;       // YYYY-MM-DD
   label: string;      // display name
   sublabel?: string;  // e.g. "Q1 2026 · BMO"
+  time?: string;      // human-readable time, for tooltip
   daysUntil: number;
 }
 
@@ -110,12 +111,13 @@ export async function GET() {
         date: gov.date,
         label: gov.label,
         sublabel: gov.sublabel,
+        time: gov.time,
         daysUntil: 0,
       });
     }
   }
 
-  // FOMC — today only
+  // FOMC — today only; rate decision announced at 2:00 PM ET
   for (const fomc of FOMC_DATES) {
     if (daysUntil(fomc.date, today) === 0) {
       events.push({
@@ -123,6 +125,7 @@ export async function GET() {
         type: 'fomc',
         date: fomc.date,
         label: fomc.label,
+        time: '2:00 PM ET',
         daysUntil: 0,
       });
     }
@@ -134,12 +137,14 @@ export async function GET() {
     if (!NOTABLE_TICKERS.has(e.symbol)) continue;
     if (daysUntil(e.date, today) !== 0) continue;
     const timing = e.hour === 'bmo' ? 'BMO' : e.hour === 'amc' ? 'AMC' : '';
+    const timeLabel = e.hour === 'bmo' ? 'Pre-market (before 9:30 AM ET)' : e.hour === 'amc' ? 'After close (after 4:00 PM ET)' : 'During market hours';
     events.push({
       id: `earnings-${e.symbol}-${e.date}`,
       type: 'earnings',
       date: e.date,
       label: e.symbol,
       sublabel: `Q${e.quarter} ${e.year}${timing ? ` · ${timing}` : ''}`,
+      time: timeLabel,
       daysUntil: 0,
     });
   }

@@ -91,7 +91,8 @@ export default function MarketEventsCard() {
               return (
                 <div
                   key={event.id}
-                  className={`flex-shrink-0 flex flex-col gap-1 px-3 py-2 rounded-lg border ${cfg.bg} ${cfg.border}`}
+                  title={event.time ? `${event.label} · ${event.time}` : event.label}
+                  className={`w-36 flex-shrink-0 flex flex-col gap-1 px-3 py-2 rounded-lg border cursor-default ${cfg.bg} ${cfg.border}`}
                 >
                   {/* Type badge */}
                   <div className="flex items-center gap-1.5">
@@ -102,14 +103,14 @@ export default function MarketEventsCard() {
                   </div>
 
                   {/* Event name */}
-                  <span className="text-xs font-semibold text-white leading-tight">
+                  <span className="text-xs font-semibold text-white leading-tight truncate">
                     {event.label}
                   </span>
 
-                  {/* Sublabel */}
-                  {event.sublabel && (
-                    <span className="text-[9px] text-[#8b949e]">{event.sublabel}</span>
-                  )}
+                  {/* Sublabel or time */}
+                  <span className="text-[9px] text-[#8b949e] truncate">
+                    {event.sublabel ?? event.time ?? ''}
+                  </span>
                 </div>
               );
             })}
