@@ -216,8 +216,8 @@ export default function MarketCard() {
       </div>
 
       <div className="p-6 flex-1 flex flex-col min-h-0">
-        {/* Tabs */}
-        <div className="flex items-center gap-1 mb-5 overflow-x-auto scrollbar-hide flex-shrink-0">
+        {/* Tabs + Add button */}
+        <div className="flex items-center gap-1 mb-5 flex-shrink-0">
           {(['indices', 'stocks', 'commodities', 'crypto'] as const).map((tab) => (
             <button
               key={tab}
@@ -231,7 +231,42 @@ export default function MarketCard() {
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
+          <button
+            onClick={() => { setShowAddInput(v => !v); setAddingSymbol(''); setAddingError(null); }}
+            className={`ml-1 p-1.5 rounded-lg transition-all ${showAddInput ? 'bg-[#F97316] text-white' : 'text-[#8b949e] hover:bg-[#30363d] hover:text-white'}`}
+            title="Add ticker"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
         </div>
+
+        {/* Inline add input */}
+        {showAddInput && (
+          <div className="flex flex-col gap-1.5 mb-4 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <input
+                ref={addInputRef}
+                type="text"
+                value={addingSymbol}
+                onChange={e => { setAddingSymbol(e.target.value.toUpperCase()); setAddingError(null); }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') addTicker();
+                  if (e.key === 'Escape') { setShowAddInput(false); setAddingSymbol(''); setAddingError(null); }
+                }}
+                placeholder="Ticker (e.g. AAPL, ^VIX, BTC-USD)"
+                className="flex-1 px-3 py-2 text-sm bg-[#0d1117] border border-[#30363d] focus:border-[#F97316]/60 rounded-lg text-white placeholder-[#8b949e] focus:outline-none transition-colors"
+              />
+              <button
+                onClick={addTicker}
+                disabled={addingLoading || !addingSymbol.trim()}
+                className="px-3 py-2 text-sm font-medium bg-[#F97316] hover:bg-[#F97316]/80 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center"
+              >
+                {addingLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'Add'}
+              </button>
+            </div>
+            {addingError && <p className="text-xs text-[#da3633] px-1">{addingError}</p>}
+          </div>
+        )}
 
         {/* Stats */}
         {currentData.length > 0 && (
@@ -308,51 +343,6 @@ export default function MarketCard() {
                 ))}
               </div>
 
-              {/* Add Ticker */}
-              <div className="mt-4">
-                {showAddInput ? (
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2">
-                      <input
-                        ref={addInputRef}
-                        type="text"
-                        value={addingSymbol}
-                        onChange={e => { setAddingSymbol(e.target.value.toUpperCase()); setAddingError(null); }}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') addTicker();
-                          if (e.key === 'Escape') { setShowAddInput(false); setAddingSymbol(''); setAddingError(null); }
-                        }}
-                        placeholder="Ticker (e.g. AAPL, ^VIX, BTC-USD)"
-                        className="flex-1 px-3 py-2 text-sm bg-[#0d1117] border border-[#30363d] focus:border-[#F97316]/60 rounded-lg text-white placeholder-[#8b949e] focus:outline-none transition-colors"
-                      />
-                      <button
-                        onClick={addTicker}
-                        disabled={addingLoading || !addingSymbol.trim()}
-                        className="px-3 py-2 text-sm font-medium bg-[#F97316] hover:bg-[#F97316]/80 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        {addingLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'Add'}
-                      </button>
-                      <button
-                        onClick={() => { setShowAddInput(false); setAddingSymbol(''); setAddingError(null); }}
-                        className="px-3 py-2 text-sm text-[#8b949e] hover:text-white hover:bg-[#30363d] rounded-lg transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                    {addingError && (
-                      <p className="text-xs text-[#da3633] px-1">{addingError}</p>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowAddInput(true)}
-                    className="flex items-center gap-2 px-3 py-2 text-xs text-[#8b949e] hover:text-white hover:bg-[#30363d] rounded-lg transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Add ticker
-                  </button>
-                )}
-              </div>
             </>
           )}
         </div>
