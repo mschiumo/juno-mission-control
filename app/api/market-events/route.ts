@@ -98,47 +98,41 @@ async function fetchUpcomingEarnings(from: string, to: string): Promise<FinnhubE
 
 export async function GET() {
   const today = todayEST();
-  const futureDate = new Date(today);
-  futureDate.setDate(futureDate.getDate() + 21);
-  const toDate = futureDate.toISOString().split('T')[0];
 
   const events: MarketEvent[] = [];
 
-  // Add government/legislative events
+  // Government/legislative events — today only
   for (const gov of GOV_EVENTS) {
-    const days = daysUntil(gov.date, today);
-    if (days >= -1 && days <= 90) {
+    if (daysUntil(gov.date, today) === 0) {
       events.push({
         id: `gov-${gov.date}-${gov.label}`,
         type: 'gov',
         date: gov.date,
         label: gov.label,
         sublabel: gov.sublabel,
-        daysUntil: days,
+        daysUntil: 0,
       });
     }
   }
 
-  // Add upcoming FOMC dates
+  // FOMC — today only
   for (const fomc of FOMC_DATES) {
-    const days = daysUntil(fomc.date, today);
-    if (days >= -1 && days <= 60) {
+    if (daysUntil(fomc.date, today) === 0) {
       events.push({
         id: `fomc-${fomc.date}`,
         type: 'fomc',
         date: fomc.date,
         label: fomc.label,
-        daysUntil: days,
+        daysUntil: 0,
       });
     }
   }
 
-  // Fetch and add notable earnings
-  const earnings = await fetchUpcomingEarnings(today, toDate);
+  // Notable earnings — today only
+  const earnings = await fetchUpcomingEarnings(today, today);
   for (const e of earnings) {
     if (!NOTABLE_TICKERS.has(e.symbol)) continue;
-    const days = daysUntil(e.date, today);
-    if (days < -1 || days > 21) continue;
+    if (daysUntil(e.date, today) !== 0) continue;
     const timing = e.hour === 'bmo' ? 'BMO' : e.hour === 'amc' ? 'AMC' : '';
     events.push({
       id: `earnings-${e.symbol}-${e.date}`,
@@ -146,12 +140,13 @@ export async function GET() {
       date: e.date,
       label: e.symbol,
       sublabel: `Q${e.quarter} ${e.year}${timing ? ` · ${timing}` : ''}`,
-      daysUntil: days,
+      daysUntil: 0,
     });
   }
 
-  // Sort by date ascending
-  events.sort((a, b) => a.date.localeCompare(b.date));
+  // Sort type priority: fomc > gov > earnings
+  const priority = { fomc: 0, gov: 1, earnings: 2 };
+  events.sort((a, b) => priority[a.type] - priority[b.type]);
 
   return NextResponse.json({
     success: true,

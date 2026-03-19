@@ -28,26 +28,9 @@ const TYPE_CONFIG = {
   },
 };
 
-function formatDate(dateStr: string): string {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function getDaysLabel(days: number): string {
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Tomorrow';
-  if (days === -1) return 'Yesterday';
-  if (days < 0) return `${Math.abs(days)}d ago`;
-  return `In ${days}d`;
-}
-
 export default function MarketEventsCard() {
   const [events, setEvents] = useState<MarketEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState('');
 
   useEffect(() => {
     fetchEvents();
@@ -60,7 +43,6 @@ export default function MarketEventsCard() {
       const data = await res.json();
       if (data.success) {
         setEvents(data.data);
-        setToday(data.today);
       }
     } catch (err) {
       console.error('Failed to fetch market events:', err);
@@ -75,7 +57,7 @@ export default function MarketEventsCard() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50">
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-[#F97316]" />
-          <span className="text-sm font-semibold text-white">Upcoming Events</span>
+          <span className="text-sm font-semibold text-white">Today's Events</span>
           <span className="text-[10px] text-[#8b949e]">FOMC · Earnings · Gov</span>
         </div>
         <button
@@ -96,30 +78,26 @@ export default function MarketEventsCard() {
             <span className="text-xs">Loading events...</span>
           </div>
         ) : events.length === 0 ? (
-          <p className="text-xs text-[#8b949e] py-1">No upcoming events in the next 21 days</p>
+          <div className="flex items-center gap-2 py-1">
+            <CalendarDays className="w-3.5 h-3.5 text-[#8b949e] opacity-50" />
+            <p className="text-xs text-[#8b949e]">No market-moving events today</p>
+          </div>
         ) : (
           <div className="flex gap-2 min-w-0">
             {events.map((event) => {
               const cfg = TYPE_CONFIG[event.type];
               const Icon = cfg.icon;
-              const isPast = event.daysUntil < 0;
-              const isToday = event.daysUntil === 0;
 
               return (
                 <div
                   key={event.id}
-                  className={`flex-shrink-0 flex flex-col gap-1 px-3 py-2 rounded-lg border ${cfg.bg} ${cfg.border} ${isPast ? 'opacity-40' : ''} ${isToday ? 'ring-1 ring-[#F97316]/50' : ''}`}
+                  className={`flex-shrink-0 flex flex-col gap-1 px-3 py-2 rounded-lg border ${cfg.bg} ${cfg.border}`}
                 >
-                  {/* Type + timing */}
+                  {/* Type badge */}
                   <div className="flex items-center gap-1.5">
                     <Icon className={`w-3 h-3 ${cfg.text}`} />
                     <span className={`text-[9px] font-semibold uppercase tracking-wide ${cfg.text}`}>
                       {cfg.label}
-                    </span>
-                    <span className={`text-[9px] font-medium ml-auto ${
-                      isToday ? 'text-[#F97316]' : isPast ? 'text-[#8b949e]' : 'text-[#8b949e]'
-                    }`}>
-                      {getDaysLabel(event.daysUntil)}
                     </span>
                   </div>
 
@@ -128,13 +106,10 @@ export default function MarketEventsCard() {
                     {event.label}
                   </span>
 
-                  {/* Date + sublabel */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-[#8b949e]">{formatDate(event.date)}</span>
-                    {event.sublabel && (
-                      <span className="text-[9px] text-[#8b949e] opacity-70">· {event.sublabel}</span>
-                    )}
-                  </div>
+                  {/* Sublabel */}
+                  {event.sublabel && (
+                    <span className="text-[9px] text-[#8b949e]">{event.sublabel}</span>
+                  )}
                 </div>
               );
             })}
