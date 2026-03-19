@@ -1,0 +1,140 @@
+/**
+ * Market Events API
+ * Returns upcoming FOMC meetings + major earnings releases (next 14 days)
+ */
+
+import { NextResponse } from 'next/server';
+
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
+
+// Known major tickers worth highlighting
+const NOTABLE_TICKERS = new Set([
+  'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NVDA', 'TSLA',
+  'JPM', 'GS', 'BAC', 'MS', 'V', 'MA', 'BRK.B',
+  'AMD', 'INTC', 'QCOM', 'AVGO', 'TSM',
+  'NFLX', 'DIS', 'SPOT',
+  'UNH', 'JNJ', 'PFE', 'MRNA', 'LLY',
+  'XOM', 'CVX', 'COST', 'WMT', 'TGT', 'NKE', 'SBUX',
+  'CRM', 'ORCL', 'SAP', 'NOW', 'SNOW', 'PLTR',
+]);
+
+// FOMC rate decision dates — second day of each 2-day meeting
+// 2025 remaining + 2026 schedule (published annually by the Fed)
+const FOMC_DATES: { date: string; label: string }[] = [
+  { date: '2025-04-30', label: 'FOMC Rate Decision' },
+  { date: '2025-06-18', label: 'FOMC Rate Decision' },
+  { date: '2025-07-30', label: 'FOMC Rate Decision' },
+  { date: '2025-09-17', label: 'FOMC Rate Decision' },
+  { date: '2025-10-29', label: 'FOMC Rate Decision' },
+  { date: '2025-12-10', label: 'FOMC Rate Decision' },
+  { date: '2026-01-28', label: 'FOMC Rate Decision' },
+  { date: '2026-03-18', label: 'FOMC Rate Decision' },
+  { date: '2026-04-29', label: 'FOMC Rate Decision' },
+  { date: '2026-06-10', label: 'FOMC Rate Decision' },
+  { date: '2026-07-29', label: 'FOMC Rate Decision' },
+  { date: '2026-09-16', label: 'FOMC Rate Decision' },
+  { date: '2026-10-28', label: 'FOMC Rate Decision' },
+  { date: '2026-12-09', label: 'FOMC Rate Decision' },
+];
+
+interface FinnhubEarning {
+  date: string;
+  epsActual: number | null;
+  epsEstimate: number | null;
+  hour: string; // 'bmo' | 'amc' | 'dmh'
+  quarter: number;
+  symbol: string;
+  year: number;
+}
+
+interface FinnhubEarningsResponse {
+  earningsCalendar: FinnhubEarning[];
+}
+
+export interface MarketEvent {
+  id: string;
+  type: 'fomc' | 'earnings';
+  date: string;       // YYYY-MM-DD
+  label: string;      // display name
+  sublabel?: string;  // e.g. "Q1 2026 · BMO"
+  daysUntil: number;
+}
+
+function todayEST(): string {
+  const now = new Date();
+  const est = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  return est.toISOString().split('T')[0];
+}
+
+function daysUntil(dateStr: string, todayStr: string): number {
+  const target = new Date(dateStr + 'T12:00:00');
+  const today = new Date(todayStr + 'T12:00:00');
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+async function fetchUpcomingEarnings(from: string, to: string): Promise<FinnhubEarning[]> {
+  if (!FINNHUB_API_KEY) return [];
+  try {
+    const res = await fetch(
+      `https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&token=${FINNHUB_API_KEY}`,
+      { next: { revalidate: 3600 } }
+    );
+    if (!res.ok) return [];
+    const data: FinnhubEarningsResponse = await res.json();
+    return data.earningsCalendar || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function GET() {
+  const today = todayEST();
+  const futureDate = new Date(today);
+  futureDate.setDate(futureDate.getDate() + 21);
+  const toDate = futureDate.toISOString().split('T')[0];
+
+  const events: MarketEvent[] = [];
+
+  // Add upcoming FOMC dates
+  for (const fomc of FOMC_DATES) {
+    const days = daysUntil(fomc.date, today);
+    if (days >= -1 && days <= 60) {
+      events.push({
+        id: `fomc-${fomc.date}`,
+        type: 'fomc',
+        date: fomc.date,
+        label: fomc.label,
+        daysUntil: days,
+      });
+    }
+  }
+
+  // Fetch and add notable earnings
+  const earnings = await fetchUpcomingEarnings(today, toDate);
+  for (const e of earnings) {
+    if (!NOTABLE_TICKERS.has(e.symbol)) continue;
+    const days = daysUntil(e.date, today);
+    if (days < -1 || days > 21) continue;
+    const timing = e.hour === 'bmo' ? 'BMO' : e.hour === 'amc' ? 'AMC' : '';
+    events.push({
+      id: `earnings-${e.symbol}-${e.date}`,
+      type: 'earnings',
+      date: e.date,
+      label: e.symbol,
+      sublabel: `Q${e.quarter} ${e.year}${timing ? ` · ${timing}` : ''}`,
+      daysUntil: days,
+    });
+  }
+
+  // Sort by date ascending
+  events.sort((a, b) => a.date.localeCompare(b.date));
+
+  return NextResponse.json({
+    success: true,
+    data: events,
+    today,
+    source: FINNHUB_API_KEY ? 'live' : 'fomc-only',
+  }, {
+    headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
+  });
+}

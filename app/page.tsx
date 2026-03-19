@@ -4,7 +4,6 @@ import { useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 // import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
-import MarketHoursBanner from "@/components/MarketHoursBanner";
 import GapScannerCard from "@/components/GapScannerCard";
 import NewsScreenerCard from "@/components/NewsScreenerCard";
 import GoalsCard from "@/components/GoalsCard";
