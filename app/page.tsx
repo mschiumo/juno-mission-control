@@ -153,6 +153,7 @@ function DashboardContent() {
             <EveningCheckinReminder />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <HabitCard />
+              <NewsScreenerCard />
             </div>
           </div>
         ) : activeTab === 'trading' ? (

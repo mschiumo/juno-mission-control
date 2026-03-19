@@ -13,7 +13,6 @@ import {
 import MarketHoursBanner from '@/components/MarketHoursBanner';
 import GapScannerCard from '@/components/GapScannerCard';
 import MarketCard from '@/components/MarketCard';
-import NewsScreenerCard from '@/components/NewsScreenerCard';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import CalendarView from '@/components/trading/CalendarView';
 import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
@@ -154,7 +153,6 @@ export default function TradingView() {
               <MarketCard />
             </div>
           </div>
-          <NewsScreenerCard />
         </div>
       )}
 
