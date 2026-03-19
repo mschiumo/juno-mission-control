@@ -14,6 +14,7 @@ import MarketHoursBanner from '@/components/MarketHoursBanner';
 import GapScannerCard from '@/components/GapScannerCard';
 import MarketCard from '@/components/MarketCard';
 import NewsScreenerCard from '@/components/NewsScreenerCard';
+import HabitsCard from '@/components/HabitsCard';
 import TradeManagementView from '@/components/trading/TradeManagementView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 
@@ -140,7 +141,10 @@ export default function TradingTerminal() {
                 <MarketCard />
               </div>
             </div>
-            <NewsScreenerCard />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+              <HabitsCard />
+              <NewsScreenerCard />
+            </div>
           </div>
         )}
 
