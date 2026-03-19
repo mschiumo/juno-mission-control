@@ -18,6 +18,15 @@ const NOTABLE_TICKERS = new Set([
   'CRM', 'ORCL', 'SAP', 'NOW', 'SNOW', 'PLTR',
 ]);
 
+// Key government/legislative events with direct market impact
+// Update as new dates are confirmed. Keep to only the most consequential items.
+const GOV_EVENTS: { date: string; label: string; sublabel: string }[] = [
+  { date: '2025-05-06', label: 'CLARITY Act', sublabel: 'Senate vote · Crypto regulation' },
+  { date: '2025-07-15', label: 'Stablecoin Bill', sublabel: 'Senate floor vote' },
+  { date: '2026-01-15', label: 'Debt Ceiling', sublabel: 'Treasury X-date estimate' },
+  { date: '2026-04-15', label: 'Tax Deadline', sublabel: 'IRS · market liquidity impact' },
+];
+
 // FOMC rate decision dates — second day of each 2-day meeting
 // 2025 remaining + 2026 schedule (published annually by the Fed)
 const FOMC_DATES: { date: string; label: string }[] = [
@@ -53,7 +62,7 @@ interface FinnhubEarningsResponse {
 
 export interface MarketEvent {
   id: string;
-  type: 'fomc' | 'earnings';
+  type: 'fomc' | 'earnings' | 'gov';
   date: string;       // YYYY-MM-DD
   label: string;      // display name
   sublabel?: string;  // e.g. "Q1 2026 · BMO"
@@ -94,6 +103,21 @@ export async function GET() {
   const toDate = futureDate.toISOString().split('T')[0];
 
   const events: MarketEvent[] = [];
+
+  // Add government/legislative events
+  for (const gov of GOV_EVENTS) {
+    const days = daysUntil(gov.date, today);
+    if (days >= -1 && days <= 90) {
+      events.push({
+        id: `gov-${gov.date}-${gov.label}`,
+        type: 'gov',
+        date: gov.date,
+        label: gov.label,
+        sublabel: gov.sublabel,
+        daysUntil: days,
+      });
+    }
+  }
 
   // Add upcoming FOMC dates
   for (const fomc of FOMC_DATES) {

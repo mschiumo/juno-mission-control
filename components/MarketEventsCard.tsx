@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CalendarDays, RefreshCw, TrendingUp, Landmark } from 'lucide-react';
+import { CalendarDays, RefreshCw, TrendingUp, Landmark, Scale } from 'lucide-react';
 import type { MarketEvent } from '@/app/api/market-events/route';
 
 const TYPE_CONFIG = {
   fomc: {
     label: 'FOMC',
-    color: '#8b5cf6',
     bg: 'bg-[#8b5cf6]/10',
     border: 'border-[#8b5cf6]/30',
     text: 'text-[#8b5cf6]',
@@ -15,11 +14,17 @@ const TYPE_CONFIG = {
   },
   earnings: {
     label: 'Earnings',
-    color: '#14b8a6',
     bg: 'bg-[#14b8a6]/10',
     border: 'border-[#14b8a6]/30',
     text: 'text-[#14b8a6]',
     icon: TrendingUp,
+  },
+  gov: {
+    label: 'Gov',
+    bg: 'bg-[#d29922]/10',
+    border: 'border-[#d29922]/30',
+    text: 'text-[#d29922]',
+    icon: Scale,
   },
 };
 
@@ -71,7 +76,7 @@ export default function MarketEventsCard() {
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-[#F97316]" />
           <span className="text-sm font-semibold text-white">Upcoming Events</span>
-          <span className="text-[10px] text-[#8b949e]">FOMC · Earnings</span>
+          <span className="text-[10px] text-[#8b949e]">FOMC · Earnings · Gov</span>
         </div>
         <button
           onClick={fetchEvents}
