@@ -231,9 +231,11 @@ export default function MarketCard() {
     }).format(price);
 
   const getTradingViewSymbol = (symbol: string) => {
-    if (activeTab === 'crypto') return `COINBASE:${symbol}USD`;
+    if (activeTab === 'crypto') return `COINBASE:${symbol.replace('-', '')}`;
     return symbol;
   };
+
+  const displaySymbol = (symbol: string) => symbol.replace('-', '');
 
   const tabCust = customization[activeTab];
   const apiItems = (data?.[activeTab] || []).filter(i => !tabCust.hidden.includes(i.symbol));
@@ -392,7 +394,7 @@ export default function MarketCard() {
                             <TrendingDown className="w-3.5 h-3.5 text-[#da3633] flex-shrink-0" />
                           )}
                           <span className="font-semibold text-white flex items-center gap-1 truncate">
-                            <span className="truncate">{item.symbol}</span>
+                            <span className="truncate">{displaySymbol(item.symbol)}</span>
                             <ExternalLink className="w-3 h-3 opacity-50 flex-shrink-0" />
                           </span>
                         </div>
