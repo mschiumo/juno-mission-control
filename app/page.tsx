@@ -7,7 +7,6 @@ import HabitCard from "@/components/HabitCard";
 import MarketHoursBanner from "@/components/MarketHoursBanner";
 import GapScannerCard from "@/components/GapScannerCard";
 import NewsScreenerCard from "@/components/NewsScreenerCard";
-import ProjectsCard from "@/components/ProjectsCard";
 import GoalsCard from "@/components/GoalsCard";
 import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
@@ -16,9 +15,9 @@ import MotivationalBanner from "@/components/MotivationalBanner";
 import DocumentationCard from "@/components/DocumentationCard";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
-import { LayoutDashboard, BookOpen, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Target, TrendingUp, Menu, X } from 'lucide-react';
 
-type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'docs';
+type TabId = 'dashboard' | 'trading' | 'goals' | 'docs';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -29,7 +28,7 @@ function DashboardContent() {
   // Get tab from URL query param, default to 'dashboard'
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
-    if (tab === 'tasks' || tab === 'trading' || tab === 'goals' || tab === 'docs') return tab;
+    if (tab === 'trading' || tab === 'goals' || tab === 'docs') return tab;
     // Support old 'activity' tab redirecting to 'docs'
     if (tab === 'activity') return 'docs';
     return 'dashboard';
@@ -52,7 +51,6 @@ function DashboardContent() {
 
   const tabs = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tasks' as const, label: 'Tasks', icon: CheckSquare },
     { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
     { id: 'goals' as const, label: 'Goals', icon: Target },
     { id: 'docs' as const, label: 'Docs', icon: BookOpen },
@@ -156,11 +154,6 @@ function DashboardContent() {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <HabitCard />
             </div>
-          </div>
-        ) : activeTab === 'tasks' ? (
-          /* Tasks View - Projects and Task Management */
-          <div className="max-w-[1600px] mx-auto">
-            <ProjectsCard />
           </div>
         ) : activeTab === 'trading' ? (
           /* Trading View - New Trading Journal */
