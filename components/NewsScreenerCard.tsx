@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Newspaper, ExternalLink, RefreshCw, Bell, TrendingUp, AlertCircle } from 'lucide-react';
+import { Newspaper, ExternalLink, RefreshCw, Bell } from 'lucide-react';
 
 interface NewsItem {
   id: string;
@@ -35,16 +35,15 @@ interface NewsResponse {
   nextUpdate: string;
 }
 
-type NewsCategory = 'all' | 'fed' | 'whitehouse' | 'mergers' | 'ipo' | 'earnings' | 'economic';
+type NewsCategory = 'all' | 'fed' | 'macro' | 'mergers' | 'earnings' | 'ai';
 
-const CATEGORY_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  all: { label: 'All', color: '#f97316', icon: <Newspaper className="w-4 h-4" /> },
-  fed: { label: 'Fed', color: '#8b5cf6', icon: <TrendingUp className="w-4 h-4" /> },
-  whitehouse: { label: 'Policy', color: '#3b82f6', icon: <AlertCircle className="w-4 h-4" /> },
-  mergers: { label: 'M&A', color: '#f97316', icon: <TrendingUp className="w-4 h-4" /> },
-  ipo: { label: 'IPOs', color: '#22c55e', icon: <TrendingUp className="w-4 h-4" /> },
-  earnings: { label: 'Earnings', color: '#14b8a6', icon: <TrendingUp className="w-4 h-4" /> },
-  economic: { label: 'Economic', color: '#ef4444', icon: <AlertCircle className="w-4 h-4" /> }
+const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
+  all:      { label: 'All',     color: '#f97316' },
+  fed:      { label: 'Fed',     color: '#8b5cf6' },
+  macro:    { label: 'Macro',   color: '#3b82f6' },
+  mergers:  { label: 'M&A',     color: '#f97316' },
+  earnings: { label: 'Earnings',color: '#14b8a6' },
+  ai:       { label: 'AI',      color: '#22c55e' },
 };
 
 export default function NewsScreenerCard() {
@@ -97,7 +96,7 @@ export default function NewsScreenerCard() {
   const dataSource = response?.source || 'mock';
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-full">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-[640px]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -128,7 +127,7 @@ export default function NewsScreenerCard() {
       {/* Filters */}
       <div className="px-4 pt-3 pb-2 flex-shrink-0">
         <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
-          {(['all', 'fed', 'whitehouse', 'mergers', 'ipo', 'earnings', 'economic'] as NewsCategory[]).map((cat) => (
+          {(['all', 'fed', 'macro', 'mergers', 'earnings', 'ai'] as NewsCategory[]).map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
