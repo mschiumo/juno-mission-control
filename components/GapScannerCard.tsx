@@ -398,7 +398,7 @@ export default function GapScannerCard() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-[#161b22] border border-[#F97316]/50 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm">
+        <div className="fixed top-6 left-6 z-[100] bg-[#161b22] border border-[#F97316]/50 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm">
           <Star className="w-4 h-4 text-[#F97316] fill-[#F97316]" />
           {toast}
         </div>
