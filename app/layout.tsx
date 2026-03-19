@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Juno Mission Control",
-  description: "Personal dashboard for mission control",
+  title: "Juno Trading Terminal",
+  description: "Professional trading tools and market analysis",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
