@@ -1,235 +1,95 @@
-# Juno Mission Control Dashboard
+# Juno Trading Terminal
 
-A production-ready Next.js personal dashboard for managing cron jobs, calendar events, habits, market data, and projects.
-
-Live at https://juno-mission-control.vercel.app/
+A production-ready trading dashboard focused on pre-market gap analysis, position management, and trade tracking.
 
 ## Features
 
-- **📊 Dashboard UI** - Dark theme with tangerine accents, responsive grid layout
-- **⏰ Cron Jobs** - View and trigger cron jobs with status indicators
-- **📅 Calendar** - View upcoming events and create new ones
-- **✅ Habit Tracking** - Track daily habits with streak counters
-- **📈 Market Overview** - Real-time market data with auto-refresh
-- **📁 Projects** - Track active projects and their progress
-- **⚡ Quick Actions** - Fast access to frequently used apps
+### Market Analysis
+- **Gap Scanner** - Real-time premarket gap up/gap down detection (Polygon.io powered)
+- **Market Overview** - Live market indices and sector performance
+- **News Screener** - Market-moving news filtered by category
+
+### Trade Management
+- **Position Calculator** - Risk/reward calculation with share sizing
+- **Daily Favorites** - Quick watchlist with premarket data
+- **Potential Trades** - Complete trade setups with entry/stop/target
+- **Active Trades** - Real-time P&L tracking
+- **Closed Positions** - Trade history and performance analytics
+
+### Profit Projection
+- **Strategy Calculator** - Project returns based on win rate, risk/reward, trade frequency
 
 ## Tech Stack
 
-- **Framework**: Next.js 14+ (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **Authentication**: Environment-based password protection
+- **Framework:** Next.js 14 (App Router)
+- **Styling:** Tailwind CSS
+- **Data APIs:** Polygon.io, Finnhub
+- **Database:** Redis (Upstash)
+- **Deployment:** Vercel
+
+## Environment Variables
+
+```bash
+# Required
+POLYGON_API_KEY=your_polygon_key
+FINNHUB_API_KEY=your_finnhub_key
+UPSTASH_REDIS_URL=your_redis_url
+
+# Optional
+NEXT_PUBLIC_APP_URL=https://your-domain.com
+```
 
 ## Getting Started
 
-### Prerequisites
+1. Clone the repository
+2. Copy `.env.example` to `.env.local` and fill in your API keys
+3. Install dependencies: `npm install`
+4. Run development server: `npm run dev`
+5. Open http://localhost:3000
 
-- Node.js 18+ 
-- npm or yarn
+## API Endpoints
 
-### Installation
+### Trading Data
+- `GET /api/gap-scanner-polygon` - Fast gap scanner (1 API call)
+- `GET /api/gap-scanner` - Finnhub-based scanner (fallback)
+- `GET /api/premarket?symbol=TICKER` - Premarket data for single stock
+- `GET /api/symbols/search?q=QUERY` - Symbol autocomplete
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/juno-dashboard.git
-cd juno-dashboard
-```
+### Trade Management
+- `GET /api/watchlist` - User's watchlist
+- `POST /api/watchlist` - Add to watchlist
+- `GET /api/active-trades` - Active positions
+- `GET /api/closed-positions` - Trade history
 
-2. Install dependencies:
-```bash
-npm install
-```
+## Production Deployment
 
-3. Copy environment variables:
-```bash
-cp .env.local.example .env.local
-```
+### Vercel
+1. Connect your GitHub repository to Vercel
+2. Add environment variables in Vercel dashboard
+3. Deploy
 
-4. Update `.env.local` with your credentials (see Configuration section)
+### Database Setup
+The app uses Redis for caching and data storage. No additional setup required if using Upstash.
 
-5. Run the development server:
-```bash
-npm run dev
-```
+## Architecture
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser
+This trading terminal was created by stripping non-trading features from Juno Mission Control:
 
-## Configuration
+**Removed:**
+- Habit tracking
+- Calendar/events
+- Goals system
+- Gmail integration
+- Daily journal
+- Subagents
 
-### Basic Setup
-
-Edit `.env.local`:
-
-```env
-# Dashboard Authentication
-DASHBOARD_PASSWORD=your-secure-password
-
-# NextAuth Secret (generate with: openssl rand -base64 32)
-NEXTAUTH_SECRET=your-nextauth-secret
-NEXTAUTH_URL=http://localhost:3000
-```
-
-### Google Calendar Integration
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing
-3. Enable the Google Calendar API
-4. Create OAuth 2.0 credentials
-5. Add authorized redirect URIs
-6. Copy credentials to `.env.local`:
-
-```env
-GOOGLE_CLIENT_ID=your-client-id
-GOOGLE_CLIENT_SECRET=your-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/callback
-GOOGLE_REFRESH_TOKEN=your-refresh-token
-```
-
-### Gmail Integration
-
-Follow the same steps as Calendar, but also enable the Gmail API in Google Cloud Console.
-
-### Market Data API
-
-Choose your provider:
-
-**Finnhub** (Recommended - generous free tier):
-1. Sign up at [finnhub.io](https://finnhub.io)
-2. Get your API key
-3. Add to `.env.local`:
-```env
-FINNHUB_API_KEY=your-api-key
-MARKET_DATA_PROVIDER=finnhub
-```
-
-**Alpha Vantage**:
-1. Get API key at [alphavantage.co](https://www.alphavantage.co/support/#api-key)
-2. Add to `.env.local`:
-```env
-ALPHA_VANTAGE_API_KEY=your-api-key
-MARKET_DATA_PROVIDER=alphavantage
-```
-
-## API Routes
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/api/cron-status` | GET | List active cron jobs |
-| `/api/calendar-events` | GET | Fetch upcoming calendar events |
-| `/api/market-data` | GET | Get current market prices |
-| `/api/habit-status` | GET | Get habit tracking data |
-| `/api/run-cron` | POST | Trigger a specific cron job |
-| `/api/create-event` | POST | Create a new calendar event |
-
-### API Examples
-
-**Get cron jobs:**
-```bash
-curl http://localhost:3000/api/cron-status
-```
-
-**Trigger a cron job:**
-```bash
-curl -X POST http://localhost:3000/api/run-cron \
-  -H "Content-Type: application/json" \
-  -d '{"jobId": "1"}'
-```
-
-**Create calendar event:**
-```bash
-curl -X POST http://localhost:3000/api/create-event \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Team Meeting",
-    "description": "Weekly sync",
-    "startDate": "2024-01-20T10:00:00Z",
-    "endDate": "2024-01-20T11:00:00Z"
-  }'
-```
-
-## Deployment
-
-### Vercel (Recommended)
-
-1. Push your code to GitHub
-2. Import project in [Vercel](https://vercel.com)
-3. Add environment variables in Vercel dashboard
-4. Deploy!
-
-### Docker
-
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-
-Build and run:
-```bash
-docker build -t juno-dashboard .
-docker run -p 3000:3000 --env-file .env.local juno-dashboard
-```
-
-## Customization
-
-### Adding New Widgets
-
-1. Create a new component in `components/`
-2. Add it to the grid in `app/page.tsx`
-3. Create corresponding API route in `app/api/`
-
-### Theming
-
-Edit CSS variables in `app/globals.css`:
-
-```css
-:root {
-  --background: #0d1117;
-  --foreground: #e6edf3;
-  --tangerine: #ff6b35;
-  /* ... */
-}
-```
-
-### Cron Jobs
-
-To integrate real cron jobs, modify `app/api/cron-status/route.ts` and `app/api/run-cron/route.ts` to connect to your actual cron system (e.g., node-cron, system crontab, or external service).
-
-## Project Structure
-
-```
-juno-dashboard/
-├── app/
-│   ├── page.tsx              # Main dashboard
-│   ├── layout.tsx            # Root layout
-│   ├── globals.css           # Global styles
-│   └── api/                  # API routes
-├── components/               # React components
-├── lib/                      # Utility functions
-├── public/                   # Static assets
-├── .env.local.example        # Environment template
-└── README.md
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+**Kept:**
+- All trading components
+- Market data APIs
+- Gap scanning
+- Position management
+- P&L tracking
 
 ## License
 
-MIT License - see LICENSE file for details
-
-## Credits
-
-Built with ❤️ using Next.js, Tailwind CSS, and Lucide Icons.
+Private - For personal use only
