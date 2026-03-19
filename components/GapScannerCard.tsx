@@ -198,21 +198,21 @@ export default function GapScannerCard() {
     const isGainer = stock.status === 'gainer';
     const added = addedTickers.has(stock.symbol);
     return (
-      <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-2 px-3 py-[6px] hover:bg-[#21262d] group cursor-default border-b border-[#21262d]/60 last:border-0">
+      <a
+        href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
+        target="_blank" rel="noopener noreferrer"
+        title={stock.name}
+        className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-2 px-3 py-[6px] hover:bg-[#21262d] group border-b border-[#21262d]/60 last:border-0 transition-colors"
+      >
         {/* Symbol */}
         <div className="flex items-center gap-1.5 min-w-0">
           {isGainer
             ? <TrendingUp className="w-3 h-3 text-[#238636] flex-shrink-0" />
             : <TrendingDown className="w-3 h-3 text-[#da3633] flex-shrink-0" />
           }
-          <a
-            href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
-            target="_blank" rel="noopener noreferrer"
-            className="text-xs font-semibold text-white hover:text-[#ff6b35] transition-colors truncate"
-            title={stock.name}
-          >
+          <span className="text-xs font-semibold text-white group-hover:text-[#ff6b35] transition-colors truncate">
             {stock.symbol}
-          </a>
+          </span>
         </div>
         {/* Price */}
         <span className="text-xs text-[#8b949e] tabular-nums">{fmt(stock.price)}</span>
@@ -222,13 +222,13 @@ export default function GapScannerCard() {
         </span>
         {/* Star */}
         <button
-          onClick={() => toggleFavorite(stock.symbol)}
-          className={`transition-colors ${added ? 'text-[#F97316] cursor-default' : 'text-transparent group-hover:text-[#8b949e] hover:!text-[#F97316]'}`}
-          title={added ? 'Added to Daily Favorites' : 'Add to Daily Favorites'}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(stock.symbol); }}
+          className={`transition-colors ${added ? 'text-[#F97316]' : 'text-transparent group-hover:text-[#8b949e] hover:!text-[#F97316]'}`}
+          title={added ? 'Remove from Daily Favorites' : 'Add to Daily Favorites'}
         >
           <Star className={`w-3 h-3 ${added ? 'fill-[#F97316]' : ''}`} />
         </button>
-      </div>
+      </a>
     );
   };
 
