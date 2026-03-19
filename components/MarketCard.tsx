@@ -120,7 +120,8 @@ export default function MarketCard() {
     const id = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/symbols/search?q=${encodeURIComponent(addingSymbol)}`);
+        const typeParam = activeTab === 'crypto' ? '&type=crypto' : '';
+        const res = await fetch(`/api/symbols/search?q=${encodeURIComponent(addingSymbol)}${typeParam}`);
         if (res.ok) {
           const result = await res.json();
           if (result.success) {
