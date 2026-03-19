@@ -106,9 +106,12 @@ export default function MarketCard() {
 
   const currentData = data?.[activeTab] || [];
 
+  // Strip -USD suffix added by CoinGecko search (e.g. "LINK-USD" → "LINK")
+  const cleanCryptoSymbol = (symbol: string) => symbol.replace(/-USD$/, '');
+
   const getTradingViewSymbol = (symbol: string, isCrypto: boolean) => {
     if (isCrypto) {
-      return `COINBASE:${symbol}USD`;
+      return `BINANCE:${cleanCryptoSymbol(symbol)}USDT`;
     }
     return symbol;
   };
@@ -202,7 +205,7 @@ export default function MarketCard() {
                       <TrendingDown className="w-3.5 h-3.5 text-[#da3633] flex-shrink-0" />
                     )}
                     <span className="font-semibold text-white group-hover:text-[#F97316] transition-colors flex items-center gap-1 truncate">
-                      <span className="truncate">{item.symbol}</span>
+                      <span className="truncate">{activeTab === 'crypto' ? cleanCryptoSymbol(item.symbol) : item.symbol}</span>
                       <ExternalLink className="w-3 h-3 opacity-50 flex-shrink-0" />
                     </span>
                   </div>
