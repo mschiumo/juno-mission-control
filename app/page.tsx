@@ -1,46 +1,43 @@
 'use client';
 
-import { useState, useCallback, Suspense } from 'react';
+import { useState, useCallback } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-// import CalendarCard from "@/components/CalendarCard";
-import HabitCard from "@/components/HabitCard";
-import MarketHoursBanner from "@/components/MarketHoursBanner";
-import GapScannerCard from "@/components/GapScannerCard";
-import NewsScreenerCard from "@/components/NewsScreenerCard";
-import ProjectsCard from "@/components/ProjectsCard";
-import GoalsCard from "@/components/GoalsCard";
-import JunoWidget from "@/components/JunoWidget";
-import LiveClock from "@/components/LiveClock";
-import NotificationsBell from "@/components/NotificationsBell";
-import MotivationalBanner from "@/components/MotivationalBanner";
-import DocumentationCard from "@/components/DocumentationCard";
-import EveningCheckinReminder from "@/components/EveningCheckinReminder";
-import TradingView from "@/components/TradingView";
-import { LayoutDashboard, BookOpen, Target, TrendingUp, Menu, X, CheckSquare } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  TrendingUp,
+  Calculator,
+  Settings,
+  Menu,
+  X
+} from 'lucide-react';
+import MarketHoursBanner from '@/components/MarketHoursBanner';
+import GapScannerCard from '@/components/GapScannerCard';
+import MarketCard from '@/components/MarketCard';
+import NewsScreenerCard from '@/components/NewsScreenerCard';
+import TradeManagementView from '@/components/trading/TradeManagementView';
+import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 
-type TabId = 'dashboard' | 'tasks' | 'trading' | 'goals' | 'docs';
+type TabId = 'dashboard' | 'market' | 'trade-management' | 'projection';
 
-// Inner component that uses searchParams
-function DashboardContent() {
+export default function TradingTerminal() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   
-  // Get tab from URL query param, default to 'dashboard'
+  // Get tab from URL, default to 'dashboard'
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
-    if (tab === 'tasks' || tab === 'trading' || tab === 'goals' || tab === 'docs') return tab;
-    // Support old 'activity' tab redirecting to 'docs'
-    if (tab === 'activity') return 'docs';
+    if (tab === 'market' || tab === 'trade-management' || tab === 'projection') return tab;
     return 'dashboard';
   }, [searchParams]);
   
   const [activeTab, setActiveTabState] = useState<TabId>(getTabFromUrl);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Update URL when tab changes (using replace to avoid bloating history)
+  // Update URL when tab changes
   const setActiveTab = (tab: TabId) => {
     setActiveTabState(tab);
+    setMobileMenuOpen(false);
     const params = new URLSearchParams(searchParams);
     if (tab === 'dashboard') {
       params.delete('tab');
@@ -52,11 +49,13 @@ function DashboardContent() {
 
   const tabs = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tasks' as const, label: 'Tasks', icon: CheckSquare },
-    { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
-    { id: 'goals' as const, label: 'Goals', icon: Target },
-    { id: 'docs' as const, label: 'Docs', icon: BookOpen },
+    { id: 'market' as const, label: 'Market', icon: TrendingUp },
+    { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
+    { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
   ];
+
+  const activeTabLabel = tabs.find(t => t.id === activeTab)?.label || 'Dashboard';
+  const ActiveIcon = tabs.find(t => t.id === activeTab)?.icon || LayoutDashboard;
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
@@ -69,8 +68,8 @@ function DashboardContent() {
                 J
               </div>
               <div>
-                <h1 className="text-lg md:text-2xl font-bold text-white">Juno Mission Control</h1>
-                <p className="hidden sm:block text-xs md:text-sm text-[#8b949e]">Your personal command center</p>
+                <h1 className="text-lg md:text-2xl font-bold text-white">Juno Trading Terminal</h1>
+                <p className="hidden sm:block text-xs md:text-sm text-[#8b949e]">Professional trading tools</p>
               </div>
             </div>
 
@@ -93,132 +92,90 @@ function DashboardContent() {
                 ))}
               </div>
 
-              {/* Desktop Widgets */}
-              <div className="hidden md:flex items-center gap-4">
-                <NotificationsBell />
-                <JunoWidget />
-                <LiveClock />
-              </div>
-
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 hover:bg-[#30363d] rounded-lg"
+                className="md:hidden p-2 rounded-lg bg-[#0d1117] border border-[#30363d] text-[#8b949e] hover:text-white"
               >
-                {mobileMenuOpen ? (
-                  <X className="w-5 h-5 text-white" />
-                ) : (
-                  <Menu className="w-5 h-5 text-white" />
-                )}
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
             </div>
           </div>
 
-          {/* Mobile Menu */}
+          {/* Mobile Tab Navigation */}
           {mobileMenuOpen && (
-            <div className="md:hidden mt-4 pt-4 border-t border-[#30363d]">
-              <div className="flex flex-col gap-2">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      setActiveTab(tab.id);
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-[#ff6b35] text-white'
-                        : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
-                    }`}
-                  >
-                    <tab.icon className="w-5 h-5" />
-                    <span className="font-medium">{tab.label}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="mt-4 pt-4 border-t border-[#30363d] flex items-center justify-between">
-                <NotificationsBell />
-                <JunoWidget />
-                <LiveClock />
-              </div>
+            <div className="md:hidden mt-4 bg-[#0d1117] rounded-lg border border-[#30363d] overflow-hidden">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
+                    activeTab === tab.id
+                      ? 'bg-[#ff6b35]/20 text-white'
+                      : 'text-[#8b949e] hover:bg-[#262626] hover:text-white'
+                  }`}
+                >
+                  <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? 'text-[#ff6b35]' : ''}`} />
+                  <span className="font-medium">{tab.label}</span>
+                  {activeTab === tab.id && (
+                    <div className="ml-auto w-2 h-2 bg-[#ff6b35] rounded-full" />
+                  )}
+                </button>
+              ))}
             </div>
           )}
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
-        {activeTab === 'dashboard' ? (
-          /* Dashboard Grid - Single column for better spacing */
-          <div className="space-y-4">
-            <MotivationalBanner compact variant="orange" />
-            <EveningCheckinReminder />
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
-              <HabitCard />
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+        {activeTab === 'dashboard' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
+              <div className="lg:col-span-2 space-y-4">
+                <MarketHoursBanner />
+                <GapScannerCard />
+              </div>
+              <div className="lg:col-span-3">
+                <MarketCard />
+              </div>
             </div>
+            <NewsScreenerCard />
           </div>
-        ) : activeTab === 'tasks' ? (
-          /* Tasks View - Projects and Task Management */
-          <div className="max-w-[1600px] mx-auto">
-            <ProjectsCard />
+        )}
+
+        {activeTab === 'market' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
+              <div className="lg:col-span-2 space-y-4">
+                <MarketHoursBanner />
+                <GapScannerCard />
+              </div>
+              <div className="lg:col-span-3">
+                <MarketCard />
+              </div>
+            </div>
+            <NewsScreenerCard />
           </div>
-        ) : activeTab === 'trading' ? (
-          /* Trading View - New Trading Journal */
-          <div className="max-w-[1600px] mx-auto">
-            <TradingView />
-          </div>
-        ) : activeTab === 'goals' ? (
-          /* Goals View */
-          <div className="max-w-[1600px] mx-auto">
-            <Suspense fallback={<div className="p-8 text-center text-[#8b949e]">Loading goals...</div>}>
-              <GoalsCard />
-            </Suspense>
-          </div>
-        ) : (
-          /* Docs View */
-          <div className="max-w-[1600px] mx-auto">
-            <DocumentationCard />
-          </div>
+        )}
+
+        {activeTab === 'trade-management' && (
+          <TradeManagementView />
+        )}
+
+        {activeTab === 'projection' && (
+          <ProfitProjectionView />
         )}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#30363d] bg-[#161b22] mt-8 md:mt-12">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-2">
-            <p className="text-center md:text-left text-xs md:text-sm text-[#8b949e]">
-              Juno Mission Control © {new Date().getFullYear()}
-            </p>
-            <div className="flex items-center gap-4">
-              <a 
-                href="https://github.com/mschiumo/juno-mission-control/blob/main/docs/DOCUMENT_LIBRARY.md"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-[#8b949e] hover:text-[#ff6b35] transition-colors"
-              >
-                📚 Docs
-              </a>
-              <a 
-                href="https://github.com/mschiumo/juno-mission-control"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-[#8b949e] hover:text-[#ff6b35] transition-colors"
-              >
-                GitHub
-              </a>
-            </div>
-          </div>
+      <footer className="border-t border-[#30363d] bg-[#161b22] mt-auto">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <p className="text-center text-xs text-[#8b949e]">
+            Juno Trading Terminal - Data provided by Finnhub & Polygon
+          </p>
         </div>
       </footer>
     </div>
-  );
-}
-
-// Main component with Suspense boundary
-export default function Home() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0d1117] flex items-center justify-center"><div className="text-[#8b949e]">Loading...</div></div>}>
-      <DashboardContent />
-    </Suspense>
   );
 }
