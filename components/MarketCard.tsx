@@ -29,6 +29,13 @@ interface TabCustomization {
   custom: MarketItem[];
 }
 
+interface SymbolResult {
+  symbol: string;
+  displaySymbol: string;
+  name: string;
+  type: string;
+}
+
 type Customization = Record<MarketTab, TabCustomization>;
 
 const defaultCustomization = (): Customization => ({
@@ -69,6 +76,10 @@ export default function MarketCard() {
   const [addingSymbol, setAddingSymbol] = useState('');
   const [addingLoading, setAddingLoading] = useState(false);
   const [addingError, setAddingError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<SymbolResult[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const addInputRef = useRef<HTMLInputElement>(null);
 
   const setActiveTab = (tab: MarketTab) => {
@@ -98,6 +109,50 @@ export default function MarketCard() {
   useEffect(() => {
     if (showAddInput) addInputRef.current?.focus();
   }, [showAddInput]);
+
+  // Debounced symbol search
+  useEffect(() => {
+    if (addingSymbol.length < 1) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const id = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/symbols/search?q=${encodeURIComponent(addingSymbol)}`);
+        if (res.ok) {
+          const result = await res.json();
+          if (result.success) {
+            setSuggestions(result.data);
+            setShowSuggestions(result.data.length > 0);
+          }
+        }
+      } catch { /* silent */ } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(id);
+  }, [addingSymbol]);
+
+  const handleSelectSuggestion = (symbol: string) => {
+    setAddingSymbol(symbol);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setSelectedIndex(-1);
+    addInputRef.current?.focus();
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent) => {
+    if (showSuggestions) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIndex(i => Math.min(i + 1, suggestions.length - 1)); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIndex(i => Math.max(i - 1, -1)); return; }
+      if (e.key === 'Enter' && selectedIndex >= 0) { e.preventDefault(); handleSelectSuggestion(suggestions[selectedIndex].symbol); return; }
+      if (e.key === 'Escape') { setShowSuggestions(false); setSelectedIndex(-1); return; }
+    }
+    if (e.key === 'Enter') addTicker();
+    if (e.key === 'Escape') { setShowAddInput(false); setAddingSymbol(''); setAddingError(null); }
+  };
 
   const fetchMarketData = async () => {
     setLoading(true);
@@ -240,22 +295,47 @@ export default function MarketCard() {
           </button>
         </div>
 
-        {/* Inline add input */}
+        {/* Inline add input with autocomplete */}
         {showAddInput && (
           <div className="flex flex-col gap-1.5 mb-4 flex-shrink-0">
             <div className="flex items-center gap-2">
-              <input
-                ref={addInputRef}
-                type="text"
-                value={addingSymbol}
-                onChange={e => { setAddingSymbol(e.target.value.toUpperCase()); setAddingError(null); }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') addTicker();
-                  if (e.key === 'Escape') { setShowAddInput(false); setAddingSymbol(''); setAddingError(null); }
-                }}
-                placeholder="Ticker (e.g. AAPL, ^VIX, BTC-USD)"
-                className="flex-1 px-3 py-2 text-sm bg-[#0d1117] border border-[#30363d] focus:border-[#F97316]/60 rounded-lg text-white placeholder-[#8b949e] focus:outline-none transition-colors"
-              />
+              <div className="relative flex-1">
+                <input
+                  ref={addInputRef}
+                  type="text"
+                  value={addingSymbol}
+                  onChange={e => { setAddingSymbol(e.target.value.toUpperCase()); setAddingError(null); setSelectedIndex(-1); }}
+                  onKeyDown={handleInputKeyDown}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  onFocus={() => addingSymbol.length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
+                  placeholder="Search ticker (e.g. AAPL, SPY...)"
+                  className="w-full px-3 py-2 text-sm bg-[#0d1117] border border-[#30363d] focus:border-[#F97316]/60 rounded-lg text-white placeholder-[#8b949e] focus:outline-none transition-colors"
+                />
+                {isSearching && (
+                  <RefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8b949e] animate-spin" />
+                )}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-[#161b22] border border-[#30363d] rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                    {suggestions.map((s, i) => (
+                      <button
+                        key={s.symbol}
+                        type="button"
+                        onMouseDown={() => handleSelectSuggestion(s.symbol)}
+                        className={`w-full px-3 py-2 text-left text-sm transition-colors ${
+                          i === selectedIndex
+                            ? 'bg-[#F97316]/20 text-white'
+                            : 'text-[#8b949e] hover:bg-[#0d1117] hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-white">{s.symbol}</span>
+                          <span className="text-xs text-[#6e7681] truncate">{s.name}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={addTicker}
                 disabled={addingLoading || !addingSymbol.trim()}
