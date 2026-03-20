@@ -153,9 +153,9 @@ function DashboardContent() {
           <div className="space-y-4">
             <MotivationalBanner compact variant="orange" />
             <EveningCheckinReminder />
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 xl:items-start">
               <HabitCard />
-              <div className="grid gap-4" style={{ gridTemplateRows: '240px 1fr' }}>
+              <div className="grid gap-4 xl:h-[720px]" style={{ gridTemplateRows: '240px 1fr' }}>
                 <CalendarCard />
                 <NewsScreenerCard />
               </div>
