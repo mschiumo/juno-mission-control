@@ -23,7 +23,7 @@ interface MarketData {
   lastUpdated: string;
 }
 
-type MarketTab = 'indices' | 'stocks' | 'commodities' | 'crypto' | 'forex';
+type MarketTab = 'indices' | 'stocks' | 'commodities' | 'crypto' | 'forex' | 'sectors';
 
 interface TabCustomization {
   hidden: string[];
@@ -45,6 +45,7 @@ const defaultCustomization = (): Customization => ({
   commodities: { hidden: [], custom: [] },
   crypto: { hidden: [], custom: [] },
   forex: { hidden: [], custom: [] },
+  sectors: { hidden: [], custom: [] },
 });
 
 function loadCustomization(): Customization {
@@ -65,11 +66,12 @@ export default function MarketCard() {
 
   const getTabFromUrl = useCallback((): MarketTab => {
     const tab = searchParams.get('marketTab');
-    if (tab === 'stocks' || tab === 'commodities' || tab === 'crypto' || tab === 'forex') return tab;
+    if (tab === 'stocks' || tab === 'commodities' || tab === 'crypto' || tab === 'forex' || tab === 'sectors') return tab;
     return 'indices';
   }, [searchParams]);
 
   const [data, setData] = useState<MarketData | null>(null);
+  const [sectorsData, setSectorsData] = useState<MarketItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeTab, setActiveTabState] = useState<MarketTab>(getTabFromUrl);
@@ -104,7 +106,8 @@ export default function MarketCard() {
 
   useEffect(() => {
     fetchMarketData();
-    const interval = setInterval(fetchMarketData, 60000);
+    fetchSectorData();
+    const interval = setInterval(() => { fetchMarketData(); fetchSectorData(); }, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -173,6 +176,19 @@ export default function MarketCard() {
     }
   };
 
+  const fetchSectorData = async () => {
+    try {
+      const res = await fetch('/api/sector-performance');
+      const result = await res.json();
+      if (result.success) {
+        setSectorsData(result.data.map((s: { symbol: string; name: string; price: number; change: number; changePercent: number }) => ({
+          ...s,
+          status: s.changePercent >= 0 ? 'up' as const : 'down' as const,
+        })));
+      }
+    } catch { /* silent */ }
+  };
+
   const updateCustomization = (updated: Customization) => {
     setCustomization(updated);
     saveCustomization(updated);
@@ -194,9 +210,10 @@ export default function MarketCard() {
     const symbol = addingSymbol.trim().toUpperCase();
     if (!symbol) return;
     const tabCust = customization[activeTab];
-    const apiItems = (data?.[activeTab] || []).filter(i => !tabCust.hidden.includes(i.symbol));
+    const baseItems = activeTab === 'sectors' ? sectorsData : (data?.[activeTab] || []);
+    const apiItems = baseItems.filter((i: MarketItem) => !tabCust.hidden.includes(i.symbol));
     const alreadyExists =
-      apiItems.some(i => i.symbol === symbol) ||
+      apiItems.some((i: MarketItem) => i.symbol === symbol) ||
       tabCust.custom.some(c => c.symbol === symbol);
     if (alreadyExists) {
       setAddingError(`${symbol} is already in this list`);
@@ -242,15 +259,17 @@ export default function MarketCard() {
     if (activeTab === 'crypto') return `BINANCE:${cleanCryptoSymbol(symbol)}USDT`;
     if (activeTab === 'forex') {
       if (symbol === 'DXY') return 'TVC:DXY';
-      return `FX:${symbol.replace('/', '')}`;  // "EUR/USD" → "FX:EURUSD"
+      return `FX:${symbol.replace('/', '')}`;
     }
+    if (activeTab === 'sectors') return `AMEX:${symbol}`;
     return symbol;
   };
 
   const displaySymbol = (symbol: string) => cleanCryptoSymbol(symbol);
 
   const tabCust = customization[activeTab];
-  const apiItems = (data?.[activeTab] || []).filter(i => !tabCust.hidden.includes(i.symbol));
+  const baseItems = activeTab === 'sectors' ? sectorsData : (data?.[activeTab] || []);
+  const apiItems = baseItems.filter((i: MarketItem) => !tabCust.hidden.includes(i.symbol));
   const currentData = [...apiItems, ...tabCust.custom];
   const upCount = currentData.filter(i => i.change >= 0).length;
   const downCount = currentData.filter(i => i.change < 0).length;
@@ -288,7 +307,7 @@ export default function MarketCard() {
       <div className="p-6 flex-1 flex flex-col min-h-0">
         {/* Tabs + Add button */}
         <div className="flex items-center gap-1 mb-5 flex-shrink-0">
-          {(['indices', 'stocks', 'commodities', 'crypto', 'forex'] as const).map((tab) => (
+          {(['indices', 'stocks', 'commodities', 'crypto', 'forex', 'sectors'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -301,13 +320,13 @@ export default function MarketCard() {
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
-          <button
+          {activeTab !== 'sectors' && <button
             onClick={() => { setShowAddInput(v => !v); setAddingSymbol(''); setAddingError(null); }}
             className={`ml-1 p-1.5 rounded-lg transition-all ${showAddInput ? 'bg-[#F97316] text-white' : 'text-[#8b949e] hover:bg-[#30363d] hover:text-white'}`}
             title="Add ticker"
           >
             <Plus className="w-3.5 h-3.5" />
-          </button>
+          </button>}
         </div>
 
         {/* Inline add input with autocomplete */}

@@ -11,7 +11,6 @@ import {
   X
 } from 'lucide-react';
 import MarketEventsCard from '@/components/MarketEventsCard';
-import SectorPerformanceCard from '@/components/SectorPerformanceCard';
 import GapScannerCard from '@/components/GapScannerCard';
 import MarketCard from '@/components/MarketCard';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
@@ -145,7 +144,6 @@ export default function TradingView() {
       {activeSubTab === 'market' && (
         <div className="space-y-6">
           <MarketEventsCard />
-          <SectorPerformanceCard />
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6 lg:h-[640px]">
             <div className="lg:col-span-2 h-[640px] lg:h-full overflow-hidden">
               <GapScannerCard />

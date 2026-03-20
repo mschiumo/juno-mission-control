@@ -167,16 +167,16 @@ export default function GapScannerCard() {
   const dataSource = response?.source || 'mock';
   const isWeekend = response?.isWeekend;
 
-  const allStocks = data
-    ? [...data.gainers, ...data.losers].sort((a, b) => {
-        let av = 0, bv = 0;
-        if (sortCol === 'gap') { av = Math.abs(a.gapPercent); bv = Math.abs(b.gapPercent); }
-        else if (sortCol === 'price') { av = a.price; bv = b.price; }
-        else if (sortCol === 'volume') { av = a.volume; bv = b.volume; }
-        else if (sortCol === 'cap') { av = a.marketCap; bv = b.marketCap; }
-        return sortDir === 'desc' ? bv - av : av - bv;
-      })
-    : [];
+  const sortStocks = (stocks: GapStock[]) => [...stocks].sort((a, b) => {
+    let av = 0, bv = 0;
+    if (sortCol === 'gap') { av = Math.abs(a.gapPercent); bv = Math.abs(b.gapPercent); }
+    else if (sortCol === 'price') { av = a.price; bv = b.price; }
+    else if (sortCol === 'volume') { av = a.volume; bv = b.volume; }
+    else if (sortCol === 'cap') { av = a.marketCap; bv = b.marketCap; }
+    return sortDir === 'desc' ? bv - av : av - bv;
+  });
+
+  const allStocks = data ? sortStocks([...data.gainers, ...data.losers]) : [];
 
   const toggleSort = (col: SortCol) => {
     if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
@@ -300,13 +300,13 @@ export default function GapScannerCard() {
               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-2 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Vol</span>
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide w-14 text-right">Chg%</span>
+                <button onClick={() => toggleSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" /></button>
+                <button onClick={() => toggleSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" /></button>
                 <span className="w-3" />
               </div>
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.gainers?.length
-                  ? data.gainers.map(stock => <StockRow key={stock.symbol} stock={stock} />)
+                  ? sortStocks(data.gainers).map(stock => <StockRow key={stock.symbol} stock={stock} />)
                   : <div className="text-center py-8 text-[#8b949e] text-xs">{isWeekend ? 'Market closed' : 'No gainers 2%+'}</div>
                 }
               </div>
@@ -322,13 +322,13 @@ export default function GapScannerCard() {
               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-2 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Vol</span>
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide w-14 text-right">Chg%</span>
+                <button onClick={() => toggleSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" /></button>
+                <button onClick={() => toggleSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" /></button>
                 <span className="w-3" />
               </div>
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.losers?.length
-                  ? data.losers.map(stock => <StockRow key={stock.symbol} stock={stock} />)
+                  ? sortStocks(data.losers).map(stock => <StockRow key={stock.symbol} stock={stock} />)
                   : <div className="text-center py-8 text-[#8b949e] text-xs">{isWeekend ? 'Market closed' : 'No losers 2%+'}</div>
                 }
               </div>
