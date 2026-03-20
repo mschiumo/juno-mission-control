@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getStockUniverse, getStockInfoMap, refreshStockUniverse, StockInfo } from '@/lib/stock-universe';
 import { createClient } from 'redis';
 
+// Allow up to 300s for full stock universe scan (App Router maxDuration)
+export const maxDuration = 300;
+
 interface GapStock {
   symbol: string;
   name: string;
