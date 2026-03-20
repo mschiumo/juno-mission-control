@@ -19,10 +19,11 @@ interface MarketData {
   stocks: MarketItem[];
   commodities: MarketItem[];
   crypto: MarketItem[];
+  forex: MarketItem[];
   lastUpdated: string;
 }
 
-type MarketTab = 'indices' | 'stocks' | 'commodities' | 'crypto';
+type MarketTab = 'indices' | 'stocks' | 'commodities' | 'crypto' | 'forex';
 
 interface TabCustomization {
   hidden: string[];
@@ -43,6 +44,7 @@ const defaultCustomization = (): Customization => ({
   stocks: { hidden: [], custom: [] },
   commodities: { hidden: [], custom: [] },
   crypto: { hidden: [], custom: [] },
+  forex: { hidden: [], custom: [] },
 });
 
 function loadCustomization(): Customization {
@@ -63,7 +65,7 @@ export default function MarketCard() {
 
   const getTabFromUrl = useCallback((): MarketTab => {
     const tab = searchParams.get('marketTab');
-    if (tab === 'stocks' || tab === 'commodities' || tab === 'crypto') return tab;
+    if (tab === 'stocks' || tab === 'commodities' || tab === 'crypto' || tab === 'forex') return tab;
     return 'indices';
   }, [searchParams]);
 
@@ -222,20 +224,30 @@ export default function MarketCard() {
     }
   };
 
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
+  const formatPrice = (price: number) => {
+    // Forex rates (EUR/USD ~1.08, USD/JPY ~149) need 4 decimal places for rates < 10
+    const decimals = activeTab === 'forex' ? (price < 10 ? 4 : 2) : (price < 100 ? 2 : 0);
+    return new Intl.NumberFormat('en-US', {
+      style: activeTab === 'forex' ? 'decimal' : 'currency',
       currency: 'USD',
-      minimumFractionDigits: price < 100 ? 2 : 0,
-      maximumFractionDigits: price < 100 ? 2 : 0,
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
     }).format(price);
+  };
+
+  // Strip -USD suffix (from CoinGecko-sourced custom symbols, e.g. "LINK-USD" → "LINK")
+  const cleanCryptoSymbol = (symbol: string) => symbol.replace(/-USD$/, '');
 
   const getTradingViewSymbol = (symbol: string) => {
-    if (activeTab === 'crypto') return `COINBASE:${symbol.replace('-', '')}`;
+    if (activeTab === 'crypto') return `BINANCE:${cleanCryptoSymbol(symbol)}USDT`;
+    if (activeTab === 'forex') {
+      if (symbol === 'DXY') return 'TVC:DXY';
+      return `FX:${symbol.replace('/', '')}`;  // "EUR/USD" → "FX:EURUSD"
+    }
     return symbol;
   };
 
-  const displaySymbol = (symbol: string) => symbol.replace('-', '');
+  const displaySymbol = (symbol: string) => cleanCryptoSymbol(symbol);
 
   const tabCust = customization[activeTab];
   const apiItems = (data?.[activeTab] || []).filter(i => !tabCust.hidden.includes(i.symbol));
@@ -276,7 +288,7 @@ export default function MarketCard() {
       <div className="p-6 flex-1 flex flex-col min-h-0">
         {/* Tabs + Add button */}
         <div className="flex items-center gap-1 mb-5 flex-shrink-0">
-          {(['indices', 'stocks', 'commodities', 'crypto'] as const).map((tab) => (
+          {(['indices', 'stocks', 'commodities', 'crypto', 'forex'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}

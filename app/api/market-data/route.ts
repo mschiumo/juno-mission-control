@@ -9,6 +9,21 @@ interface MarketItem {
   status: 'up' | 'down';
 }
 
+// Yahoo Finance symbol → clean display symbol for forex pairs
+const forexDisplayMap: Record<string, string> = {
+  'EURUSD=X': 'EUR/USD',
+  'USDJPY=X': 'USD/JPY',
+  'USDCNY=X': 'USD/CNY',
+  'DX-Y.NYB': 'DXY',
+};
+
+const forexNames: Record<string, string> = {
+  'EUR/USD': 'Euro / US Dollar',
+  'USD/JPY': 'US Dollar / Japanese Yen',
+  'USD/CNY': 'US Dollar / Chinese Yuan',
+  'DXY': 'US Dollar Index',
+};
+
 // Stock/ETF/Commodity name mappings
 const stockNames: Record<string, string> = {
   'SPY': 'S&P 500 ETF',
@@ -253,6 +268,20 @@ async function fetchCryptoPrices(): Promise<MarketItem[]> {
 }
 
 /**
+ * Fetches major forex pairs from Yahoo Finance
+ */
+async function fetchForexRates(): Promise<MarketItem[]> {
+  const yahooSymbols = Object.keys(forexDisplayMap);
+  const results = await Promise.all(yahooSymbols.map(fetchYahooSingle));
+  return results
+    .filter((item): item is MarketItem => item !== null)
+    .map(item => ({
+      ...item,
+      symbol: forexDisplayMap[item.symbol] ?? item.symbol,
+      name: forexNames[forexDisplayMap[item.symbol] ?? item.symbol] ?? item.name,
+    }));
+}
+
 /**
  * Fetches a single symbol from Yahoo Finance (used for ^VIX which fails in multi-symbol requests)
  */
@@ -348,7 +377,7 @@ async function fetchFearAndGreed(): Promise<{ score: number; rating: string } | 
 /**
  * Fallback mock data when all APIs fail
  */
-function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commodities: MarketItem[]; crypto: MarketItem[] } {
+function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commodities: MarketItem[]; crypto: MarketItem[]; forex: MarketItem[] } {
   return {
     indices: [
       { symbol: 'SPY', name: 'S&P 500 ETF', price: 595.32, change: 2.15, changePercent: 0.36, status: 'up' },
@@ -381,6 +410,12 @@ function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commo
       { symbol: 'HYPE', name: 'Hyperliquid', price: 15.42, change: 0.85, changePercent: 5.83, status: 'up' },
       { symbol: 'AERO', name: 'Aerodrome Finance', price: 1.25, change: 0.08, changePercent: 6.84, status: 'up' },
       { symbol: 'VIRTUALS', name: 'Virtuals Protocol', price: 3.45, change: 0.22, changePercent: 6.81, status: 'up' }
+    ],
+    forex: [
+      { symbol: 'EUR/USD', name: 'Euro / US Dollar', price: 1.0845, change: 0.0012, changePercent: 0.11, status: 'up' },
+      { symbol: 'USD/JPY', name: 'US Dollar / Japanese Yen', price: 149.52, change: -0.38, changePercent: -0.25, status: 'down' },
+      { symbol: 'USD/CNY', name: 'US Dollar / Chinese Yuan', price: 7.2415, change: 0.0085, changePercent: 0.12, status: 'up' },
+      { symbol: 'DXY', name: 'US Dollar Index', price: 104.23, change: -0.18, changePercent: -0.17, status: 'down' },
     ]
   };
 }
@@ -426,6 +461,9 @@ export async function GET() {
     // Always fetch crypto from CoinGecko
     const crypto = await fetchCryptoPrices();
 
+    // Always fetch forex from Yahoo Finance
+    const forex = await fetchForexRates();
+
     // Fetch Fear & Greed index (best-effort)
     const fearAndGreed = await fetchFearAndGreed();
     
@@ -436,24 +474,26 @@ export async function GET() {
     const hasRealStocks = stocks.length > 0;
     const hasRealCommodities = commodities.length > 0;
     const hasRealCrypto = crypto.length > 0;
-    
+    const hasRealForex = forex.length > 0;
+
     const marketData = {
       indices: hasRealIndices ? indices : fallback.indices,
       stocks: hasRealStocks ? stocks : fallback.stocks,
       commodities: hasRealCommodities ? commodities : fallback.commodities,
       crypto: hasRealCrypto ? crypto : fallback.crypto,
+      forex: hasRealForex ? forex : fallback.forex,
       fearAndGreed: fearAndGreed ?? null,
       lastUpdated: timestamp
     };
-    
+
     // Determine data source
-    const realCount = [hasRealIndices, hasRealStocks, hasRealCommodities, hasRealCrypto].filter(Boolean).length;
+    const realCount = [hasRealIndices, hasRealStocks, hasRealCommodities, hasRealCrypto, hasRealForex].filter(Boolean).length;
     let source: 'live' | 'partial' | 'fallback';
-    if (realCount === 4) source = 'live';
+    if (realCount === 5) source = 'live';
     else if (realCount > 0) source = 'partial';
     else source = 'fallback';
-    
-    console.log(`Market data: source=${source}, provider=${hasFinnhubKey ? 'finnhub' : 'yahoo'}, indices=${indices.length}, stocks=${stocks.length}, commodities=${commodities.length}, crypto=${crypto.length}`);
+
+    console.log(`Market data: source=${source}, provider=${hasFinnhubKey ? 'finnhub' : 'yahoo'}, indices=${indices.length}, stocks=${stocks.length}, commodities=${commodities.length}, crypto=${crypto.length}, forex=${forex.length}`);
     
     return NextResponse.json({ 
       success: true, 
