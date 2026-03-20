@@ -28,7 +28,7 @@ import {
   MessageSquare,
   Upload
 } from 'lucide-react';
-import { getTodayInEST, getESTDateFromTimestamp } from '@/lib/date-utils';
+import { getTodayInEST } from '@/lib/date-utils';
 
 // ============================================================================
 // Types
@@ -810,9 +810,9 @@ export default function CombinedCalendarView() {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-[520px]">
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr className="border-b border-[#30363d] bg-[#0d1117]">
                     <th className="py-3 px-2 text-center w-10">
                       <button

@@ -19,50 +19,58 @@ interface FinnhubSearchResult {
   }>;
 }
 
+async function searchCrypto(query: string) {
+  const response = await fetch(
+    `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`,
+    { headers: { Accept: 'application/json' }, next: { revalidate: 300 } }
+  );
+  if (!response.ok) throw new Error(`CoinGecko error: ${response.status}`);
+  const data = await response.json();
+  return (data.coins as Array<{ id: string; symbol: string; name: string }> || [])
+    .slice(0, 10)
+    .map(coin => ({
+      symbol: `${coin.symbol.toUpperCase()}-USD`,
+      displaySymbol: coin.symbol.toUpperCase(),
+      name: coin.name,
+      type: 'Crypto',
+    }));
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');
+    const type = searchParams.get('type');
 
     if (!query || query.length < 1) {
-      return NextResponse.json({
-        success: true,
-        data: [],
-        count: 0,
-      });
+      return NextResponse.json({ success: true, data: [], count: 0 });
+    }
+
+    // Crypto search — use CoinGecko (no API key needed)
+    if (type === 'crypto') {
+      const data = await searchCrypto(query);
+      return NextResponse.json({ success: true, data, count: data.length });
     }
 
     if (!FINNHUB_API_KEY) {
-      // Fallback: return empty array if no API key
-      return NextResponse.json({
-        success: true,
-        data: [],
-        count: 0,
-        error: 'FINNHUB_API_KEY not configured',
-      });
+      return NextResponse.json({ success: true, data: [], count: 0, error: 'FINNHUB_API_KEY not configured' });
     }
 
-    // Call Finnhub symbol search API
+    // Stock/ETF search — use Finnhub
     const response = await fetch(
       `https://finnhub.io/api/v1/search?q=${encodeURIComponent(query)}&token=${FINNHUB_API_KEY}`,
-      { next: { revalidate: 300 } } // Cache for 5 minutes
+      { next: { revalidate: 300 } }
     );
-
-    if (!response.ok) {
-      throw new Error(`Finnhub API error: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Finnhub API error: ${response.status}`);
 
     const data: FinnhubSearchResult = await response.json();
-
-    // Filter and format results
     const formatted = data.result
       ?.filter(item => {
-        // Only include stocks and ETFs, exclude OTC/pink sheets
         const isStockOrETF = item.type === 'Common Stock' || item.type === 'ETP' || item.type === 'ETF';
         const isNotOTC = !item.symbol.includes('.') && !item.symbol.includes(':');
         return isStockOrETF && isNotOTC;
       })
-      .slice(0, 10) // Limit to 10 results
+      .slice(0, 10)
       .map(item => ({
         symbol: item.symbol,
         displaySymbol: item.displaySymbol,
@@ -70,21 +78,12 @@ export async function GET(request: NextRequest) {
         type: item.type,
       }));
 
-    return NextResponse.json({
-      success: true,
-      data: formatted || [],
-      count: formatted?.length || 0,
-    });
+    return NextResponse.json({ success: true, data: formatted || [], count: formatted?.length || 0 });
 
   } catch (error) {
     console.error('Error searching symbols:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to search symbols',
-        data: [],
-        count: 0,
-      },
+      { success: false, error: error instanceof Error ? error.message : 'Failed to search symbols', data: [], count: 0 },
       { status: 500 }
     );
   }
