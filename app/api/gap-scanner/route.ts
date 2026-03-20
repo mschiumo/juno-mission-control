@@ -430,7 +430,8 @@ export async function GET(request: Request) {
   
   // Parse options from query params
   const dryRun = searchParams.get('dryRun') === 'true';
-  const limit = parseInt(searchParams.get('limit') || '5000', 10);
+  // Default to 300 stocks — at 200ms/stock that's ~60s, fits within gateway timeout
+  const limit = parseInt(searchParams.get('limit') || '300', 10);
   const forceRefresh = searchParams.get('refresh') === 'true';
   const useCache = searchParams.get('cache') !== 'false';
   const minGapPercent = parseFloat(searchParams.get('minGap') || '5');
@@ -479,7 +480,7 @@ export async function GET(request: Request) {
     // Run the scan
     const scanResults = await scanForGaps(symbols, stockInfo, {
       batchSize: 50,
-      delayMs: 1000, // 1 second between stocks = 60 calls/min
+      delayMs: 200, // 200ms between stocks — fast enough to fit in gateway timeout
       minGapPercent,
       minVolume: 100000,
       maxPrice: 1000,
