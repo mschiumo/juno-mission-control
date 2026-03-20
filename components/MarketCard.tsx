@@ -322,7 +322,7 @@ export default function MarketCard() {
           ))}
           {activeTab !== 'sectors' && <button
             onClick={() => { setShowAddInput(v => !v); setAddingSymbol(''); setAddingError(null); }}
-            className={`ml-1 p-1.5 rounded-lg transition-all ${showAddInput ? 'bg-[#F97316] text-white' : 'text-[#8b949e] hover:bg-[#30363d] hover:text-white'}`}
+            className={`ml-1 p-1.5 rounded-lg transition-all ${showAddInput ? 'bg-[#F97316] text-white' : 'bg-[#F97316]/10 text-[#F97316] hover:bg-[#F97316]/20'}`}
             title="Add ticker"
           >
             <Plus className="w-3.5 h-3.5" />
