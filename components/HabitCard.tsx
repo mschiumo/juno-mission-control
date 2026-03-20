@@ -615,14 +615,18 @@ export default function HabitCard() {
           {getSyncIndicator()}
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => { setReportReady(false); setShowReportModal(true); }}
-            disabled={habits.length === 0}
-            className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-30"
-            title="Habits report"
-          >
-            <ClipboardList className="w-3.5 h-3.5 text-[#8b949e] hover:text-[#F97316]" />
-          </button>
+          <div className="relative group">
+            <button
+              onClick={() => { setReportReady(false); setShowReportModal(true); }}
+              disabled={habits.length === 0}
+              className="p-1.5 bg-[#F97316]/15 hover:bg-[#F97316]/30 rounded-lg transition-colors disabled:opacity-30"
+            >
+              <ClipboardList className="w-3.5 h-3.5 text-[#F97316]" />
+            </button>
+            <div className="absolute bottom-full right-0 mb-1.5 px-2 py-1 bg-[#30363d] text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+              Generate Report
+            </div>
+          </div>
           <button
             onClick={() => { setEditingHabit(null); setNewHabitName(''); setNewHabitIcon('⭐'); setNewHabitTarget('Daily'); setNewHabitFrequency('daily'); setShowAddModal(true); }}
             className="p-1.5 bg-[#F97316] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors"
