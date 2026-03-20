@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { JWT } from 'google-auth-library';
+import { readFileSync } from 'fs';
 
 const GOOGLE_SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
 const GOOGLE_IMPERSONATE_USER = process.env.GOOGLE_IMPERSONATE_USER;
@@ -34,7 +35,7 @@ async function getCalendarClient() {
   }
 
   // Load service account credentials
-  const credentials = require(GOOGLE_SERVICE_ACCOUNT_KEY);
+  const credentials = JSON.parse(readFileSync(GOOGLE_SERVICE_ACCOUNT_KEY, 'utf-8'));
 
   const auth = new JWT({
     email: credentials.client_email,

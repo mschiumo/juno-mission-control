@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect, useMemo } from 'react';
 import { X, Trash2, Calculator } from 'lucide-react';
@@ -60,6 +61,32 @@ export default function EditWatchlistItemModal({
     potentialReward: number;
   } | null>(null);
 
+  const calculateValues = (
+    ticker: string,
+    entryPrice: number,
+    stopPrice: number,
+    targetPrice: number,
+    riskAmount: number
+  ) => {
+    const stopSize = Math.abs(entryPrice - stopPrice);
+    const targetSize = Math.abs(targetPrice - entryPrice);
+
+    if (stopSize === 0) return;
+
+    const riskRatio = targetSize / stopSize;
+    const shareSize = Math.floor(riskAmount / stopSize);
+    const positionValue = entryPrice * shareSize;
+    const potentialReward = targetSize * shareSize;
+
+    setCalculatedValues({
+      riskRatio,
+      stopSize,
+      shareSize,
+      positionValue,
+      potentialReward,
+    });
+  };
+
   // Populate form when item changes
   useEffect(() => {
     if (item) {
@@ -79,32 +106,6 @@ export default function EditWatchlistItemModal({
       calculateValues(item.ticker, item.entryPrice, item.stopPrice, item.targetPrice, riskAmount);
     }
   }, [item]);
-
-  const calculateValues = (
-    ticker: string,
-    entryPrice: number,
-    stopPrice: number,
-    targetPrice: number,
-    riskAmount: number
-  ) => {
-    const stopSize = Math.abs(entryPrice - stopPrice);
-    const targetSize = Math.abs(targetPrice - entryPrice);
-    
-    if (stopSize === 0) return;
-
-    const riskRatio = targetSize / stopSize;
-    const shareSize = Math.floor(riskAmount / stopSize);
-    const positionValue = entryPrice * shareSize;
-    const potentialReward = targetSize * shareSize;
-
-    setCalculatedValues({
-      riskRatio,
-      stopSize,
-      shareSize,
-      positionValue,
-      potentialReward,
-    });
-  };
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};

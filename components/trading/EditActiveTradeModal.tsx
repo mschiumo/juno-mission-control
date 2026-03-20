@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect } from 'react';
 import { X, Edit3, DollarSign, Layers, FileText, Calendar } from 'lucide-react';

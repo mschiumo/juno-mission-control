@@ -470,7 +470,7 @@ export default function CalendarView() {
                 </div>
                 
                 <div className="mt-3 pt-3 border-t border-[#30363d] text-xs text-[#8b949e]">
-                  💡 We extract filled orders from "Today's Trade Activity" section
+                  💡 We extract filled orders from &quot;Today&apos;s Trade Activity&quot; section
                 </div>
                 
                 {/* Arrow */}

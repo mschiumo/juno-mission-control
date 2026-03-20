@@ -74,7 +74,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const allTrades = await getAllTrades();
     
     // Get all user trades in date range
-    let trades = allTrades.filter((trade) => {
+    const trades = allTrades.filter((trade) => {
       if (trade.userId && trade.userId !== userId) return false;
       
       const tradeDate = new Date(trade.entryDate);

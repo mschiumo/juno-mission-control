@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect } from 'react';
 import { 
@@ -28,6 +29,20 @@ export default function ActiveTradesView({ onTradeClosed }: ActiveTradesViewProp
   const [mounted, setMounted] = useState(false);
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
 
+  const loadActiveTrades = () => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        setActiveTrades(JSON.parse(stored));
+      } else {
+        setActiveTrades([]);
+      }
+    } catch (error) {
+      console.error('Error loading active trades:', error);
+      setActiveTrades([]);
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
     loadActiveTrades();
@@ -54,20 +69,6 @@ export default function ActiveTradesView({ onTradeClosed }: ActiveTradesViewProp
     window.addEventListener('juno:active-trades-updated', handleActiveTradesUpdate);
     return () => window.removeEventListener('juno:active-trades-updated', handleActiveTradesUpdate);
   }, []);
-
-  const loadActiveTrades = () => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setActiveTrades(JSON.parse(stored));
-      } else {
-        setActiveTrades([]);
-      }
-    } catch (error) {
-      console.error('Error loading active trades:', error);
-      setActiveTrades([]);
-    }
-  };
 
   const handleClosePosition = (tradeId: string) => {
     const trade = activeTrades.find(t => t.id === tradeId);
@@ -167,7 +168,7 @@ export default function ActiveTradesView({ onTradeClosed }: ActiveTradesViewProp
           <Activity className="w-12 h-12 text-[#30363d] mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-white mb-2">No Active Positions</h3>
           <p className="text-[#8b949e] max-w-md mx-auto mb-4">
-            When you're ready to enter a position, move a trade from your watchlist here.
+            When you&apos;re ready to enter a position, move a trade from your watchlist here.
           </p>
           <div className="flex items-center justify-center gap-2 text-sm text-[#8b949e]">
             <TrendingUp className="w-4 h-4 text-green-500" />

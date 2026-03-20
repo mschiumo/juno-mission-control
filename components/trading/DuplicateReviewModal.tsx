@@ -635,7 +635,7 @@ export default function DuplicateReviewModal({
                 )}
                 {currentDecision.action === 'keep_both' && (
                   <span className="text-blue-400">
-                    ✓ Will keep both: Saves CSV trade as separate entry (you'll have 2 trades)
+                    ✓ Will keep both: Saves CSV trade as separate entry (you&apos;ll have 2 trades)
                   </span>
                 )}
                 {currentDecision.action === 'skip' && (

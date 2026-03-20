@@ -1362,7 +1362,7 @@ export default function WatchlistView() {
           <div className="space-y-3">
             {(() => {
               // First filter by search query
-              let filteredActiveTrades = activeTradesSearchQuery
+              const filteredActiveTrades = activeTradesSearchQuery
                 ? activeTrades.filter(trade =>
                     trade.ticker.toLowerCase().includes(activeTradesSearchQuery.toLowerCase())
                   )
@@ -1382,7 +1382,7 @@ export default function WatchlistView() {
               if (filteredActiveTrades.length === 0 && activeTradesSearchQuery) {
                 return (
                   <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
-                    <p className="text-sm text-[#8b949e]">No active positions found for "{activeTradesSearchQuery}"</p>
+                    <p className="text-sm text-[#8b949e]">No active positions found for &quot;{activeTradesSearchQuery}&quot;</p>
                     <button
                       onClick={() => setActiveTradesSearchQuery('')}
                       className="mt-2 text-sm text-green-400 hover:text-green-300"

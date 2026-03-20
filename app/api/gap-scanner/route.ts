@@ -302,9 +302,9 @@ async function scanForGaps(
   const gainers: GapStock[] = [];
   const losers: GapStock[] = [];
   let scanned = 0;
-  let quoteFailures = 0;
-  let profileFailures = 0;
-  let skippedETF = 0;
+  const quoteFailures = 0;
+  const profileFailures = 0;
+  const skippedETF = 0;
   let skippedGap = 0;
   let skippedVolume = 0;
   let skippedPrice = 0;
@@ -439,17 +439,14 @@ export async function GET(request: Request) {
     console.log(`[GapScanner] Options: dryRun=${dryRun}, limit=${limit}, forceRefresh=${forceRefresh}`);
     
     // Get stock universe
-    let symbols: string[];
-    let stockInfo: Map<string, StockInfo>;
-    
     if (forceRefresh) {
       console.log('[GapScanner] Refreshing stock universe...');
       await refreshStockUniverse();
     }
-    
+
     // Try to get cached universe
-    symbols = await getStockUniverse();
-    stockInfo = await getStockInfoMap();
+    let symbols = await getStockUniverse();
+    const stockInfo = await getStockInfoMap();
     
     // Limit symbols if requested (for testing)
     if (limit < symbols.length) {

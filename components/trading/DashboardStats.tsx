@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, TrendingUp, TrendingDown, DollarSign, Target, Percent } from 'lucide-react';
 
 interface DashboardStatsProps {
@@ -72,7 +72,7 @@ export default function DashboardStats({ onAddTrade }: DashboardStatsProps) {
 function StatCard({ title, value, icon: Icon, color }: { 
   title: string; 
   value: string; 
-  icon: any; 
+  icon: React.ElementType;
   color: string;
 }) {
   return (
