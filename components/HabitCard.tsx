@@ -518,7 +518,7 @@ export default function HabitCard() {
   const hasPendingChanges = pendingChanges.size > 0;
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-[640px]">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-[900px]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
         <div className="flex items-center gap-2">

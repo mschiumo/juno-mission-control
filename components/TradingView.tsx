@@ -10,9 +10,10 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import MarketEventsCard from '@/components/MarketEventsCard';
+import MarketHoursBanner from '@/components/MarketHoursBanner';
 import GapScannerCard from '@/components/GapScannerCard';
 import MarketCard from '@/components/MarketCard';
+import NewsScreenerCard from '@/components/NewsScreenerCard';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
@@ -143,15 +144,16 @@ export default function TradingView() {
 
       {activeSubTab === 'market' && (
         <div className="space-y-6">
-          <MarketEventsCard />
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6 lg:h-[640px]">
-            <div className="lg:col-span-2 h-[640px] lg:h-full overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
+            <div className="lg:col-span-3 space-y-4">
+              <MarketHoursBanner compact />
               <GapScannerCard />
             </div>
-            <div className="lg:col-span-3 h-[640px] lg:h-full overflow-hidden">
+            <div className="lg:col-span-2">
               <MarketCard />
             </div>
           </div>
+          <NewsScreenerCard />
         </div>
       )}
 
