@@ -7,8 +7,6 @@ import { Eye, EyeOff, Check, X } from 'lucide-react';
 
 const rules = [
   { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
-  { label: 'At least one uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
-  { label: 'At least one number', test: (p: string) => /[0-9]/.test(p) },
   { label: 'At least one special character (!@#$%…)', test: (p: string) => /[^A-Za-z0-9]/.test(p) },
 ];
 
