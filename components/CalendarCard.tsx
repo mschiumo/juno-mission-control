@@ -82,13 +82,14 @@ export default function CalendarCard() {
     return () => { clearInterval(fetchTimer); clearInterval(nowTimer); };
   }, []);
 
-  // Auto-scroll: current time 80px from top of the visible area
+  // Auto-scroll: keep current time 80px from the top of the visible area.
+  // Depends on both `now` (fires every minute) and `loading` (fires once events render).
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && !loading) {
       const target = (now / 60) * PX_PER_HOUR - 80;
       scrollRef.current.scrollTop = Math.max(0, target);
     }
-  }, [now]);
+  }, [now, loading]);
 
   const fetchEvents = async () => {
     setLoading(true);
