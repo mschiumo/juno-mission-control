@@ -15,7 +15,6 @@ import GapScannerCard from '@/components/GapScannerCard';
 import MarketCard from '@/components/MarketCard';
 import NewsScreenerCard from '@/components/NewsScreenerCard';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
-import CalendarView from '@/components/trading/CalendarView';
 import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
@@ -146,11 +145,11 @@ export default function TradingView() {
       {activeSubTab === 'market' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
-            <div className="lg:col-span-2 space-y-4">
+            <div className="lg:col-span-3 space-y-4">
               <MarketHoursBanner compact />
               <GapScannerCard />
             </div>
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-2">
               <MarketCard />
             </div>
           </div>

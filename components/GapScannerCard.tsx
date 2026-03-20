@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock, ExternalLink } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock, ExternalLink, Download, ChevronUp, ChevronDown } from 'lucide-react';
+
+type SortField = 'gapPercent' | 'volume';
+type SortDir = 'asc' | 'desc';
 
 interface GapStock {
   symbol: string;
@@ -40,10 +43,11 @@ export default function GapScannerCard() {
   const [response, setResponse] = useState<GapResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [gainerSort, setGainerSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'gapPercent', dir: 'desc' });
+  const [loserSort, setLoserSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'gapPercent', dir: 'asc' });
 
   useEffect(() => {
     fetchGapData();
-    // Auto-refresh every 60 seconds during pre-market hours (4-9:30 AM EST)
     const interval = setInterval(fetchGapData, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -75,25 +79,15 @@ export default function GapScannerCard() {
   };
 
   const formatVolume = (volume: number) => {
-    if (volume >= 1000000) {
-      return (volume / 1000000).toFixed(1) + 'M';
-    }
-    if (volume >= 1000) {
-      return (volume / 1000).toFixed(1) + 'K';
-    }
+    if (volume >= 1000000) return (volume / 1000000).toFixed(1) + 'M';
+    if (volume >= 1000) return (volume / 1000).toFixed(1) + 'K';
     return volume.toString();
   };
 
   const formatMarketCap = (cap: number) => {
-    if (cap >= 1000000000000) {
-      return (cap / 1000000000000).toFixed(1) + 'T';
-    }
-    if (cap >= 1000000000) {
-      return (cap / 1000000000).toFixed(1) + 'B';
-    }
-    if (cap >= 1000000) {
-      return (cap / 1000000).toFixed(1) + 'M';
-    }
+    if (cap >= 1000000000000) return (cap / 1000000000000).toFixed(1) + 'T';
+    if (cap >= 1000000000) return (cap / 1000000000).toFixed(1) + 'B';
+    if (cap >= 1000000) return (cap / 1000000).toFixed(1) + 'M';
     return cap.toString();
   };
 
@@ -110,31 +104,44 @@ export default function GapScannerCard() {
     }).replace(',', ' @');
   };
 
-  const renderStockList = (stocks: GapStock[], type: 'gainer' | 'loser') => {
+  const applySortOrder = (stocks: GapStock[], sort: { field: SortField; dir: SortDir }) => {
+    return [...stocks].sort((a, b) => {
+      const aVal = sort.field === 'volume' ? a.volume : a.gapPercent;
+      const bVal = sort.field === 'volume' ? b.volume : b.gapPercent;
+      return sort.dir === 'desc' ? bVal - aVal : aVal - bVal;
+    });
+  };
+
+  const renderStockList = (
+    stocks: GapStock[],
+    type: 'gainer' | 'loser',
+    sort: { field: SortField; dir: SortDir }
+  ) => {
     const isGainer = type === 'gainer';
     const isWeekend = response?.isWeekend;
-    
+    const sortedStocks = applySortOrder(stocks, sort);
+
     if (stocks.length === 0) {
       return (
         <div className="text-center py-6 text-[#8b949e] text-sm">
           <p>No {isGainer ? 'gainers' : 'losers'} 2%+</p>
           <p className="text-xs mt-1">
-            {isWeekend 
-              ? 'Market closed — gaps resume Monday 4 AM EST' 
+            {isWeekend
+              ? 'Market closed — gaps resume Monday 4 AM EST'
               : 'Low volatility or pre-market not started'}
           </p>
         </div>
       );
     }
-    
+
     return (
       <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-        {stocks.map((stock) => (
+        {sortedStocks.map((stock) => (
           <div
             key={stock.symbol}
             className={`p-3 rounded-lg border transition-all hover:shadow-lg ${
-              isGainer 
-                ? 'bg-[#238636]/10 border-[#238636]/30 hover:border-[#238636]/60' 
+              isGainer
+                ? 'bg-[#238636]/10 border-[#238636]/30 hover:border-[#238636]/60'
                 : 'bg-[#da3633]/10 border-[#da3633]/30 hover:border-[#da3633]/60'
             }`}
           >
@@ -159,9 +166,7 @@ export default function GapScannerCard() {
                 {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%
               </span>
             </div>
-            
             <p className="text-xs text-[#8b949e] mb-2 truncate">{stock.name}</p>
-            
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div>
                 <p className="text-[#8b949e]">Price</p>
@@ -182,17 +187,34 @@ export default function GapScannerCard() {
     );
   };
 
+  const exportToCSV = () => {
+    if (!data) return;
+    const rows = [
+      ['Type', 'Symbol', 'Name', 'Gap %', 'Price', 'Prev Close', 'Volume', 'Market Cap'],
+      ...data.gainers.map(s => ['Gainer', s.symbol, s.name, s.gapPercent.toFixed(2), s.price.toFixed(2), s.previousClose.toFixed(2), s.volume, s.marketCap]),
+      ...data.losers.map(s => ['Loser', s.symbol, s.name, s.gapPercent.toFixed(2), s.price.toFixed(2), s.previousClose.toFixed(2), s.volume, s.marketCap]),
+    ];
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gap-scanner-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const dataSource = response?.source || 'mock';
   const isWeekend = response?.isWeekend;
   const scannedCount = response?.scanned || 0;
   const foundCount = response?.found || 0;
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#F97316]/10 rounded-lg">
-            <Activity className="w-5 h-5 text-[#F97316]" />
+          <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
+            <Activity className="w-5 h-5 text-[#ff6b35]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">Gap Scanner</h2>
@@ -208,7 +230,6 @@ export default function GapScannerCard() {
             </div>
           </div>
         </div>
-
         <div className="flex items-center gap-2">
           {!loading && (
             <span className={`text-[10px] px-2 py-1 rounded ${
@@ -219,19 +240,26 @@ export default function GapScannerCard() {
               {dataSource === 'live' ? 'LIVE' : 'MOCK'}
             </span>
           )}
+          {data && !loading && (
+            <button
+              onClick={exportToCSV}
+              className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              title="Export to CSV"
+            >
+              <Download className="w-4 h-4 text-[#8b949e] hover:text-[#ff6b35]" />
+            </button>
+          )}
           <button
             onClick={fetchGapData}
             disabled={loading}
             className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
             title="Refresh gap data"
           >
-            <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#ff6b35] ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
-      <div className="p-6">
 
-      {/* Weekend/Market Status Banner */}
       {isWeekend && (
         <div className="mb-4 p-3 bg-[#d29922]/10 border border-[#d29922]/30 rounded-lg">
           <div className="flex items-center gap-2 text-[#d29922]">
@@ -239,13 +267,12 @@ export default function GapScannerCard() {
             <span className="text-sm font-medium">Market Closed</span>
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
-            Weekend mode — showing data from {response?.tradingDate}. 
+            Weekend mode — showing data from {response?.tradingDate}.
             Next gap scan: Monday 4:00 AM EST
           </p>
         </div>
       )}
 
-      {/* Pre-Market Banner */}
       {response?.marketSession === 'pre-market' && (
         <div className="mb-4 p-3 bg-[#58a6ff]/10 border border-[#58a6ff]/30 rounded-lg">
           <div className="flex items-center justify-between">
@@ -254,9 +281,7 @@ export default function GapScannerCard() {
               <span className="text-sm font-medium">Pre-Market Active</span>
             </div>
             {lastUpdated && (
-              <span className="text-[10px] text-[#8b949e]">
-                Last updated: {formatLastUpdated()}
-              </span>
+              <span className="text-[10px] text-[#8b949e]">Last updated: {formatLastUpdated()}</span>
             )}
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
@@ -266,7 +291,6 @@ export default function GapScannerCard() {
         </div>
       )}
 
-      {/* Market Open Banner */}
       {response?.marketSession === 'market-open' && (
         <div className="mb-4 p-3 bg-[#238636]/10 border border-[#238636]/30 rounded-lg">
           <div className="flex items-center justify-between">
@@ -275,9 +299,7 @@ export default function GapScannerCard() {
               <span className="text-sm font-medium">Market Open</span>
             </div>
             {lastUpdated && (
-              <span className="text-[10px] text-[#8b949e]">
-                Last updated: {formatLastUpdated()}
-              </span>
+              <span className="text-[10px] text-[#8b949e]">Last updated: {formatLastUpdated()}</span>
             )}
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
@@ -286,7 +308,6 @@ export default function GapScannerCard() {
         </div>
       )}
 
-      {/* Post-Market Banner */}
       {response?.marketSession === 'post-market' && (
         <div className="mb-4 p-3 bg-[#8b949e]/10 border border-[#8b949e]/30 rounded-lg">
           <div className="flex items-center justify-between">
@@ -295,9 +316,7 @@ export default function GapScannerCard() {
               <span className="text-sm font-medium">After Hours</span>
             </div>
             {lastUpdated && (
-              <span className="text-[10px] text-[#8b949e]">
-                Last updated: {formatLastUpdated()}
-              </span>
+              <span className="text-[10px] text-[#8b949e]">Last updated: {formatLastUpdated()}</span>
             )}
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
@@ -307,7 +326,6 @@ export default function GapScannerCard() {
         </div>
       )}
 
-      {/* Scan Stats */}
       {response && dataSource === 'live' && !isWeekend && (
         <div className="mb-4 flex items-center gap-4 text-xs text-[#8b949e]">
           <span>Scanned: <span className="text-white">{scannedCount.toLocaleString()}+ stocks</span></span>
@@ -322,33 +340,99 @@ export default function GapScannerCard() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Gainers - Left Column */}
+
+          {/* Gainers — sort buttons call setGainerSort only */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-[#238636] flex items-center gap-2">
                 <TrendingUp className="w-4 h-4" />
                 Biggest Gainers
               </h3>
-              <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded">
-                {data?.gainers.length || 0}
-              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setGainerSort(prev => ({
+                    field: 'gapPercent',
+                    dir: prev.field === 'gapPercent' ? (prev.dir === 'desc' ? 'asc' : 'desc') : 'desc',
+                  }))}
+                  className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                    gainerSort.field === 'gapPercent' ? 'bg-[#30363d] text-white' : 'text-[#8b949e] hover:text-white'
+                  }`}
+                >
+                  Chg%
+                  <span className="flex flex-col leading-none">
+                    <ChevronUp className={`w-2.5 h-2.5 ${gainerSort.field === 'gapPercent' && gainerSort.dir === 'asc' ? 'text-[#F97316]' : ''}`} />
+                    <ChevronDown className={`w-2.5 h-2.5 ${gainerSort.field === 'gapPercent' && gainerSort.dir === 'desc' ? 'text-[#F97316]' : ''}`} />
+                  </span>
+                </button>
+                <button
+                  onClick={() => setGainerSort(prev => ({
+                    field: 'volume',
+                    dir: prev.field === 'volume' ? (prev.dir === 'desc' ? 'asc' : 'desc') : 'desc',
+                  }))}
+                  className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                    gainerSort.field === 'volume' ? 'bg-[#30363d] text-white' : 'text-[#8b949e] hover:text-white'
+                  }`}
+                >
+                  Vol
+                  <span className="flex flex-col leading-none">
+                    <ChevronUp className={`w-2.5 h-2.5 ${gainerSort.field === 'volume' && gainerSort.dir === 'asc' ? 'text-[#F97316]' : ''}`} />
+                    <ChevronDown className={`w-2.5 h-2.5 ${gainerSort.field === 'volume' && gainerSort.dir === 'desc' ? 'text-[#F97316]' : ''}`} />
+                  </span>
+                </button>
+                <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded ml-1">
+                  {data?.gainers.length || 0}
+                </span>
+              </div>
             </div>
-            {data?.gainers && renderStockList(data.gainers, 'gainer')}
+            {data?.gainers && renderStockList(data.gainers, 'gainer', gainerSort)}
           </div>
-          
-          {/* Losers - Right Column */}
+
+          {/* Losers — sort buttons call setLoserSort only */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-[#da3633] flex items-center gap-2">
                 <TrendingDown className="w-4 h-4" />
                 Biggest Losers
               </h3>
-              <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded">
-                {data?.losers.length || 0}
-              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setLoserSort(prev => ({
+                    field: 'gapPercent',
+                    dir: prev.field === 'gapPercent' ? (prev.dir === 'desc' ? 'asc' : 'desc') : 'desc',
+                  }))}
+                  className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                    loserSort.field === 'gapPercent' ? 'bg-[#30363d] text-white' : 'text-[#8b949e] hover:text-white'
+                  }`}
+                >
+                  Chg%
+                  <span className="flex flex-col leading-none">
+                    <ChevronUp className={`w-2.5 h-2.5 ${loserSort.field === 'gapPercent' && loserSort.dir === 'asc' ? 'text-[#F97316]' : ''}`} />
+                    <ChevronDown className={`w-2.5 h-2.5 ${loserSort.field === 'gapPercent' && loserSort.dir === 'desc' ? 'text-[#F97316]' : ''}`} />
+                  </span>
+                </button>
+                <button
+                  onClick={() => setLoserSort(prev => ({
+                    field: 'volume',
+                    dir: prev.field === 'volume' ? (prev.dir === 'desc' ? 'asc' : 'desc') : 'desc',
+                  }))}
+                  className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                    loserSort.field === 'volume' ? 'bg-[#30363d] text-white' : 'text-[#8b949e] hover:text-white'
+                  }`}
+                >
+                  Vol
+                  <span className="flex flex-col leading-none">
+                    <ChevronUp className={`w-2.5 h-2.5 ${loserSort.field === 'volume' && loserSort.dir === 'asc' ? 'text-[#F97316]' : ''}`} />
+                    <ChevronDown className={`w-2.5 h-2.5 ${loserSort.field === 'volume' && loserSort.dir === 'desc' ? 'text-[#F97316]' : ''}`} />
+                  </span>
+                </button>
+                <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded ml-1">
+                  {data?.losers.length || 0}
+                </span>
+              </div>
             </div>
-            {data?.losers && renderStockList(data.losers, 'loser')}
+            {data?.losers && renderStockList(data.losers, 'loser', loserSort)}
           </div>
+
         </div>
       )}
 
@@ -356,7 +440,6 @@ export default function GapScannerCard() {
         <p className="text-[10px] text-[#8b949e] text-center">
           Common stocks only — ETFs, warrants, preferred shares excluded • Min 2% gap • 100K+ volume • $50M+ market cap
         </p>
-      </div>
       </div>
     </div>
   );
