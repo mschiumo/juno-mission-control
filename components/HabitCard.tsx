@@ -835,7 +835,7 @@ export default function HabitCard() {
         const report = reportReady ? computeReport() : null;
         return (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
+            <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
               <div className="flex items-center justify-between px-5 py-4 border-b border-[#30363d] flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <ClipboardList className="w-4 h-4 text-[#F97316]" />
@@ -874,6 +874,16 @@ export default function HabitCard() {
                         <div className="text-[10px] text-[#8b949e] mt-0.5">{s.label}</div>
                       </div>
                     ))}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2"><TrendingUp className="w-3.5 h-3.5 text-[#F97316]" /><span className="text-xs font-semibold text-[#F97316]">Recommendations</span></div>
+                    <div className="space-y-2">
+                      {report.recommendations.map((rec, i) => (
+                        <div key={i} className="flex gap-2 text-xs text-[#8b949e] leading-relaxed">
+                          <span className="text-[#F97316] flex-shrink-0 font-bold">→</span><span>{rec}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   {report.strong.length > 0 && (
                     <div>
@@ -914,16 +924,6 @@ export default function HabitCard() {
                       </div>
                     </div>
                   )}
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-2"><TrendingUp className="w-3.5 h-3.5 text-[#F97316]" /><span className="text-xs font-semibold text-[#F97316]">Recommendations</span></div>
-                    <div className="space-y-2">
-                      {report.recommendations.map((rec, i) => (
-                        <div key={i} className="flex gap-2 text-xs text-[#8b949e] leading-relaxed">
-                          <span className="text-[#F97316] flex-shrink-0 font-bold">→</span><span>{rec}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
