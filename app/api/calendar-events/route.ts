@@ -39,15 +39,28 @@ function parseICalDate(value: string, propName: string): Date {
     );
     return new Date(iso);
   }
-  // Local datetime (TZID in prop name or no suffix) — treat as local
-  const y = +value.slice(0, 4);
-  const mo = +value.slice(4, 6) - 1;
-  const d = +value.slice(6, 8);
-  const h = +value.slice(9, 11);
-  const mi = +value.slice(11, 13);
-  const s = +value.slice(13, 15);
-  void propName;
-  return new Date(y, mo, d, h, mi, s);
+  // Local datetime with optional TZID (e.g. DTSTART;TZID=America/New_York:20260320T090000)
+  const tzid = propName.match(/TZID=([^;:]+)/)?.[1];
+  const localIso = `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T${value.slice(9, 11)}:${value.slice(11, 13)}:${value.slice(13, 15)}`;
+
+  if (tzid) {
+    // Convert local time in the given TZID to a UTC Date.
+    // Trick: treat localIso as UTC to get a starting point, then compute the
+    // real UTC offset of that timezone at that moment and adjust.
+    const utcGuess = new Date(localIso + 'Z');
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tzid,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    });
+    const parts = formatter.formatToParts(utcGuess);
+    const get = (t: string) => Number(parts.find(p => p.type === t)?.value ?? 0);
+    const tzAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
+    return new Date(utcGuess.getTime() + (utcGuess.getTime() - tzAsUtc));
+  }
+
+  // No TZID — fall back to treating as UTC (common for floating times in exported iCal)
+  return new Date(localIso + 'Z');
 }
 
 function isAllDay(propName: string, value: string): boolean {
