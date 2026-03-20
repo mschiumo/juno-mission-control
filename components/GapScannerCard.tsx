@@ -203,7 +203,7 @@ export default function GapScannerCard() {
         href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
         target="_blank" rel="noopener noreferrer"
         title={stock.name}
-        className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-2 px-3 py-[6px] hover:bg-[#21262d] group border-b border-[#21262d]/60 last:border-0 transition-colors"
+        className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-2 px-3 py-[6px] hover:bg-[#21262d] group border-b border-[#21262d]/60 last:border-0 transition-colors"
       >
         {/* Symbol */}
         <div className="flex items-center gap-1.5 min-w-0">
@@ -217,6 +217,8 @@ export default function GapScannerCard() {
         </div>
         {/* Price */}
         <span className="text-xs text-[#8b949e] tabular-nums">{fmt(stock.price)}</span>
+        {/* Volume */}
+        <span className="text-xs text-[#8b949e] tabular-nums">{fmtVol(stock.volume)}</span>
         {/* Gap % */}
         <span className={`text-xs font-semibold tabular-nums w-14 text-right ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
           {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%
@@ -295,9 +297,10 @@ export default function GapScannerCard() {
                 <span className="text-[10px] font-semibold text-[#238636] uppercase tracking-widest">Gainers</span>
                 <span className="text-[10px] text-[#8b949e] ml-auto">{data?.gainers.length ?? 0}</span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-2 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-2 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
+                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Vol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide w-14 text-right">Chg%</span>
                 <span className="w-3" />
               </div>
@@ -316,9 +319,10 @@ export default function GapScannerCard() {
                 <span className="text-[10px] font-semibold text-[#da3633] uppercase tracking-widest">Losers</span>
                 <span className="text-[10px] text-[#8b949e] ml-auto">{data?.losers.length ?? 0}</span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-2 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-2 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
+                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Vol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide w-14 text-right">Chg%</span>
                 <span className="w-3" />
               </div>
