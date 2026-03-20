@@ -528,6 +528,14 @@ export default function CalendarCard() {
                   <p className="text-xs text-[#8b949e] text-center">
                     Calendar may take a moment to display after connecting.
                   </p>
+                  <a
+                    href="https://support.google.com/calendar/answer/37648"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[#8b949e] hover:text-[#ff6b35] transition-colors text-center underline underline-offset-2"
+                  >
+                    Need help? View Google&apos;s iCal setup guide
+                  </a>
                 </div>
               )}
             </div>
