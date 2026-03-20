@@ -14,12 +14,14 @@ import MotivationalBanner from "@/components/MotivationalBanner";
 import DocumentationCard from "@/components/DocumentationCard";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
-import { LayoutDashboard, BookOpen, Target, TrendingUp, Menu, X } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Target, TrendingUp, Menu, X, LogOut } from 'lucide-react';
+import { signOut, useSession } from 'next-auth/react';
 
 type TabId = 'dashboard' | 'trading' | 'goals' | 'docs';
 
 // Inner component that uses searchParams
 function DashboardContent() {
+  const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -108,6 +110,18 @@ function DashboardContent() {
                 <NotificationsBell />
                 <JunoWidget />
                 <LiveClock />
+                <div className="flex items-center gap-2 border-l border-[#30363d] pl-4">
+                  {session?.user?.name && (
+                    <span className="text-xs text-[#8b949e]">{session.user.name}</span>
+                  )}
+                  <button
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    title="Sign out"
+                    className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e] hover:text-white"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Mobile Menu Button */}
