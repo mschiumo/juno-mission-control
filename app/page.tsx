@@ -17,22 +17,34 @@ import { signOut, useSession } from 'next-auth/react';
 
 type TabId = 'dashboard' | 'trading' | 'goals';
 
+const OWNER_EMAIL = 'mschiumo18@gmail.com';
+
 // Inner component that uses searchParams
 function DashboardContent() {
   const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  
+
+  const isOwner = session?.user?.email === OWNER_EMAIL;
+
   // Get tab from URL query param, default to 'dashboard'
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
-    if (tab === 'trading' || tab === 'goals') return tab;
+    if (tab === 'trading') return tab;
+    if (tab === 'goals' && isOwner) return tab;
     return 'dashboard';
-  }, [searchParams]);
-  
+  }, [searchParams, isOwner]);
+
   const [activeTab, setActiveTabState] = useState<TabId>(getTabFromUrl);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Redirect external users away from goals tab if they navigate there directly
+  useEffect(() => {
+    if (activeTab === 'goals' && !isOwner) {
+      setActiveTab('dashboard');
+    }
+  }, [isOwner, activeTab]);
   const [habitsHeight, setHabitsHeight] = useState<number>(980);
   const habitsRef = useRef<HTMLDivElement>(null);
 
@@ -62,7 +74,7 @@ function DashboardContent() {
   const tabs = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
-    { id: 'goals' as const, label: 'Goals', icon: Target },
+    ...(isOwner ? [{ id: 'goals' as const, label: 'Goals', icon: Target }] : []),
   ];
 
   return (
