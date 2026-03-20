@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import type { Trade, CSVImportResult, CSVImportError, CreateTradeRequest } from '@/types/trading';
+import type { Trade, CSVImportResult, CSVImportError } from '@/types/trading';
 import { Strategy, TradeStatus, TradeSide } from '@/types/trading';
 import { saveTrades } from '@/lib/db/trades-v2';
 import { parseTOSCSV } from '@/lib/parsers/tos-parser';

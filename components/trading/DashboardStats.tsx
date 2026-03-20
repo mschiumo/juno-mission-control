@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Plus, TrendingUp, TrendingDown, DollarSign, Target, Percent } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, TrendingUp, DollarSign, Target, Percent } from 'lucide-react';
 
 interface DashboardStatsProps {
   onAddTrade: () => void;
