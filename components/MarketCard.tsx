@@ -238,12 +238,11 @@ export default function MarketCard() {
   // Strip -USD suffix (from CoinGecko-sourced custom symbols, e.g. "LINK-USD" → "LINK")
   const cleanCryptoSymbol = (symbol: string) => symbol.replace(/-USD$/, '');
 
-  // Strip -USD suffix added by CoinGecko search (e.g. "LINK-USD" → "LINK")
-  const cleanCryptoSymbol = (symbol: string) => symbol.replace(/-USD$/, '');
-
-  const getTradingViewSymbol = (symbol: string, isCrypto: boolean) => {
-    if (isCrypto) {
-      return `BINANCE:${cleanCryptoSymbol(symbol)}USDT`;
+  const getTradingViewSymbol = (symbol: string) => {
+    if (activeTab === 'crypto') return `BINANCE:${cleanCryptoSymbol(symbol)}USDT`;
+    if (activeTab === 'forex') {
+      if (symbol === 'DXY') return 'TVC:DXY';
+      return `FX:${symbol.replace('/', '')}`;  // "EUR/USD" → "FX:EURUSD"
     }
     return symbol;
   };
@@ -362,58 +361,22 @@ export default function MarketCard() {
             </div>
             {addingError && <p className="text-xs text-[#da3633] px-1">{addingError}</p>}
           </div>
-          <span className="text-xs text-[#8b949e]">{currentData.length} symbols</span>
-        </div>
-      )}
+        )}
 
-      {/* Market Data - Grid Layout */}
-      <div className="max-h-[500px] overflow-y-auto pr-1">
-        {loading ? (
-          <div className="text-center py-8 text-[#8b949e]">
-            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#F97316]" />
-            <p className="text-sm">Loading market data...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {currentData.map((item) => (
-              <a
-                key={item.symbol}
-                href={`https://www.tradingview.com/chart/?symbol=${getTradingViewSymbol(item.symbol, activeTab === 'crypto')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#F97316]/50 transition-all block group min-w-0"
-              >
-                <div className="flex items-center justify-between mb-2 min-w-0">
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    {item.change >= 0 ? (
-                      <TrendingUp className="w-3.5 h-3.5 text-[#238636] flex-shrink-0" />
-                    ) : (
-                      <TrendingDown className="w-3.5 h-3.5 text-[#da3633] flex-shrink-0" />
-                    )}
-                    <span className="font-semibold text-white group-hover:text-[#F97316] transition-colors flex items-center gap-1 truncate">
-                      <span className="truncate">{activeTab === 'crypto' ? cleanCryptoSymbol(item.symbol) : item.symbol}</span>
-                      <ExternalLink className="w-3 h-3 opacity-50 flex-shrink-0" />
-                    </span>
-                  </div>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${
-                    item.change >= 0
-                      ? 'bg-[#238636]/20 text-[#238636]'
-                      : 'bg-[#da3633]/20 text-[#da3633]'
-                  }`}>
-                    {item.change >= 0 ? '+' : ''}{item.changePercent.toFixed(2)}%
-                  </span>
-                </div>
-
-                <p className="text-xs text-[#8b949e] mb-3 truncate">{item.name}</p>
-
-                <div className="flex items-baseline justify-between min-w-0">
-                  <span className="metric-value text-lg sm:text-xl truncate">{formatPrice(item.price)}</span>
-                  <span className={`text-xs font-medium flex-shrink-0 ml-2 ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>
-                    {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}
-                  </span>
-                </div>
-              </a>
-            ))}
+        {/* Stats */}
+        {currentData.length > 0 && (
+          <div className="flex items-center justify-between mb-4 px-1 flex-shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-[#238636]" />
+                <span className="text-xs text-[#8b949e]">{upCount} Up</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-[#da3633]" />
+                <span className="text-xs text-[#8b949e]">{downCount} Down</span>
+              </div>
+            </div>
+            <span className="text-xs text-[#8b949e]">{currentData.length} symbols</span>
           </div>
         )}
 

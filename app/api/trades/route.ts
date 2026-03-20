@@ -7,8 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, CreateTradeRequest, TradeListResponse } from '@/types/trading';
-import { TradeStatus, Strategy, TradeSide } from '@/types/trading';
-import { getAllTrades, saveTrade, deleteTrade } from '@/lib/db/trades-v2';
+import { TradeStatus, Strategy } from '@/types/trading';
+import { getAllTrades, saveTrade } from '@/lib/db/trades-v2';
 import { getNowInEST } from '@/lib/date-utils';
 
 // Helper to generate UUID

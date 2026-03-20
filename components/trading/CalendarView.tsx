@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Upload, TrendingUp, TrendingDown, Info, RefreshCw, ChevronDown, ArrowUpDown, Filter, Download, Trash2, X, CheckSquare, Square, Edit3, FileText } from 'lucide-react';
-import { getTodayInEST, parseDateToEST } from '@/lib/date-utils';
+import { Calendar, ChevronLeft, ChevronRight, Upload, TrendingUp, TrendingDown, Info, RefreshCw, ChevronDown, ArrowUpDown, Filter, Download, Trash2, X, CheckSquare, Square, Edit3, FileText } from 'lucide-react';
 
 interface DayData {
   date: string;

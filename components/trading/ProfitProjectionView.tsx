@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calculator, TrendingUp, DollarSign, Target, Percent, Calendar } from 'lucide-react';
+import { Calculator, TrendingUp, Target, Calendar } from 'lucide-react';
 
 interface ProjectionParams {
   tradesPerDay: number;

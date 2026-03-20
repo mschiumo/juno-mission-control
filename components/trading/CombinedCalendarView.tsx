@@ -28,7 +28,7 @@ import {
   MessageSquare,
   Upload
 } from 'lucide-react';
-import { getTodayInEST, getESTDateFromTimestamp } from '@/lib/date-utils';
+import { getTodayInEST } from '@/lib/date-utils';
 
 // ============================================================================
 // Types
