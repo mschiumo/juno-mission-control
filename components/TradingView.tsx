@@ -145,8 +145,8 @@ export default function TradingView() {
       {activeSubTab === 'market' && (
         <div className="space-y-6">
           <MarketEventsCard />
-          <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 md:gap-6 lg:h-[640px]">
-            <div className="lg:col-span-2 h-[640px] lg:h-full overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-8 gap-4 md:gap-6 lg:h-[640px]">
+            <div className="lg:col-span-3 h-[640px] lg:h-full overflow-hidden">
               <GapScannerCard />
             </div>
             <div className="lg:col-span-2 h-[640px] lg:h-full overflow-hidden">

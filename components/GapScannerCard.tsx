@@ -71,10 +71,11 @@ export default function GapScannerCard() {
         const idMap: Record<string, string> = {};
         result.data.forEach((item: { ticker: string; id: string }) => { idMap[item.ticker] = item.id; });
         setTickerIdMap(idMap);
-        setAddedTickers(prev => {
-          const merged = new Set([...prev, ...tickers]);
-          try { localStorage.setItem('gap-scanner-favorites', JSON.stringify([...merged])); } catch { /* ignore */ }
-          return merged;
+        // Use DB as source of truth — don't merge with stale localStorage
+        setAddedTickers(() => {
+          const fresh = new Set<string>(tickers);
+          try { localStorage.setItem('gap-scanner-favorites', JSON.stringify([...fresh])); } catch { /* ignore */ }
+          return fresh;
         });
       }
     } catch { /* silent */ }
