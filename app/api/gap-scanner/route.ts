@@ -497,9 +497,13 @@ export async function GET(request: Request) {
     console.log(`[GapScanner] Completed in ${totalDuration}ms`);
     console.log(`[GapScanner] Results: ${response.data.gainers.length} gainers, ${response.data.losers.length} losers from ${response.scanned} stocks scanned`);
     
-    // Store results if not dry run
-    if (!dryRun) {
+    // Store results if not dry run and we actually found something
+    // (don't cache empty results from closed-hours scans)
+    const hasResults = response.data.gainers.length > 0 || response.data.losers.length > 0;
+    if (!dryRun && hasResults) {
       await storeScanResults(response);
+    } else if (!dryRun && !hasResults) {
+      console.log('[GapScanner] Skipping cache — no gaps found (likely outside trading hours)');
     }
     
     return NextResponse.json(response);
