@@ -14,13 +14,14 @@ export default auth((req) => {
 
   if (isInternalApi) return NextResponse.next();
 
-  if (!isLoggedIn && nextUrl.pathname !== '/login') {
+  const publicPaths = ['/login', '/signup'];
+  if (!isLoggedIn && !publicPaths.includes(nextUrl.pathname)) {
     const loginUrl = new URL('/login', nextUrl.origin);
     loginUrl.searchParams.set('callbackUrl', nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (isLoggedIn && nextUrl.pathname === '/login') {
+  if (isLoggedIn && publicPaths.includes(nextUrl.pathname)) {
     return NextResponse.redirect(new URL('/', nextUrl.origin));
   }
 
