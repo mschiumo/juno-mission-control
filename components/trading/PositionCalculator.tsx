@@ -593,24 +593,6 @@ export default function PositionCalculator() {
             </div>
           </div>
 
-          {/* Quick Reference */}
-          <div className="mt-4 p-3 bg-[#1a1a1a] border border-[#262626] rounded-lg">
-            <p className="text-xs font-medium text-[#8b949e] mb-2">Quick Reference (using {parseFloat(inputs.riskRatio) || 2}:1)</p>
-            <div className="space-y-1 text-xs">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-[#8b949e]">≥ {parseFloat(inputs.riskRatio) || 2}:1 R:R — Valid trade</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                <span className="text-[#8b949e]">{(parseFloat(inputs.riskRatio) || 2) * 0.75}:1 to {parseFloat(inputs.riskRatio) || 2}:1 — Marginal</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-[#8b949e]">&lt; {(parseFloat(inputs.riskRatio) || 2) * 0.75}:1 — Invalid, skip trade</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
