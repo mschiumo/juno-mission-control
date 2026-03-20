@@ -65,10 +65,38 @@ function colorForTitle(title: string): string {
 }
 
 function unescape(s: string): string {
-  return s.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
+  return s.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\;/g, ';').replace(/\\\\/g, '\\');
 }
 
-export async function GET() {
+// Return today's start/end as UTC ms, computed in the caller's IANA timezone.
+// Prevents Vercel's UTC server clock from shifting the date relative to the user.
+function getTodayBoundsForTz(tz: string): { todayStart: number; todayEnd: number } {
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  });
+  const parts = fmt.formatToParts(now);
+  const get = (type: string) => Number(parts.find(p => p.type === type)?.value ?? 0);
+  const year = get('year'), month = get('month') - 1, day = get('day');
+  const hour = get('hour'), minute = get('minute'), second = get('second');
+
+  // UTC offset: local-clock ms minus actual UTC ms
+  const tzNowMs = new Date(year, month, day, hour, minute, second).getTime();
+  const utcOffsetMs = tzNowMs - now.getTime();
+
+  // Midnight and end-of-day in the target tz, as UTC timestamps
+  const todayStart = new Date(year, month, day, 0, 0, 0).getTime() - utcOffsetMs;
+  const todayEnd   = new Date(year, month, day, 23, 59, 59, 999).getTime() - utcOffsetMs;
+
+  return { todayStart, todayEnd };
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const tz = searchParams.get('tz') ?? 'America/New_York';
+
   try {
     const res = await fetch(ICAL_URL, {
       headers: { 'User-Agent': 'JunoMissionControl/1.0', Accept: 'text/calendar' },
@@ -129,19 +157,16 @@ export async function GET() {
       props[key] = val;
     }
 
-    // Filter to today only
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    // Filter to today only, using the caller's timezone
+    const { todayStart, todayEnd } = getTodayBoundsForTz(tz);
 
     const todayEvents = events
       .filter(e => {
-        const s = new Date(e.start);
-        const en = new Date(e.end);
+        const s = new Date(e.start).getTime();
+        const en = new Date(e.end).getTime();
         return s <= todayEnd && en >= todayStart;
       })
       .sort((a, b) => {
-        // All-day events first, then chronological
         if (a.allDay && !b.allDay) return -1;
         if (!a.allDay && b.allDay) return 1;
         return new Date(a.start).getTime() - new Date(b.start).getTime();
@@ -151,7 +176,7 @@ export async function GET() {
       success: true,
       data: todayEvents,
       count: todayEvents.length,
-      date: todayStart.toISOString(),
+      date: new Date(todayStart).toISOString(),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

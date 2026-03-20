@@ -43,7 +43,8 @@ export default function CalendarCard() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/calendar-events');
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const res = await fetch(`/api/calendar-events?tz=${encodeURIComponent(tz)}`);
       const data = await res.json();
       if (data.success) {
         setEvents(data.data);
