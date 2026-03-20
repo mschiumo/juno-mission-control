@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, ClipboardList, AlertTriangle, CheckCircle2, Minus } from 'lucide-react';
+import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, ClipboardList, AlertTriangle, CheckCircle2, Minus, Timer, MapPin } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -76,6 +76,14 @@ const STORAGE_KEY = 'juno_habits_cache';
 const STORAGE_STATS_KEY = 'juno_habits_stats_cache';
 const STORAGE_TIMESTAMP_KEY = 'juno_habits_timestamp';
 
+function StravaIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+      <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 5 10.172h4.172" />
+    </svg>
+  );
+}
+
 // Sortable habit item component
 interface SortableHabitItemProps {
   habit: Habit;
@@ -84,9 +92,10 @@ interface SortableHabitItemProps {
   onEdit: (habit: Habit) => void;
   dayLabels: string[];
   disabled?: boolean;
+  onStravaClick?: () => void;
 }
 
-function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disabled }: SortableHabitItemProps) {
+function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disabled, onStravaClick }: SortableHabitItemProps) {
   const {
     attributes,
     listeners,
@@ -162,6 +171,16 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disab
               />
             ))}
           </div>
+          {habit.category === 'fitness' && onStravaClick && (
+            <button
+              onClick={onStravaClick}
+              disabled={disabled}
+              className="p-1.5 hover:bg-[#FC4C02]/20 rounded-lg transition-colors disabled:opacity-50"
+              title="View Strava activity"
+            >
+              <StravaIcon className="w-3.5 h-3.5 text-[#FC4C02]" />
+            </button>
+          )}
           <button
             onClick={() => onEdit(habit)}
             disabled={disabled}
@@ -209,6 +228,36 @@ export default function HabitCard() {
   // Report modal state
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReady, setReportReady] = useState(false);
+
+  // Strava popover state
+  const [showStravaModal, setShowStravaModal] = useState(false);
+  const [stravaData, setStravaData] = useState<null | {
+    athlete: { name: string; profile: string };
+    activities: { id: number; name: string; type: string; distance: string; duration: string; pace: string | null; elevationGain: number; date: string }[];
+    weekStats: { runs: number; miles: string; time: string } | null;
+  }>(null);
+  const [stravaLoading, setStravaLoading] = useState(false);
+  const [stravaError, setStravaError] = useState<string | null>(null);
+
+  const openStravaModal = async () => {
+    setShowStravaModal(true);
+    if (stravaData) return; // already loaded
+    setStravaLoading(true);
+    setStravaError(null);
+    try {
+      const res = await fetch('/api/strava/activities');
+      const json = await res.json();
+      if (json.success) {
+        setStravaData(json);
+      } else {
+        setStravaError(json.error ?? 'Failed to load Strava data');
+      }
+    } catch {
+      setStravaError('Network error');
+    } finally {
+      setStravaLoading(false);
+    }
+  };
 
   // Sensors for drag and drop
   const sensors = useSensors(
@@ -715,6 +764,7 @@ export default function HabitCard() {
                     onEdit={openEditModal}
                     dayLabels={dayLabels}
                     disabled={hasPendingChanges}
+                    onStravaClick={habit.category === 'fitness' ? openStravaModal : undefined}
                   />
                 ))}
               </SortableContext>
@@ -930,6 +980,91 @@ export default function HabitCard() {
           </div>
         );
       })()}
+
+      {/* Strava Modal */}
+      {showStravaModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#30363d] flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <StravaIcon className="w-4 h-4 text-[#FC4C02]" />
+                <h3 className="text-sm font-semibold text-white">Strava Activity</h3>
+                {stravaData && (
+                  <span className="text-[10px] text-[#8b949e]">— {stravaData.athlete.name}</span>
+                )}
+              </div>
+              <button onClick={() => setShowStravaModal(false)} className="p-1 hover:bg-[#30363d] rounded-lg transition-colors">
+                <X className="w-4 h-4 text-[#8b949e]" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 px-5 py-4">
+              {stravaLoading && (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <Loader2 className="w-6 h-6 text-[#FC4C02] animate-spin" />
+                  <p className="text-xs text-[#8b949e]">Loading Strava data...</p>
+                </div>
+              )}
+              {stravaError && (
+                <div className="text-center py-10">
+                  <p className="text-xs text-[#ef4444]">{stravaError}</p>
+                </div>
+              )}
+              {stravaData && !stravaLoading && (
+                <div className="space-y-4">
+                  {/* Week stats */}
+                  {stravaData.weekStats && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: 'Runs', value: String(stravaData.weekStats.runs) },
+                        { label: 'Miles', value: stravaData.weekStats.miles },
+                        { label: 'Time', value: stravaData.weekStats.time },
+                      ].map(s => (
+                        <div key={s.label} className="bg-[#0d1117] border border-[#30363d] rounded-lg p-2.5 text-center">
+                          <div className="text-base font-bold text-[#FC4C02]">{s.value}</div>
+                          <div className="text-[10px] text-[#8b949e] mt-0.5">This Week · {s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Recent activities */}
+                  <div>
+                    <p className="text-[10px] text-[#8b949e] mb-2 uppercase tracking-wide">Recent Activities</p>
+                    <div className="space-y-2">
+                      {stravaData.activities.map((a, i) => (
+                        <div key={a.id} className={`p-3 rounded-lg border ${i === 0 ? 'border-[#FC4C02]/40 bg-[#FC4C02]/5' : 'border-[#30363d] bg-[#0d1117]'}`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-white">{a.name}</span>
+                            <span className="text-[10px] text-[#8b949e]">
+                              {new Date(a.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className="text-[10px] px-1.5 py-0.5 bg-[#30363d] rounded text-[#8b949e]">{a.type}</span>
+                            <span className="flex items-center gap-1 text-[10px] text-[#e6edf3]">
+                              <MapPin className="w-3 h-3 text-[#FC4C02]" />{a.distance} mi
+                            </span>
+                            <span className="flex items-center gap-1 text-[10px] text-[#e6edf3]">
+                              <Timer className="w-3 h-3 text-[#FC4C02]" />{a.duration}
+                            </span>
+                            {a.pace && (
+                              <span className="text-[10px] text-[#8b949e]">{a.pace}</span>
+                            )}
+                            {a.elevationGain > 0 && (
+                              <span className="text-[10px] text-[#8b949e]">↑ {a.elevationGain}ft</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
