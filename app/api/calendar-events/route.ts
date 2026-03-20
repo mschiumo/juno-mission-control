@@ -1,152 +1,161 @@
-import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
-const DEFAULT_CALENDAR_ID = 'mschiumo18@gmail.com';
+const ICAL_URL =
+  'https://calendar.google.com/calendar/ical/mschiumo18%40gmail.com/public/basic.ics';
 
-// Mock events for testing UI when credentials aren't working
-const MOCK_EVENTS = [
-  {
-    id: '1',
-    title: 'Trading Review & Analysis',
-    start: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-    end: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
-    calendar: DEFAULT_CALENDAR_ID,
-    color: '#ff6b35',
-    description: 'Review today\'s trades and plan for tomorrow',
-    location: 'Home Office'
-  },
-  {
-    id: '2',
-    title: 'Leg Day Workout',
-    start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    end: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(),
-    calendar: DEFAULT_CALENDAR_ID,
-    color: '#238636',
-    description: 'Squats, lunges, leg press',
-    location: 'Gym'
-  },
-  {
-    id: '3',
-    title: 'KeepLiving Product Planning',
-    start: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-    end: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(),
-    calendar: DEFAULT_CALENDAR_ID,
-    color: '#ff6b35',
-    description: 'Finalize product descriptions and pricing',
-    location: 'Coffee Shop'
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  location: string;
+  description: string;
+  color: string;
+}
+
+// iCal lines can be "folded" — continuation lines start with a space or tab
+function unfold(raw: string): string[] {
+  return raw
+    .replace(/\r\n/g, '\n')
+    .replace(/\n[ \t]/g, '')
+    .split('\n')
+    .filter(Boolean);
+}
+
+function parseICalDate(value: string, propName: string): Date {
+  // All-day: DTSTART;VALUE=DATE:YYYYMMDD  or DTSTART:YYYYMMDD
+  if (!value.includes('T')) {
+    const y = +value.slice(0, 4);
+    const m = +value.slice(4, 6) - 1;
+    const d = +value.slice(6, 8);
+    return new Date(y, m, d, 0, 0, 0);
   }
-];
+  // UTC datetime: ends with Z
+  if (value.endsWith('Z')) {
+    const iso = value.replace(
+      /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
+      '$1-$2-$3T$4:$5:$6Z'
+    );
+    return new Date(iso);
+  }
+  // Local datetime (TZID in prop name or no suffix) — treat as local
+  const y = +value.slice(0, 4);
+  const mo = +value.slice(4, 6) - 1;
+  const d = +value.slice(6, 8);
+  const h = +value.slice(9, 11);
+  const mi = +value.slice(11, 13);
+  const s = +value.slice(13, 15);
+  void propName;
+  return new Date(y, mo, d, h, mi, s);
+}
 
-function colorForEvent(summary: string, colorId?: string | null): string {
-  const lower = summary.toLowerCase();
-  if (lower.includes('lift') || lower.includes('workout')) return '#238636';
-  if (lower.includes('trading') || lower.includes('market')) return '#ff6b35';
-  if (lower.includes('lab') || lower.includes('medical')) return '#d29922';
-  if (colorId === '6') return '#ff6b35';
+function isAllDay(propName: string, value: string): boolean {
+  return propName.includes('VALUE=DATE') || !value.includes('T');
+}
+
+function colorForTitle(title: string): string {
+  const t = title.toLowerCase();
+  if (/lift|workout|gym|run|exercise|sport/.test(t)) return '#238636';
+  if (/trading|market|stock|invest/.test(t)) return '#ff6b35';
+  if (/lab|doctor|medical|dentist|appt|appointment/.test(t)) return '#d29922';
+  if (/meet|call|zoom|standup|sync|interview/.test(t)) return '#1f6feb';
+  if (/birthday|anniversary|party|celebrat/.test(t)) return '#bc8cff';
   return '#ff6b35';
 }
 
-// Build authenticated calendar client — tries OAuth2 first, then service account.
-async function buildCalendarClient() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
-
-  // 1. OAuth2 refresh token (works with personal Gmail — preferred)
-  if (clientId && clientSecret && refreshToken) {
-    const oauth2 = new google.auth.OAuth2(clientId, clientSecret);
-    oauth2.setCredentials({ refresh_token: refreshToken });
-    return google.calendar({ version: 'v3', auth: oauth2 });
-  }
-
-  // 2. Service account JSON (legacy — requires domain-wide delegation for personal accounts)
-  const serviceAccountEnv =
-    process.env.GOOGLE_SERVICE_ACCOUNT_JSON ?? process.env.GOOGLE_CALENDAR_CREDENTIALS;
-
-  if (serviceAccountEnv) {
-    let credentials;
-    try {
-      const decoded = Buffer.from(serviceAccountEnv, 'base64').toString('utf-8');
-      credentials = JSON.parse(decoded);
-    } catch {
-      try {
-        credentials = JSON.parse(serviceAccountEnv);
-      } catch {
-        return null;
-      }
-    }
-    const auth = new google.auth.GoogleAuth({ credentials, scopes: SCOPES });
-    return google.calendar({ version: 'v3', auth });
-  }
-
-  return null;
+function unescape(s: string): string {
+  return s.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
+    const res = await fetch(ICAL_URL, {
+      headers: { 'User-Agent': 'JunoMissionControl/1.0', Accept: 'text/calendar' },
+      next: { revalidate: 300 }, // cache 5 minutes server-side
+    });
 
-    if (searchParams.get('mock') === 'true') {
-      return NextResponse.json({ success: true, data: MOCK_EVENTS, count: MOCK_EVENTS.length, mock: true, timestamp: new Date().toISOString() });
+    if (!res.ok) {
+      throw new Error(`iCal fetch failed: ${res.status} ${res.statusText}`);
     }
 
-    const calendarId = process.env.GOOGLE_CALENDAR_ID ?? DEFAULT_CALENDAR_ID;
-    const days = Math.min(parseInt(searchParams.get('days') ?? '7', 10) || 7, 30);
+    const text = await res.text();
+    const lines = unfold(text);
 
-    const calendarClient = await buildCalendarClient();
+    const events: CalendarEvent[] = [];
+    let inEvent = false;
+    let props: Record<string, string> = {};
 
-    if (!calendarClient) {
-      return NextResponse.json({
-        success: true,
-        data: MOCK_EVENTS,
-        count: MOCK_EVENTS.length,
-        mock: true,
-        message: 'Using mock data — no Google Calendar credentials configured. Set GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET + GOOGLE_REFRESH_TOKEN for OAuth2, or GOOGLE_SERVICE_ACCOUNT_JSON for a service account.',
-        timestamp: new Date().toISOString()
-      });
+    for (const line of lines) {
+      if (line === 'BEGIN:VEVENT') {
+        inEvent = true;
+        props = {};
+        continue;
+      }
+      if (line === 'END:VEVENT') {
+        inEvent = false;
+
+        const startKey = Object.keys(props).find(k => k.startsWith('DTSTART')) ?? '';
+        const endKey = Object.keys(props).find(k => k.startsWith('DTEND')) ?? '';
+        const startVal = props[startKey] ?? '';
+        const endVal = props[endKey] ?? '';
+
+        if (!startVal) continue;
+
+        const startDate = parseICalDate(startVal, startKey);
+        const endDate = endVal ? parseICalDate(endVal, endKey) : startDate;
+        const allDay = isAllDay(startKey, startVal);
+        const title = unescape(props['SUMMARY'] ?? 'Untitled');
+
+        events.push({
+          id: props['UID'] ?? `${startVal}-${title}`,
+          title,
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+          allDay,
+          location: unescape(props['LOCATION'] ?? ''),
+          description: unescape(props['DESCRIPTION'] ?? ''),
+          color: colorForTitle(title),
+        });
+        continue;
+      }
+
+      if (!inEvent) continue;
+
+      const colon = line.indexOf(':');
+      if (colon < 1) continue;
+      const key = line.slice(0, colon);
+      const val = line.slice(colon + 1);
+      props[key] = val;
     }
 
+    // Filter to today only
     const now = new Date();
-    const timeMax = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-    const response = await calendarClient.events.list({
-      calendarId,
-      timeMin: now.toISOString(),
-      timeMax,
-      singleEvents: true,
-      orderBy: 'startTime',
-      maxResults: 50,
-    });
-
-    const formattedEvents = (response.data.items ?? []).map(event => ({
-      id: event.id,
-      title: event.summary || 'Untitled Event',
-      start: event.start?.dateTime ?? event.start?.date,
-      end: event.end?.dateTime ?? event.end?.date,
-      calendar: calendarId,
-      color: colorForEvent(event.summary ?? '', event.colorId),
-      description: event.description ?? '',
-      location: event.location ?? '',
-    }));
+    const todayEvents = events
+      .filter(e => {
+        const s = new Date(e.start);
+        const en = new Date(e.end);
+        return s <= todayEnd && en >= todayStart;
+      })
+      .sort((a, b) => {
+        // All-day events first, then chronological
+        if (a.allDay && !b.allDay) return -1;
+        if (!a.allDay && b.allDay) return 1;
+        return new Date(a.start).getTime() - new Date(b.start).getTime();
+      });
 
     return NextResponse.json({
       success: true,
-      data: formattedEvents,
-      count: formattedEvents.length,
-      timestamp: new Date().toISOString()
+      data: todayEvents,
+      count: todayEvents.length,
+      date: todayStart.toISOString(),
+      timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
-    console.error('Calendar fetch error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({
-      success: true,
-      data: MOCK_EVENTS,
-      count: MOCK_EVENTS.length,
-      mock: true,
-      message: 'Using mock data — API error: ' + errorMessage,
-      timestamp: new Date().toISOString()
-    });
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }
