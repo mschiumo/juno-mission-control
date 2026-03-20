@@ -67,16 +67,16 @@ export async function GET(request: NextRequest) {
     const events: CalendarEvent[] = (response.data.items || []).map(event => ({
       id: event.id || '',
       summary: event.summary || 'No Title',
-      description: event.description,
+      description: event.description ?? undefined,
       start: {
-        dateTime: event.start?.dateTime,
-        date: event.start?.date,
+        dateTime: event.start?.dateTime ?? undefined,
+        date: event.start?.date ?? undefined,
       },
       end: {
-        dateTime: event.end?.dateTime,
-        date: event.end?.date,
+        dateTime: event.end?.dateTime ?? undefined,
+        date: event.end?.date ?? undefined,
       },
-      location: event.location,
+      location: event.location ?? undefined,
       status: event.status || 'confirmed',
     }));
 
