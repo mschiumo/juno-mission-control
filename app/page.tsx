@@ -99,7 +99,6 @@ function DashboardContent() {
 
               {/* Desktop Widgets */}
               <div className="hidden md:flex items-center gap-4">
-                <JunoWidget />
                 <LiveClock />
               </div>
 
@@ -140,7 +139,6 @@ function DashboardContent() {
                 ))}
               </div>
               <div className="mt-4 pt-4 border-t border-[#30363d] flex items-center justify-between">
-                <JunoWidget />
                 <LiveClock />
               </div>
             </div>
