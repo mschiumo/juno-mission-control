@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock, ExternalLink } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, Clock, ExternalLink, Download, ChevronUp, ChevronDown } from 'lucide-react';
+
+type SortField = 'gapPercent' | 'volume';
+type SortDir = 'asc' | 'desc';
 
 interface GapStock {
   symbol: string;
@@ -40,6 +43,8 @@ export default function GapScannerCard() {
   const [response, setResponse] = useState<GapResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [gainerSort, setGainerSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'gapPercent', dir: 'desc' });
+  const [loserSort, setLoserSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'gapPercent', dir: 'asc' });
 
   useEffect(() => {
     fetchGapData();
@@ -110,31 +115,76 @@ export default function GapScannerCard() {
     }).replace(',', ' @');
   };
 
+  const sortStocks = (stocks: GapStock[], sort: { field: SortField; dir: SortDir }) => {
+    return [...stocks].sort((a, b) => {
+      const aVal = sort.field === 'volume' ? a.volume : a.gapPercent;
+      const bVal = sort.field === 'volume' ? b.volume : b.gapPercent;
+      return sort.dir === 'desc' ? bVal - aVal : aVal - bVal;
+    });
+  };
+
+  const toggleSort = (
+    current: { field: SortField; dir: SortDir },
+    setter: (s: { field: SortField; dir: SortDir }) => void,
+    field: SortField
+  ) => {
+    if (current.field === field) {
+      setter({ field, dir: current.dir === 'desc' ? 'asc' : 'desc' });
+    } else {
+      setter({ field, dir: 'desc' });
+    }
+  };
+
+  const SortButton = ({ sort, setter, field, label }: {
+    sort: { field: SortField; dir: SortDir };
+    setter: (s: { field: SortField; dir: SortDir }) => void;
+    field: SortField;
+    label: string;
+  }) => {
+    const active = sort.field === field;
+    return (
+      <button
+        onClick={() => toggleSort(sort, setter, field)}
+        className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+          active ? 'bg-[#30363d] text-white' : 'text-[#8b949e] hover:text-white'
+        }`}
+      >
+        {label}
+        <span className="flex flex-col leading-none">
+          <ChevronUp className={`w-2.5 h-2.5 ${active && sort.dir === 'asc' ? 'text-[#F97316]' : ''}`} />
+          <ChevronDown className={`w-2.5 h-2.5 ${active && sort.dir === 'desc' ? 'text-[#F97316]' : ''}`} />
+        </span>
+      </button>
+    );
+  };
+
   const renderStockList = (stocks: GapStock[], type: 'gainer' | 'loser') => {
     const isGainer = type === 'gainer';
     const isWeekend = response?.isWeekend;
-    
+    const sort = isGainer ? gainerSort : loserSort;
+    const sortedStocks = sortStocks(stocks, sort);
+
     if (stocks.length === 0) {
       return (
         <div className="text-center py-6 text-[#8b949e] text-sm">
           <p>No {isGainer ? 'gainers' : 'losers'} 2%+</p>
           <p className="text-xs mt-1">
-            {isWeekend 
-              ? 'Market closed — gaps resume Monday 4 AM EST' 
+            {isWeekend
+              ? 'Market closed — gaps resume Monday 4 AM EST'
               : 'Low volatility or pre-market not started'}
           </p>
         </div>
       );
     }
-    
+
     return (
       <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-        {stocks.map((stock) => (
+        {sortedStocks.map((stock) => (
           <div
             key={stock.symbol}
             className={`p-3 rounded-lg border transition-all hover:shadow-lg ${
-              isGainer 
-                ? 'bg-[#238636]/10 border-[#238636]/30 hover:border-[#238636]/60' 
+              isGainer
+                ? 'bg-[#238636]/10 border-[#238636]/30 hover:border-[#238636]/60'
                 : 'bg-[#da3633]/10 border-[#da3633]/30 hover:border-[#da3633]/60'
             }`}
           >
@@ -159,9 +209,9 @@ export default function GapScannerCard() {
                 {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%
               </span>
             </div>
-            
+
             <p className="text-xs text-[#8b949e] mb-2 truncate">{stock.name}</p>
-            
+
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div>
                 <p className="text-[#8b949e]">Price</p>
@@ -180,6 +230,23 @@ export default function GapScannerCard() {
         ))}
       </div>
     );
+  };
+
+  const exportToCSV = () => {
+    if (!data) return;
+    const rows = [
+      ['Type', 'Symbol', 'Name', 'Gap %', 'Price', 'Prev Close', 'Volume', 'Market Cap'],
+      ...data.gainers.map(s => ['Gainer', s.symbol, s.name, s.gapPercent.toFixed(2), s.price.toFixed(2), s.previousClose.toFixed(2), s.volume, s.marketCap]),
+      ...data.losers.map(s => ['Loser', s.symbol, s.name, s.gapPercent.toFixed(2), s.price.toFixed(2), s.previousClose.toFixed(2), s.volume, s.marketCap]),
+    ];
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gap-scanner-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const dataSource = response?.source || 'mock';
@@ -208,16 +275,25 @@ export default function GapScannerCard() {
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {!loading && (
             <span className={`text-[10px] px-2 py-1 rounded ${
-              dataSource === 'live' 
-                ? 'bg-[#238636]/20 text-[#238636]' 
+              dataSource === 'live'
+                ? 'bg-[#238636]/20 text-[#238636]'
                 : 'bg-[#d29922]/20 text-[#d29922]'
             }`}>
               {dataSource === 'live' ? 'LIVE' : 'MOCK'}
             </span>
+          )}
+          {data && !loading && (
+            <button
+              onClick={exportToCSV}
+              className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              title="Export to CSV (opens in Excel)"
+            >
+              <Download className="w-4 h-4 text-[#8b949e] hover:text-[#ff6b35]" />
+            </button>
           )}
           <button
             onClick={fetchGapData}
@@ -238,7 +314,7 @@ export default function GapScannerCard() {
             <span className="text-sm font-medium">Market Closed</span>
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
-            Weekend mode — showing data from {response?.tradingDate}. 
+            Weekend mode — showing data from {response?.tradingDate}.
             Next gap scan: Monday 4:00 AM EST
           </p>
         </div>
@@ -328,13 +404,17 @@ export default function GapScannerCard() {
                 <TrendingUp className="w-4 h-4" />
                 Biggest Gainers
               </h3>
-              <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded">
-                {data?.gainers.length || 0}
-              </span>
+              <div className="flex items-center gap-1">
+                <SortButton sort={gainerSort} setter={setGainerSort} field="gapPercent" label="Chg%" />
+                <SortButton sort={gainerSort} setter={setGainerSort} field="volume" label="Vol" />
+                <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded ml-1">
+                  {data?.gainers.length || 0}
+                </span>
+              </div>
             </div>
             {data?.gainers && renderStockList(data.gainers, 'gainer')}
           </div>
-          
+
           {/* Losers - Right Column */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -342,9 +422,13 @@ export default function GapScannerCard() {
                 <TrendingDown className="w-4 h-4" />
                 Biggest Losers
               </h3>
-              <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded">
-                {data?.losers.length || 0}
-              </span>
+              <div className="flex items-center gap-1">
+                <SortButton sort={loserSort} setter={setLoserSort} field="gapPercent" label="Chg%" />
+                <SortButton sort={loserSort} setter={setLoserSort} field="volume" label="Vol" />
+                <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-1 rounded ml-1">
+                  {data?.losers.length || 0}
+                </span>
+              </div>
             </div>
             {data?.losers && renderStockList(data.losers, 'loser')}
           </div>
