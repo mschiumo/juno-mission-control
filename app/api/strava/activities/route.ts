@@ -5,7 +5,7 @@ async function getAccessToken(): Promise<string> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id: process.env.STRAVA_CLIENT_ID,
+      client_id: Number(process.env.STRAVA_CLIENT_ID),
       client_secret: process.env.STRAVA_CLIENT_SECRET,
       refresh_token: process.env.STRAVA_REFRESH_TOKEN,
       grant_type: 'refresh_token',
@@ -14,7 +14,8 @@ async function getAccessToken(): Promise<string> {
   });
 
   if (!res.ok) {
-    throw new Error(`Strava token refresh failed: ${res.status}`);
+    const body = await res.text();
+    throw new Error(`Strava token refresh failed (${res.status}): ${body}`);
   }
 
   const data = await res.json();
@@ -31,7 +32,6 @@ function formatDuration(seconds: number): string {
 }
 
 function formatPace(metersPerSecond: number): string {
-  // min/mile
   const minPerMile = 26.8224 / metersPerSecond;
   const min = Math.floor(minPerMile);
   const sec = Math.round((minPerMile - min) * 60);
@@ -56,40 +56,34 @@ export async function GET() {
   try {
     const accessToken = await getAccessToken();
 
-    // Fetch last 5 activities + this week's stats in parallel
+    // Get athlete profile first (need ID for stats endpoint)
+    const athleteRes = await fetch('https://www.strava.com/api/v3/athlete', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      next: { revalidate: 3600 },
+    });
+    if (!athleteRes.ok) {
+      throw new Error(`Athlete fetch failed (${athleteRes.status})`);
+    }
+    const athlete = await athleteRes.json();
+
+    // Now fetch activities + stats in parallel
     const [activitiesRes, statsRes] = await Promise.all([
       fetch('https://www.strava.com/api/v3/athlete/activities?per_page=5', {
         headers: { Authorization: `Bearer ${accessToken}` },
         next: { revalidate: 300 },
       }),
-      fetch('https://www.strava.com/api/v3/athletes/stats', {
+      fetch(`https://www.strava.com/api/v3/athletes/${athlete.id}/stats`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         next: { revalidate: 300 },
       }),
     ]);
 
-    // Get athlete ID for stats endpoint
-    const athleteRes = await fetch('https://www.strava.com/api/v3/athlete', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      next: { revalidate: 3600 },
-    });
-    const athlete = await athleteRes.json();
-
-    // Refetch stats with athlete ID
-    const statsResWithId = await fetch(
-      `https://www.strava.com/api/v3/athletes/${athlete.id}/stats`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        next: { revalidate: 300 },
-      }
-    );
-
     if (!activitiesRes.ok) {
-      throw new Error(`Activities fetch failed: ${activitiesRes.status}`);
+      throw new Error(`Activities fetch failed (${activitiesRes.status})`);
     }
 
     const rawActivities = await activitiesRes.json();
-    const stats = statsResWithId.ok ? await statsResWithId.json() : null;
+    const stats = statsRes.ok ? await statsRes.json() : null;
 
     const activities = rawActivities.map((a: Record<string, unknown>) => ({
       id: a.id,
@@ -100,9 +94,8 @@ export async function GET() {
       pace: (a.type === 'Run' || a.type === 'Walk') && (a.average_speed as number) > 0
         ? formatPace(a.average_speed as number)
         : null,
-      elevationGain: Math.round((a.total_elevation_gain as number) * 3.28084), // ft
+      elevationGain: Math.round((a.total_elevation_gain as number) * 3.28084),
       date: a.start_date_local,
-      kudos: a.kudos_count,
     }));
 
     const weekStats = stats?.recent_run_totals
