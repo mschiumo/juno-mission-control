@@ -108,7 +108,9 @@ async function saveHabitsList(redis: ReturnType<typeof createClient>, userId: st
 
 async function loadHabitsList(redis: ReturnType<typeof createClient>, userId: string): Promise<HabitDefinition[]> {
   const stored = await redis.get(getHabitsListKey(userId));
-  if (stored) return JSON.parse(stored);
+  const parsed = stored ? JSON.parse(stored) : null;
+  if (parsed && parsed.length > 0) return parsed;
+  // No habits stored (new user or all deleted) — seed with defaults
   const defs = DEFAULT_HABITS.map((h, i) => ({ ...h, order: i }));
   await redis.set(getHabitsListKey(userId), JSON.stringify(defs));
   return defs;
