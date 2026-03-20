@@ -66,7 +66,7 @@ export default function CalendarCard() {
   const timed = events.filter(e => !e.allDay);
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl flex flex-col h-[320px]">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl flex flex-col h-[240px]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] flex-shrink-0">
         <div className="flex items-center gap-2">

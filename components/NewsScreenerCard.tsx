@@ -120,7 +120,7 @@ export default function NewsScreenerCard() {
   const dataSource = response?.source || 'mock';
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
         <div className="flex items-center gap-3">
@@ -156,10 +156,10 @@ export default function NewsScreenerCard() {
           <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
-      <div className="p-6">
+      <div className="p-6 flex-1 flex flex-col overflow-hidden min-h-0">
 
       {/* Category Filters */}
-      <div className="mb-4">
+      <div className="mb-4 flex-shrink-0">
         <div className="flex items-center gap-2 mb-3">
           <Filter className="w-4 h-4 text-[#8b949e]" />
           <span className="text-xs text-[#8b949e]">Filter by category</span>
@@ -211,14 +211,14 @@ export default function NewsScreenerCard() {
 
       {/* Stats Bar */}
       {data && (
-        <div className="flex items-center justify-between mb-4 px-1 text-xs text-[#8b949e]">
+        <div className="flex items-center justify-between mb-4 px-1 text-xs text-[#8b949e] flex-shrink-0">
           <span>Showing <span className="text-white font-medium">{newsItems.length}</span> of {data.categorized} items</span>
           <span>Scanned {data.totalScanned} sources</span>
         </div>
       )}
 
       {/* News List */}
-      <div className="max-h-[500px] overflow-y-auto pr-1 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3">
         {loading ? (
           <div className="text-center py-8 text-[#8b949e]">
             <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />

@@ -155,9 +155,13 @@ function DashboardContent() {
             <EveningCheckinReminder />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <HabitCard />
-              <CalendarCard />
+              <div className="flex flex-col gap-4 h-[640px]">
+                <CalendarCard />
+                <div className="flex-1 min-h-0">
+                  <NewsScreenerCard />
+                </div>
+              </div>
             </div>
-            <NewsScreenerCard />
           </div>
         ) : activeTab === 'tasks' ? (
           /* Tasks View - Projects and Task Management */
