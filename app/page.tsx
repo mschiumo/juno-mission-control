@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, Suspense } from 'react';
+import { useState, useCallback, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
@@ -37,6 +37,18 @@ function DashboardContent() {
   
   const [activeTab, setActiveTabState] = useState<TabId>(getTabFromUrl);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [habitsHeight, setHabitsHeight] = useState<number>(980);
+  const habitsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = habitsRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setHabitsHeight(entry.contentRect.height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Update URL when tab changes (using replace to avoid bloating history)
   const setActiveTab = (tab: TabId) => {
@@ -154,8 +166,10 @@ function DashboardContent() {
             <MotivationalBanner compact variant="orange" />
             <EveningCheckinReminder />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 xl:items-start">
-              <HabitCard />
-              <div className="grid gap-4 xl:h-[980px]" style={{ gridTemplateRows: '360px 1fr' }}>
+              <div ref={habitsRef}>
+                <HabitCard />
+              </div>
+              <div className="grid gap-4" style={{ gridTemplateRows: '360px 1fr', height: habitsHeight }}>
                 <CalendarCard />
                 <NewsScreenerCard />
               </div>
