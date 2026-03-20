@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
+import {
+  LayoutDashboard,
   TrendingUp,
   Calculator,
   Settings,
@@ -20,18 +20,18 @@ import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 
 type TabId = 'dashboard' | 'market' | 'trade-management' | 'projection';
 
-export default function TradingTerminal() {
+function TradingTerminalContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  
+
   // Get tab from URL, default to 'dashboard'
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
     if (tab === 'market' || tab === 'trade-management' || tab === 'projection') return tab;
     return 'dashboard';
   }, [searchParams]);
-  
+
   const [activeTab, setActiveTabState] = useState<TabId>(getTabFromUrl);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -54,9 +54,6 @@ export default function TradingTerminal() {
     { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
   ];
-
-  const activeTabLabel = tabs.find(t => t.id === activeTab)?.label || 'Dashboard';
-  const ActiveIcon = tabs.find(t => t.id === activeTab)?.icon || LayoutDashboard;
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
@@ -181,5 +178,13 @@ export default function TradingTerminal() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function TradingTerminal() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0d1117]" />}>
+      <TradingTerminalContent />
+    </Suspense>
   );
 }
