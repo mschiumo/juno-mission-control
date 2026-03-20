@@ -10,12 +10,11 @@ import GoalsCard from "@/components/GoalsCard";
 import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
-import DocumentationCard from "@/components/DocumentationCard";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
-import { LayoutDashboard, BookOpen, Target, TrendingUp, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Target, TrendingUp, Menu, X } from 'lucide-react';
 
-type TabId = 'dashboard' | 'trading' | 'goals' | 'docs';
+type TabId = 'dashboard' | 'trading' | 'goals';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -26,9 +25,7 @@ function DashboardContent() {
   // Get tab from URL query param, default to 'dashboard'
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
-    if (tab === 'trading' || tab === 'goals' || tab === 'docs') return tab;
-    // Support old 'activity' tab redirecting to 'docs'
-    if (tab === 'activity') return 'docs';
+    if (tab === 'trading' || tab === 'goals') return tab;
     return 'dashboard';
   }, [searchParams]);
   
@@ -64,7 +61,6 @@ function DashboardContent() {
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
     { id: 'goals' as const, label: 'Goals', icon: Target },
-    { id: 'docs' as const, label: 'Docs', icon: BookOpen },
   ];
 
   return (
@@ -182,12 +178,7 @@ function DashboardContent() {
               <GoalsCard />
             </Suspense>
           </div>
-        ) : (
-          /* Docs View */
-          <div className="max-w-[1600px] mx-auto">
-            <DocumentationCard />
-          </div>
-        )}
+        ) : null}
       </main>
 
       {/* Footer */}
@@ -198,15 +189,7 @@ function DashboardContent() {
               Juno Mission Control © {new Date().getFullYear()}
             </p>
             <div className="flex items-center gap-4">
-              <a 
-                href="https://github.com/mschiumo/juno-mission-control/blob/main/docs/DOCUMENT_LIBRARY.md"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-[#8b949e] hover:text-[#ff6b35] transition-colors"
-              >
-                📚 Docs
-              </a>
-              <a 
+              <a
                 href="https://github.com/mschiumo/juno-mission-control"
                 target="_blank"
                 rel="noopener noreferrer"
