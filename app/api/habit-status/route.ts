@@ -20,14 +20,11 @@ function weeklyGoal(frequency: HabitFrequency | string | undefined): number {
 
 // MJ's specific habits with rolling history
 const DEFAULT_HABITS = [
-  { id: 'make-bed',      name: 'Make Bed',                         icon: '🛏️', target: 'Daily',        category: 'productivity', frequency: 'daily'    as HabitFrequency },
-  { id: 'take-meds',     name: 'Take Meds (Morning)',               icon: '💊', target: 'Daily',        category: 'health',       frequency: 'daily'    as HabitFrequency },
-  { id: 'market-brief',  name: 'Read Market Brief, Stock Screeners',icon: '📈', target: 'Weekdays',     category: 'trading',      frequency: 'weekdays' as HabitFrequency },
-  { id: 'exercise',      name: 'Exercise / Lift',                   icon: '💪', target: '4x/week',      category: 'fitness',      frequency: '4x'       as HabitFrequency },
-  { id: 'read',          name: 'Read',                              icon: '📚', target: '30 min',       category: 'learning',     frequency: 'daily'    as HabitFrequency },
-  { id: 'drink-water',   name: 'Drink Water',                       icon: '💧', target: '2L daily',     category: 'health',       frequency: 'daily'    as HabitFrequency },
-  { id: 'journal',       name: 'Journal',                           icon: '📝', target: 'Daily',        category: 'mindfulness',  frequency: 'daily'    as HabitFrequency },
-  { id: 'trade-journal', name: 'Trade Journal',                     icon: '📊', target: 'Trading days', category: 'trading',      frequency: 'weekdays' as HabitFrequency },
+  { id: 'make-bed',    name: 'Make Bed',     icon: '🛏️', target: 'Daily',   category: 'productivity', frequency: 'daily' as HabitFrequency },
+  { id: 'exercise',   name: 'Exercise',     icon: '💪', target: '4x/week', category: 'fitness',      frequency: '4x'    as HabitFrequency },
+  { id: 'read',       name: 'Read',         icon: '📚', target: '30 min',  category: 'learning',     frequency: 'daily' as HabitFrequency },
+  { id: 'drink-water',name: 'Drink Water',  icon: '💧', target: '2L daily',category: 'health',       frequency: 'daily' as HabitFrequency },
+  { id: 'journal',    name: 'Journal',      icon: '📝', target: 'Daily',   category: 'mindfulness',  frequency: 'daily' as HabitFrequency },
 ];
 
 // Lazy Redis client initialization
