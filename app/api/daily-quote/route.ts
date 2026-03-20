@@ -48,11 +48,17 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ success: true, data: cache, cached: true });
   }
 
+  // Seconds until next midnight UTC (when ZenQuotes rotates)
+  const now = new Date();
+  const midnight = new Date();
+  midnight.setUTCHours(24, 0, 0, 0);
+  const secondsUntilMidnight = Math.max(60, Math.floor((midnight.getTime() - now.getTime()) / 1000));
+
   // Try ZenQuotes (free, no key needed, one request per IP per hour — server-side so shared IP)
   try {
     const res = await fetch('https://zenquotes.io/api/today', {
       headers: { 'Accept': 'application/json' },
-      next: { revalidate: 3600 }, // Next.js cache for 1 hour as backup
+      next: { revalidate: secondsUntilMidnight }, // Bust cache at midnight when ZenQuotes rotates
     });
 
     if (res.ok) {
