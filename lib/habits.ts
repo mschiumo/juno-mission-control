@@ -103,7 +103,7 @@ export async function recordHabit(
     // Save back
     await redis.del(key);
     if (filtered.length > 0) {
-      await redis.rPush(key, ...filtered);
+      await redis.rPush(key, filtered);
     }
   } catch (error) {
     console.error('Error recording habit:', error);
