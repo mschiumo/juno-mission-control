@@ -123,8 +123,7 @@ export async function GET(request: Request) {
     const text = await res.text();
     const lines = unfold(text);
 
-    type RawEvent = CalendarEvent & { hasRecurrenceId: boolean };
-    const events: RawEvent[] = [];
+    const events: CalendarEvent[] = [];
     let inEvent = false;
     let props: Record<string, string> = {};
 
@@ -148,7 +147,6 @@ export async function GET(request: Request) {
         const endDate = endVal ? parseICalDate(endVal, endKey) : startDate;
         const allDay = isAllDay(startKey, startVal);
         const title = unescape(props['SUMMARY'] ?? 'Untitled');
-        const hasRecurrenceId = Object.keys(props).some(k => k.startsWith('RECURRENCE-ID'));
 
         events.push({
           id: props['UID'] ?? `${startVal}-${title}`,
@@ -159,7 +157,6 @@ export async function GET(request: Request) {
           location: unescape(props['LOCATION'] ?? ''),
           description: unescape(props['DESCRIPTION'] ?? ''),
           color: colorForTitle(title),
-          hasRecurrenceId,
         });
         continue;
       }
@@ -176,24 +173,12 @@ export async function GET(request: Request) {
     // Filter to today only, using the caller's timezone
     const { todayStart, todayEnd } = getTodayBoundsForTz(tz);
 
-    const todayRaw = events.filter(e => {
-      const s = new Date(e.start).getTime();
-      const en = new Date(e.end).getTime();
-      return s <= todayEnd && en >= todayStart;
-    });
-
-    // Deduplicate by UID: when a recurring event has both a master VEVENT
-    // (RRULE, DTSTART = today) and a specific exception (RECURRENCE-ID = today),
-    // both pass the filter. Keep only the exception; fall back to master if none.
-    const byUid = new Map<string, RawEvent>();
-    for (const e of todayRaw) {
-      const existing = byUid.get(e.id);
-      if (!existing || (!existing.hasRecurrenceId && e.hasRecurrenceId)) {
-        byUid.set(e.id, e);
-      }
-    }
-
-    const todayEvents = [...byUid.values()]
+    const todayEvents = events
+      .filter(e => {
+        const s = new Date(e.start).getTime();
+        const en = new Date(e.end).getTime();
+        return s <= todayEnd && en >= todayStart;
+      })
       .sort((a, b) => {
         if (a.allDay && !b.allDay) return -1;
         if (!a.allDay && b.allDay) return 1;
