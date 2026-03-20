@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, MapPin, RefreshCw, ExternalLink, X, AlignLeft } from 'lucide-react';
+import { Calendar, Clock, MapPin, RefreshCw, ExternalLink, X, AlignLeft, Trash2, Link } from 'lucide-react';
 
 interface CalendarEvent {
   id: string;
@@ -73,6 +73,11 @@ export default function CalendarCard() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
   const [now, setNow] = useState(nowMinutes);
+  const [noCalendar, setNoCalendar] = useState(false);
+  const [icalInput, setIcalInput] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -85,21 +90,28 @@ export default function CalendarCard() {
   // Auto-scroll: keep current time 80px from the top of the visible area.
   // Depends on both `now` (fires every minute) and `loading` (fires once events render).
   useEffect(() => {
-    if (scrollRef.current && !loading) {
+    if (scrollRef.current && !loading && !noCalendar) {
       const target = (now / 60) * PX_PER_HOUR - 80;
       scrollRef.current.scrollTop = Math.max(0, target);
     }
-  }, [now, loading]);
+  }, [now, loading, noCalendar]);
 
   const fetchEvents = async () => {
     setLoading(true);
     setError(null);
+    setNoCalendar(false);
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const res = await fetch(`/api/calendar-events?tz=${encodeURIComponent(tz)}`);
       const data = await res.json();
-      if (data.success) setEvents(data.data);
-      else setError(data.error ?? 'Failed to load');
+      if (data.noCalendar) {
+        setNoCalendar(true);
+        setEvents([]);
+      } else if (data.success) {
+        setEvents(data.data);
+      } else {
+        setError(data.error ?? 'Failed to load');
+      }
     } catch {
       setError('Network error');
     } finally {
@@ -107,10 +119,104 @@ export default function CalendarCard() {
     }
   };
 
+  const handleConnect = async () => {
+    if (!icalInput.trim()) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch('/api/user/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calendarUrl: icalInput.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIcalInput('');
+        await fetchEvents();
+      } else {
+        setSaveError(data.error ?? 'Failed to save');
+      }
+    } catch {
+      setSaveError('Network error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    setRemoving(true);
+    try {
+      await fetch('/api/user/prefs', { method: 'DELETE' });
+      await fetchEvents();
+    } catch {
+      // silently ignore
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   const allDay = events.filter(e => e.allDay);
   const timed = layoutEvents(events.filter(e => !e.allDay));
   const nowTop = (now / 60) * PX_PER_HOUR;
+
+  // Empty state: no calendar configured
+  if (!loading && noCalendar) {
+    return (
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl flex flex-col h-full relative overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-[#ff6b35]/10 rounded-lg">
+              <Calendar className="w-4 h-4 text-[#ff6b35]" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-white leading-tight">Today</h2>
+              <p className="text-[10px] text-[#8b949e]">{today}</p>
+            </div>
+          </div>
+          <button onClick={fetchEvents} disabled={loading} className="p-1 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50">
+            <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {/* No-calendar empty state */}
+        <div className="flex-1 flex flex-col items-center justify-center px-5 py-6 text-center gap-4">
+          <div className="p-3 bg-[#ff6b35]/10 rounded-full">
+            <Calendar className="w-6 h-6 text-[#ff6b35]" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-white">No Calendar Connected</h3>
+            <p className="text-[10px] text-[#8b949e] leading-relaxed max-w-[240px]">
+              Paste a Google Calendar iCal link below. In Google Calendar, go to{' '}
+              <span className="text-[#ff6b35]">Settings</span> &rarr; your calendar &rarr; scroll to{' '}
+              <span className="text-[#ff6b35]">&ldquo;Integrate calendar&rdquo;</span> &rarr; copy the{' '}
+              <span className="text-[#ff6b35]">&ldquo;Public address in iCal format&rdquo;</span> URL.
+            </p>
+          </div>
+          <div className="w-full space-y-2">
+            <input
+              type="url"
+              value={icalInput}
+              onChange={e => setIcalInput(e.target.value)}
+              placeholder="https://calendar.google.com/calendar/ical/..."
+              className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-[11px] text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35] transition-colors"
+              onKeyDown={e => { if (e.key === 'Enter') handleConnect(); }}
+            />
+            {saveError && <p className="text-[10px] text-[#ef4444]">{saveError}</p>}
+            <button
+              onClick={handleConnect}
+              disabled={saving || !icalInput.trim()}
+              className="w-full flex items-center justify-center gap-1.5 bg-[#ff6b35] hover:bg-[#ff6b35]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg px-3 py-2 transition-colors"
+            >
+              {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Link className="w-3.5 h-3.5" />}
+              {saving ? 'Connecting...' : 'Connect'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl flex flex-col h-full relative overflow-hidden">
@@ -126,10 +232,18 @@ export default function CalendarCard() {
             <p className="text-[10px] text-[#8b949e]">{today}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <span className="text-[10px] text-[#8b949e]">{events.length} event{events.length !== 1 ? 's' : ''}</span>
           <button onClick={fetchEvents} disabled={loading} className="p-1 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50">
             <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={handleRemove}
+            disabled={removing}
+            title="Remove calendar"
+            className="p-1 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50 text-[#8b949e] hover:text-[#ef4444]"
+          >
+            <Trash2 className={`w-3.5 h-3.5 ${removing ? 'animate-pulse' : ''}`} />
           </button>
         </div>
       </div>

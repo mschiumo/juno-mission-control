@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-
-const ICAL_URL =
-  'https://calendar.google.com/calendar/ical/mschiumo18%40gmail.com/public/basic.ics';
+import { requireUserId } from '@/lib/auth-session';
+import { getRedisClient } from '@/lib/redis';
 
 interface CalendarEvent {
   id: string;
@@ -107,11 +106,34 @@ function getTodayBoundsForTz(tz: string): { todayStart: number; todayEnd: number
 }
 
 export async function GET(request: Request) {
+  // Authenticate user
+  const authResult = await requireUserId();
+  if (authResult.error) return authResult.error;
+  const { userId } = authResult;
+
+  // Load the user's calendar URL from Redis
+  const redis = await getRedisClient();
+  const prefsRaw = await redis.get(`user:prefs:${userId}`);
+  let calendarUrl: string | null = null;
+  if (prefsRaw) {
+    try {
+      const prefs = JSON.parse(prefsRaw as string);
+      calendarUrl = prefs.calendarUrl ?? null;
+    } catch {
+      calendarUrl = null;
+    }
+  }
+
+  // No calendar configured — return empty state signal
+  if (!calendarUrl) {
+    return NextResponse.json({ success: true, events: [], noCalendar: true });
+  }
+
   const { searchParams } = new URL(request.url);
   const tz = searchParams.get('tz') ?? 'America/New_York';
 
   try {
-    const res = await fetch(ICAL_URL, {
+    const res = await fetch(calendarUrl, {
       headers: { 'User-Agent': 'JunoMissionControl/1.0', Accept: 'text/calendar' },
       next: { revalidate: 300 }, // cache 5 minutes server-side
     });
