@@ -10,16 +10,13 @@ interface CalendarEvent {
   end: string;
   allDay: boolean;
   location: string;
-  description: string;
   color: string;
 }
 
 function formatTimeRange(start: string, end: string): string {
-  const s = new Date(start);
-  const e = new Date(end);
   const fmt = (d: Date) =>
     d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  return `${fmt(s)} – ${fmt(e)}`;
+  return `${fmt(new Date(start))} – ${fmt(new Date(end))}`;
 }
 
 function getStatus(start: string, end: string): 'past' | 'now' | 'upcoming' {
@@ -31,23 +28,14 @@ function getStatus(start: string, end: string): 'past' | 'now' | 'upcoming' {
   return 'upcoming';
 }
 
-function todayLabel(): string {
-  return new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
 export default function CalendarCard() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
     fetchEvents();
-    const interval = setInterval(fetchEvents, 5 * 60 * 1000); // refresh every 5 min
+    const interval = setInterval(fetchEvents, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -59,129 +47,109 @@ export default function CalendarCard() {
       const data = await res.json();
       if (data.success) {
         setEvents(data.data);
-        setLastUpdated(new Date());
       } else {
-        setError(data.error ?? 'Failed to load events');
+        setError(data.error ?? 'Failed to load');
       }
     } catch {
-      setError('Network error — check your connection');
+      setError('Network error');
     } finally {
       setLoading(false);
     }
   };
 
-  const allDayEvents = events.filter(e => e.allDay);
-  const timedEvents = events.filter(e => !e.allDay);
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', month: 'short', day: 'numeric',
+  });
+
+  const allDay = events.filter(e => e.allDay);
+  const timed = events.filter(e => !e.allDay);
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl flex flex-col h-[320px]">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
-            <Calendar className="w-5 h-5 text-[#ff6b35]" />
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-[#ff6b35]/10 rounded-lg">
+            <Calendar className="w-4 h-4 text-[#ff6b35]" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-white">Today</h2>
-            <p className="text-xs text-[#8b949e]">{todayLabel()}</p>
+            <h2 className="text-sm font-semibold text-white leading-tight">Today</h2>
+            <p className="text-[10px] text-[#8b949e]">{today}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {lastUpdated && !loading && (
-            <span className="text-[10px] text-[#8b949e]">
-              {events.length} event{events.length !== 1 ? 's' : ''}
-            </span>
-          )}
+          <span className="text-[10px] text-[#8b949e]">
+            {events.length} event{events.length !== 1 ? 's' : ''}
+          </span>
           <button
             onClick={fetchEvents}
             disabled={loading}
-            className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
-            title="Refresh"
+            className="p-1 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#ff6b35] ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2 max-h-[420px]">
+      {/* Event list — scrollable */}
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
         {loading && events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-[#8b949e]">
-            <RefreshCw className="w-6 h-6 animate-spin mb-2 text-[#ff6b35]" />
-            <span className="text-sm">Loading calendar...</span>
+          <div className="flex items-center justify-center h-full text-[#8b949e] text-xs gap-2">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#ff6b35]" />
+            Loading...
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <Calendar className="w-8 h-8 text-[#8b949e] mb-2 opacity-50" />
-            <p className="text-sm text-[#8b949e]">{error}</p>
-            <button onClick={fetchEvents} className="mt-2 text-xs text-[#ff6b35] hover:underline">
-              Try again
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <p className="text-xs text-[#8b949e]">{error}</p>
+            <button onClick={fetchEvents} className="mt-1 text-[10px] text-[#ff6b35] hover:underline">
+              Retry
             </button>
           </div>
         ) : events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <div className="w-12 h-12 rounded-full bg-[#238636]/10 flex items-center justify-center mb-3">
-              <Calendar className="w-6 h-6 text-[#238636]" />
-            </div>
-            <p className="text-sm font-medium text-white">Nothing scheduled today</p>
-            <p className="text-xs text-[#8b949e] mt-1">Enjoy the free time</p>
+          <div className="flex flex-col items-center justify-center h-full text-center gap-1">
+            <Calendar className="w-6 h-6 text-[#238636] opacity-60" />
+            <p className="text-xs text-white font-medium">Free day</p>
+            <p className="text-[10px] text-[#8b949e]">Nothing scheduled</p>
           </div>
         ) : (
           <>
-            {/* All-day events */}
-            {allDayEvents.map(event => (
-              <div
-                key={event.id}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#0d1117] border border-[#30363d]"
-              >
-                <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ backgroundColor: event.color }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{event.title}</p>
-                  <p className="text-[10px] text-[#8b949e] mt-0.5">All day</p>
-                </div>
+            {allDay.map(event => (
+              <div key={event.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-[#0d1117] border border-[#30363d]">
+                <div className="w-0.5 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: event.color }} />
+                <span className="text-xs text-white flex-1 truncate">{event.title}</span>
+                <span className="text-[10px] text-[#8b949e]">All day</span>
               </div>
             ))}
-
-            {/* Timed events */}
-            {timedEvents.map(event => {
+            {timed.map(event => {
               const status = getStatus(event.start, event.end);
               return (
                 <div
                   key={event.id}
-                  className={`flex items-start gap-3 px-3 py-3 rounded-lg border transition-colors ${
+                  className={`flex items-start gap-2 px-2 py-2 rounded-lg border transition-colors ${
                     status === 'now'
                       ? 'bg-[#ff6b35]/5 border-[#ff6b35]/40'
                       : status === 'past'
-                      ? 'bg-[#0d1117] border-[#30363d] opacity-50'
-                      : 'bg-[#0d1117] border-[#30363d] hover:border-[#ff6b35]/30'
+                      ? 'bg-[#0d1117] border-[#30363d] opacity-40'
+                      : 'bg-[#0d1117] border-[#30363d]'
                   }`}
                 >
-                  {/* Color bar */}
-                  <div
-                    className="w-1 rounded-full flex-shrink-0 mt-0.5"
-                    style={{ backgroundColor: event.color, minHeight: '36px' }}
-                  />
-
+                  <div className="w-0.5 rounded-full flex-shrink-0 mt-0.5 min-h-[28px]" style={{ backgroundColor: event.color }} />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className={`text-sm font-medium truncate ${status === 'past' ? 'text-[#8b949e]' : 'text-white'}`}>
-                        {event.title}
-                      </p>
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-xs font-medium text-white truncate">{event.title}</p>
                       {status === 'now' && (
-                        <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-[#ff6b35]/20 text-[#ff6b35] font-medium">
+                        <span className="text-[9px] px-1 py-0.5 rounded-full bg-[#ff6b35]/20 text-[#ff6b35] font-medium flex-shrink-0">
                           Now
                         </span>
                       )}
                     </div>
-
-                    <div className="flex items-center gap-1 mt-1 text-xs text-[#8b949e]">
-                      <Clock className="w-3 h-3 flex-shrink-0" />
-                      <span>{formatTimeRange(event.start, event.end)}</span>
+                    <div className="flex items-center gap-1 mt-0.5 text-[10px] text-[#8b949e]">
+                      <Clock className="w-2.5 h-2.5" />
+                      {formatTimeRange(event.start, event.end)}
                     </div>
-
                     {event.location && (
-                      <div className="flex items-center gap-1 mt-0.5 text-xs text-[#8b949e]">
-                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                      <div className="flex items-center gap-1 mt-0.5 text-[10px] text-[#8b949e]">
+                        <MapPin className="w-2.5 h-2.5" />
                         <span className="truncate">{event.location}</span>
                       </div>
                     )}
@@ -194,14 +162,14 @@ export default function CalendarCard() {
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-3 border-t border-[#30363d]">
+      <div className="px-4 py-2 border-t border-[#30363d] flex-shrink-0">
         <a
           href="https://calendar.google.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 text-xs text-[#8b949e] hover:text-[#ff6b35] transition-colors"
+          className="flex items-center justify-center gap-1 text-[10px] text-[#8b949e] hover:text-[#ff6b35] transition-colors"
         >
-          <ExternalLink className="w-3 h-3" />
+          <ExternalLink className="w-2.5 h-2.5" />
           Open Google Calendar
         </a>
       </div>
