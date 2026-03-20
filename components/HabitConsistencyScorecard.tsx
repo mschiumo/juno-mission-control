@@ -283,7 +283,7 @@ export default function HabitConsistencyScorecard() {
                     </div>
                   </div>
                   
-                  <{isSelected ? ChevronLeft : ChevronRight} className="w-5 h-5 text-[#8b949e] rotate-90" />
+                  {isSelected ? <ChevronLeft className="w-5 h-5 text-[#8b949e] rotate-90" /> : <ChevronRight className="w-5 h-5 text-[#8b949e] rotate-90" />}
                 </div>
               </div>
               
