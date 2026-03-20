@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
 
 const STORAGE_KEY_PREFIX = 'habits_data';
+// Persistent canonical list of habit definitions (survives daily key rotation)
+const HABITS_LIST_KEY = 'habits_list';
 
 // MJ's specific habits with rolling history
 const DEFAULT_HABITS = [
@@ -167,16 +169,36 @@ function buildCompleteHistory(
   return completeHistory;
 }
 
+type HabitDefinition = Pick<HabitData, 'id' | 'name' | 'icon' | 'target' | 'category' | 'order'>;
+
+/** Persist the canonical habit list so custom habits survive day rotation / key eviction. */
+async function saveHabitsList(redis: ReturnType<typeof createClient>, habits: HabitData[]) {
+  const definitions: HabitDefinition[] = habits.map(({ id, name, icon, target, category, order }) => ({
+    id, name, icon, target, category, order,
+  }));
+  await redis.set(HABITS_LIST_KEY, JSON.stringify(definitions));
+}
+
+/** Load the canonical list, falling back to DEFAULT_HABITS on first run. */
+async function loadHabitsList(redis: ReturnType<typeof createClient>): Promise<HabitDefinition[]> {
+  const stored = await redis.get(HABITS_LIST_KEY);
+  if (stored) return JSON.parse(stored);
+  // Bootstrap from defaults and persist immediately
+  const defs = DEFAULT_HABITS.map((h, i) => ({ ...h, order: i }));
+  await redis.set(HABITS_LIST_KEY, JSON.stringify(defs));
+  return defs;
+}
+
 // Initialize or shift history for a new day
-function initializeHabits(previousData: HabitData[] | null, today: string): HabitData[] {
+function initializeHabits(previousData: HabitData[] | null, today: string, habitDefinitions?: HabitDefinition[]): HabitData[] {
   if (!previousData) {
-    // First time - create fresh habits with order
-    return DEFAULT_HABITS.map((h, index) => ({
+    // No yesterday data — use the persistent habit list so custom habits survive
+    const source = habitDefinitions ?? DEFAULT_HABITS.map((h, i) => ({ ...h, order: i }));
+    return source.map(h => ({
       ...h,
       completedToday: false,
       streak: 0,
       history: [false, false, false, false, false, false, false],
-      order: index
     }));
   }
 
@@ -234,9 +256,11 @@ export async function GET() {
         const yesterday = getPreviousDate(today, 1);
         const yesterdayKey = getStorageKey(yesterday);
         const yesterdayData = await redis.get(yesterdayKey);
-        
-        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today);
-        
+
+        // Load persistent list so custom habits survive key eviction / missing yesterday
+        const habitDefinitions = await loadHabitsList(redis);
+        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today, habitDefinitions);
+
         // Save initialized habits for today
         await redis.set(storageKey, JSON.stringify(habits));
       }
@@ -418,16 +442,17 @@ export async function PUT(request: Request) {
     };
     
     habits.push(newHabit);
-    
-    // Save back to Redis
+
+    // Save today's data and update the persistent canonical list
     await redis.set(storageKey, JSON.stringify(habits));
-    
+    await saveHabitsList(redis, habits);
+
     // Recalculate stats
     const completedToday = habits.filter(h => h.completedToday).length;
-    const totalCompletions = habits.reduce((acc, h) => 
+    const totalCompletions = habits.reduce((acc, h) =>
       acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
     );
-    
+
     return NextResponse.json({
       success: true,
       data: {
@@ -484,15 +509,16 @@ export async function DELETE(request: Request) {
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       .map((h, index) => ({ ...h, order: index }));
     
-    // Save back to Redis
+    // Save today's data and update the persistent canonical list
     await redis.set(storageKey, JSON.stringify(reorderedHabits));
-    
+    await saveHabitsList(redis, reorderedHabits);
+
     // Recalculate stats
     const completedToday = reorderedHabits.filter(h => h.completedToday).length;
-    const totalCompletions = reorderedHabits.reduce((acc, h) => 
+    const totalCompletions = reorderedHabits.reduce((acc, h) =>
       acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
     );
-    
+
     return NextResponse.json({
       success: true,
       data: {
@@ -552,9 +578,10 @@ export async function PATCH(request: Request) {
     // Sort by the new order
     updatedHabits.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     
-    // Save back to Redis
+    // Save today's data and update the persistent canonical list
     await redis.set(storageKey, JSON.stringify(updatedHabits));
-    
+    await saveHabitsList(redis, updatedHabits);
+
     // Recalculate stats
     const completedToday = updatedHabits.filter(h => h.completedToday).length;
     const totalCompletions = updatedHabits.reduce((acc, h) => 
