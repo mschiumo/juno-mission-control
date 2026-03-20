@@ -47,6 +47,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: 'calendarUrl is required' }, { status: 400 });
   }
 
+  const url = body.calendarUrl.trim();
+  const isIcalUrl = url.includes('/ical/') || url.endsWith('.ics') || url.includes('ical=true');
+  if (!isIcalUrl) {
+    return NextResponse.json({
+      success: false,
+      error: 'Please use the iCal URL (ends in .ics). In Google Calendar: Settings → your calendar → "Integrate calendar" → copy "Public address in iCal format".'
+    }, { status: 400 });
+  }
+
   const existing = await getPrefs(userId);
   await savePrefs(userId, { ...existing, calendarUrl: body.calendarUrl.trim() });
 
