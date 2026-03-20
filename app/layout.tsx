@@ -12,13 +12,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const favicon = process.env.NODE_ENV === 'production' ? '/favicon-prod.svg' : '/favicon.svg';
+
 export const metadata: Metadata = {
   title: "Juno Mission Control",
   description: "Personal dashboard for mission control",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-    apple: "/favicon.svg",
+    icon: favicon,
+    shortcut: favicon,
+    apple: favicon,
   },
 };
 

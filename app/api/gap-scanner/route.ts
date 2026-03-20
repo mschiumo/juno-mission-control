@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getStockUniverse, getStockInfoMap, refreshStockUniverse, StockInfo } from '@/lib/stock-universe';
 import { createClient } from 'redis';
 
+// Allow up to 300s for full stock universe scan (App Router maxDuration)
+export const maxDuration = 300;
+
 interface GapStock {
   symbol: string;
   name: string;
@@ -387,8 +390,8 @@ async function scanForGaps(
   
   return {
     data: {
-      gainers: gainers.slice(0, 20), // Top 20 gainers
-      losers: losers.slice(0, 20)    // Top 20 losers
+      gainers: gainers.slice(0, 15), // Top 15 gainers
+      losers: losers.slice(0, 15)    // Top 15 losers
     },
     timestamp: new Date().toISOString(),
     scanned,
@@ -427,7 +430,8 @@ export async function GET(request: Request) {
   
   // Parse options from query params
   const dryRun = searchParams.get('dryRun') === 'true';
-  const limit = parseInt(searchParams.get('limit') || '5000', 10);
+  // Default to 50 stocks — at 1s/stock (Finnhub free tier) that's ~50s within gateway timeout
+  const limit = parseInt(searchParams.get('limit') || '50', 10);
   const forceRefresh = searchParams.get('refresh') === 'true';
   const useCache = searchParams.get('cache') !== 'false';
   const minGapPercent = parseFloat(searchParams.get('minGap') || '5');
@@ -476,7 +480,7 @@ export async function GET(request: Request) {
     // Run the scan
     const scanResults = await scanForGaps(symbols, stockInfo, {
       batchSize: 50,
-      delayMs: 1000, // 1 second between stocks = 60 calls/min
+      delayMs: 1000, // 1s between stocks — respects Finnhub free tier (60 calls/min)
       minGapPercent,
       minVolume: 100000,
       maxPrice: 1000,
@@ -500,9 +504,13 @@ export async function GET(request: Request) {
     console.log(`[GapScanner] Completed in ${totalDuration}ms`);
     console.log(`[GapScanner] Results: ${response.data.gainers.length} gainers, ${response.data.losers.length} losers from ${response.scanned} stocks scanned`);
     
-    // Store results if not dry run
-    if (!dryRun) {
+    // Store results if not dry run and we actually found something
+    // (don't cache empty results from closed-hours scans)
+    const hasResults = response.data.gainers.length > 0 || response.data.losers.length > 0;
+    if (!dryRun && hasResults) {
       await storeScanResults(response);
+    } else if (!dryRun && !hasResults) {
+      console.log('[GapScanner] Skipping cache — no gaps found (likely outside trading hours)');
     }
     
     return NextResponse.json(response);

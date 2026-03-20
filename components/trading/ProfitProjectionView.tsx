@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calculator, TrendingUp, DollarSign, Target, Percent, Calendar } from 'lucide-react';
+import { Calculator, TrendingUp, Target, Calendar } from 'lucide-react';
 
 interface ProjectionParams {
   tradesPerDay: number;
@@ -106,14 +106,15 @@ export default function ProfitProjectionView() {
   const hasErrors = Object.values(errors).some(e => e !== '');
 
   return (
-    <div className="space-y-6">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Calculator className="w-6 h-6 text-[#F97316]" />
-          <h2 className="text-xl font-bold text-white">Profit Projection</h2>
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
+        <div className="p-2 bg-[#F97316]/10 rounded-lg">
+          <Calculator className="w-5 h-5 text-[#F97316]" />
         </div>
+        <h2 className="text-lg font-semibold text-white">Profit Projection</h2>
       </div>
+      <div className="p-6 space-y-6">
 
       {/* Main Inputs - Like Excel Top Section */}
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
@@ -274,6 +275,7 @@ export default function ProfitProjectionView() {
             <p className="text-sm text-[#8b949e]">{hasErrors ? '-' : `${inputs.rewardToRisk}:1 Reward/Risk`}</p>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

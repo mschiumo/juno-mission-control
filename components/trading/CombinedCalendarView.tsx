@@ -28,7 +28,7 @@ import {
   MessageSquare,
   Upload
 } from 'lucide-react';
-import { getTodayInEST, getESTDateFromTimestamp } from '@/lib/date-utils';
+import { getTodayInEST } from '@/lib/date-utils';
 
 // ============================================================================
 // Types
@@ -717,26 +717,37 @@ export default function CombinedCalendarView() {
 
       {/* Trades List Section */}
       <div className="mt-8">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-[#F97316]" />
-          All Trades
-        </h3>
-        
         {isLoading ? (
-          <div className="p-8 bg-[#161b22] border border-[#30363d] rounded-xl text-center">
-            <div className="w-8 h-8 border-2 border-[#F97316]/30 border-t-[#F97316] rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-[#8b949e]">Loading trades...</p>
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
+              <BarChart3 className="w-5 h-5 text-[#F97316]" />
+              <h3 className="text-lg font-semibold text-white">All Trades</h3>
+            </div>
+            <div className="p-8 text-center">
+              <div className="w-8 h-8 border-2 border-[#F97316]/30 border-t-[#F97316] rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-[#8b949e]">Loading trades...</p>
+            </div>
           </div>
         ) : allTrades.length === 0 ? (
-          <div className="p-8 bg-[#161b22] border border-[#30363d] rounded-xl text-center">
-            <TrendingUp className="w-12 h-12 text-[#8b949e] mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">No Trades Yet</h3>
-            <p className="text-[#8b949e] mb-4">Import your trades from ThinkOrSwim to see them here.</p>
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
+              <BarChart3 className="w-5 h-5 text-[#F97316]" />
+              <h3 className="text-lg font-semibold text-white">All Trades</h3>
+            </div>
+            <div className="p-8 text-center">
+              <TrendingUp className="w-12 h-12 text-[#8b949e] mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">No Trades Yet</h3>
+              <p className="text-[#8b949e] mb-4">Import your trades from ThinkOrSwim to see them here.</p>
+            </div>
           </div>
         ) : (
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
             {/* Header */}
-            <div className="p-4 border-b border-[#30363d] flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50 flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <BarChart3 className="w-5 h-5 text-[#F97316]" />
+                <h3 className="text-lg font-semibold text-white">All Trades</h3>
+              </div>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-[#8b949e]" />
@@ -799,9 +810,9 @@ export default function CombinedCalendarView() {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-[520px]">
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr className="border-b border-[#30363d] bg-[#0d1117]">
                     <th className="py-3 px-2 text-center w-10">
                       <button
