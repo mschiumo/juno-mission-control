@@ -1,6 +1,6 @@
 /**
  * Closed Positions API - List and Manage Closed Positions
- * 
+ *
  * GET /api/closed-positions - Fetch all closed positions
  * POST /api/closed-positions - Add or update a closed position
  * PUT /api/closed-positions/:id - Update a closed position
@@ -8,13 +8,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getClosedPositions, 
-  saveClosedPosition, 
+import {
+  getClosedPositions,
+  saveClosedPosition,
   deleteClosedPosition,
   updateClosedPosition,
   ClosedPosition
 } from '@/lib/db/closed-positions';
+import { requireUserId } from '@/lib/auth-session';
 
 // Helper to generate UUID
 function generateId(): string {
@@ -23,19 +24,14 @@ function generateId(): string {
 
 /**
  * GET /api/closed-positions
- * 
- * Query Parameters:
- * - userId: string (optional, defaults to 'default')
  */
-export async function GET(request: NextRequest): Promise<NextResponse> {
+export async function GET(): Promise<NextResponse> {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') || 'default';
-    
     const positions = await getClosedPositions(userId);
-    
     return NextResponse.json({ success: true, data: positions });
-    
   } catch (error) {
     console.error('Error fetching closed positions:', error);
     return NextResponse.json(
@@ -47,17 +43,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 /**
  * POST /api/closed-positions
- * 
+ *
  * Creates a new closed position
  * Request body: ClosedPosition (without id for new positions)
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') || 'default';
-    
     const body = await request.json();
-    
+
     // Validation
     if (!body.ticker || !body.actualEntry || !body.actualShares) {
       return NextResponse.json(
@@ -65,9 +61,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { status: 400 }
       );
     }
-    
+
     const now = new Date().toISOString();
-    
+
     // Create closed position
     const position: ClosedPosition = {
       id: body.id || generateId(),
@@ -84,14 +80,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       closedAt: body.closedAt || now,
       notes: body.notes,
     };
-    
+
     await saveClosedPosition(position, userId);
-    
+
     return NextResponse.json(
       { success: true, data: position },
       { status: 201 }
     );
-    
   } catch (error) {
     console.error('Error saving closed position:', error);
     return NextResponse.json(
@@ -103,27 +98,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 /**
  * PUT /api/closed-positions?id={id}
- * 
+ *
  * Updates an existing closed position
  */
 export async function PUT(request: NextRequest): Promise<NextResponse> {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') || 'default';
     const id = searchParams.get('id');
-    
+
     if (!id) {
       return NextResponse.json(
         { success: false, error: 'Missing required parameter: id' },
         { status: 400 }
       );
     }
-    
+
     const body = await request.json();
-    
+
     // Prepare updates
     const updates: Partial<ClosedPosition> = {};
-    
+
     if (body.ticker !== undefined) updates.ticker = body.ticker.toUpperCase();
     if (body.plannedEntry !== undefined) updates.plannedEntry = parseFloat(body.plannedEntry);
     if (body.plannedStop !== undefined) updates.plannedStop = parseFloat(body.plannedStop);
@@ -136,18 +133,17 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     if (body.notes !== undefined) updates.notes = body.notes;
     if (body.openedAt !== undefined) updates.openedAt = body.openedAt;
     if (body.closedAt !== undefined) updates.closedAt = body.closedAt;
-    
+
     const updated = await updateClosedPosition(id, updates, userId);
-    
+
     if (!updated) {
       return NextResponse.json(
         { success: false, error: 'Closed position not found' },
         { status: 404 }
       );
     }
-    
+
     return NextResponse.json({ success: true, data: updated });
-    
   } catch (error) {
     console.error('Error updating closed position:', error);
     return NextResponse.json(
@@ -159,29 +155,30 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
 /**
  * DELETE /api/closed-positions?id={id}
- * 
+ *
  * Removes a closed position
  */
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') || 'default';
     const id = searchParams.get('id');
-    
+
     if (!id) {
       return NextResponse.json(
         { success: false, error: 'Missing required parameter: id' },
         { status: 400 }
       );
     }
-    
+
     await deleteClosedPosition(id, userId);
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Closed position deleted successfully' 
+
+    return NextResponse.json({
+      success: true,
+      message: 'Closed position deleted successfully'
     });
-    
   } catch (error) {
     console.error('Error deleting closed position:', error);
     return NextResponse.json(

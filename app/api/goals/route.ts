@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from 'redis';
 import { randomUUID } from 'crypto';
+import { requireUserId } from '@/lib/auth-session';
 
-const STORAGE_KEY = 'goals_data';
 type Category = 'yearly' | 'weekly' | 'daily' | 'collaborative';
 
 interface ActionItem {
@@ -54,22 +54,22 @@ const DEFAULT_GOALS: GoalsData = {
     { id: 'd4', title: 'Exercise/Lift', phase: 'not-started', category: 'daily', source: 'mj' }
   ],
   collaborative: [
-    { 
-      id: 'c1', 
-      title: 'Dashboard Theme Improvements', 
-      phase: 'in-progress', 
-      category: 'collaborative', 
+    {
+      id: 'c1',
+      title: 'Dashboard Theme Improvements',
+      phase: 'in-progress',
+      category: 'collaborative',
       source: 'juno',
       junoAssisted: true,
       actionItems: [
         { id: 'ai-1', text: 'Update GoalsCard with tabs', status: 'completed', createdAt: new Date().toISOString() }
       ]
     },
-    { 
-      id: 'c2', 
-      title: 'Email Integration Setup', 
-      phase: 'not-started', 
-      category: 'collaborative', 
+    {
+      id: 'c2',
+      title: 'Email Integration Setup',
+      phase: 'not-started',
+      category: 'collaborative',
       source: 'subagent',
       junoAssisted: true
     }
@@ -81,12 +81,16 @@ function isValidCategory(cat: string): cat is Category {
   return cat === 'yearly' || cat === 'weekly' || cat === 'daily' || cat === 'collaborative';
 }
 
+function goalsKey(userId: string) {
+  return `goals_data:${userId}`;
+}
+
 // Lazy Redis client initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
 
 async function getRedisClient() {
   if (redisClient) return redisClient;
-  
+
   try {
     const client = createClient({ url: process.env.REDIS_URL || undefined });
     client.on('error', (err) => console.error('Redis Client Error:', err));
@@ -100,13 +104,16 @@ async function getRedisClient() {
 }
 
 export async function GET() {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
     const redis = await getRedisClient();
-    
+
     let goals = DEFAULT_GOALS;
-    
+
     if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
+      const stored = await redis.get(goalsKey(userId));
       if (stored) {
         goals = JSON.parse(stored);
         // Ensure all categories exist (migration for old data)
@@ -132,11 +139,14 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const { goalId, newPhase, category, notes, junoAssisted, actionItems, title, dueDate } = body;
-    
+
     if (!goalId || !category) {
       return NextResponse.json({
         success: false,
@@ -153,16 +163,16 @@ export async function POST(request: Request) {
     }
 
     const redis = await getRedisClient();
-    
+
     // Get current goals
     let goals = DEFAULT_GOALS;
     if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
+      const stored = await redis.get(goalsKey(userId));
       if (stored) {
         goals = JSON.parse(stored);
       }
     }
-    
+
     // Update the goal
     const goalIndex = goals[category].findIndex((g: Goal) => g.id === goalId);
     if (goalIndex === -1) {
@@ -171,12 +181,12 @@ export async function POST(request: Request) {
         error: 'Goal not found'
       }, { status: 404 });
     }
-    
+
     // Update phase if provided
     if (newPhase) {
       goals[category][goalIndex].phase = newPhase;
     }
-    
+
     // Update notes if provided
     if (notes !== undefined) {
       goals[category][goalIndex].notes = notes;
@@ -191,7 +201,7 @@ export async function POST(request: Request) {
     if (actionItems !== undefined) {
       goals[category][goalIndex].actionItems = actionItems;
     }
-    
+
     // Update title if provided
     if (title !== undefined) {
       goals[category][goalIndex].title = title;
@@ -201,10 +211,10 @@ export async function POST(request: Request) {
     if (dueDate !== undefined) {
       goals[category][goalIndex].dueDate = dueDate;
     }
-    
+
     // Save to Redis
     if (redis) {
-      await redis.set(STORAGE_KEY, JSON.stringify(goals));
+      await redis.set(goalsKey(userId), JSON.stringify(goals));
     }
 
     return NextResponse.json({
@@ -221,11 +231,14 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const { title, category, notes, phase, junoAssisted, actionItems, id, source, dueDate } = body;
-    
+
     if (!title || !category) {
       return NextResponse.json({
         success: false,
@@ -242,11 +255,11 @@ export async function PUT(request: Request) {
     }
 
     const redis = await getRedisClient();
-    
+
     // Get current goals
     let goals = DEFAULT_GOALS;
     if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
+      const stored = await redis.get(goalsKey(userId));
       if (stored) {
         goals = JSON.parse(stored);
         // Ensure all categories exist (fix for corrupted data)
@@ -256,13 +269,13 @@ export async function PUT(request: Request) {
         if (!goals.daily) goals.daily = [];
       }
     }
-    
+
     // Determine source - MJ-created goals default to 'mj', unless explicitly set
     const goalSource: 'mj' | 'juno' | 'subagent' = source || 'mj';
-    
+
     // Auto-categorize collaborative goals
     const finalCategory = goalSource !== 'mj' ? 'collaborative' : category;
-    
+
     // Add new goal with guaranteed unique ID (always generate server-side)
     const newGoal: Goal = {
       id: randomUUID(),
@@ -276,12 +289,12 @@ export async function PUT(request: Request) {
       dueDate: dueDate || undefined,
       createdAt: new Date().toISOString()
     };
-    
+
     goals[finalCategory].push(newGoal);
-    
+
     // Save to Redis
     if (redis) {
-      await redis.set(STORAGE_KEY, JSON.stringify(goals));
+      await redis.set(goalsKey(userId), JSON.stringify(goals));
     }
 
     return NextResponse.json({
@@ -298,12 +311,15 @@ export async function PUT(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
     const goalId = searchParams.get('goalId');
     const category = searchParams.get('category');
-    
+
     if (!goalId || !category) {
       return NextResponse.json({
         success: false,
@@ -320,11 +336,11 @@ export async function DELETE(request: Request) {
     }
 
     const redis = await getRedisClient();
-    
+
     // Get current goals
     let goals = DEFAULT_GOALS;
     if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
+      const stored = await redis.get(goalsKey(userId));
       if (stored) {
         goals = JSON.parse(stored);
         // Ensure all categories exist (migration for old data)
@@ -334,13 +350,13 @@ export async function DELETE(request: Request) {
         if (!goals.daily) goals.daily = DEFAULT_GOALS.daily;
       }
     }
-    
+
     // Remove goal
     goals[category] = goals[category].filter((g: Goal) => g.id !== goalId);
-    
+
     // Save to Redis
     if (redis) {
-      await redis.set(STORAGE_KEY, JSON.stringify(goals));
+      await redis.set(goalsKey(userId), JSON.stringify(goals));
     }
 
     return NextResponse.json({
@@ -357,22 +373,25 @@ export async function DELETE(request: Request) {
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const { goalId, fromCategory, toCategory, reorder, category, orderedIds } = body;
-    
+
     const redis = await getRedisClient();
-    
+
     // Get current goals
     let goals = DEFAULT_GOALS;
     if (redis) {
-      const stored = await redis.get(STORAGE_KEY);
+      const stored = await redis.get(goalsKey(userId));
       if (stored) {
         goals = JSON.parse(stored);
       }
     }
-    
+
     // Handle reorder operation
     if (reorder && category && orderedIds && Array.isArray(orderedIds)) {
       // Validate category
@@ -382,7 +401,7 @@ export async function PATCH(request: Request) {
           error: 'Invalid category'
         }, { status: 400 });
       }
-      
+
       // Update order for each goal in the category
       goals[category] = goals[category].map((goal: Goal) => {
         const newIndex = orderedIds.indexOf(goal.id);
@@ -391,13 +410,13 @@ export async function PATCH(request: Request) {
         }
         return goal;
       });
-      
+
       // Sort by order
       goals[category].sort((a: Goal, b: Goal) => (a.order ?? 0) - (b.order ?? 0));
-      
+
       // Save to Redis
       if (redis) {
-        await redis.set(STORAGE_KEY, JSON.stringify(goals));
+        await redis.set(goalsKey(userId), JSON.stringify(goals));
       }
 
       return NextResponse.json({
@@ -406,7 +425,7 @@ export async function PATCH(request: Request) {
         timestamp: new Date().toISOString()
       });
     }
-    
+
     // Handle move between categories
     if (!goalId || !fromCategory || !toCategory) {
       return NextResponse.json({
@@ -422,7 +441,7 @@ export async function PATCH(request: Request) {
         error: 'Invalid category'
       }, { status: 400 });
     }
-    
+
     // Find and remove goal from source category
     const goalIndex = goals[fromCategory].findIndex((g: Goal) => g.id === goalId);
     if (goalIndex === -1) {
@@ -431,18 +450,18 @@ export async function PATCH(request: Request) {
         error: 'Goal not found in source category'
       }, { status: 404 });
     }
-    
+
     // Get the goal and update its category
     const goal = goals[fromCategory][goalIndex];
     goal.category = toCategory;
-    
+
     // Remove from source and add to target
     goals[fromCategory].splice(goalIndex, 1);
     goals[toCategory].push(goal);
-    
+
     // Save to Redis
     if (redis) {
-      await redis.set(STORAGE_KEY, JSON.stringify(goals));
+      await redis.set(goalsKey(userId), JSON.stringify(goals));
     }
 
     return NextResponse.json({
