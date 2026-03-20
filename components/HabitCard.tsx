@@ -623,7 +623,7 @@ export default function HabitCard() {
             >
               <ClipboardList className="w-3.5 h-3.5 text-[#F97316]" />
             </button>
-            <div className="absolute bottom-full right-0 mb-1.5 px-2 py-1 bg-[#30363d] text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+            <div className="absolute top-full right-0 mt-1.5 px-2 py-1 bg-[#30363d] text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
               Generate Report
             </div>
           </div>
