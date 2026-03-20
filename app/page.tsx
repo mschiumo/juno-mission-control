@@ -166,7 +166,7 @@ function DashboardContent() {
               <div ref={habitsRef}>
                 <HabitCard />
               </div>
-              <div className="grid gap-4" style={{ gridTemplateRows: '360px 1fr', height: habitsHeight }}>
+              <div className="grid gap-4 overflow-hidden" style={{ gridTemplateRows: '360px 1fr', height: habitsHeight }}>
                 <CalendarCard />
                 <NewsScreenerCard />
               </div>
