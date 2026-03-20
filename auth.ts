@@ -1,11 +1,9 @@
 import NextAuth from 'next-auth';
-import Google from 'next-auth/providers/google';
 import Credentials from 'next-auth/providers/credentials';
 import { getUserByEmail, verifyPassword } from '@/lib/db/users';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
-    Google,
     Credentials({
       credentials: {
         email: { label: 'Email', type: 'email' },
