@@ -42,11 +42,12 @@ function DashboardContent() {
     const el = habitsRef.current;
     if (!el) return;
     const observer = new ResizeObserver(([entry]) => {
-      setHabitsHeight(entry.contentRect.height);
+      const h = entry.contentRect.height;
+      if (h > 0) setHabitsHeight(h);
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [activeTab]);
 
   // Update URL when tab changes (using replace to avoid bloating history)
   const setActiveTab = (tab: TabId) => {

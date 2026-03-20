@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Activity, Check, Flame, Target, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2 } from 'lucide-react';
+import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, ClipboardList, AlertTriangle, CheckCircle2, Minus } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -21,6 +21,28 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+type HabitFrequency = 'daily' | 'weekdays' | '3x' | '4x' | '5x' | '6x';
+
+const FREQUENCY_OPTIONS: { value: HabitFrequency; label: string }[] = [
+  { value: 'daily',    label: 'Daily' },
+  { value: 'weekdays', label: 'Weekdays' },
+  { value: '3x',       label: '3x/wk' },
+  { value: '4x',       label: '4x/wk' },
+  { value: '5x',       label: '5x/wk' },
+  { value: '6x',       label: '6x/wk' },
+];
+
+function frequencyGoal(f: HabitFrequency | undefined): number {
+  switch (f) {
+    case 'weekdays': return 5;
+    case '3x':       return 3;
+    case '4x':       return 4;
+    case '5x':       return 5;
+    case '6x':       return 6;
+    default:         return 7;
+  }
+}
+
 interface Habit {
   id: string;
   name: string;
@@ -29,6 +51,7 @@ interface Habit {
   completedToday: boolean;
   target: string;
   category: string;
+  frequency: HabitFrequency;
   history: boolean[]; // Last 7 days (oldest to newest)
   order: number;
 }
@@ -58,11 +81,12 @@ interface SortableHabitItemProps {
   habit: Habit;
   onToggle: (habitId: string) => void;
   onDelete: (habitId: string) => void;
+  onEdit: (habit: Habit) => void;
   dayLabels: string[];
   disabled?: boolean;
 }
 
-function SortableHabitItem({ habit, onToggle, onDelete, dayLabels, disabled }: SortableHabitItemProps) {
+function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disabled }: SortableHabitItemProps) {
   const {
     attributes,
     listeners,
@@ -139,6 +163,14 @@ function SortableHabitItem({ habit, onToggle, onDelete, dayLabels, disabled }: S
             ))}
           </div>
           <button
+            onClick={() => onEdit(habit)}
+            disabled={disabled}
+            className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+            title="Edit habit"
+          >
+            <Pencil className="w-3.5 h-3.5 text-[#737373] hover:text-[#F97316]" />
+          </button>
+          <button
             onClick={() => onDelete(habit.id)}
             disabled={disabled}
             className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors disabled:opacity-50"
@@ -166,12 +198,17 @@ export default function HabitCard() {
   const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map());
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Modal states
+  // Add / Edit modal state
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitIcon, setNewHabitIcon] = useState('⭐');
   const [newHabitTarget, setNewHabitTarget] = useState('Daily');
+  const [newHabitFrequency, setNewHabitFrequency] = useState<HabitFrequency>('daily');
+
+  // Report modal state
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReady, setReportReady] = useState(false);
 
   // Sensors for drag and drop
   const sensors = useSensors(
@@ -400,36 +437,51 @@ export default function HabitCard() {
     }
   };
 
-  const addHabit = async () => {
-    if (!newHabitName.trim()) return;
+  const openEditModal = (habit: Habit) => {
+    setEditingHabit(habit);
+    setNewHabitName(habit.name);
+    setNewHabitIcon(habit.icon);
+    setNewHabitTarget(habit.target);
+    setNewHabitFrequency(habit.frequency ?? 'daily');
+    setShowAddModal(true);
+  };
 
+  const closeHabitModal = () => {
+    setShowAddModal(false);
+    setEditingHabit(null);
+    setNewHabitName('');
+    setNewHabitIcon('⭐');
+    setNewHabitTarget('Daily');
+    setNewHabitFrequency('daily');
+  };
+
+  const submitHabit = async () => {
+    if (!newHabitName.trim()) return;
     setSyncStatus('syncing');
     try {
       const response = await fetch('/api/habit-status', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...(editingHabit ? { habitId: editingHabit.id } : {}),
           name: newHabitName,
           icon: newHabitIcon,
           target: newHabitTarget,
-          category: 'other'
+          frequency: newHabitFrequency,
+          category: editingHabit?.category ?? 'other',
         })
       });
-
       if (response.ok) {
         const data = await response.json();
         setHabits(data.data.habits);
         setStats(data.data.stats);
-        setNewHabitName('');
-        setNewHabitIcon('⭐');
-        setNewHabitTarget('Daily');
-        setShowAddModal(false);
+        closeHabitModal();
         setSyncStatus('synced');
       } else {
         setSyncStatus('error');
       }
     } catch (error) {
-      console.error('Failed to add habit:', error);
+      console.error('Failed to save habit:', error);
       setSyncStatus('error');
     }
   };
@@ -517,6 +569,39 @@ export default function HabitCard() {
   const dayLabels = getDayLabels();
   const hasPendingChanges = pendingChanges.size > 0;
 
+  const computeReport = () => {
+    const now = new Date();
+    const analysis = habits.map(h => {
+      const goal = frequencyGoal(h.frequency);
+      const completions = h.history.filter(Boolean).length + (h.completedToday ? 1 : 0);
+      const rate = Math.round((completions / goal) * 100);
+      return {
+        ...h,
+        weeklyCompletions: completions,
+        weeklyGoal: goal,
+        weeklyRate: rate,
+        tier: (rate >= 71 ? 'strong' : rate >= 43 ? 'moderate' : 'struggling') as 'strong' | 'moderate' | 'struggling',
+      };
+    });
+    const strong     = analysis.filter(h => h.tier === 'strong');
+    const moderate   = analysis.filter(h => h.tier === 'moderate');
+    const struggling = analysis.filter(h => h.tier === 'struggling');
+    const recommendations: string[] = [];
+    struggling.slice(0, 3).forEach(h => {
+      if (h.weeklyRate === 0) recommendations.push(`"${h.name}" hasn't been logged once this week — consider adjusting its time slot.`);
+      else recommendations.push(`"${h.name}" is missed most days (${h.weeklyRate}%) — try anchoring it to an existing routine.`);
+    });
+    if (strong.length === habits.length && habits.length > 0)
+      recommendations.push('You\'re completing every habit this week. Consider raising the bar or adding a new challenge.');
+    if (stats.weeklyCompletion < 40 && habits.length > 3)
+      recommendations.push('With many habits tracked, focus on your top 2–3 until consistency builds.');
+    if (!habits.some(h => h.completedToday) && now.getHours() >= 10)
+      recommendations.push('No habits logged yet today — you still have time to build momentum.');
+    if (recommendations.length === 0)
+      recommendations.push('Solid week overall. Keep the momentum going and stay consistent.');
+    return { analysis, strong, moderate, struggling, recommendations, generatedAt: now };
+  };
+
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-[900px]">
       {/* Header */}
@@ -530,8 +615,20 @@ export default function HabitCard() {
           {getSyncIndicator()}
         </div>
         <div className="flex items-center gap-1">
+          <div className="relative group">
+            <button
+              onClick={() => { setReportReady(false); setShowReportModal(true); }}
+              disabled={habits.length === 0}
+              className="p-1.5 bg-[#F97316]/15 hover:bg-[#F97316]/30 rounded-lg transition-colors disabled:opacity-30"
+            >
+              <ClipboardList className="w-3.5 h-3.5 text-[#F97316]" />
+            </button>
+            <div className="absolute top-full right-0 mt-1.5 px-2 py-1 bg-[#30363d] text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              Generate Report
+            </div>
+          </div>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => { setEditingHabit(null); setNewHabitName(''); setNewHabitIcon('⭐'); setNewHabitTarget('Daily'); setNewHabitFrequency('daily'); setShowAddModal(true); }}
             className="p-1.5 bg-[#F97316] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors"
             title="Add new habit"
           >
@@ -615,6 +712,7 @@ export default function HabitCard() {
                     habit={habit}
                     onToggle={toggleHabit}
                     onDelete={deleteHabit}
+                    onEdit={openEditModal}
                     dayLabels={dayLabels}
                     disabled={hasPendingChanges}
                   />
@@ -645,16 +743,15 @@ export default function HabitCard() {
         )}
       </div>
 
-      {/* Add Habit Modal */}
+      {/* Add / Edit Habit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 w-full max-w-md">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-white">Add New Habit</h3>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-1.5 hover:bg-[#30363d] rounded-lg"
-              >
+              <h3 className="text-base font-semibold text-white">
+                {editingHabit ? 'Edit Habit' : 'Add New Habit'}
+              </h3>
+              <button onClick={closeHabitModal} className="p-1.5 hover:bg-[#30363d] rounded-lg">
                 <X className="w-4 h-4 text-[#8b949e]" />
               </button>
             </div>
@@ -678,9 +775,7 @@ export default function HabitCard() {
                     key={emoji}
                     onClick={() => setNewHabitIcon(emoji)}
                     className={`text-xl p-1.5 rounded-lg border transition-all ${
-                      newHabitIcon === emoji
-                        ? 'border-[#F97316] bg-[#F97316]/20'
-                        : 'border-[#30363d] hover:border-[#8b949e]'
+                      newHabitIcon === emoji ? 'border-[#F97316] bg-[#F97316]/20' : 'border-[#30363d] hover:border-[#8b949e]'
                     }`}
                   >
                     {emoji}
@@ -689,35 +784,152 @@ export default function HabitCard() {
               </div>
             </div>
 
+            <div className="mb-4">
+              <label className="block text-xs text-[#8b949e] mb-2">Frequency</label>
+              <div className="flex flex-wrap gap-2">
+                {FREQUENCY_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setNewHabitFrequency(opt.value)}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                      newHabitFrequency === opt.value
+                        ? 'border-[#F97316] bg-[#F97316]/20 text-[#F97316]'
+                        : 'border-[#30363d] text-[#8b949e] hover:border-[#8b949e] hover:text-white'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="mb-5">
-              <label className="block text-xs text-[#8b949e] mb-2">Target</label>
+              <label className="block text-xs text-[#8b949e] mb-2">Target <span className="text-[#737373]">(optional description)</span></label>
               <input
                 type="text"
                 value={newHabitTarget}
                 onChange={(e) => setNewHabitTarget(e.target.value)}
-                placeholder="e.g., Daily, 3x/week, 30 min"
+                placeholder="e.g., 30 min, 2L water, before 9am"
                 className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm placeholder-[#8b949e] focus:outline-none focus:border-[#F97316]"
               />
             </div>
 
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors text-sm"
-              >
+              <button onClick={closeHabitModal} className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors text-sm">
                 Cancel
               </button>
               <button
-                onClick={addHabit}
+                onClick={submitHabit}
                 disabled={!newHabitName.trim()}
-                className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors disabled:opacity-50 text-sm"
+                className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors disabled:opacity-50 text-sm font-medium"
               >
-                Add Habit
+                {editingHabit ? 'Save Changes' : 'Add Habit'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Habits Report Modal */}
+      {showReportModal && (() => {
+        const report = reportReady ? computeReport() : null;
+        return (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#30363d] flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-[#F97316]" />
+                  <h3 className="text-sm font-semibold text-white">Habits Report</h3>
+                </div>
+                <button onClick={() => setShowReportModal(false)} className="p-1 hover:bg-[#30363d] rounded-lg transition-colors">
+                  <X className="w-4 h-4 text-[#8b949e]" />
+                </button>
+              </div>
+
+              {!reportReady ? (
+                <div className="px-5 py-6 flex flex-col items-center text-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-[#F97316]/10 flex items-center justify-center">
+                    <ClipboardList className="w-7 h-7 text-[#F97316]" />
+                  </div>
+                  <div>
+                    <p className="text-white font-medium mb-1">Generate a Habits Report?</p>
+                    <p className="text-xs text-[#8b949e] leading-relaxed">Analyzes your last 7 days to surface what&apos;s working, what needs attention, and what to focus on next.</p>
+                  </div>
+                  <div className="flex gap-3 w-full pt-2">
+                    <button onClick={() => setShowReportModal(false)} className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors text-sm">Cancel</button>
+                    <button onClick={() => setReportReady(true)} className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors text-sm font-medium">Generate Report</button>
+                  </div>
+                </div>
+              ) : report && (
+                <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+                  <p className="text-[10px] text-[#8b949e]">Generated {report.generatedAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })} EST</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'This Week', value: `${stats.weeklyCompletion}%` },
+                      { label: 'Today', value: `${stats.completedToday}/${stats.totalHabits}` },
+                      { label: 'Best Streak', value: `${stats.longestStreak}d` },
+                    ].map(s => (
+                      <div key={s.label} className="bg-[#0d1117] border border-[#30363d] rounded-lg p-2.5 text-center">
+                        <div className="text-base font-bold text-[#F97316]">{s.value}</div>
+                        <div className="text-[10px] text-[#8b949e] mt-0.5">{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2"><TrendingUp className="w-3.5 h-3.5 text-[#F97316]" /><span className="text-xs font-semibold text-[#F97316]">Recommendations</span></div>
+                    <div className="space-y-2">
+                      {report.recommendations.map((rec, i) => (
+                        <div key={i} className="flex gap-2 text-xs text-[#8b949e] leading-relaxed">
+                          <span className="text-[#F97316] flex-shrink-0 font-bold">→</span><span>{rec}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {report.strong.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-2"><CheckCircle2 className="w-3.5 h-3.5 text-[#22c55e]" /><span className="text-xs font-semibold text-[#22c55e]">On Track</span><span className="text-[10px] text-[#8b949e]">({report.strong.length})</span></div>
+                      <div className="space-y-1.5">
+                        {report.strong.map(h => (
+                          <div key={h.id} className="flex items-center justify-between bg-[#22c55e]/5 border border-[#22c55e]/20 rounded-lg px-3 py-2">
+                            <div className="flex items-center gap-2 min-w-0"><span className="text-base flex-shrink-0">{h.icon}</span><span className="text-xs text-white truncate">{h.name}</span></div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} days</span><span className="text-[10px] font-medium text-[#22c55e]">{h.weeklyRate}%</span></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {report.moderate.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-2"><Minus className="w-3.5 h-3.5 text-[#d29922]" /><span className="text-xs font-semibold text-[#d29922]">Moderate</span><span className="text-[10px] text-[#8b949e]">({report.moderate.length})</span></div>
+                      <div className="space-y-1.5">
+                        {report.moderate.map(h => (
+                          <div key={h.id} className="flex items-center justify-between bg-[#d29922]/5 border border-[#d29922]/20 rounded-lg px-3 py-2">
+                            <div className="flex items-center gap-2 min-w-0"><span className="text-base flex-shrink-0">{h.icon}</span><span className="text-xs text-white truncate">{h.name}</span></div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} days</span><span className="text-[10px] font-medium text-[#d29922]">{h.weeklyRate}%</span></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {report.struggling.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-2"><AlertTriangle className="w-3.5 h-3.5 text-[#ef4444]" /><span className="text-xs font-semibold text-[#ef4444]">Needs Attention</span><span className="text-[10px] text-[#8b949e]">({report.struggling.length})</span></div>
+                      <div className="space-y-1.5">
+                        {report.struggling.map(h => (
+                          <div key={h.id} className="flex items-center justify-between bg-[#ef4444]/5 border border-[#ef4444]/20 rounded-lg px-3 py-2">
+                            <div className="flex items-center gap-2 min-w-0"><span className="text-base flex-shrink-0">{h.icon}</span><span className="text-xs text-white truncate">{h.name}</span></div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} days</span><span className="text-[10px] font-medium text-[#ef4444]">{h.weeklyRate}%</span></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
