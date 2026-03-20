@@ -13,8 +13,8 @@ export async function GET() {
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    approval_prompt: 'auto',
-    scope: 'read,activity:read',
+    approval_prompt: 'force',
+    scope: 'read,activity:read,activity:read_all',
   });
 
   return NextResponse.redirect(`https://www.strava.com/oauth/authorize?${params}`);
