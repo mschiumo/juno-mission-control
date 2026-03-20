@@ -396,21 +396,21 @@ export default function MarketCard() {
                       href={`https://www.tradingview.com/chart/?symbol=${getTradingViewSymbol(item.symbol)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#F97316]/50 transition-all block min-w-0"
+                      className="p-2.5 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#F97316]/50 transition-all block min-w-0"
                     >
-                      <div className="flex items-center justify-between mb-2 min-w-0">
-                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      <div className="flex items-center justify-between mb-1 min-w-0">
+                        <div className="flex items-center gap-1 min-w-0 flex-1">
                           {item.change >= 0 ? (
-                            <TrendingUp className="w-3.5 h-3.5 text-[#238636] flex-shrink-0" />
+                            <TrendingUp className="w-3 h-3 text-[#238636] flex-shrink-0" />
                           ) : (
-                            <TrendingDown className="w-3.5 h-3.5 text-[#da3633] flex-shrink-0" />
+                            <TrendingDown className="w-3 h-3 text-[#da3633] flex-shrink-0" />
                           )}
-                          <span className="font-semibold text-white flex items-center gap-1 flex-shrink-0">
+                          <span className="text-sm font-semibold text-white flex items-center gap-0.5 flex-shrink-0">
                             {displaySymbol(item.symbol)}
-                            <ExternalLink className="w-3 h-3 opacity-50" />
+                            <ExternalLink className="w-2.5 h-2.5 opacity-50" />
                           </span>
                         </div>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ml-1 ${
                           item.change >= 0
                             ? 'bg-[#238636]/20 text-[#238636]'
                             : 'bg-[#da3633]/20 text-[#da3633]'
@@ -418,10 +418,10 @@ export default function MarketCard() {
                           {item.change >= 0 ? '+' : ''}{item.changePercent.toFixed(2)}%
                         </span>
                       </div>
-                      <p className="text-xs text-[#8b949e] mb-3 truncate">{item.name}</p>
+                      <p className="text-[10px] text-[#8b949e] mb-1.5 truncate">{item.name}</p>
                       <div className="flex items-baseline justify-between min-w-0">
-                        <span className="metric-value text-lg sm:text-xl truncate">{formatPrice(item.price)}</span>
-                        <span className={`text-xs font-medium flex-shrink-0 ml-2 ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>
+                        <span className="text-base font-bold text-white tabular-nums truncate">{formatPrice(item.price)}</span>
+                        <span className={`text-[10px] font-medium flex-shrink-0 ml-1 ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>
                           {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}
                         </span>
                       </div>
