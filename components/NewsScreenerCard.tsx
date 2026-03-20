@@ -156,7 +156,7 @@ export default function NewsScreenerCard() {
           <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
-      <div className="p-6 flex-1 flex flex-col overflow-hidden min-h-0">
+      <div className="p-6 flex-1 flex flex-col min-h-0">
 
       {/* Category Filters */}
       <div className="mb-4 flex-shrink-0">
@@ -307,7 +307,7 @@ export default function NewsScreenerCard() {
 
       {/* Footer */}
       {data && (
-        <div className="mt-4 pt-4 border-t border-[#30363d]">
+        <div className="mt-4 pt-4 border-t border-[#30363d] flex-shrink-0">
           <div className="flex items-center justify-between text-[10px] text-[#8b949e]">
             <span>Categories: Fed, Policy, M&A, IPOs, Earnings, Economic</span>
             <span>Updates every 15 min</span>

@@ -155,11 +155,9 @@ function DashboardContent() {
             <EveningCheckinReminder />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <HabitCard />
-              <div className="flex flex-col gap-4 h-[640px]">
+              <div className="grid gap-4" style={{ gridTemplateRows: '240px 1fr' }}>
                 <CalendarCard />
-                <div className="flex-1 min-h-0">
-                  <NewsScreenerCard />
-                </div>
+                <NewsScreenerCard />
               </div>
             </div>
           </div>
