@@ -131,17 +131,6 @@ export default function SectorPerformanceCard() {
         )}
       </div>
 
-      {/* Footer — best / worst */}
-      {sectors.length > 0 && !loading && (
-        <div className="px-4 py-2 border-t border-[#30363d] flex-shrink-0 flex items-center justify-between text-[10px] text-[#8b949e]">
-          <span>
-            Best: <span className="text-[#238636] font-medium">{sectors[0]?.symbol} {sectors[0]?.changePercent >= 0 ? '+' : ''}{sectors[0]?.changePercent.toFixed(2)}%</span>
-          </span>
-          <span>
-            Worst: <span className="text-[#da3633] font-medium">{sectors[sectors.length - 1]?.symbol} {sectors[sectors.length - 1]?.changePercent.toFixed(2)}%</span>
-          </span>
-        </div>
-      )}
     </div>
   );
 }
