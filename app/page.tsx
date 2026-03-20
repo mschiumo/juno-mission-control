@@ -9,7 +9,6 @@ import NewsScreenerCard from "@/components/NewsScreenerCard";
 import GoalsCard from "@/components/GoalsCard";
 import JunoWidget from "@/components/JunoWidget";
 import LiveClock from "@/components/LiveClock";
-import NotificationsBell from "@/components/NotificationsBell";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import DocumentationCard from "@/components/DocumentationCard";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
@@ -105,7 +104,6 @@ function DashboardContent() {
 
               {/* Desktop Widgets */}
               <div className="hidden md:flex items-center gap-4">
-                <NotificationsBell />
                 <JunoWidget />
                 <LiveClock />
               </div>
@@ -147,7 +145,6 @@ function DashboardContent() {
                 ))}
               </div>
               <div className="mt-4 pt-4 border-t border-[#30363d] flex items-center justify-between">
-                <NotificationsBell />
                 <JunoWidget />
                 <LiveClock />
               </div>
