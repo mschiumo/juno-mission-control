@@ -40,9 +40,13 @@ interface PositionCalculatorProps {
 }
 
 export default function PositionCalculator({ initialTicker, onTickerChange }: PositionCalculatorProps) {
-  const [inputs, setInputs] = useState<CalculatorInputs>({
-    ...DEFAULT_VALUES,
-    ticker: initialTicker || '',
+  const [inputs, setInputs] = useState<CalculatorInputs>(() => {
+    const savedRisk = typeof window !== 'undefined' ? localStorage.getItem('juno:risk-amount') : null;
+    return {
+      ...DEFAULT_VALUES,
+      riskAmount: savedRisk || DEFAULT_VALUES.riskAmount,
+      ticker: initialTicker || '',
+    };
   });
   const [showTooltips, setShowTooltips] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -65,6 +69,9 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
       onTickerChange?.(value.toUpperCase());
     } else if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setInputs(prev => ({ ...prev, [field]: value }));
+      if (field === 'riskAmount' && value) {
+        try { localStorage.setItem('juno:risk-amount', value); } catch { /* ignore */ }
+      }
     }
   };
 
