@@ -288,8 +288,29 @@ export default function GapScannerCard() {
 
         {/* Body */}
         {loading && !data ? (
-          <div className="flex items-center justify-center py-12 text-[#8b949e]">
-            <RefreshCw className="w-5 h-5 animate-spin text-[#F97316]" />
+          <div className="grid grid-cols-2 divide-x divide-[#30363d] flex-1 animate-pulse">
+            {['Gainers', 'Losers'].map(label => (
+              <div key={label} className="flex flex-col">
+                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[#30363d]">
+                  <div className="w-3 h-3 rounded-sm bg-[#30363d]" />
+                  <div className="h-3 w-16 bg-[#30363d] rounded" />
+                </div>
+                <div className="px-3 py-1.5 border-b border-[#21262d] grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4">
+                  {[40, 28, 24, 32, 12].map((w, i) => (
+                    <div key={i} className="h-2.5 bg-[#30363d] rounded" style={{ width: w }} />
+                  ))}
+                </div>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-2.5 border-b border-[#30363d] last:border-0">
+                    <div className="h-3 w-12 bg-[#30363d] rounded" />
+                    <div className="h-3 w-10 bg-[#30363d] rounded" />
+                    <div className="h-3 w-8 bg-[#30363d] rounded" />
+                    <div className="h-3 w-10 bg-[#30363d] rounded" />
+                    <div className="h-3 w-3 bg-[#30363d] rounded" />
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-2 divide-x divide-[#30363d] flex-1 min-h-0">

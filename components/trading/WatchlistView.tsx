@@ -1245,12 +1245,59 @@ export default function WatchlistView() {
   // Don't render until mounted to avoid hydration mismatch
   if (!mounted) {
     return (
-      <div className="w-full space-y-6">
-        <div className="text-center py-12">
-          <div className="animate-pulse">
-            <div className="w-12 h-12 bg-[#262626] rounded-lg mx-auto mb-4" />
-            <div className="h-6 bg-[#262626] rounded w-48 mx-auto mb-2" />
-            <div className="h-4 bg-[#262626] rounded w-64 mx-auto" />
+      <div className="w-full space-y-6 animate-pulse">
+        {/* Active Trades skeleton */}
+        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d]">
+            <div className="h-4 w-28 bg-[#30363d] rounded" />
+            <div className="h-7 w-7 bg-[#30363d] rounded-lg" />
+          </div>
+          <div className="p-4 grid grid-cols-2 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-[#0d1117] border border-[#30363d] rounded-xl p-4 space-y-2">
+                <div className="flex justify-between">
+                  <div className="h-4 w-12 bg-[#30363d] rounded" />
+                  <div className="h-4 w-16 bg-[#30363d] rounded" />
+                </div>
+                <div className="h-3 w-24 bg-[#30363d] rounded" />
+                <div className="h-3 w-20 bg-[#30363d] rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Potential Trades skeleton */}
+        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d]">
+            <div className="h-4 w-32 bg-[#30363d] rounded" />
+            <div className="h-7 w-7 bg-[#30363d] rounded-lg" />
+          </div>
+          <div className="p-4 space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-3 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg">
+                <div className="h-4 w-12 bg-[#30363d] rounded" />
+                <div className="h-3 w-16 bg-[#30363d] rounded" />
+                <div className="h-3 w-16 bg-[#30363d] rounded" />
+                <div className="h-3 w-16 bg-[#30363d] rounded" />
+                <div className="ml-auto h-6 w-20 bg-[#30363d] rounded-lg" />
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Closed Positions skeleton */}
+        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d]">
+            <div className="h-4 w-36 bg-[#30363d] rounded" />
+            <div className="h-7 w-7 bg-[#30363d] rounded-lg" />
+          </div>
+          <div className="p-4 space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-3 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg">
+                <div className="h-4 w-12 bg-[#30363d] rounded" />
+                <div className="h-3 w-16 bg-[#30363d] rounded" />
+                <div className="h-3 w-16 bg-[#30363d] rounded" />
+                <div className="ml-auto h-4 w-14 bg-[#30363d] rounded" />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -1353,7 +1400,20 @@ export default function WatchlistView() {
             collapsedSections.activeTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
           }`}
         >
-        {activeTrades.length === 0 ? (
+        {activeTradesLoading && activeTrades.length === 0 ? (
+          <div className="grid grid-cols-2 gap-3 animate-pulse">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-[#0d1117] border border-[#30363d] rounded-xl p-4 space-y-2">
+                <div className="flex justify-between">
+                  <div className="h-4 w-12 bg-[#30363d] rounded" />
+                  <div className="h-4 w-16 bg-[#30363d] rounded" />
+                </div>
+                <div className="h-3 w-24 bg-[#30363d] rounded" />
+                <div className="h-3 w-20 bg-[#30363d] rounded" />
+              </div>
+            ))}
+          </div>
+        ) : activeTrades.length === 0 ? (
           <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
             <Activity className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
             <p className="text-sm text-[#8b949e]">No active positions</p>
@@ -1745,7 +1805,19 @@ export default function WatchlistView() {
             </button>
           </div>
         </div>
-        {watchlist.length === 0 ? (
+        {watchlistLoading && watchlist.length === 0 ? (
+          <div className="space-y-2 animate-pulse">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg">
+                <div className="h-4 w-12 bg-[#30363d] rounded" />
+                <div className="h-3 w-16 bg-[#30363d] rounded" />
+                <div className="h-3 w-16 bg-[#30363d] rounded" />
+                <div className="h-3 w-16 bg-[#30363d] rounded" />
+                <div className="ml-auto h-7 w-20 bg-[#30363d] rounded-lg" />
+              </div>
+            ))}
+          </div>
+        ) : watchlist.length === 0 ? (
           <div className="text-center py-12 border border-dashed border-[#30363d] rounded-xl">
             <BookmarkX className="w-12 h-12 text-[#30363d] mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-white mb-2">No Saved Trades</h3>
@@ -2174,7 +2246,18 @@ export default function WatchlistView() {
             collapsedSections.closedPositions ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
           }`}
         >
-        {visibleClosedPositions.length === 0 ? (
+        {closedPositionsLoading && closedPositions.length === 0 ? (
+          <div className="space-y-2 animate-pulse">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg">
+                <div className="h-4 w-12 bg-[#30363d] rounded" />
+                <div className="h-3 w-16 bg-[#30363d] rounded" />
+                <div className="h-3 w-16 bg-[#30363d] rounded" />
+                <div className="ml-auto h-4 w-14 bg-[#30363d] rounded" />
+              </div>
+            ))}
+          </div>
+        ) : visibleClosedPositions.length === 0 ? (
           <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
             <History className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
             <p className="text-sm text-[#8b949e]">
