@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
@@ -17,6 +17,7 @@ import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
+import TradingTour from '@/components/trading/TradingTour';
 
 type TradingSubTab = 'overview' | 'market' | 'projection' | 'trade-management';
 
@@ -37,6 +38,28 @@ export default function TradingView() {
   const [activeSubTab, setActiveSubTabState] = useState<TradingSubTab>(getSubTabFromUrl);
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+
+  // Fetch prefs on mount and show tour if not yet completed
+  useEffect(() => {
+    fetch('/api/user/prefs')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.prefs && !data.prefs.tradingTourCompleted) {
+          setShowTour(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  function handleTourComplete() {
+    setShowTour(false);
+    fetch('/api/user/prefs', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tradingTourCompleted: true }),
+    }).catch(() => {});
+  }
 
   // Update URL when subtab changes
   const setActiveSubTab = (subtab: TradingSubTab) => {
@@ -164,6 +187,9 @@ export default function TradingView() {
         isOpen={showTradeModal}
         onClose={() => setShowTradeModal(false)}
       />
+
+      {/* First-time onboarding tour */}
+      {showTour && <TradingTour onComplete={handleTourComplete} />}
     </div>
   );
 }
