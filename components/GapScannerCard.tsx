@@ -294,15 +294,16 @@ export default function GapScannerCard() {
             <div className="flex flex-col min-h-0">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-[#238636]/5 border-b border-[#30363d] flex-shrink-0">
                 <TrendingUp className="w-3 h-3 text-[#238636]" />
-                <span className="text-[10px] font-semibold text-[#238636] uppercase tracking-widest">Gainers</span>
-                <span className="text-[10px] text-[#8b949e] ml-auto">{data?.gainers.length ?? 0}</span>
+                <span className="text-[10px] font-semibold text-[#238636] uppercase tracking-widest">
+                  Gainers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.gainers.length ?? 0})</span>
+                </span>
               </div>
               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-2 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
                 <button onClick={() => toggleSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" /></button>
                 <button onClick={() => toggleSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" /></button>
-                <span className="w-3" />
+                <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
               </div>
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.gainers?.length
@@ -316,15 +317,16 @@ export default function GapScannerCard() {
             <div className="flex flex-col min-h-0">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-[#da3633]/5 border-b border-[#30363d] flex-shrink-0">
                 <TrendingDown className="w-3 h-3 text-[#da3633]" />
-                <span className="text-[10px] font-semibold text-[#da3633] uppercase tracking-widest">Losers</span>
-                <span className="text-[10px] text-[#8b949e] ml-auto">{data?.losers.length ?? 0}</span>
+                <span className="text-[10px] font-semibold text-[#da3633] uppercase tracking-widest">
+                  Losers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.losers.length ?? 0})</span>
+                </span>
               </div>
               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-2 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
                 <button onClick={() => toggleSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" /></button>
                 <button onClick={() => toggleSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" /></button>
-                <span className="w-3" />
+                <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
               </div>
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.losers?.length
