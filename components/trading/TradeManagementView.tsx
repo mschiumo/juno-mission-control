@@ -17,7 +17,7 @@ export default function TradeManagementView() {
       <MarketTickerBar />
 
       {/* Side-by-Side Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Daily Favorites + Calculator Section - Left */}
         <div className="space-y-6">
           {/* Daily Favorites above Position Calculator */}
@@ -40,13 +40,13 @@ export default function TradeManagementView() {
           </div>
         </div>
 
-        {/* Watchlist Section - Right (contains Active + Potential) */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-          <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
+        {/* Watchlist Section - Right (fixed height matching left column) */}
+        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-full">
+          <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50 shrink-0">
             <Bookmark className="w-5 h-5 text-[#F97316]" />
             <h3 className="text-lg font-semibold text-white">Watchlist</h3>
           </div>
-          <div className="p-6">
+          <div className="p-6 flex-1 overflow-y-auto">
             <WatchlistView />
           </div>
         </div>
