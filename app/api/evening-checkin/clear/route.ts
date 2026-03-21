@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
+import { requireUserId } from '@/lib/auth-session';
 
 let redisClient: ReturnType<typeof createClient> | null = null;
 
 async function getRedisClient() {
   if (redisClient) return redisClient;
-  
+
   try {
     const client = createClient({ url: process.env.REDIS_URL || undefined });
     client.on('error', (err) => console.error('Redis Client Error:', err));
@@ -20,29 +21,32 @@ async function getRedisClient() {
 
 /**
  * POST /api/evening-checkin/clear
- * 
- * Wipes all evening check-in history
+ *
+ * Wipes all evening check-in history for the authenticated user
  */
 export async function POST() {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
     const redis = await getRedisClient();
-    
+
     if (!redis) {
       return NextResponse.json(
         { success: false, error: 'Redis not available' },
         { status: 503 }
       );
     }
-    
-    // Delete the evening_checkins key
-    const result = await redis.del('evening_checkins');
-    
+
+    // Delete only this user's evening_checkins key
+    const result = await redis.del(`evening_checkins:${userId}`);
+
     return NextResponse.json({
       success: true,
       message: 'Evening check-in history cleared',
       deleted: result === 1
     });
-    
+
   } catch (error) {
     console.error('Evening checkin clear error:', error);
     return NextResponse.json(

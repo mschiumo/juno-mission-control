@@ -3,14 +3,14 @@ import { NextResponse } from 'next/server';
 // News categories with their keywords for filtering
 const NEWS_CATEGORIES = {
   fed: {
-    name: 'Fed & Monetary Policy',
+    name: 'Fed & Rates',
     keywords: ['fed', 'fomc', 'federal reserve', 'interest rate', 'rate hike', 'rate cut', 'jerome powell', 'monetary policy', 'fed chair'],
     priority: 'high',
     color: '#8b5cf6' // Purple
   },
-  whitehouse: {
-    name: 'White House & Policy',
-    keywords: ['white house', 'executive order', 'biden', 'trump', 'administration', 'policy', 'legislation', 'congress', 'senate', 'house of representatives', 'regulation'],
+  macro: {
+    name: 'Macro & Policy',
+    keywords: ['cpi', 'inflation', 'jobs report', 'unemployment', 'gdp', 'non-farm payrolls', 'nfp', 'retail sales', 'consumer confidence', 'pmi', 'economic growth', 'white house', 'executive order', 'trump', 'administration', 'legislation', 'congress', 'senate', 'regulation', 'tariff', 'fiscal policy'],
     priority: 'high',
     color: '#3b82f6' // Blue
   },
@@ -20,23 +20,17 @@ const NEWS_CATEGORIES = {
     priority: 'high',
     color: '#f97316' // Orange
   },
-  ipo: {
-    name: 'IPOs',
-    keywords: ['ipo', 'initial public offering', 'going public', 'public offering', 'listing', 'spac', 'direct listing'],
-    priority: 'medium',
-    color: '#22c55e' // Green
-  },
   earnings: {
     name: 'Earnings',
     keywords: ['earnings', 'beats', 'misses', 'revenue', 'profit', 'loss', 'quarterly results', 'q1', 'q2', 'q3', 'q4', 'guidance', 'outlook'],
     priority: 'medium',
     color: '#14b8a6' // Teal
   },
-  economic: {
-    name: 'Economic Data',
-    keywords: ['cpi', 'inflation', 'jobs report', 'unemployment', 'gdp', 'non-farm payrolls', 'nfp', 'retail sales', 'consumer confidence', 'pmi', 'economic growth'],
-    priority: 'high',
-    color: '#ef4444' // Red
+  ai: {
+    name: 'AI & Tech',
+    keywords: ['artificial intelligence', 'ai model', 'large language model', 'llm', 'chatgpt', 'openai', 'anthropic', 'gemini', 'claude', 'machine learning', 'deep learning', 'generative ai', 'nvidia', 'gpu', 'semiconductor', 'chips act', 'data center', 'ai chip', 'ai infrastructure'],
+    priority: 'medium',
+    color: '#22c55e' // Green
   }
 };
 
@@ -238,17 +232,27 @@ export async function GET() {
     const rawNews = await fetchFinnhubNews();
     
     // Categorize news items
-    const categorizedNews: CategorizedNews[] = [];
+    let categorizedNews: CategorizedNews[] = [];
     const seenHeadlines = new Set<string>();
-    
+
     for (const item of rawNews) {
       // Skip duplicates
       if (seenHeadlines.has(item.headline)) continue;
       seenHeadlines.add(item.headline);
-      
+
       const categorized = categorizeNews(item);
       if (categorized) {
         categorizedNews.push(categorized);
+      }
+    }
+
+    // If live data produced no categorized items, fall back to mock data
+    if (categorizedNews.length === 0 && FINNHUB_API_KEY) {
+      console.warn('[NewsScreener] Live data produced 0 categorized items, falling back to mock data');
+      const mockItems = getMockNews();
+      for (const item of mockItems) {
+        const categorized = categorizeNews(item);
+        if (categorized) categorizedNews.push(categorized);
       }
     }
     

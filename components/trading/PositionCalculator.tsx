@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
-import { Calculator, Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info, Loader2 } from 'lucide-react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info, Loader2 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTradeWithPnL } from '@/types/active-trade';
 
@@ -34,19 +34,35 @@ const RISK_RATIO_OPTIONS = [
 // Default user ID (can be made dynamic with auth later)
 const DEFAULT_USER_ID = 'default';
 
-export default function PositionCalculator() {
-  const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_VALUES);
+interface PositionCalculatorProps {
+  initialTicker?: string;
+  onTickerChange?: (ticker: string) => void;
+}
+
+export default function PositionCalculator({ initialTicker, onTickerChange }: PositionCalculatorProps) {
+  const [inputs, setInputs] = useState<CalculatorInputs>({
+    ...DEFAULT_VALUES,
+    ticker: initialTicker || '',
+  });
   const [showTooltips, setShowTooltips] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [addSuccess, setAddSuccess] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'duplicate' | 'success'>('idle');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Update ticker when initialTicker prop changes
+  useEffect(() => {
+    if (initialTicker !== undefined) {
+      setInputs(prev => ({ ...prev, ticker: initialTicker }));
+    }
+  }, [initialTicker]);
+
   const handleInputChange = (field: keyof CalculatorInputs, value: string) => {
     // Allow empty string or valid numbers for numeric fields
     if (field === 'ticker') {
       // Convert ticker to uppercase
       setInputs(prev => ({ ...prev, [field]: value.toUpperCase() }));
+      onTickerChange?.(value.toUpperCase());
     } else if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setInputs(prev => ({ ...prev, [field]: value }));
     }
@@ -105,9 +121,13 @@ export default function PositionCalculator() {
       
       const tickerInput = inputs.ticker.trim().toUpperCase();
       
-      // Check for duplicate ticker in watchlist (Potential Trades)
-      const isDuplicateInWatchlist = existingWatchlist.some((item: WatchlistItem) =>
-        item.ticker.toUpperCase() === tickerInput
+      // Check for duplicate ticker in Potential Trades (complete trades with prices > 0)
+      // Exclude Daily Favorites (ticker-only entries with 0 prices)
+      const isDuplicateInPotentialTrades = existingWatchlist.some((item: WatchlistItem) =>
+        item.ticker.toUpperCase() === tickerInput &&
+        item.entryPrice > 0 &&
+        item.stopPrice > 0 &&
+        item.targetPrice > 0
       );
       
       // Check for duplicate ticker in active trades
@@ -115,8 +135,9 @@ export default function PositionCalculator() {
         trade.ticker?.toUpperCase() === tickerInput
       );
       
-      // Block if in watchlist or active trades, but allow if only in closed positions
-      if (isDuplicateInWatchlist) {
+      // Block if in Potential Trades or Active Trades
+      // Note: Daily Favorites (ticker-only) does NOT block - you can have same ticker in Daily Favorites and Potential Trades
+      if (isDuplicateInPotentialTrades) {
         setSaveStatus('duplicate');
         setTimeout(() => setSaveStatus('idle'), 3000);
         setIsLoading(false);
@@ -154,7 +175,9 @@ export default function PositionCalculator() {
       }
 
       // Dispatch custom event to notify WatchlistView in same tab
+      const tickerToRemove = inputs.ticker.trim().toUpperCase();
       window.dispatchEvent(new CustomEvent('juno:watchlist-updated'));
+      window.dispatchEvent(new CustomEvent('juno:ticker-moved-to-potential', { detail: tickerToRemove }));
 
       // Clear inputs after successful save
       handleClear();
@@ -291,33 +314,22 @@ export default function PositionCalculator() {
 
   return (
     <div className="w-full">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#F97316]/10 rounded-lg">
-            <Calculator className="w-5 h-5 text-[#F97316]" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white">Trade Management</h3>
-            <p className="text-sm text-[#8b949e]">Calculate shares and validate risk/reward</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowTooltips(!showTooltips)}
-            className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-            title="Toggle formula explanations"
-          >
-            <Info className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleClear}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-[#8b949e] border border-[#30363d] hover:text-white hover:bg-[#262626] hover:border-[#8b949e] rounded-lg transition-colors"
-          >
-            <Eraser className="w-4 h-4" />
-            Clear
-          </button>
-        </div>
+      {/* Controls row */}
+      <div className="flex items-center justify-end gap-2 mb-4">
+        <button
+          onClick={() => setShowTooltips(!showTooltips)}
+          className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+          title="Toggle formula explanations"
+        >
+          <Info className="w-4 h-4" />
+        </button>
+        <button
+          onClick={handleClear}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-[#8b949e] border border-[#30363d] hover:text-white hover:bg-[#262626] hover:border-[#8b949e] rounded-lg transition-colors"
+        >
+          <Eraser className="w-4 h-4" />
+          Clear
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -593,24 +605,6 @@ export default function PositionCalculator() {
             </div>
           </div>
 
-          {/* Quick Reference */}
-          <div className="mt-4 p-3 bg-[#1a1a1a] border border-[#262626] rounded-lg">
-            <p className="text-xs font-medium text-[#8b949e] mb-2">Quick Reference (using {parseFloat(inputs.riskRatio) || 2}:1)</p>
-            <div className="space-y-1 text-xs">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-[#8b949e]">≥ {parseFloat(inputs.riskRatio) || 2}:1 R:R — Valid trade</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                <span className="text-[#8b949e]">{(parseFloat(inputs.riskRatio) || 2) * 0.75}:1 to {parseFloat(inputs.riskRatio) || 2}:1 — Marginal</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-[#8b949e]">&lt; {(parseFloat(inputs.riskRatio) || 2) * 0.75}:1 — Invalid, skip trade</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

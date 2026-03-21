@@ -1,168 +1,236 @@
-import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
+import { requireUserId } from '@/lib/auth-session';
+import { getRedisClient } from '@/lib/redis';
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
-const CALENDAR_ID = 'mschiumo18@gmail.com';
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  location: string;
+  description: string;
+  color: string;
+}
 
-// Mock events for testing UI when credentials aren't working
-const MOCK_EVENTS = [
-  {
-    id: '1',
-    title: 'Trading Review & Analysis',
-    start: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
-    end: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
-    calendar: 'mschiumo18@gmail.com',
-    color: '#ff6b35',
-    description: 'Review today\'s trades and plan for tomorrow',
-    location: 'Home Office'
-  },
-  {
-    id: '2',
-    title: 'Leg Day Workout',
-    start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
-    end: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(),
-    calendar: 'mschiumo18@gmail.com',
-    color: '#238636',
-    description: 'Squats, lunges, leg press',
-    location: 'Gym'
-  },
-  {
-    id: '3',
-    title: 'KeepLiving Product Planning',
-    start: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // Day after tomorrow
-    end: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(),
-    calendar: 'mschiumo18@gmail.com',
-    color: '#ff6b35',
-    description: 'Finalize product descriptions and pricing',
-    location: 'Coffee Shop'
+// iCal lines can be "folded" — continuation lines start with a space or tab
+function unfold(raw: string): string[] {
+  return raw
+    .replace(/\r\n/g, '\n')
+    .replace(/\n[ \t]/g, '')
+    .split('\n')
+    .filter(Boolean);
+}
+
+function parseICalDate(value: string, propName: string): Date {
+  // All-day: DTSTART;VALUE=DATE:YYYYMMDD  or DTSTART:YYYYMMDD
+  if (!value.includes('T')) {
+    const y = +value.slice(0, 4);
+    const m = +value.slice(4, 6) - 1;
+    const d = +value.slice(6, 8);
+    return new Date(y, m, d, 0, 0, 0);
   }
-];
+  // UTC datetime: ends with Z
+  if (value.endsWith('Z')) {
+    const iso = value.replace(
+      /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
+      '$1-$2-$3T$4:$5:$6Z'
+    );
+    return new Date(iso);
+  }
+  // Local datetime with optional TZID (e.g. DTSTART;TZID=America/New_York:20260320T090000)
+  const tzid = propName.match(/TZID=([^;:]+)/)?.[1];
+  const localIso = `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T${value.slice(9, 11)}:${value.slice(11, 13)}:${value.slice(13, 15)}`;
+
+  if (tzid) {
+    // Convert local time in the given TZID to a UTC Date.
+    // Trick: treat localIso as UTC to get a starting point, then compute the
+    // real UTC offset of that timezone at that moment and adjust.
+    const utcGuess = new Date(localIso + 'Z');
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tzid,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    });
+    const parts = formatter.formatToParts(utcGuess);
+    const get = (t: string) => Number(parts.find(p => p.type === t)?.value ?? 0);
+    const tzAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
+    return new Date(utcGuess.getTime() + (utcGuess.getTime() - tzAsUtc));
+  }
+
+  // No TZID — fall back to treating as UTC (common for floating times in exported iCal)
+  return new Date(localIso + 'Z');
+}
+
+function isAllDay(propName: string, value: string): boolean {
+  return propName.includes('VALUE=DATE') || !value.includes('T');
+}
+
+function colorForTitle(title: string): string {
+  const t = title.toLowerCase();
+  if (/lift|workout|gym|run|exercise|sport/.test(t)) return '#238636';
+  if (/trading|market|stock|invest/.test(t)) return '#ff6b35';
+  if (/lab|doctor|medical|dentist|appt|appointment/.test(t)) return '#d29922';
+  if (/meet|call|zoom|standup|sync|interview/.test(t)) return '#1f6feb';
+  if (/birthday|anniversary|party|celebrat/.test(t)) return '#bc8cff';
+  return '#ff6b35';
+}
+
+function unescape(s: string): string {
+  return s.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\;/g, ';').replace(/\\\\/g, '\\');
+}
+
+// Return today's start/end as UTC ms, computed in the caller's IANA timezone.
+// Prevents Vercel's UTC server clock from shifting the date relative to the user.
+function getTodayBoundsForTz(tz: string): { todayStart: number; todayEnd: number } {
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  });
+  const parts = fmt.formatToParts(now);
+  const get = (type: string) => Number(parts.find(p => p.type === type)?.value ?? 0);
+  const year = get('year'), month = get('month') - 1, day = get('day');
+  const hour = get('hour'), minute = get('minute'), second = get('second');
+
+  // UTC offset: local-clock ms minus actual UTC ms
+  const tzNowMs = new Date(year, month, day, hour, minute, second).getTime();
+  const utcOffsetMs = tzNowMs - now.getTime();
+
+  // Midnight and end-of-day in the target tz, as UTC timestamps
+  const todayStart = new Date(year, month, day, 0, 0, 0).getTime() - utcOffsetMs;
+  const todayEnd   = new Date(year, month, day, 23, 59, 59, 999).getTime() - utcOffsetMs;
+
+  return { todayStart, todayEnd };
+}
 
 export async function GET(request: Request) {
-  try {
-    // Check for mock mode (for testing UI)
-    const { searchParams } = new URL(request.url);
-    const useMock = searchParams.get('mock') === 'true';
-    
-    if (useMock) {
-      return NextResponse.json({
-        success: true,
-        data: MOCK_EVENTS,
-        count: MOCK_EVENTS.length,
-        mock: true,
-        timestamp: new Date().toISOString()
-      });
-    }
+  // Authenticate user
+  const authResult = await requireUserId();
+  if (authResult.error) return authResult.error;
+  const { userId } = authResult;
 
-    // Get credentials from environment variable
-    const credentialsEnv = process.env.GOOGLE_CALENDAR_CREDENTIALS;
-    
-    if (!credentialsEnv) {
-      console.log('GOOGLE_CALENDAR_CREDENTIALS not set, returning mock data');
-      return NextResponse.json({
-        success: true,
-        data: MOCK_EVENTS,
-        count: MOCK_EVENTS.length,
-        mock: true,
-        message: 'Using mock data - GOOGLE_CALENDAR_CREDENTIALS not configured',
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // Try to parse credentials
-    let credentials;
+  // Load the user's calendar URL from Redis
+  const redis = await getRedisClient();
+  const prefsRaw = await redis.get(`user:prefs:${userId}`);
+  let calendarUrl: string | null = null;
+  if (prefsRaw) {
     try {
-      // Try base64 decode first
-      const decoded = Buffer.from(credentialsEnv, 'base64').toString('utf-8');
-      credentials = JSON.parse(decoded);
+      const prefs = JSON.parse(prefsRaw as string);
+      calendarUrl = prefs.calendarUrl ?? null;
     } catch {
-      try {
-        // If base64 fails, try raw JSON
-        credentials = JSON.parse(credentialsEnv);
-      } catch (parseError) {
-        console.error('Failed to parse credentials:', parseError);
-        // Return mock data instead of error
-        return NextResponse.json({
-          success: true,
-          data: MOCK_EVENTS,
-          count: MOCK_EVENTS.length,
-          mock: true,
-          message: 'Using mock data - credentials parse error',
-          timestamp: new Date().toISOString()
+      calendarUrl = null;
+    }
+  }
+
+  // No calendar configured — return empty state signal
+  if (!calendarUrl) {
+    return NextResponse.json({ success: true, events: [], noCalendar: true });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const tz = searchParams.get('tz') ?? 'America/New_York';
+
+  try {
+    const res = await fetch(calendarUrl, {
+      headers: { 'User-Agent': 'JunoMissionControl/1.0', Accept: 'text/calendar' },
+      next: { revalidate: 300 }, // cache 5 minutes server-side
+    });
+
+    if (!res.ok) {
+      throw new Error(`iCal fetch failed: ${res.status} ${res.statusText}`);
+    }
+
+    const text = await res.text();
+    const lines = unfold(text);
+
+    type RawEvent = CalendarEvent & { hasRecurrenceId: boolean };
+    const events: RawEvent[] = [];
+    let inEvent = false;
+    let props: Record<string, string> = {};
+
+    for (const line of lines) {
+      if (line === 'BEGIN:VEVENT') {
+        inEvent = true;
+        props = {};
+        continue;
+      }
+      if (line === 'END:VEVENT') {
+        inEvent = false;
+
+        const startKey = Object.keys(props).find(k => k.startsWith('DTSTART')) ?? '';
+        const endKey = Object.keys(props).find(k => k.startsWith('DTEND')) ?? '';
+        const startVal = props[startKey] ?? '';
+        const endVal = props[endKey] ?? '';
+
+        if (!startVal) continue;
+
+        const startDate = parseICalDate(startVal, startKey);
+        const endDate = endVal ? parseICalDate(endVal, endKey) : startDate;
+        const allDay = isAllDay(startKey, startVal);
+        const title = unescape(props['SUMMARY'] ?? 'Untitled');
+        const hasRecurrenceId = Object.keys(props).some(k => k.startsWith('RECURRENCE-ID'));
+
+        events.push({
+          id: props['UID'] ?? `${startVal}-${title}`,
+          title,
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+          allDay,
+          location: unescape(props['LOCATION'] ?? ''),
+          description: unescape(props['DESCRIPTION'] ?? ''),
+          color: colorForTitle(title),
+          hasRecurrenceId,
         });
+        continue;
+      }
+
+      if (!inEvent) continue;
+
+      const colon = line.indexOf(':');
+      if (colon < 1) continue;
+      const key = line.slice(0, colon);
+      const val = line.slice(colon + 1);
+      props[key] = val;
+    }
+
+    // Filter to today only, using the caller's timezone
+    const { todayStart, todayEnd } = getTodayBoundsForTz(tz);
+
+    const todayRaw = events.filter(e => {
+      const s = new Date(e.start).getTime();
+      const en = new Date(e.end).getTime();
+      return s <= todayEnd && en >= todayStart;
+    });
+
+    // Deduplicate by UID: when a recurring event has both a master VEVENT
+    // (RRULE, DTSTART = today) and a specific exception (RECURRENCE-ID = today),
+    // both pass the filter. Keep only the exception; fall back to master if none.
+    const byUid = new Map<string, RawEvent>();
+    for (const e of todayRaw) {
+      const existing = byUid.get(e.id);
+      if (!existing || (!existing.hasRecurrenceId && e.hasRecurrenceId)) {
+        byUid.set(e.id, e);
       }
     }
 
-    const auth = new google.auth.GoogleAuth({
-      credentials,
-      scopes: SCOPES,
-    });
-
-    const calendar = google.calendar({ version: 'v3', auth });
-
-    // Get events for next 7 days
-    const now = new Date();
-    const timeMin = now.toISOString();
-    const timeMax = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    const response = await calendar.events.list({
-      calendarId: CALENDAR_ID,
-      timeMin: timeMin,
-      timeMax: timeMax,
-      singleEvents: true,
-      orderBy: 'startTime',
-      maxResults: 50,
-    });
-
-    const events = response.data.items || [];
-
-    const formattedEvents = events.map(event => {
-      const start = event.start?.dateTime || event.start?.date;
-      const end = event.end?.dateTime || event.end?.date;
-      
-      // Determine color based on event title or colorId
-      let color = '#ff6b35'; // Default tangerine
-      const summary = (event.summary || '').toLowerCase();
-      
-      if (summary.includes('lift') || summary.includes('workout')) {
-        color = '#238636'; // Green for fitness
-      } else if (summary.includes('trading') || summary.includes('market')) {
-        color = '#ff6b35'; // Tangerine for trading
-      } else if (summary.includes('lab') || summary.includes('medical')) {
-        color = '#d29922'; // Yellow for appointments
-      } else if (event.colorId === '6') {
-        color = '#ff6b35'; // Juno's tangerine
-      }
-
-      return {
-        id: event.id,
-        title: event.summary || 'Untitled Event',
-        start: start,
-        end: end,
-        calendar: 'mschiumo18@gmail.com',
-        color: color,
-        description: event.description || '',
-        location: event.location || ''
-      };
-    });
+    const todayEvents = [...byUid.values()]
+      .sort((a, b) => {
+        if (a.allDay && !b.allDay) return -1;
+        if (!a.allDay && b.allDay) return 1;
+        return new Date(a.start).getTime() - new Date(b.start).getTime();
+      });
 
     return NextResponse.json({
       success: true,
-      data: formattedEvents,
-      count: formattedEvents.length,
-      timestamp: new Date().toISOString()
+      data: todayEvents,
+      count: todayEvents.length,
+      date: new Date(todayStart).toISOString(),
+      timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
-    console.error('Calendar fetch error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({
-      success: true,
-      data: MOCK_EVENTS,
-      count: MOCK_EVENTS.length,
-      mock: true,
-      message: 'Using mock data - API error: ' + errorMessage,
-      timestamp: new Date().toISOString()
-    });
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

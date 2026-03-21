@@ -23,7 +23,7 @@ import {
   Square
 } from 'lucide-react';
 import type { Trade, PotentialDuplicate } from '@/types/trading';
-import { TradeSide, TradeStatus } from '@/types/trading';
+import { TradeSide } from '@/types/trading';
 
 interface DuplicateReviewModalProps {
   isOpen: boolean;

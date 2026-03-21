@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ClipboardList, X, TrendingUp, Calendar, Trash2 } from 'lucide-react';
+import { ClipboardList, X, Calendar, Trash2 } from 'lucide-react';
 
 interface Question {
   id: string;

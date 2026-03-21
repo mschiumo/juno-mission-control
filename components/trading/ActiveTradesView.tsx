@@ -12,7 +12,8 @@ import {
   CheckCircle,
   FileText,
   BarChart3,
-  X
+  X,
+  ShoppingCart
 } from 'lucide-react';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
 
@@ -114,6 +115,22 @@ export default function ActiveTradesView({ onTradeClosed }: ActiveTradesViewProp
     });
   };
 
+  const handleOrderPlacedToggle = (tradeId: string) => {
+    const updated = activeTrades.map(trade => 
+      trade.id === tradeId 
+        ? { ...trade, orderPlaced: !trade.orderPlaced }
+        : trade
+    );
+    setActiveTrades(updated);
+    
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new Event('juno:active-trades-updated'));
+    } catch (error) {
+      console.error('Error saving order placed state:', error);
+    }
+  };
+
   // Don't render until mounted to avoid hydration mismatch
   if (!mounted) {
     return (
@@ -163,6 +180,22 @@ export default function ActiveTradesView({ onTradeClosed }: ActiveTradesViewProp
 
   return (
     <div className="w-full">
+      {/* Add keyframes for pulse animation */}
+      <style jsx>{`
+        @keyframes pulse-outline {
+          0%, 100% { 
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.4);
+          }
+          50% { 
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.8), 0 0 20px rgba(34, 197, 94, 0.3);
+          }
+        }
+        .pulse-order-placed {
+          animation: pulse-outline 2s ease-in-out infinite;
+          border-color: rgba(34, 197, 94, 0.6) !important;
+        }
+      `}</style>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -181,7 +214,9 @@ export default function ActiveTradesView({ onTradeClosed }: ActiveTradesViewProp
         {activeTrades.map((trade) => (
           <div
             key={trade.id}
-            className="bg-[#0F0F0F] border border-green-500/30 rounded-xl overflow-hidden hover:border-green-500/50 transition-all"
+            className={`bg-[#0F0F0F] border border-green-500/30 rounded-xl overflow-hidden hover:border-green-500/50 transition-all ${
+              trade.orderPlaced ? 'pulse-order-placed' : ''
+            }`}
           >
             {/* Card Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-green-500/5">
@@ -205,14 +240,27 @@ export default function ActiveTradesView({ onTradeClosed }: ActiveTradesViewProp
                   {formatDate(trade.openedAt)}
                 </div>
               </div>
-              <button
-                onClick={() => setClosingTradeId(trade.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
-                title="Close position"
-              >
-                <CheckCircle className="w-4 h-4" />
-                Close Position
-              </button>
+              <div className="flex items-center gap-3">
+                {/* Order Placed Checkbox */}
+                <label className="flex items-center gap-2 px-3 py-1.5 text-sm text-[#8b949e] hover:text-white cursor-pointer rounded-lg hover:bg-[#262626] transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={trade.orderPlaced || false}
+                    onChange={() => handleOrderPlacedToggle(trade.id)}
+                    className="w-4 h-4 rounded border-[#30363d] bg-[#0F0F0F] text-green-500 focus:ring-green-500/50 focus:ring-2 cursor-pointer"
+                  />
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>Order Placed</span>
+                </label>
+                <button
+                  onClick={() => setClosingTradeId(trade.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                  title="Close position"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Close Position
+                </button>
+              </div>
             </div>
 
             {/* Card Body */}
