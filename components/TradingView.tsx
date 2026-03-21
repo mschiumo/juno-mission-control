@@ -2,13 +2,13 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
+import {
+  LayoutDashboard,
   TrendingUp,
   Calculator,
   Settings,
   Menu,
-  X
+  X,
 } from 'lucide-react';
 import MarketEventsCard from '@/components/MarketEventsCard';
 import GapScannerCard from '@/components/GapScannerCard';
@@ -25,7 +25,7 @@ export default function TradingView() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  
+
   // Get subtab from URL or default to 'overview'
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
     const subtab = searchParams.get('subtab');
@@ -34,23 +34,39 @@ export default function TradingView() {
     }
     return 'overview';
   }, [searchParams]);
-  
+
   const [activeSubTab, setActiveSubTabState] = useState<TradingSubTab>(getSubTabFromUrl);
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
-  // Fetch prefs on mount and show tour if not yet completed
+  // Fetch prefs on mount — show tour if not yet completed
   useEffect(() => {
     fetch('/api/user/prefs')
-      .then(r => r.json())
-      .then(data => {
+      .then((r) => r.json())
+      .then((data) => {
         if (data?.prefs && !data.prefs.tradingTourCompleted) {
           setShowTour(true);
         }
       })
       .catch(() => {});
   }, []);
+
+  // Update URL when subtab changes
+  const setActiveSubTab = useCallback(
+    (subtab: TradingSubTab) => {
+      setActiveSubTabState(subtab);
+      setMobileDropdownOpen(false);
+      const params = new URLSearchParams(searchParams);
+      if (subtab === 'overview') {
+        params.delete('subtab');
+      } else {
+        params.set('subtab', subtab);
+      }
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
   function handleTourComplete() {
     setShowTour(false);
@@ -61,19 +77,6 @@ export default function TradingView() {
     }).catch(() => {});
   }
 
-  // Update URL when subtab changes
-  const setActiveSubTab = (subtab: TradingSubTab) => {
-    setActiveSubTabState(subtab);
-    setMobileDropdownOpen(false);
-    const params = new URLSearchParams(searchParams);
-    if (subtab === 'overview') {
-      params.delete('subtab');
-    } else {
-      params.set('subtab', subtab);
-    }
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  };
-
   const subTabs = [
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
@@ -81,13 +84,13 @@ export default function TradingView() {
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
   ];
 
-  const activeTabLabel = subTabs.find(t => t.id === activeSubTab)?.label || 'Overview';
-  const ActiveIcon = subTabs.find(t => t.id === activeSubTab)?.icon || LayoutDashboard;
+  const activeTabLabel = subTabs.find((t) => t.id === activeSubTab)?.label || 'Overview';
+  const ActiveIcon = subTabs.find((t) => t.id === activeSubTab)?.icon || LayoutDashboard;
 
   return (
     <div className="space-y-6">
       {/* Sub-Navigation - Desktop: Buttons, Mobile: Dropdown */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-2">
+      <div data-tour="trading-nav" className="bg-[#161b22] border border-[#30363d] rounded-xl p-2">
         {/* Desktop - Button Grid */}
         <div className="hidden md:flex flex-wrap gap-1">
           {subTabs.map((tab) => {
@@ -156,19 +159,15 @@ export default function TradingView() {
       </div>
 
       {/* Content */}
-      {activeSubTab === 'overview' && (
-        <CombinedCalendarView />
-      )}
+      {activeSubTab === 'overview' && <CombinedCalendarView />}
 
-      {activeSubTab === 'trade-management' && (
-        <TradeManagementView />
-      )}
+      {activeSubTab === 'trade-management' && <TradeManagementView />}
 
       {activeSubTab === 'market' && (
         <div className="space-y-6">
           <MarketEventsCard />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:h-[640px]">
-            <div className="h-[640px] lg:h-full overflow-hidden">
+            <div data-tour="gap-scanner" className="h-[640px] lg:h-full overflow-hidden">
               <GapScannerCard />
             </div>
             <div className="h-[640px] lg:h-full overflow-hidden">
@@ -179,17 +178,22 @@ export default function TradingView() {
       )}
 
       {activeSubTab === 'projection' && (
-        <ProfitProjectionView />
+        <div data-tour="profit-projection">
+          <ProfitProjectionView />
+        </div>
       )}
 
       {/* Trade Entry Modal */}
-      <TradeEntryModal
-        isOpen={showTradeModal}
-        onClose={() => setShowTradeModal(false)}
-      />
+      <TradeEntryModal isOpen={showTradeModal} onClose={() => setShowTradeModal(false)} />
 
       {/* First-time onboarding tour */}
-      {showTour && <TradingTour onComplete={handleTourComplete} />}
+      {showTour && (
+        <TradingTour
+          activeSubTab={activeSubTab}
+          onNavigate={setActiveSubTab}
+          onComplete={handleTourComplete}
+        />
+      )}
     </div>
   );
 }
