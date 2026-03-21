@@ -151,7 +151,7 @@ export default function ActiveTradesStrip() {
   return (
     <>
       {/* Fills the height given by its parent (50% of Trading Mode) */}
-      <div className="h-full bg-[#0d1117] border border-[#238636]/40 rounded-xl overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 bg-[#0d1117] border border-[#238636]/40 rounded-xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-[#238636]/10 border-b border-[#238636]/30 shrink-0">
           <div className="flex items-center gap-2">

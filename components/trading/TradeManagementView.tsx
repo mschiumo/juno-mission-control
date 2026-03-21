@@ -107,10 +107,8 @@ export default function TradeManagementView() {
 
           {/* Content — two equal rows, no outer scroll */}
           <div className="flex-1 min-h-0 flex flex-col gap-4 p-6 overflow-hidden">
-            {/* Row 1 — Active Trades: 50% of available height */}
-            <div className="flex-1 min-h-0">
-              <ActiveTradesStrip />
-            </div>
+            {/* Row 1 — Active Trades: 50% (flex-1 on its own root div) */}
+            <ActiveTradesStrip />
 
             {/* Row 2 — Potential Trades: 50% of available height */}
             <div className="flex-1 min-h-0 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
