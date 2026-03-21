@@ -1828,14 +1828,23 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
         ) : watchlist.length === 0 ? (
           <div className="text-center py-12 border border-dashed border-[#30363d] rounded-xl">
             <BookmarkX className="w-12 h-12 text-[#30363d] mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">No Saved Trades</h3>
-            <p className="text-[#8b949e] max-w-md mx-auto mb-4 text-sm">
-              When you calculate a valid trade (2:1 risk ratio or better), you can save it here for later reference.
-            </p>
-            <div className="flex items-center justify-center gap-2 text-sm text-[#8b949e]">
-              <TrendingUp className="w-4 h-4 text-green-500" />
-              <span>Use the Calculator to add trades</span>
-            </div>
+            {emptyMessage ? (
+              <>
+                <h3 className="text-lg font-semibold text-white mb-2">No Trades Found</h3>
+                <p className="text-[#8b949e] text-sm">{emptyMessage}</p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold text-white mb-2">No Saved Trades</h3>
+                <p className="text-[#8b949e] max-w-md mx-auto mb-4 text-sm">
+                  When you calculate a valid trade (2:1 risk ratio or better), you can save it here for later reference.
+                </p>
+                <div className="flex items-center justify-center gap-2 text-sm text-[#8b949e]">
+                  <TrendingUp className="w-4 h-4 text-green-500" />
+                  <span>Use the Calculator to add trades</span>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-6">
