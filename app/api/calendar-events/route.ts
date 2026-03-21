@@ -80,29 +80,40 @@ function unescape(s: string): string {
   return s.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\;/g, ';').replace(/\\\\/g, '\\');
 }
 
-// Return today's start/end as UTC ms, computed in the caller's IANA timezone.
+// Return a day's start/end as UTC ms, computed in the caller's IANA timezone.
+// Accepts an optional YYYY-MM-DD dateStr; defaults to today.
 // Prevents Vercel's UTC server clock from shifting the date relative to the user.
-function getTodayBoundsForTz(tz: string): { todayStart: number; todayEnd: number } {
-  const now = new Date();
+function getDayBoundsForTz(tz: string, dateStr?: string): { dayStart: number; dayEnd: number } {
   const fmt = new Intl.DateTimeFormat('en-CA', {
     timeZone: tz,
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
   });
-  const parts = fmt.formatToParts(now);
-  const get = (type: string) => Number(parts.find(p => p.type === type)?.value ?? 0);
-  const year = get('year'), month = get('month') - 1, day = get('day');
-  const hour = get('hour'), minute = get('minute'), second = get('second');
 
-  // UTC offset: local-clock ms minus actual UTC ms
-  const tzNowMs = new Date(year, month, day, hour, minute, second).getTime();
-  const utcOffsetMs = tzNowMs - now.getTime();
+  let year: number, month0: number, day: number, utcOffsetMs: number;
 
-  // Midnight and end-of-day in the target tz, as UTC timestamps
-  const todayStart = new Date(year, month, day, 0, 0, 0).getTime() - utcOffsetMs;
-  const todayEnd   = new Date(year, month, day, 23, 59, 59, 999).getTime() - utcOffsetMs;
+  if (dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    year = y; month0 = m - 1; day = d;
+    // Use noon UTC of the target date to compute a DST-correct offset for that day
+    const noonApprox = new Date(Date.UTC(year, month0, day, 12, 0, 0));
+    const parts = fmt.formatToParts(noonApprox);
+    const get = (t: string) => Number(parts.find(p => p.type === t)?.value ?? 0);
+    const tzNoonMs = new Date(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second')).getTime();
+    utcOffsetMs = tzNoonMs - noonApprox.getTime();
+  } else {
+    const now = new Date();
+    const parts = fmt.formatToParts(now);
+    const get = (type: string) => Number(parts.find(p => p.type === type)?.value ?? 0);
+    year = get('year'); month0 = get('month') - 1; day = get('day');
+    const tzNowMs = new Date(year, month0, day, get('hour'), get('minute'), get('second')).getTime();
+    utcOffsetMs = tzNowMs - now.getTime();
+  }
 
-  return { todayStart, todayEnd };
+  const dayStart = new Date(year, month0, day, 0, 0, 0).getTime() - utcOffsetMs;
+  const dayEnd   = new Date(year, month0, day, 23, 59, 59, 999).getTime() - utcOffsetMs;
+
+  return { dayStart, dayEnd };
 }
 
 export async function GET(request: Request) {
@@ -131,6 +142,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const tz = searchParams.get('tz') ?? 'America/New_York';
+  const dateStr = searchParams.get('date') ?? undefined;
 
   try {
     const res = await fetch(calendarUrl, {
@@ -195,13 +207,13 @@ export async function GET(request: Request) {
       props[key] = val;
     }
 
-    // Filter to today only, using the caller's timezone
-    const { todayStart, todayEnd } = getTodayBoundsForTz(tz);
+    // Filter to the requested day, using the caller's timezone
+    const { dayStart, dayEnd } = getDayBoundsForTz(tz, dateStr);
 
     const todayRaw = events.filter(e => {
       const s = new Date(e.start).getTime();
       const en = new Date(e.end).getTime();
-      return s <= todayEnd && en >= todayStart;
+      return s <= dayEnd && en >= dayStart;
     });
 
     // Deduplicate by UID: when a recurring event has both a master VEVENT
@@ -226,7 +238,7 @@ export async function GET(request: Request) {
       success: true,
       data: todayEvents,
       count: todayEvents.length,
-      date: new Date(todayStart).toISOString(),
+      date: new Date(dayStart).toISOString(),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

@@ -120,12 +120,34 @@ const SETUP_STEPS = [
   },
 ];
 
+function getDateStringForOffset(offset: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toLocaleDateString('en-CA'); // YYYY-MM-DD
+}
+
+function getDayLabel(offset: number): string {
+  if (offset === 0) return 'Today';
+  if (offset === -1) return 'Yesterday';
+  if (offset === 1) return 'Tomorrow';
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function getDateSubtitle(offset: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
 export default function CalendarCard() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
   const [now, setNow] = useState(nowMinutes);
+  const [dayOffset, setDayOffset] = useState(0);
   const [noCalendar, setNoCalendar] = useState(false);
   const [icalInput, setIcalInput] = useState('');
   const [saving, setSaving] = useState(false);
@@ -136,19 +158,24 @@ export default function CalendarCard() {
   const [justConnected, setJustConnected] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchEvents();
     const fetchTimer = setInterval(fetchEvents, 5 * 60 * 1000);
     const nowTimer = setInterval(() => setNow(nowMinutes()), 60_000);
     return () => { clearInterval(fetchTimer); clearInterval(nowTimer); };
-  }, []);
+  }, [dayOffset]);
 
   useEffect(() => {
     if (scrollRef.current && !loading && !noCalendar) {
-      const target = (now / 60) * PX_PER_HOUR - 80;
-      scrollRef.current.scrollTop = Math.max(0, target);
+      if (dayOffset === 0) {
+        const target = (now / 60) * PX_PER_HOUR - 80;
+        scrollRef.current.scrollTop = Math.max(0, target);
+      } else {
+        scrollRef.current.scrollTop = Math.max(0, 8 * PX_PER_HOUR - 80);
+      }
     }
-  }, [now, loading, noCalendar]);
+  }, [now, loading, noCalendar, dayOffset]);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -156,7 +183,8 @@ export default function CalendarCard() {
     setNoCalendar(false);
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const res = await fetch(`/api/calendar-events?tz=${encodeURIComponent(tz)}`);
+      const date = getDateStringForOffset(dayOffset);
+      const res = await fetch(`/api/calendar-events?tz=${encodeURIComponent(tz)}&date=${date}`);
       const data = await res.json();
       if (data.noCalendar) {
         setNoCalendar(true);
@@ -213,7 +241,6 @@ export default function CalendarCard() {
     }
   };
 
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   const allDay = events.filter(e => e.allDay);
   const timed = layoutEvents(events.filter(e => !e.allDay));
   const nowTop = (now / 60) * PX_PER_HOUR;
@@ -226,12 +253,26 @@ export default function CalendarCard() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] flex-shrink-0">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-[#ff6b35]/10 rounded-lg">
+          <div className="p-1.5 bg-[#ff6b35]/10 rounded-lg flex-shrink-0">
             <Calendar className="w-4 h-4 text-[#ff6b35]" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-white leading-tight">Today</h2>
-            <p className="text-[10px] text-[#8b949e]">{today}</p>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setDayOffset(o => o - 1)}
+                className="p-0.5 hover:bg-[#30363d] rounded transition-colors text-[#8b949e] hover:text-white"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <h2 className="text-sm font-semibold text-white leading-tight px-0.5">{getDayLabel(dayOffset)}</h2>
+              <button
+                onClick={() => setDayOffset(o => o + 1)}
+                className="p-0.5 hover:bg-[#30363d] rounded transition-colors text-[#8b949e] hover:text-white"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <p className="text-[10px] text-[#8b949e]">{getDateSubtitle(dayOffset)}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -339,13 +380,15 @@ export default function CalendarCard() {
                   </div>
                 ))}
 
-                {/* Current time indicator */}
-                <div className="absolute w-full flex items-center pointer-events-none z-20" style={{ top: nowTop }}>
-                  <div className="w-12 flex justify-end pr-1.5 flex-shrink-0">
-                    <div className="w-2 h-2 rounded-full bg-[#ef4444]" />
+                {/* Current time indicator — only on today */}
+                {dayOffset === 0 && (
+                  <div className="absolute w-full flex items-center pointer-events-none z-20" style={{ top: nowTop }}>
+                    <div className="w-12 flex justify-end pr-1.5 flex-shrink-0">
+                      <div className="w-2 h-2 rounded-full bg-[#ef4444]" />
+                    </div>
+                    <div className="flex-1 border-t-2 border-[#ef4444]" />
                   </div>
-                  <div className="flex-1 border-t-2 border-[#ef4444]" />
-                </div>
+                )}
 
                 {/* Timed events */}
                 {timed.map(event => {
@@ -386,7 +429,7 @@ export default function CalendarCard() {
                 {events.length === 0 && !loading && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none">
                     <Calendar className="w-5 h-5 text-[#238636] opacity-50" />
-                    <p className="text-xs text-[#8b949e]">Nothing scheduled today</p>
+                    <p className="text-xs text-[#8b949e]">Nothing scheduled {dayOffset === 0 ? 'today' : 'this day'}</p>
                   </div>
                 )}
               </div>
