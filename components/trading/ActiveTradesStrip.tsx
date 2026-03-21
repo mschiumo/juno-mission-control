@@ -71,7 +71,6 @@ export default function ActiveTradesStrip() {
   useEffect(() => {
     fetchTrades();
     const id = setInterval(fetchTrades, 30_000);
-    // Re-fetch immediately when WatchlistView moves a trade to active
     window.addEventListener('juno:active-trades-updated', fetchTrades);
     return () => {
       clearInterval(id);
@@ -151,8 +150,8 @@ export default function ActiveTradesStrip() {
 
   return (
     <>
-      {/* Fixed-height container — never grows to require outer scroll */}
-      <div className="bg-[#0d1117] border border-[#238636]/40 rounded-xl overflow-hidden flex flex-col shrink-0">
+      {/* Fills the height given by its parent (50% of Trading Mode) */}
+      <div className="h-full bg-[#0d1117] border border-[#238636]/40 rounded-xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-[#238636]/10 border-b border-[#238636]/30 shrink-0">
           <div className="flex items-center gap-2">
@@ -165,8 +164,8 @@ export default function ActiveTradesStrip() {
           </button>
         </div>
 
-        {/* Card area — fixed height, scrolls vertically if cards overflow */}
-        <div className="p-3 overflow-y-auto" style={{ maxHeight: '264px' }}>
+        {/* Card area — fills remaining height, scrolls if cards overflow */}
+        <div className="flex-1 min-h-0 p-3 overflow-y-auto">
           {loading ? (
             <div className="grid grid-cols-5 xl:grid-cols-6 gap-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -180,7 +179,6 @@ export default function ActiveTradesStrip() {
               {trades.map((trade) => {
                 const currentPrice = prices[trade.ticker];
                 const hasPrice = currentPrice !== undefined;
-                // Stop-loss warnings only apply once an order is placed
                 const status: StopStatus = (trade.orderPlaced && hasPrice)
                   ? stopStatus(currentPrice, trade.plannedStop, trade.actualEntry)
                   : 'safe';
@@ -212,68 +210,67 @@ export default function ActiveTradesStrip() {
                   >
                     {/* Ticker + close */}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        {/* Green dot for ALL open trades, orange/red for stop warning */}
-                        {status === 'danger' && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />}
-                        {status === 'warn'   && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse shrink-0" />}
-                        {status === 'safe'   && <span className="w-1.5 h-1.5 rounded-full bg-[#238636] animate-pulse shrink-0" />}
+                      <div className="flex items-center gap-2 min-w-0">
+                        {status === 'danger' && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />}
+                        {status === 'warn'   && <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse shrink-0" />}
+                        {status === 'safe'   && <span className="w-2 h-2 rounded-full bg-[#238636] animate-pulse shrink-0" />}
                         <span className="font-bold text-white text-base tracking-wide truncate">{trade.ticker}</span>
                       </div>
                       <button
                         onClick={() => setClosingTrade(trade)}
                         onMouseDown={(e) => e.stopPropagation()}
-                        className="p-0.5 rounded text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                        className="p-1 rounded text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
                         title="Close trade"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    {/* Live price + P&L or order status */}
+                    {/* Live price + P&L or status */}
                     {trade.orderPlaced ? (
                       <div>
                         {hasPrice ? (
                           <>
                             <p className="text-base font-bold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
                             {pnl !== null && (
-                              <div className={`flex items-center gap-0.5 text-xs font-semibold ${pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                              <div className={`flex items-center gap-1 text-xs font-semibold ${pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
                                 {pnl >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                                 {formatCurrency(pnl)}
                               </div>
                             )}
                           </>
                         ) : (
-                          <div className="flex items-center gap-1 text-[#238636]">
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            <span className="text-[10px] font-semibold">Order In</span>
+                          <div className="flex items-center gap-1.5 text-[#238636]">
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="text-xs font-semibold">Order In</span>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1 text-[#8b949e]">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span className="text-[10px]">Pending</span>
+                      <div className="flex items-center gap-1.5 text-[#8b949e]">
+                        <Clock className="w-4 h-4" />
+                        <span className="text-xs">Pending</span>
                       </div>
                     )}
 
-                    {/* Key levels — 2×2 grid */}
+                    {/* Key levels — 2x2 grid */}
                     <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                       <div>
-                        <p className="text-[#8b949e] text-[9px] mb-0.5">Entry</p>
+                        <p className="text-[#8b949e] text-[10px] mb-0.5">Entry</p>
                         <p className="text-white text-xs font-semibold">${trade.actualEntry.toFixed(2)}</p>
                       </div>
                       <div>
-                        <p className="text-[#8b949e] text-[9px] mb-0.5">Stop</p>
+                        <p className="text-[#8b949e] text-[10px] mb-0.5">Stop</p>
                         <p className={`text-xs font-semibold ${status !== 'safe' ? 'text-red-400' : 'text-[#f85149]'}`}>
                           ${trade.plannedStop.toFixed(2)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[#8b949e] text-[9px] mb-0.5">Target</p>
+                        <p className="text-[#8b949e] text-[10px] mb-0.5">Target</p>
                         <p className="text-[#3fb950] text-xs font-semibold">${trade.plannedTarget.toFixed(2)}</p>
                       </div>
                       <div>
-                        <p className="text-[#8b949e] text-[9px] mb-0.5">Shares</p>
+                        <p className="text-[#8b949e] text-[10px] mb-0.5">Shares</p>
                         <p className="text-[#F97316] text-xs font-semibold">{trade.actualShares.toLocaleString()}</p>
                       </div>
                     </div>
