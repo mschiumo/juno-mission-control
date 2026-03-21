@@ -107,11 +107,13 @@ export default function TradeManagementView() {
 
           {/* Content — no outer scroll, each section manages its own */}
           <div className="flex-1 min-h-0 flex flex-col gap-4 p-6 overflow-hidden">
-            {/* Row 1 — Active Trades: fixed height, scrolls internally */}
-            <ActiveTradesStrip />
+            {/* Row 1 — Active Trades: ~60% */}
+            <div className="flex-[3] min-h-0 flex flex-col">
+              <ActiveTradesStrip />
+            </div>
 
-            {/* Row 2 — Potential Trades: fills remaining height */}
-            <div className="flex-1 min-h-0 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
+            {/* Row 2 — Potential Trades: ~40% */}
+            <div className="flex-[2] min-h-0 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
               <div className="flex items-center gap-3 px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 shrink-0">
                 <Bookmark className="w-4 h-4 text-[#F97316]" />
                 <h3 className="text-sm font-semibold text-white">Potential Trades</h3>
