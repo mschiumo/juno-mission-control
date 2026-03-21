@@ -110,28 +110,14 @@ export default function TradeManagementView() {
             {/* Row 1 — Active Trades horizontal strip */}
             <ActiveTradesStrip />
 
-            {/* Row 2 — Calculator (1/3) + Potential Trades (2/3) */}
-            <div className="grid grid-cols-3 gap-4">
-              {/* Calculator */}
-              <div className="col-span-1 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50">
-                  <Calculator className="w-4 h-4 text-[#F97316]" />
-                  <h3 className="text-sm font-semibold text-white">Position Calculator</h3>
-                </div>
-                <div className="p-4">
-                  <PositionCalculator initialTicker={selectedTicker} onTickerChange={setSelectedTicker} />
-                </div>
+            {/* Row 2 — Potential Trades full width */}
+            <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 shrink-0">
+                <Bookmark className="w-4 h-4 text-[#F97316]" />
+                <h3 className="text-sm font-semibold text-white">Potential Trades</h3>
               </div>
-
-              {/* Potential Trades */}
-              <div className="col-span-2 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 shrink-0">
-                  <Bookmark className="w-4 h-4 text-[#F97316]" />
-                  <h3 className="text-sm font-semibold text-white">Potential Trades</h3>
-                </div>
-                <div className="p-4 flex-1 min-h-0 overflow-y-auto">
-                  <WatchlistView hideActiveTrades hideClosedPositions />
-                </div>
+              <div className="p-4">
+                <WatchlistView hideActiveTrades hideClosedPositions cardColumns={4} />
               </div>
             </div>
           </div>

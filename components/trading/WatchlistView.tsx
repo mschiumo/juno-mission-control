@@ -63,7 +63,15 @@ const ORDER_PLACED_STORAGE_KEY = 'juno:active-trades-orders';
 // LocalStorage key for collapsed sections state
 const COLLAPSED_SECTIONS_STORAGE_KEY = 'juno:watchlist-collapsed-sections';
 
-export default function WatchlistView({ hideActiveTrades = false, hideClosedPositions = false }: { hideActiveTrades?: boolean; hideClosedPositions?: boolean }) {
+const CARD_GRID: Record<number, string> = {
+  2: 'grid-cols-2',
+  3: 'grid-cols-3',
+  4: 'grid-cols-4',
+  5: 'grid-cols-5',
+};
+
+export default function WatchlistView({ hideActiveTrades = false, hideClosedPositions = false, cardColumns = 3 }: { hideActiveTrades?: boolean; hideClosedPositions?: boolean; cardColumns?: number }) {
+  const cardGridClass = CARD_GRID[cardColumns] ?? 'grid-cols-3';
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
@@ -1879,7 +1887,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                         collapsedSections.favorites ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
                       }`}
                     >
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className={`grid ${cardGridClass} gap-3`}>
                   {favorites.map((item) => (
                     <div
                       key={item.id}
@@ -2023,7 +2031,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     collapsedSections.otherTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
                   }`}
                 >
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className={`grid ${cardGridClass} gap-3`}>
                   {others.map((item) => (
                     <div
                       key={item.id}

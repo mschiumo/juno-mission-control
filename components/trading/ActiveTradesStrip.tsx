@@ -1,20 +1,47 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { RefreshCw, Activity, CheckCircle, Clock, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { RefreshCw, Activity, CheckCircle, Clock, X, TrendingUp, TrendingDown } from 'lucide-react';
 import type { ActiveTradeWithPnL } from '@/types/active-trade';
 
 const DEFAULT_USER_ID = 'default';
+const PRICE_POLL_MS = 3000;
+// Within this % of stop → warn. At or below → danger.
+const STOP_WARN_PCT = 0.05;
 
 function getNowInEST(): string {
   return new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
 }
 
+function formatCurrency(n: number): string {
+  const abs = Math.abs(n);
+  const formatted = abs >= 1000
+    ? abs.toLocaleString('en-US', { maximumFractionDigits: 0 })
+    : abs.toFixed(2);
+  return (n < 0 ? '-' : '+') + '$' + formatted;
+}
+
+type StopStatus = 'safe' | 'warn' | 'danger';
+
+function stopStatus(current: number, stop: number, entry: number): StopStatus {
+  const isLong = entry > stop;
+  if (isLong) {
+    if (current <= stop) return 'danger';
+    if (current <= stop * (1 + STOP_WARN_PCT)) return 'warn';
+  } else {
+    if (current >= stop) return 'danger';
+    if (current >= stop * (1 - STOP_WARN_PCT)) return 'warn';
+  }
+  return 'safe';
+}
+
 export default function ActiveTradesStrip() {
   const [trades, setTrades] = useState<ActiveTradeWithPnL[]>([]);
   const [loading, setLoading] = useState(true);
+  const [prices, setPrices] = useState<Record<string, number>>({});
   const [closingTrade, setClosingTrade] = useState<ActiveTradeWithPnL | null>(null);
   const [closing, setClosing] = useState(false);
+  const priceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchTrades = async () => {
     try {
@@ -28,34 +55,56 @@ export default function ActiveTradesStrip() {
     }
   };
 
+  const fetchPrices = async (activeTrades: ActiveTradeWithPnL[]) => {
+    const tickers = [...new Set(activeTrades.map((t) => t.ticker))];
+    if (tickers.length === 0) return;
+    try {
+      const res = await fetch(`/api/prices?symbols=${tickers.join(',')}`);
+      const data = await res.json();
+      setPrices((prev) => ({ ...prev, ...data.prices }));
+    } catch {
+      // silently fail
+    }
+  };
+
+  // Fetch trades on mount + every 30s
   useEffect(() => {
     fetchTrades();
-    const id = setInterval(fetchTrades, 30000);
+    const id = setInterval(fetchTrades, 30_000);
     return () => clearInterval(id);
   }, []);
+
+  // Poll prices every 3s whenever trades change
+  useEffect(() => {
+    if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
+    if (trades.length === 0) return;
+    fetchPrices(trades);
+    priceIntervalRef.current = setInterval(() => fetchPrices(trades), PRICE_POLL_MS);
+    return () => {
+      if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
+    };
+  }, [trades]);
 
   const handleCloseTrade = async () => {
     if (!closingTrade) return;
     setClosing(true);
     try {
-      const closedPosition = {
-        id: closingTrade.id,
-        ticker: closingTrade.ticker,
-        plannedEntry: closingTrade.plannedEntry,
-        plannedStop: closingTrade.plannedStop,
-        plannedTarget: closingTrade.plannedTarget,
-        actualEntry: closingTrade.actualEntry,
-        actualShares: closingTrade.actualShares,
-        openedAt: closingTrade.openedAt,
-        closedAt: getNowInEST(),
-        notes: closingTrade.notes,
-        pnl: undefined,
-      };
-
       await fetch(`/api/closed-positions?userId=${DEFAULT_USER_ID}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(closedPosition),
+        body: JSON.stringify({
+          id: closingTrade.id,
+          ticker: closingTrade.ticker,
+          plannedEntry: closingTrade.plannedEntry,
+          plannedStop: closingTrade.plannedStop,
+          plannedTarget: closingTrade.plannedTarget,
+          actualEntry: closingTrade.actualEntry,
+          actualShares: closingTrade.actualShares,
+          openedAt: closingTrade.openedAt,
+          closedAt: getNowInEST(),
+          notes: closingTrade.notes,
+          pnl: undefined,
+        }),
       });
 
       await fetch(`/api/active-trades?id=${closingTrade.id}&userId=${DEFAULT_USER_ID}`, {
@@ -106,67 +155,111 @@ export default function ActiveTradesStrip() {
             <p className="text-sm text-[#8b949e] py-2">No active trades</p>
           ) : (
             <div className="flex gap-4 overflow-x-auto pb-1">
-              {trades.map((trade) => (
-                <div
-                  key={trade.id}
-                  className={`shrink-0 w-52 h-52 rounded-xl p-5 flex flex-col justify-between transition-colors group ${
-                    trade.orderPlaced
-                      ? 'bg-[#238636]/10 border border-[#238636] shadow-[0_0_12px_rgba(35,134,54,0.25)]'
-                      : 'bg-[#161b22] border border-[#238636]/40 hover:border-[#238636]/70'
-                  }`}
-                >
-                  {/* Top: ticker + close button */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      {trade.orderPlaced && (
-                        <span className="w-2 h-2 rounded-full bg-[#238636] animate-pulse shrink-0 mt-0.5" />
-                      )}
-                      <span className="font-bold text-white text-xl tracking-wide">{trade.ticker}</span>
+              {trades.map((trade) => {
+                const currentPrice = prices[trade.ticker];
+                const hasPrice = currentPrice !== undefined;
+                const pnl = hasPrice
+                  ? (currentPrice - trade.actualEntry) * trade.actualShares
+                  : null;
+                const status = hasPrice
+                  ? stopStatus(currentPrice, trade.plannedStop, trade.actualEntry)
+                  : 'safe';
+
+                const cardClass = (() => {
+                  if (status === 'danger')
+                    return 'bg-red-500/10 border border-red-500 animate-pulse shadow-[0_0_16px_rgba(239,68,68,0.4)]';
+                  if (status === 'warn')
+                    return 'bg-orange-500/10 border border-orange-400 animate-pulse shadow-[0_0_12px_rgba(251,146,60,0.3)]';
+                  if (trade.orderPlaced)
+                    return 'bg-[#238636]/10 border border-[#238636] shadow-[0_0_12px_rgba(35,134,54,0.25)]';
+                  return 'bg-[#161b22] border border-[#238636]/40 hover:border-[#238636]/70';
+                })();
+
+                return (
+                  <div
+                    key={trade.id}
+                    className={`shrink-0 w-52 h-52 rounded-xl p-5 flex flex-col justify-between transition-colors group ${cardClass}`}
+                  >
+                    {/* Top: ticker + close */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        {trade.orderPlaced && status === 'safe' && (
+                          <span className="w-2 h-2 rounded-full bg-[#238636] animate-pulse shrink-0 mt-0.5" />
+                        )}
+                        {status === 'warn' && (
+                          <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse shrink-0 mt-0.5" />
+                        )}
+                        {status === 'danger' && (
+                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0 mt-0.5" />
+                        )}
+                        <span className="font-bold text-white text-xl tracking-wide">{trade.ticker}</span>
+                      </div>
+                      <button
+                        onClick={() => setClosingTrade(trade)}
+                        className="p-1 rounded text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Close trade"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setClosingTrade(trade)}
-                      className="p-1 rounded text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 transition-colors opacity-0 group-hover:opacity-100"
-                      title="Close trade"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+
+                    {/* Live price + P&L (when order placed) */}
+                    {trade.orderPlaced && (
+                      <div>
+                        {hasPrice ? (
+                          <>
+                            <p className="text-lg font-bold text-white tabular-nums">
+                              ${currentPrice.toFixed(2)}
+                            </p>
+                            {pnl !== null && (
+                              <div className={`flex items-center gap-1 text-sm font-semibold ${pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                                {pnl >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                                {formatCurrency(pnl)}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-[#238636]">
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="text-xs font-semibold">Order In</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Pending status (no order yet) */}
+                    {!trade.orderPlaced && (
+                      <div className="flex items-center gap-1.5 text-[#8b949e]">
+                        <Clock className="w-4 h-4" />
+                        <span className="text-xs">Pending</span>
+                      </div>
+                    )}
+
+                    {/* Key levels */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <p className="text-[#8b949e] text-[10px] mb-0.5">Entry</p>
+                        <p className="text-white text-xs font-semibold">${trade.actualEntry.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[#8b949e] text-[10px] mb-0.5">Stop</p>
+                        <p className={`text-xs font-semibold ${status !== 'safe' ? 'text-red-400' : 'text-[#f85149]'}`}>
+                          ${trade.plannedStop.toFixed(2)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[#8b949e] text-[10px] mb-0.5">Target</p>
+                        <p className="text-[#3fb950] text-xs font-semibold">${trade.plannedTarget.toFixed(2)}</p>
+                      </div>
+                    </div>
+
+                    {/* Shares */}
+                    <p className="text-[10px] text-[#8b949e]">
+                      {trade.actualShares.toLocaleString()} shares
+                    </p>
                   </div>
-
-                  {/* Order status */}
-                  {trade.orderPlaced ? (
-                    <div className="flex items-center gap-1.5 text-[#238636]">
-                      <CheckCircle className="w-4 h-4" />
-                      <span className="text-xs font-semibold">Order In</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-[#8b949e]">
-                      <Clock className="w-4 h-4" />
-                      <span className="text-xs">Pending</span>
-                    </div>
-                  )}
-
-                  {/* Key levels */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <p className="text-[#8b949e] text-[10px] mb-1">Entry</p>
-                      <p className="text-white text-sm font-semibold">${trade.actualEntry.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[#8b949e] text-[10px] mb-1">Stop</p>
-                      <p className="text-[#f85149] text-sm font-semibold">${trade.plannedStop.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[#8b949e] text-[10px] mb-1">Target</p>
-                      <p className="text-[#3fb950] text-sm font-semibold">${trade.plannedTarget.toFixed(2)}</p>
-                    </div>
-                  </div>
-
-                  {/* Shares */}
-                  <p className="text-xs text-[#8b949e]">
-                    {trade.actualShares.toLocaleString()} shares
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
