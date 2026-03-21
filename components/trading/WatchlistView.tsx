@@ -90,7 +90,7 @@ export default function WatchlistView() {
     });
   }, [watchlist, searchQuery, sideFilter]);
   
-  const favorites = filteredWatchlist.filter(i => i.isFavorite);
+  const favorites = filteredWatchlist.filter(i => i.isFavorite && i.entryPrice > 0 && i.stopPrice > 0 && i.targetPrice > 0);
   // Only show complete trades in Potential Trades (exclude ticker-only favorites with 0 values)
   const others = filteredWatchlist.filter(i => !i.isFavorite && i.entryPrice > 0 && i.stopPrice > 0 && i.targetPrice > 0);
   const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null);
