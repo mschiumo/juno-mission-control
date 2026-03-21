@@ -97,9 +97,9 @@ const STEPS: TourStep[] = [
   },
 ];
 
-const TOOLTIP_WIDTH = 460;
+const TOOLTIP_WIDTH = 540;
 const PAD = 10; // spotlight padding around the target element
-const GAP = 18; // space between spotlight edge and tooltip card
+const GAP = 20; // space between spotlight edge and tooltip card
 
 interface TargetRect {
   top: number;
@@ -240,22 +240,24 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
 
   // Tooltip card position — anchored to the spotlight box
   function tooltipStyle(): React.CSSProperties {
+    const vw = window.innerWidth;
+
     if (!targetRect) {
+      // Anchor near the top of the viewport, horizontally centered
       return {
         position: 'fixed',
-        top: '50%',
+        top: 80,
         left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: TOOLTIP_WIDTH,
+        transform: 'translateX(-50%)',
+        width: Math.min(TOOLTIP_WIDTH, vw - 32),
         zIndex: 10004,
       };
     }
 
     const { top, left, width, height } = targetRect;
     const side = current.tooltipSide ?? 'bottom';
-    const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const CARD_H = 330;
+    const CARD_H = 360;
     const style: React.CSSProperties = { position: 'fixed', width: TOOLTIP_WIDTH, zIndex: 10004 };
 
     const sTop = top - PAD;
