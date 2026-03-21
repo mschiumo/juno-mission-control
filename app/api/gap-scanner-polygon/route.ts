@@ -180,7 +180,7 @@ function isLikelyADRBySymbol(symbol: string): boolean {
  * Fetch all stock snapshots from Polygon
  * This returns ALL stocks in a single API call!
  */
-async function fetchAllSnapshots(): Promise<PolygonSnapshot[]> {
+async function fetchAllSnapshots(isMarketOpen: boolean): Promise<PolygonSnapshot[]> {
   if (!POLYGON_API_KEY) {
     throw new Error('POLYGON_API_KEY environment variable is required');
   }
@@ -190,7 +190,7 @@ async function fetchAllSnapshots(): Promise<PolygonSnapshot[]> {
   console.log('[GapScanner-Polygon] Fetching all stock snapshots...');
   
   const response = await fetch(url, {
-    next: { revalidate: 60 } // Cache for 1 minute
+    next: { revalidate: isMarketOpen ? 15 : 300 } // 15s during market hours, 5min otherwise
   });
   
   if (!response.ok) {
@@ -320,7 +320,7 @@ export async function GET(request: Request) {
     console.log(`[GapScanner-Polygon] Filters: minGap=${minGapPercent}%, minVolume=${minVolume}, minPrice=${minPrice}, maxPrice=${maxPrice}`);
 
     // Fetch all snapshots in ONE API call
-    const snapshots = await fetchAllSnapshots();
+    const snapshots = await fetchAllSnapshots(marketInfo.session === 'market-open');
 
     // Process gaps
     const { gainers, losers, skipped } = processGaps(snapshots, {
