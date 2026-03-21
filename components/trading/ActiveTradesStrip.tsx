@@ -63,7 +63,7 @@ export default function ActiveTradesStrip() {
             {trades.map((trade) => (
               <div
                 key={trade.id}
-                className={`shrink-0 w-56 rounded-lg p-4 space-y-3 transition-colors ${
+                className={`shrink-0 w-56 rounded-lg p-5 space-y-4 transition-colors ${
                   trade.orderPlaced
                     ? 'bg-[#238636]/10 border border-[#238636] shadow-[0_0_12px_rgba(35,134,54,0.25)]'
                     : 'bg-[#161b22] border border-[#238636]/40 hover:border-[#238636]/70'
@@ -91,17 +91,17 @@ export default function ActiveTradesStrip() {
                 </div>
 
                 {/* Key levels */}
-                <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="grid grid-cols-3 gap-3 text-sm">
                   <div>
-                    <p className="text-[#8b949e] mb-1">Entry</p>
+                    <p className="text-[#8b949e] text-xs mb-1">Entry</p>
                     <p className="text-white font-semibold">${trade.actualEntry.toFixed(2)}</p>
                   </div>
                   <div>
-                    <p className="text-[#8b949e] mb-1">Stop</p>
+                    <p className="text-[#8b949e] text-xs mb-1">Stop</p>
                     <p className="text-[#f85149] font-semibold">${trade.plannedStop.toFixed(2)}</p>
                   </div>
                   <div>
-                    <p className="text-[#8b949e] mb-1">Target</p>
+                    <p className="text-[#8b949e] text-xs mb-1">Target</p>
                     <p className="text-[#3fb950] font-semibold">${trade.plannedTarget.toFixed(2)}</p>
                   </div>
                 </div>
