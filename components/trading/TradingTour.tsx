@@ -353,6 +353,9 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
 
   const hasTarget = !!targetRect;
   const side = current.tooltipSide;
+  // Don't render the card until we know where to put it — prevents the
+  // "flash in the wrong position" when switching between targeted steps.
+  const cardReady = !current.targetDataTour || hasTarget;
 
   return (
     <div
@@ -370,8 +373,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
       {/* 4-rect spotlight */}
       {renderSpotlight()}
 
-      {/* Tooltip card */}
-      <div
+      {/* Tooltip card — only rendered once position is known */}
+      {cardReady && <div
         style={{ ...tooltipStyle(), pointerEvents: 'auto' }}
         className="bg-[#161b22] border border-[#30363d] rounded-2xl shadow-2xl overflow-visible"
       >
@@ -450,7 +453,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
             {!isLast && <ChevronRight className="w-4 h-4" />}
           </button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
