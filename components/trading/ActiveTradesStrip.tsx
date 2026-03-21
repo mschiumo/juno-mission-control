@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Minus, RefreshCw, Activity } from 'lucide-react';
+import { RefreshCw, Activity, CheckCircle, Clock } from 'lucide-react';
 import type { ActiveTradeWithPnL } from '@/types/active-trade';
 
 const DEFAULT_USER_ID = 'default';
@@ -53,66 +53,56 @@ export default function ActiveTradesStrip() {
         {loading ? (
           <div className="flex gap-3 overflow-x-auto pb-1">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="shrink-0 w-44 h-24 bg-[#161b22] border border-[#30363d] rounded-lg animate-pulse" />
+              <div key={i} className="shrink-0 w-40 h-24 bg-[#161b22] border border-[#30363d] rounded-lg animate-pulse" />
             ))}
           </div>
         ) : trades.length === 0 ? (
           <p className="text-sm text-[#8b949e] py-2">No active trades</p>
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-1">
-            {trades.map((trade) => {
-              const pnl = trade.unrealizedPnL ?? 0;
-              const pnlPct = trade.unrealizedPnLPercent ?? 0;
-              const isUp = pnl > 0;
-              const isDown = pnl < 0;
+            {trades.map((trade) => (
+              <div
+                key={trade.id}
+                className="shrink-0 w-44 bg-[#161b22] border border-[#238636]/40 rounded-lg p-3 space-y-2.5 hover:border-[#238636]/70 transition-colors"
+              >
+                {/* Ticker + order status */}
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white text-sm tracking-wide">{trade.ticker}</span>
+                  {trade.orderPlaced ? (
+                    <div className="flex items-center gap-1 text-[#238636]" title="Order placed">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-medium">Order In</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-[#8b949e]" title="No order placed">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span className="text-[10px]">Pending</span>
+                    </div>
+                  )}
+                </div>
 
-              return (
-                <div
-                  key={trade.id}
-                  className="shrink-0 w-48 bg-[#238636]/10 border border-[#238636]/40 rounded-lg p-3 space-y-2 hover:border-[#238636]/70 transition-colors"
-                >
-                  {/* Ticker + direction */}
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-sm tracking-wide">{trade.ticker}</span>
-                    {isUp ? (
-                      <TrendingUp className="w-3.5 h-3.5 text-[#238636]" />
-                    ) : isDown ? (
-                      <TrendingDown className="w-3.5 h-3.5 text-[#da3633]" />
-                    ) : (
-                      <Minus className="w-3.5 h-3.5 text-[#8b949e]" />
-                    )}
+                {/* Key levels */}
+                <div className="grid grid-cols-3 gap-1 text-[10px]">
+                  <div>
+                    <p className="text-[#8b949e] mb-0.5">Entry</p>
+                    <p className="text-white font-semibold">${trade.actualEntry.toFixed(2)}</p>
                   </div>
-
-                  {/* P&L */}
-                  <div className={`text-sm font-bold tabular-nums ${isUp ? 'text-[#3fb950]' : isDown ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
-                    {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
-                    <span className="text-[10px] font-normal ml-1 opacity-75">
-                      ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%)
-                    </span>
+                  <div>
+                    <p className="text-[#8b949e] mb-0.5">Stop</p>
+                    <p className="text-[#f85149] font-semibold">${trade.plannedStop.toFixed(2)}</p>
                   </div>
-
-                  {/* Details grid */}
-                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
-                    <div>
-                      <p className="text-[#8b949e]">Entry</p>
-                      <p className="text-white font-medium">${trade.actualEntry.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[#8b949e]">Shares</p>
-                      <p className="text-white font-medium">{trade.actualShares.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-[#8b949e]">Stop</p>
-                      <p className="text-[#f85149] font-medium">${trade.plannedStop.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[#8b949e]">Target</p>
-                      <p className="text-[#3fb950] font-medium">${trade.plannedTarget.toFixed(2)}</p>
-                    </div>
+                  <div>
+                    <p className="text-[#8b949e] mb-0.5">Target</p>
+                    <p className="text-[#3fb950] font-semibold">${trade.plannedTarget.toFixed(2)}</p>
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Shares */}
+                <p className="text-[10px] text-[#8b949e]">
+                  {trade.actualShares.toLocaleString()} <span className="text-[#8b949e]">shares</span>
+                </p>
+              </div>
+            ))}
           </div>
         )}
       </div>
