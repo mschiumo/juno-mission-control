@@ -6,7 +6,7 @@ import type { ActiveTradeWithPnL } from '@/types/active-trade';
 
 const DEFAULT_USER_ID = 'default';
 const PRICE_POLL_MS = 3000;
-const STOP_WARN_PCT = 0.05; // within 5% of stop → warn
+const STOP_WARN_PCT = 0.05;
 
 function getNowInEST(): string {
   return new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
@@ -22,7 +22,6 @@ function formatCurrency(n: number): string {
 
 type StopStatus = 'safe' | 'warn' | 'danger';
 
-// Only meaningful when order is placed — stop is live
 function stopStatus(current: number, stop: number, entry: number): StopStatus {
   const isLong = entry > stop;
   if (isLong) {
@@ -120,76 +119,63 @@ export default function ActiveTradesStrip() {
     }
   };
 
-  // ── Drag handlers (local reorder only) ──────────────────────────────────
   const onDragStart = (e: React.DragEvent, id: string) => {
     setDraggingId(id);
     e.dataTransfer.effectAllowed = 'move';
   };
-
   const onDragOver = (e: React.DragEvent, id: string) => {
     e.preventDefault();
     if (id !== draggingId) setDragOverId(id);
   };
-
   const onDragLeave = () => setDragOverId(null);
-
   const onDrop = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
     setDragOverId(null);
     if (!draggingId || draggingId === targetId) return;
     setTrades((prev) => {
       const next = [...prev];
-      const fromIdx = next.findIndex((t) => t.id === draggingId);
-      const toIdx = next.findIndex((t) => t.id === targetId);
-      if (fromIdx === -1 || toIdx === -1) return prev;
-      const [item] = next.splice(fromIdx, 1);
-      next.splice(toIdx, 0, item);
+      const from = next.findIndex((t) => t.id === draggingId);
+      const to = next.findIndex((t) => t.id === targetId);
+      if (from === -1 || to === -1) return prev;
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
       return next;
     });
   };
-
-  const onDragEnd = () => {
-    setDraggingId(null);
-    setDragOverId(null);
-  };
+  const onDragEnd = () => { setDraggingId(null); setDragOverId(null); };
 
   return (
     <>
-      <div className="bg-[#0d1117] border border-[#238636]/40 rounded-xl overflow-hidden">
+      {/* Fixed-height container — never grows to require outer scroll */}
+      <div className="bg-[#0d1117] border border-[#238636]/40 rounded-xl overflow-hidden flex flex-col shrink-0">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-[#238636]/10 border-b border-[#238636]/30">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-[#238636]/10 border-b border-[#238636]/30 shrink-0">
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-[#238636]" />
             <span className="text-sm font-semibold text-[#238636]">Active Trades</span>
-            {!loading && (
-              <span className="text-xs text-[#8b949e]">({trades.length})</span>
-            )}
+            {!loading && <span className="text-xs text-[#8b949e]">({trades.length})</span>}
           </div>
-          <button
-            onClick={fetchTrades}
-            className="p-1 text-[#8b949e] hover:text-white transition-colors rounded"
-            title="Refresh"
-          >
+          <button onClick={fetchTrades} className="p-1 text-[#8b949e] hover:text-white transition-colors rounded" title="Refresh">
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {/* Grid */}
-        <div className="p-4">
+        {/* Card area — fixed height, scrolls vertically if cards overflow */}
+        <div className="p-3 overflow-y-auto" style={{ maxHeight: '216px' }}>
           {loading ? (
-            <div className="grid grid-cols-3 xl:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="w-full h-52 bg-[#161b22] border border-[#30363d] rounded-xl animate-pulse" />
+            <div className="grid grid-cols-5 xl:grid-cols-6 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-40 bg-[#161b22] border border-[#30363d] rounded-xl animate-pulse" />
               ))}
             </div>
           ) : trades.length === 0 ? (
             <p className="text-sm text-[#8b949e] py-2">No active trades</p>
           ) : (
-            <div className="grid grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-5 xl:grid-cols-6 gap-3">
               {trades.map((trade) => {
                 const currentPrice = prices[trade.ticker];
                 const hasPrice = currentPrice !== undefined;
-                // Stop-loss warnings only apply once an order is in
+                // Stop-loss warnings only apply once an order is placed
                 const status: StopStatus = (trade.orderPlaced && hasPrice)
                   ? stopStatus(currentPrice, trade.plannedStop, trade.actualEntry)
                   : 'safe';
@@ -198,17 +184,11 @@ export default function ActiveTradesStrip() {
                   : null;
 
                 const cardClass = (() => {
-                  if (status === 'danger')
-                    return 'bg-red-500/10 border border-red-500 animate-pulse shadow-[0_0_16px_rgba(239,68,68,0.4)]';
-                  if (status === 'warn')
-                    return 'bg-orange-500/10 border border-orange-400 animate-pulse shadow-[0_0_12px_rgba(251,146,60,0.3)]';
-                  if (trade.orderPlaced)
-                    return 'bg-[#238636]/10 border border-[#238636] shadow-[0_0_12px_rgba(35,134,54,0.25)]';
-                  return 'bg-[#161b22] border border-[#238636]/40 hover:border-[#238636]/70';
+                  if (status === 'danger') return 'bg-red-500/10 border border-red-500 animate-pulse shadow-[0_0_16px_rgba(239,68,68,0.4)]';
+                  if (status === 'warn') return 'bg-orange-500/10 border border-orange-400 animate-pulse shadow-[0_0_12px_rgba(251,146,60,0.3)]';
+                  if (trade.orderPlaced) return 'bg-[#238636]/10 border border-[#238636] shadow-[0_0_10px_rgba(35,134,54,0.2)]';
+                  return 'bg-[#161b22] border border-[#30363d] hover:border-[#238636]/50';
                 })();
-
-                const isDragging = draggingId === trade.id;
-                const isOver = dragOverId === trade.id;
 
                 return (
                   <div
@@ -219,87 +199,78 @@ export default function ActiveTradesStrip() {
                     onDragLeave={onDragLeave}
                     onDrop={(e) => onDrop(e, trade.id)}
                     onDragEnd={onDragEnd}
-                    className={`h-52 rounded-xl p-5 flex flex-col justify-between transition-all cursor-grab active:cursor-grabbing group
+                    className={`h-40 rounded-xl p-3 flex flex-col justify-between transition-all cursor-grab active:cursor-grabbing group
                       ${cardClass}
-                      ${isDragging ? 'opacity-40 scale-95' : ''}
-                      ${isOver ? 'ring-2 ring-[#238636] scale-[1.02]' : ''}
+                      ${draggingId === trade.id ? 'opacity-40 scale-95' : ''}
+                      ${dragOverId === trade.id ? 'ring-2 ring-[#238636] scale-[1.02]' : ''}
                     `}
                   >
-                    {/* Top: ticker + close */}
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        {status === 'danger' && (
-                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0 mt-0.5" />
-                        )}
-                        {status === 'warn' && (
-                          <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse shrink-0 mt-0.5" />
-                        )}
-                        {status === 'safe' && trade.orderPlaced && (
-                          <span className="w-2 h-2 rounded-full bg-[#238636] animate-pulse shrink-0 mt-0.5" />
-                        )}
-                        <span className="font-bold text-white text-xl tracking-wide">{trade.ticker}</span>
+                    {/* Ticker + close */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {/* Green dot for ALL open trades, orange/red for stop warning */}
+                        {status === 'danger' && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />}
+                        {status === 'warn'   && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse shrink-0" />}
+                        {status === 'safe'   && <span className="w-1.5 h-1.5 rounded-full bg-[#238636] animate-pulse shrink-0" />}
+                        <span className="font-bold text-white text-sm tracking-wide truncate">{trade.ticker}</span>
                       </div>
                       <button
                         onClick={() => setClosingTrade(trade)}
                         onMouseDown={(e) => e.stopPropagation()}
-                        className="p-1 rounded text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-0.5 rounded text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
                         title="Close trade"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    {/* Live price + P&L (order placed) */}
+                    {/* Live price + P&L or order status */}
                     {trade.orderPlaced ? (
                       <div>
                         {hasPrice ? (
                           <>
-                            <p className="text-lg font-bold text-white tabular-nums">
-                              ${currentPrice.toFixed(2)}
-                            </p>
+                            <p className="text-sm font-bold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
                             {pnl !== null && (
-                              <div className={`flex items-center gap-1 text-sm font-semibold ${pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-                                {pnl >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                              <div className={`flex items-center gap-0.5 text-xs font-semibold ${pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                                {pnl >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                                 {formatCurrency(pnl)}
                               </div>
                             )}
                           </>
                         ) : (
-                          <div className="flex items-center gap-1.5 text-[#238636]">
-                            <CheckCircle className="w-4 h-4" />
-                            <span className="text-xs font-semibold">Order In</span>
+                          <div className="flex items-center gap-1 text-[#238636]">
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-semibold">Order In</span>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5 text-[#8b949e]">
-                        <Clock className="w-4 h-4" />
-                        <span className="text-xs">Pending</span>
+                      <div className="flex items-center gap-1 text-[#8b949e]">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span className="text-[10px]">Pending</span>
                       </div>
                     )}
 
                     {/* Key levels */}
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-1">
                       <div>
-                        <p className="text-[#8b949e] text-[10px] mb-0.5">Entry</p>
-                        <p className="text-white text-xs font-semibold">${trade.actualEntry.toFixed(2)}</p>
+                        <p className="text-[#8b949e] text-[9px] mb-0.5">Entry</p>
+                        <p className="text-white text-[10px] font-semibold">${trade.actualEntry.toFixed(2)}</p>
                       </div>
                       <div>
-                        <p className="text-[#8b949e] text-[10px] mb-0.5">Stop</p>
-                        <p className={`text-xs font-semibold ${status !== 'safe' ? 'text-red-400' : 'text-[#f85149]'}`}>
+                        <p className="text-[#8b949e] text-[9px] mb-0.5">Stop</p>
+                        <p className={`text-[10px] font-semibold ${status !== 'safe' ? 'text-red-400' : 'text-[#f85149]'}`}>
                           ${trade.plannedStop.toFixed(2)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[#8b949e] text-[10px] mb-0.5">Target</p>
-                        <p className="text-[#3fb950] text-xs font-semibold">${trade.plannedTarget.toFixed(2)}</p>
+                        <p className="text-[#8b949e] text-[9px] mb-0.5">Target</p>
+                        <p className="text-[#3fb950] text-[10px] font-semibold">${trade.plannedTarget.toFixed(2)}</p>
                       </div>
                     </div>
 
                     {/* Shares */}
-                    <p className="text-[10px] text-[#8b949e]">
-                      {trade.actualShares.toLocaleString()} shares
-                    </p>
+                    <p className="text-[9px] text-[#8b949e]">{trade.actualShares.toLocaleString()} shares</p>
                   </div>
                 );
               })}
@@ -317,22 +288,14 @@ export default function ActiveTradesStrip() {
                 <X className="w-6 h-6 text-yellow-400" />
               </div>
               <h3 className="text-lg font-semibold text-white mb-2">Close {closingTrade.ticker}?</h3>
-              <p className="text-sm text-[#8b949e] mb-6">
-                This will move the trade to Closed Positions for your records.
-              </p>
+              <p className="text-sm text-[#8b949e] mb-6">This will move the trade to Closed Positions for your records.</p>
               <div className="flex gap-3">
-                <button
-                  onClick={() => setClosingTrade(null)}
-                  disabled={closing}
-                  className="flex-1 px-4 py-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors text-sm font-medium"
-                >
+                <button onClick={() => setClosingTrade(null)} disabled={closing}
+                  className="flex-1 px-4 py-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors text-sm font-medium">
                   Cancel
                 </button>
-                <button
-                  onClick={handleCloseTrade}
-                  disabled={closing}
-                  className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
-                >
+                <button onClick={handleCloseTrade} disabled={closing}
+                  className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50">
                   {closing ? 'Closing...' : 'Close Trade'}
                 </button>
               </div>
