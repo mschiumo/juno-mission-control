@@ -166,11 +166,11 @@ export default function ActiveTradesStrip() {
         </div>
 
         {/* Card area — fixed height, scrolls vertically if cards overflow */}
-        <div className="p-3 overflow-y-auto" style={{ maxHeight: '216px' }}>
+        <div className="p-3 overflow-y-auto" style={{ maxHeight: '264px' }}>
           {loading ? (
             <div className="grid grid-cols-5 xl:grid-cols-6 gap-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-40 bg-[#161b22] border border-[#30363d] rounded-xl animate-pulse" />
+                <div key={i} className="h-56 bg-[#161b22] border border-[#30363d] rounded-xl animate-pulse" />
               ))}
             </div>
           ) : trades.length === 0 ? (
@@ -204,7 +204,7 @@ export default function ActiveTradesStrip() {
                     onDragLeave={onDragLeave}
                     onDrop={(e) => onDrop(e, trade.id)}
                     onDragEnd={onDragEnd}
-                    className={`h-40 rounded-xl p-3 flex flex-col justify-between transition-all cursor-grab active:cursor-grabbing group
+                    className={`h-56 rounded-xl p-4 flex flex-col justify-between transition-all cursor-grab active:cursor-grabbing group
                       ${cardClass}
                       ${draggingId === trade.id ? 'opacity-40 scale-95' : ''}
                       ${dragOverId === trade.id ? 'ring-2 ring-[#238636] scale-[1.02]' : ''}
@@ -217,7 +217,7 @@ export default function ActiveTradesStrip() {
                         {status === 'danger' && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />}
                         {status === 'warn'   && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse shrink-0" />}
                         {status === 'safe'   && <span className="w-1.5 h-1.5 rounded-full bg-[#238636] animate-pulse shrink-0" />}
-                        <span className="font-bold text-white text-sm tracking-wide truncate">{trade.ticker}</span>
+                        <span className="font-bold text-white text-base tracking-wide truncate">{trade.ticker}</span>
                       </div>
                       <button
                         onClick={() => setClosingTrade(trade)}
@@ -234,7 +234,7 @@ export default function ActiveTradesStrip() {
                       <div>
                         {hasPrice ? (
                           <>
-                            <p className="text-sm font-bold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
+                            <p className="text-base font-bold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
                             {pnl !== null && (
                               <div className={`flex items-center gap-0.5 text-xs font-semibold ${pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
                                 {pnl >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
@@ -256,26 +256,27 @@ export default function ActiveTradesStrip() {
                       </div>
                     )}
 
-                    {/* Key levels */}
-                    <div className="grid grid-cols-3 gap-1">
+                    {/* Key levels — 2×2 grid */}
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                       <div>
                         <p className="text-[#8b949e] text-[9px] mb-0.5">Entry</p>
-                        <p className="text-white text-[10px] font-semibold">${trade.actualEntry.toFixed(2)}</p>
+                        <p className="text-white text-xs font-semibold">${trade.actualEntry.toFixed(2)}</p>
                       </div>
                       <div>
                         <p className="text-[#8b949e] text-[9px] mb-0.5">Stop</p>
-                        <p className={`text-[10px] font-semibold ${status !== 'safe' ? 'text-red-400' : 'text-[#f85149]'}`}>
+                        <p className={`text-xs font-semibold ${status !== 'safe' ? 'text-red-400' : 'text-[#f85149]'}`}>
                           ${trade.plannedStop.toFixed(2)}
                         </p>
                       </div>
                       <div>
                         <p className="text-[#8b949e] text-[9px] mb-0.5">Target</p>
-                        <p className="text-[#3fb950] text-[10px] font-semibold">${trade.plannedTarget.toFixed(2)}</p>
+                        <p className="text-[#3fb950] text-xs font-semibold">${trade.plannedTarget.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[#8b949e] text-[9px] mb-0.5">Shares</p>
+                        <p className="text-[#F97316] text-xs font-semibold">{trade.actualShares.toLocaleString()}</p>
                       </div>
                     </div>
-
-                    {/* Shares */}
-                    <p className="text-[9px] text-[#8b949e]">{trade.actualShares.toLocaleString()} shares</p>
                   </div>
                 );
               })}
