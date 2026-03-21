@@ -117,7 +117,7 @@ export default function TradeManagementView() {
                 <h3 className="text-sm font-semibold text-white">Potential Trades</h3>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto p-4">
-                <WatchlistView hideActiveTrades hideClosedPositions cardColumns={4} />
+                <WatchlistView hideActiveTrades hideClosedPositions cardColumns={4} emptyMessage="Add trades to your Watchlist to see them here" />
               </div>
             </div>
           </div>
