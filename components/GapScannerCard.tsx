@@ -303,7 +303,7 @@ export default function GapScannerCard() {
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
                 <button onClick={() => toggleSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" /></button>
                 <button onClick={() => toggleSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" /></button>
-                <Star className="w-3 h-3 text-[#8b949e]" />
+                <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
               </div>
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.gainers?.length
@@ -326,7 +326,7 @@ export default function GapScannerCard() {
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
                 <button onClick={() => toggleSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" /></button>
                 <button onClick={() => toggleSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" /></button>
-                <Star className="w-3 h-3 text-[#8b949e]" />
+                <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
               </div>
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.losers?.length
