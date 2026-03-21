@@ -42,7 +42,8 @@ export default function ActiveTradesStrip() {
   const [closing, setClosing] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const priceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const esRef = useRef<EventSource | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchPrices = async (activeTrades: ActiveTradeWithPnL[]) => {
     const tickers = [...new Set(activeTrades.map((t) => t.ticker))];
@@ -62,7 +63,7 @@ export default function ActiveTradesStrip() {
       const result = await res.json();
       const newTrades: ActiveTradeWithPnL[] = result.data || [];
       setTrades(newTrades);
-      // Kick off price fetch immediately — don't wait for the useEffect cycle
+      // REST snapshot immediately — SSE will stream live updates on top
       fetchPrices(newTrades);
     } catch {
       // silently fail
@@ -81,13 +82,46 @@ export default function ActiveTradesStrip() {
     };
   }, []);
 
-  // Keep price polling interval in sync with latest trades (no initial fetch — fetchTrades handles it)
+  // Live price feed via SSE → Finnhub WebSocket. Falls back to REST polling if unavailable.
   useEffect(() => {
-    if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
+    // Tear down previous connection
+    if (esRef.current) { esRef.current.close(); esRef.current = null; }
+    if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
+
     if (trades.length === 0) return;
-    priceIntervalRef.current = setInterval(() => fetchPrices(trades), PRICE_POLL_MS);
+
+    const tickers = [...new Set(trades.map((t) => t.ticker))];
+    const es = new EventSource(`/api/prices/stream?symbols=${tickers.join(',')}`);
+    esRef.current = es;
+
+    es.onopen = () => {
+      // SSE connected — cancel polling fallback if it was running
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+
+    es.onmessage = (event) => {
+      try {
+        const updates: Record<string, number> = JSON.parse(event.data);
+        setPrices((prev) => ({ ...prev, ...updates }));
+      } catch {
+        // ignore malformed frames
+      }
+    };
+
+    es.onerror = () => {
+      // SSE dropped or unavailable — run polling until it recovers
+      if (!pollIntervalRef.current) {
+        fetchPrices(trades);
+        pollIntervalRef.current = setInterval(() => fetchPrices(trades), PRICE_POLL_MS);
+      }
+    };
+
     return () => {
-      if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
+      if (esRef.current) { esRef.current.close(); esRef.current = null; }
+      if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
     };
   }, [trades]);
 
