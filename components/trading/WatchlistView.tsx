@@ -63,7 +63,7 @@ const ORDER_PLACED_STORAGE_KEY = 'juno:active-trades-orders';
 // LocalStorage key for collapsed sections state
 const COLLAPSED_SECTIONS_STORAGE_KEY = 'juno:watchlist-collapsed-sections';
 
-export default function WatchlistView() {
+export default function WatchlistView({ hideClosedPositions = false }: { hideClosedPositions?: boolean }) {
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
@@ -1284,7 +1284,7 @@ export default function WatchlistView() {
           </div>
         </div>
         {/* Closed Positions skeleton */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+        {!hideClosedPositions && <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d]">
             <div className="h-4 w-36 bg-[#30363d] rounded" />
             <div className="h-7 w-7 bg-[#30363d] rounded-lg" />
@@ -1299,7 +1299,7 @@ export default function WatchlistView() {
               </div>
             ))}
           </div>
-        </div>
+        </div>}
       </div>
     );
   }
@@ -2145,10 +2145,10 @@ export default function WatchlistView() {
       </div>
 
       {/* Divider */}
-      <div className="border-t border-[#30363d]"></div>
+      {!hideClosedPositions && <div className="border-t border-[#30363d]"></div>}
 
       {/* ===== CLOSED POSITIONS SECTION ===== */}
-      <div className="space-y-4 p-3 rounded-xl border-2 border-red-500/50 bg-red-500/5">
+      {!hideClosedPositions && <div className="space-y-4 p-3 rounded-xl border-2 border-red-500/50 bg-red-500/5">
         {/* Section Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -2462,7 +2462,7 @@ export default function WatchlistView() {
           </div>
         )}
         </div>{/* End of collapsible content */}
-      </div>
+      </div>}
 
       {/* ===== MODALS ===== */}
 

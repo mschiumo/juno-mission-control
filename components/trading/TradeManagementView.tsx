@@ -12,15 +12,34 @@ export default function TradeManagementView() {
   const [tradingMode, setTradingMode] = useState(false);
   const calculatorRef = useRef<HTMLDivElement>(null);
   const tradingModeCalculatorRef = useRef<HTMLDivElement>(null);
+  const tradingModeContainerRef = useRef<HTMLDivElement>(null);
 
-  const exitTradingMode = useCallback(() => setTradingMode(false), []);
+  const enterTradingMode = useCallback(async () => {
+    setTradingMode(true);
+    // Wait for the overlay to mount, then request fullscreen on it
+    await new Promise(r => setTimeout(r, 50));
+    if (tradingModeContainerRef.current?.requestFullscreen) {
+      tradingModeContainerRef.current.requestFullscreen().catch(() => {
+        // Fullscreen denied (e.g. permissions policy) — modal still works
+      });
+    }
+  }, []);
 
+  const exitTradingMode = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    setTradingMode(false);
+  }, []);
+
+  // Sync state if user exits fullscreen via browser UI (Esc, etc.)
   useEffect(() => {
-    if (!tradingMode) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') exitTradingMode(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [tradingMode, exitTradingMode]);
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setTradingMode(false);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   const sharedLayout = (inTradingMode: boolean) => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -54,7 +73,7 @@ export default function TradeManagementView() {
           <h3 className="text-lg font-semibold text-white">Watchlist</h3>
         </div>
         <div className="p-6 flex-1 min-h-0 overflow-y-auto">
-          <WatchlistView />
+          <WatchlistView hideClosedPositions={inTradingMode} />
         </div>
       </div>
     </div>
@@ -67,7 +86,7 @@ export default function TradeManagementView() {
         <MarketTickerBar />
         <div className="flex justify-end">
           <button
-            onClick={() => setTradingMode(true)}
+            onClick={enterTradingMode}
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-all"
           >
             <Maximize2 className="w-3.5 h-3.5" />
@@ -77,39 +96,33 @@ export default function TradeManagementView() {
         {sharedLayout(false)}
       </div>
 
-      {/* Trading Mode — large modal, not full screen */}
+      {/* Trading Mode — fullscreen container */}
       {tradingMode && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-            onClick={exitTradingMode}
-          />
-
-          {/* Modal */}
-          <div className="fixed inset-4 lg:inset-8 z-50 bg-[#0d1117] border border-[#30363d] rounded-2xl flex flex-col overflow-hidden shadow-2xl">
-            {/* Top bar */}
-            <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-[#30363d] bg-[#161b22] rounded-t-2xl">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-[#F97316] animate-pulse" />
-                <span className="text-sm font-semibold text-white tracking-wide">Trading Mode</span>
-                <span className="text-xs text-[#8b949e]">Press Esc to exit</span>
-              </div>
-              <button
-                onClick={exitTradingMode}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#f85149] hover:bg-[#f85149]/10 rounded-lg transition-all"
-              >
-                <Minimize2 className="w-3.5 h-3.5" />
-                Exit
-              </button>
+        <div
+          ref={tradingModeContainerRef}
+          className="fixed inset-0 z-50 bg-[#0d1117] flex flex-col overflow-hidden"
+        >
+          {/* Top bar */}
+          <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-[#30363d] bg-[#161b22]">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-[#F97316] animate-pulse" />
+              <span className="text-sm font-semibold text-white tracking-wide">Trading Mode</span>
+              <span className="text-xs text-[#8b949e]">Press Esc to exit</span>
             </div>
-
-            {/* Content */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-6">
-              {sharedLayout(true)}
-            </div>
+            <button
+              onClick={exitTradingMode}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#f85149] hover:bg-[#f85149]/10 rounded-lg transition-all"
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+              Exit
+            </button>
           </div>
-        </>
+
+          {/* Content */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-6">
+            {sharedLayout(true)}
+          </div>
+        </div>
       )}
     </>
   );
