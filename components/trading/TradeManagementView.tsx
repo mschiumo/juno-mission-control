@@ -77,30 +77,39 @@ export default function TradeManagementView() {
         {sharedLayout(false)}
       </div>
 
-      {/* Trading Mode overlay */}
+      {/* Trading Mode — large modal, not full screen */}
       {tradingMode && (
-        <div className="fixed inset-0 z-50 bg-[#0d1117] flex flex-col overflow-hidden">
-          {/* Top bar */}
-          <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-[#30363d] bg-[#161b22]">
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-[#F97316] animate-pulse" />
-              <span className="text-sm font-semibold text-white tracking-wide">Trading Mode</span>
-              <span className="text-xs text-[#8b949e]">Press Esc to exit</span>
-            </div>
-            <button
-              onClick={exitTradingMode}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#f85149] hover:bg-[#f85149]/10 rounded-lg transition-all"
-            >
-              <Minimize2 className="w-3.5 h-3.5" />
-              Exit
-            </button>
-          </div>
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+            onClick={exitTradingMode}
+          />
 
-          {/* Content */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-6">
-            {sharedLayout(true)}
+          {/* Modal */}
+          <div className="fixed inset-4 lg:inset-8 z-50 bg-[#0d1117] border border-[#30363d] rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+            {/* Top bar */}
+            <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-[#30363d] bg-[#161b22] rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-[#F97316] animate-pulse" />
+                <span className="text-sm font-semibold text-white tracking-wide">Trading Mode</span>
+                <span className="text-xs text-[#8b949e]">Press Esc to exit</span>
+              </div>
+              <button
+                onClick={exitTradingMode}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#f85149] hover:bg-[#f85149]/10 rounded-lg transition-all"
+              >
+                <Minimize2 className="w-3.5 h-3.5" />
+                Exit
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              {sharedLayout(true)}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </>
   );
