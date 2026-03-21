@@ -206,7 +206,7 @@ export default function GapScannerCard() {
         href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
         target="_blank" rel="noopener noreferrer"
         title={stock.name}
-        className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-2 px-3 py-2 hover:bg-[#21262d] group border-b border-[#30363d] last:border-0 transition-colors"
+        className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-2 hover:bg-[#21262d] group border-b border-[#30363d] last:border-0 transition-colors"
       >
         {/* Symbol */}
         <div className="flex items-center gap-1.5 min-w-0">
@@ -301,7 +301,7 @@ export default function GapScannerCard() {
                   Gainers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.gainers.length ?? 0})</span>
                 </span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-2 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
                 <button onClick={() => toggleGainerSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" sort={gainerSort} /></button>
@@ -324,7 +324,7 @@ export default function GapScannerCard() {
                   Losers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.losers.length ?? 0})</span>
                 </span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-2 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
                 <button onClick={() => toggleLoserSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" sort={loserSort} /></button>
