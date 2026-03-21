@@ -16,10 +16,37 @@ import {
 type TradingSubTab = 'overview' | 'market' | 'projection' | 'trade-management';
 type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
 
+/** Mini visual mockup shown alongside the step description */
+function CalcPreview() {
+  const field = (label: string, value: string) => (
+    <div className="space-y-0.5">
+      <p className="text-[9px] font-semibold text-[#8b949e] uppercase tracking-wide">{label}</p>
+      <div className="bg-[#0d1117] border border-[#30363d] rounded px-2 py-1 text-xs text-white font-mono">{value}</div>
+    </div>
+  );
+  return (
+    <div className="shrink-0 w-44 bg-[#0d1117] border border-[#30363d] rounded-xl p-3 space-y-2 text-left">
+      <div className="flex items-center gap-1.5 pb-1 border-b border-[#30363d]">
+        <div className="w-2 h-2 rounded-full bg-[#F97316]" />
+        <span className="text-[10px] font-semibold text-[#8b949e] uppercase tracking-wider">Calculator</span>
+      </div>
+      {field('Ticker', 'AAPL')}
+      {field('Risk ($)', '$25.00')}
+      {field('Entry', '$185.00')}
+      {field('Stop', '$182.50')}
+      <div className="pt-1 border-t border-[#30363d]">
+        <p className="text-[9px] text-[#8b949e] uppercase tracking-wide mb-0.5">Share Size</p>
+        <p className="text-lg font-bold text-[#F97316]">10 shares</p>
+      </div>
+    </div>
+  );
+}
+
 interface TourStep {
   subtab: TradingSubTab;
   targetDataTour?: string;
   tooltipSide?: TooltipSide;
+  preview?: React.ReactNode;
   icon: React.ReactNode;
   title: string;
   description: string;
@@ -68,12 +95,13 @@ const STEPS: TourStep[] = [
   {
     subtab: 'trade-management',
     targetDataTour: 'position-calculator',
-    tooltipSide: 'right',
+    tooltipSide: 'bottom',
     icon: <Calculator className="w-9 h-9 text-[#F97316]" />,
     title: 'Position Calculator',
     description:
-      "Enter your account size, max risk per trade, and stop-loss distance — the calculator tells you exactly how many shares to buy. The watchlist on the right lets you pin tickers you're monitoring.",
+      "Enter your ticker, dollar risk, entry price, and stop — the calculator instantly tells you how many shares to buy. Never over-size a position again.",
     tip: 'Hit "Trading Mode" for a distraction-free fullscreen layout during the session.',
+    preview: <CalcPreview />,
   },
   {
     subtab: 'market',
@@ -260,18 +288,32 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
     const vh = window.innerHeight;
     const CARD_H = 360;
 
-    // For elements that are very wide or tall (e.g. the full calendar grid),
-    // there's no clean place to anchor the tooltip — fall back to top-center.
-    const isLargeElement = width > vw * 0.6 || height > vh * 0.35;
-    if (isLargeElement) {
-      return {
-        position: 'fixed',
-        top: Math.max(80, top - CARD_H - GAP),
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: Math.min(TOOLTIP_WIDTH, vw - 32),
-        zIndex: 10004,
-      };
+    // Wide elements need special treatment — there's no clean side to anchor.
+    const isWide = width > vw * 0.75;
+    const isTall = height > vh * 0.35;
+    if (isWide) {
+      const sBottom = top + height + PAD;
+      if (!isTall) {
+        // Wide but short (e.g. nav bar) — place the card below it, centered
+        return {
+          position: 'fixed',
+          top: sBottom + GAP,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: Math.min(TOOLTIP_WIDTH, vw - 32),
+          zIndex: 10004,
+        };
+      } else {
+        // Wide and tall (e.g. calendar grid) — place above, or pin to top
+        return {
+          position: 'fixed',
+          top: Math.max(80, top - CARD_H - GAP),
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: Math.min(TOOLTIP_WIDTH, vw - 32),
+          zIndex: 10004,
+        };
+      }
     }
 
     const style: React.CSSProperties = { position: 'fixed', width: TOOLTIP_WIDTH, zIndex: 10004 };
@@ -353,6 +395,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
 
   const hasTarget = !!targetRect;
   const side = current.tooltipSide;
+  // Don't render the card until position is known — prevents flash to wrong spot
+  const cardReady = !current.targetDataTour || hasTarget;
 
   return (
     <div
@@ -370,8 +414,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
       {/* 4-rect spotlight */}
       {renderSpotlight()}
 
-      {/* Tooltip card */}
-      <div
+      {/* Tooltip card — only rendered once position is known */}
+      {cardReady && <div
         style={{ ...tooltipStyle(), pointerEvents: 'auto' }}
         className="bg-[#161b22] border border-[#30363d] rounded-2xl shadow-2xl overflow-visible"
       >
@@ -395,22 +439,30 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
         {/* Body */}
         <div className="px-8 py-7">
           <div className="flex items-start gap-5">
-            <div className="shrink-0 w-14 h-14 rounded-2xl bg-[#F97316]/10 border border-[#F97316]/20 flex items-center justify-center">
-              {current.icon}
-            </div>
-            <div className="space-y-3 min-w-0">
-              <h2 className="text-lg font-bold text-white leading-snug">{current.title}</h2>
-              <p className="text-sm text-[#8b949e] leading-relaxed">{current.description}</p>
+            {/* Preview mockup (left side, when present) */}
+            {current.preview}
+
+            {/* Text content */}
+            <div className="flex-1 min-w-0 space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 w-14 h-14 rounded-2xl bg-[#F97316]/10 border border-[#F97316]/20 flex items-center justify-center">
+                  {current.icon}
+                </div>
+                <div className="space-y-2 min-w-0">
+                  <h2 className="text-lg font-bold text-white leading-snug">{current.title}</h2>
+                  <p className="text-sm text-[#8b949e] leading-relaxed">{current.description}</p>
+                </div>
+              </div>
+
+              {current.tip && (
+                <div className="bg-[#F97316]/5 border border-[#F97316]/25 rounded-xl px-5 py-3">
+                  <p className="text-xs text-[#F97316] font-medium leading-relaxed">
+                    Tip: {current.tip}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
-
-          {current.tip && (
-            <div className="mt-5 bg-[#F97316]/5 border border-[#F97316]/25 rounded-xl px-5 py-3">
-              <p className="text-xs text-[#F97316] font-medium leading-relaxed">
-                Tip: {current.tip}
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Progress dots */}
@@ -450,7 +502,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
             {!isLast && <ChevronRight className="w-4 h-4" />}
           </button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
