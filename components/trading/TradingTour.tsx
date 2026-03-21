@@ -68,7 +68,7 @@ const STEPS: TourStep[] = [
   {
     subtab: 'trade-management',
     targetDataTour: 'position-calculator',
-    tooltipSide: 'right',
+    tooltipSide: 'bottom',
     icon: <Calculator className="w-9 h-9 text-[#F97316]" />,
     title: 'Position Calculator',
     description:
@@ -262,7 +262,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
 
     // For elements that are very wide or tall (e.g. the full calendar grid),
     // there's no clean place to anchor the tooltip — fall back to top-center.
-    const isLargeElement = width > vw * 0.6 || height > vh * 0.35;
+    // Only fall back to top-center for truly full-width elements (e.g. calendar grid)
+    const isLargeElement = width > vw * 0.75;
     if (isLargeElement) {
       return {
         position: 'fixed',
