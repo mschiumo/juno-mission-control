@@ -63,7 +63,15 @@ const ORDER_PLACED_STORAGE_KEY = 'juno:active-trades-orders';
 // LocalStorage key for collapsed sections state
 const COLLAPSED_SECTIONS_STORAGE_KEY = 'juno:watchlist-collapsed-sections';
 
-export default function WatchlistView() {
+const CARD_GRID: Record<number, string> = {
+  2: 'grid-cols-2',
+  3: 'grid-cols-3',
+  4: 'grid-cols-4',
+  5: 'grid-cols-5',
+};
+
+export default function WatchlistView({ hideActiveTrades = false, hideClosedPositions = false, cardColumns = 3, emptyMessage }: { hideActiveTrades?: boolean; hideClosedPositions?: boolean; cardColumns?: number; emptyMessage?: string }) {
+  const cardGridClass = CARD_GRID[cardColumns] ?? 'grid-cols-3';
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
@@ -1284,7 +1292,7 @@ export default function WatchlistView() {
           </div>
         </div>
         {/* Closed Positions skeleton */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+        {!hideClosedPositions && <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d]">
             <div className="h-4 w-36 bg-[#30363d] rounded" />
             <div className="h-7 w-7 bg-[#30363d] rounded-lg" />
@@ -1299,7 +1307,7 @@ export default function WatchlistView() {
               </div>
             ))}
           </div>
-        </div>
+        </div>}
       </div>
     );
   }
@@ -1338,7 +1346,7 @@ export default function WatchlistView() {
       )}
 
       {/* ===== ACTIVE TRADES SECTION ===== */}
-      <div className="space-y-4 p-3 rounded-xl border-2 border-green-500/50 bg-green-500/5">
+      {!hideActiveTrades && <div className="space-y-4 p-3 rounded-xl border-2 border-green-500/50 bg-green-500/5">
         {/* Section Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1693,10 +1701,10 @@ export default function WatchlistView() {
           </div>
         )}
         </div>{/* End of collapsible content */}
-      </div>
+      </div>}
 
       {/* Divider */}
-      <div className="border-t border-[#30363d]"></div>
+      {!hideActiveTrades && <div className="border-t border-[#30363d]"></div>}
 
       {/* ===== POTENTIAL TRADES SECTION ===== */}
       <div 
@@ -1820,14 +1828,23 @@ export default function WatchlistView() {
         ) : watchlist.length === 0 ? (
           <div className="text-center py-12 border border-dashed border-[#30363d] rounded-xl">
             <BookmarkX className="w-12 h-12 text-[#30363d] mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">No Saved Trades</h3>
-            <p className="text-[#8b949e] max-w-md mx-auto mb-4 text-sm">
-              When you calculate a valid trade (2:1 risk ratio or better), you can save it here for later reference.
-            </p>
-            <div className="flex items-center justify-center gap-2 text-sm text-[#8b949e]">
-              <TrendingUp className="w-4 h-4 text-green-500" />
-              <span>Use the Calculator to add trades</span>
-            </div>
+            {emptyMessage ? (
+              <>
+                <h3 className="text-lg font-semibold text-white mb-2">No Trades Found</h3>
+                <p className="text-[#8b949e] text-sm">{emptyMessage}</p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold text-white mb-2">No Saved Trades</h3>
+                <p className="text-[#8b949e] max-w-md mx-auto mb-4 text-sm">
+                  When you calculate a valid trade (2:1 risk ratio or better), you can save it here for later reference.
+                </p>
+                <div className="flex items-center justify-center gap-2 text-sm text-[#8b949e]">
+                  <TrendingUp className="w-4 h-4 text-green-500" />
+                  <span>Use the Calculator to add trades</span>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-6">
@@ -1879,7 +1896,7 @@ export default function WatchlistView() {
                         collapsedSections.favorites ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
                       }`}
                     >
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className={`grid ${cardGridClass} gap-3`}>
                   {favorites.map((item) => (
                     <div
                       key={item.id}
@@ -2023,7 +2040,7 @@ export default function WatchlistView() {
                     collapsedSections.otherTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
                   }`}
                 >
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className={`grid ${cardGridClass} gap-3`}>
                   {others.map((item) => (
                     <div
                       key={item.id}
@@ -2145,10 +2162,10 @@ export default function WatchlistView() {
       </div>
 
       {/* Divider */}
-      <div className="border-t border-[#30363d]"></div>
+      {!hideClosedPositions && <div className="border-t border-[#30363d]"></div>}
 
       {/* ===== CLOSED POSITIONS SECTION ===== */}
-      <div className="space-y-4 p-3 rounded-xl border-2 border-red-500/50 bg-red-500/5">
+      {!hideClosedPositions && <div className="space-y-4 p-3 rounded-xl border-2 border-red-500/50 bg-red-500/5">
         {/* Section Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -2462,7 +2479,7 @@ export default function WatchlistView() {
           </div>
         )}
         </div>{/* End of collapsible content */}
-      </div>
+      </div>}
 
       {/* ===== MODALS ===== */}
 

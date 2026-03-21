@@ -25,6 +25,15 @@ const TICKERS = [
   { symbol: 'ETH', label: 'ETH' },
 ];
 
+function isNYSEOpen(): boolean {
+  const etString = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+  const et = new Date(etString);
+  const day = et.getDay(); // 0=Sun, 6=Sat
+  if (day === 0 || day === 6) return false;
+  const mins = et.getHours() * 60 + et.getMinutes();
+  return mins >= 9 * 60 + 30 && mins < 16 * 60;
+}
+
 function fngColor(score: number): string {
   if (score <= 25) return 'text-red-500';
   if (score <= 45) return 'text-orange-400';
@@ -46,6 +55,7 @@ export default function MarketTickerBar() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [flashing, setFlashing] = useState<Record<string, 'up' | 'down'>>({});
+  const [marketOpen, setMarketOpen] = useState(isNYSEOpen());
   const prevValues = useRef<Record<string, number>>({});
 
   async function fetchData() {
@@ -99,6 +109,13 @@ export default function MarketTickerBar() {
     fetchData();
     const interval = setInterval(fetchData, 60_000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Re-check market hours every minute
+  useEffect(() => {
+    setMarketOpen(isNYSEOpen());
+    const id = setInterval(() => setMarketOpen(isNYSEOpen()), 60_000);
+    return () => clearInterval(id);
   }, []);
 
   const bias = (() => {
@@ -161,6 +178,14 @@ export default function MarketTickerBar() {
             </div>
           )}
 
+          {/* Market status badge */}
+          {!marketOpen && (
+            <div className="flex items-center gap-1 px-3 shrink-0 border-r border-[#30363d] h-full text-xs font-semibold text-[#8b949e]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#8b949e]" />
+              Closed
+            </div>
+          )}
+
           {/* Bias badge — left of carousel */}
           <div className={`flex items-center gap-1 px-3 shrink-0 border-r border-[#30363d] h-full text-xs font-semibold ${
             bias === 'bullish' ? 'text-green-400' :
@@ -192,7 +217,7 @@ export default function MarketTickerBar() {
             {/* Scrolling marquee — two copies for seamless loop */}
             <div
               className="flex items-center"
-              style={{ animation: 'ticker-scroll 28s linear infinite', willChange: 'transform' }}
+              style={{ animation: 'ticker-scroll 28s linear infinite', animationPlayState: marketOpen ? 'running' : 'paused', willChange: 'transform' }}
             >
               {tickers.map((t) => <TickerItem key={t.symbol} {...t} />)}
               {tickers.map((t) => <TickerItem key={`${t.symbol}-2`} {...t} />)}

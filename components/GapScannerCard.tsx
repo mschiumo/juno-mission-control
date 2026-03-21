@@ -1,7 +1,62 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Star, Download, List, ChevronUp, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Star, Download, List, ChevronUp, ChevronDown, Info } from 'lucide-react';
+
+/** Simple hover tooltip — small single-line label */
+function Tip({ label, children, position = 'bottom' }: { label: string; children: React.ReactNode; position?: 'top' | 'bottom' }) {
+  return (
+    <div className="relative group/tip">
+      {children}
+      <div className={`absolute ${position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} left-1/2 -translate-x-1/2 hidden group-hover/tip:block z-50 pointer-events-none`}>
+        <div className="bg-[#0d1117] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-[11px] text-[#c9d1d9] whitespace-nowrap shadow-xl">
+          {label}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Larger hover card explaining the gap scanner criteria */
+function CriteriaCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative group/criteria">
+      {children}
+      <div className="absolute left-0 top-full mt-2 hidden group-hover/criteria:block z-50 pointer-events-none">
+        <div className="w-72 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl overflow-hidden">
+          {/* Card header */}
+          <div className="flex items-center gap-2 px-4 py-3 bg-[#0d1117]/60 border-b border-[#30363d]">
+            <Activity className="w-3.5 h-3.5 text-[#F97316]" />
+            <span className="text-xs font-semibold text-white">Scan Criteria</span>
+          </div>
+          {/* Criteria rows */}
+          <div className="px-4 py-3 space-y-3">
+            {[
+              { label: 'Gap', value: '≥ 2%', detail: 'vs previous close' },
+              { label: 'Volume', value: '≥ 1M shares', detail: 'pre/intraday' },
+              { label: 'Market Cap', value: '≥ $50M', detail: 'filters micro-caps' },
+              { label: 'Market', value: 'US only', detail: 'NYSE · NASDAQ · AMEX' },
+              { label: 'Refresh', value: 'Every 15s', detail: 'during market hours' },
+            ].map(({ label, value, detail }) => (
+              <div key={label} className="flex items-start justify-between gap-3">
+                <span className="text-[11px] font-medium text-[#8b949e] w-16 shrink-0">{label}</span>
+                <div className="text-right">
+                  <span className="text-[11px] font-semibold text-white block">{value}</span>
+                  <span className="text-[10px] text-[#8b949e]">{detail}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="px-4 py-2.5 border-t border-[#30363d] bg-[#0d1117]/40">
+            <p className="text-[10px] text-[#8b949e] leading-relaxed">
+              Results are sorted by gap % by default. Star any ticker to add it to your watchlist.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface GapStock {
   symbol: string;
@@ -249,7 +304,12 @@ export default function GapScannerCard() {
             </div>
             <div>
               <h2 className="text-sm font-semibold text-white leading-none">Gap Scanner</h2>
-              <p className="text-[10px] text-[#8b949e] mt-0.5">2%+ gap | 1M+ vol | $50M+ cap | US</p>
+              <div className="flex items-center gap-1 mt-0.5">
+                <p className="text-[10px] text-[#8b949e]">2%+ gap | 1M+ vol | $50M+ cap | US</p>
+                <CriteriaCard>
+                  <Info className="w-3 h-3 text-[#8b949e] hover:text-[#58a6ff] cursor-help transition-colors" />
+                </CriteriaCard>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -272,17 +332,23 @@ export default function GapScannerCard() {
             )}
             {data && !loading && (
               <>
-                <button onClick={exportToCSV} className="p-1.5 hover:bg-[#30363d] rounded transition-colors" title="Export CSV">
-                  <Download className="w-3.5 h-3.5 text-[#8b949e]" />
-                </button>
-                <button onClick={() => setShowModal(true)} className="p-1.5 hover:bg-[#30363d] rounded transition-colors" title="View all">
-                  <List className="w-3.5 h-3.5 text-[#8b949e]" />
-                </button>
+                <Tip label="Export results to CSV" position="bottom">
+                  <button onClick={exportToCSV} className="p-1.5 hover:bg-[#30363d] rounded transition-colors">
+                    <Download className="w-3.5 h-3.5 text-[#8b949e]" />
+                  </button>
+                </Tip>
+                <Tip label="View full list" position="bottom">
+                  <button onClick={() => setShowModal(true)} className="p-1.5 hover:bg-[#30363d] rounded transition-colors">
+                    <List className="w-3.5 h-3.5 text-[#8b949e]" />
+                  </button>
+                </Tip>
               </>
             )}
-            <button onClick={fetchGapData} disabled={loading} className="p-1.5 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50" title="Refresh">
-              <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
-            </button>
+            <Tip label="Refresh now" position="bottom">
+              <button onClick={fetchGapData} disabled={loading} className="p-1.5 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50">
+                <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </Tip>
           </div>
         </div>
 

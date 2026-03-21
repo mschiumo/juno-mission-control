@@ -552,6 +552,7 @@ export default function CombinedCalendarView() {
 
           {/* Import Button */}
           <button
+            data-tour="trading-import"
             onClick={() => setShowImportModal(true)}
             className="flex items-center gap-2 px-3 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors font-medium text-sm"
             title="Import trades from CSV"
@@ -594,7 +595,7 @@ export default function CombinedCalendarView() {
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+      <div data-tour="trading-calendar" className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
         {/* Day Headers */}
         <div className="grid grid-cols-7 border-b border-[#30363d]">
           {DAY_NAMES.map(day => (
