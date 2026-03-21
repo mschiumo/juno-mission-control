@@ -265,30 +265,33 @@ export default function ActiveTradesStrip() {
                       </button>
                     </div>
 
-                    {/* Live price + P&L */}
-                    <div>
-                      {hasPrice ? (
-                        <>
-                          <p className="text-base font-bold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
-                          {pnl !== null && (
-                            <div className={`flex items-center gap-1 text-xs font-semibold ${pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-                              {pnl >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {/* Live price + Profit side by side */}
+                    {hasPrice ? (
+                      <div className="flex gap-4">
+                        <div>
+                          <p className="text-[#8b949e] text-[10px] mb-0.5">Price</p>
+                          <p className="text-sm font-bold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
+                        </div>
+                        {pnl !== null && (
+                          <div>
+                            <p className="text-[#8b949e] text-[10px] mb-0.5">Profit</p>
+                            <p className={`text-sm font-bold tabular-nums ${pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
                               {formatCurrency(pnl)}
-                            </div>
-                          )}
-                        </>
-                      ) : trade.orderPlaced ? (
-                        <div className="flex items-center gap-1.5 text-[#238636]">
-                          <CheckCircle className="w-4 h-4" />
-                          <span className="text-xs font-semibold">Order In</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-[#8b949e]">
-                          <Clock className="w-4 h-4" />
-                          <span className="text-xs">Pending</span>
-                        </div>
-                      )}
-                    </div>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : trade.orderPlaced ? (
+                      <div className="flex items-center gap-1.5 text-[#238636]">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-xs font-semibold">Order In</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-[#8b949e]">
+                        <Clock className="w-4 h-4" />
+                        <span className="text-xs">Pending</span>
+                      </div>
+                    )}
 
 
                     {/* Key levels — 2x2 grid */}
