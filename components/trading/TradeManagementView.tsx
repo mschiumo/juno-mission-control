@@ -11,17 +11,13 @@ export default function TradeManagementView() {
   const [selectedTicker, setSelectedTicker] = useState<string>('');
   const [tradingMode, setTradingMode] = useState(false);
   const calculatorRef = useRef<HTMLDivElement>(null);
-  const tradingModeCalculatorRef = useRef<HTMLDivElement>(null);
   const tradingModeContainerRef = useRef<HTMLDivElement>(null);
 
   const enterTradingMode = useCallback(async () => {
     setTradingMode(true);
-    // Wait for the overlay to mount, then request fullscreen on it
     await new Promise(r => setTimeout(r, 50));
     if (tradingModeContainerRef.current?.requestFullscreen) {
-      tradingModeContainerRef.current.requestFullscreen().catch(() => {
-        // Fullscreen denied (e.g. permissions policy) — modal still works
-      });
+      tradingModeContainerRef.current.requestFullscreen().catch(() => {});
     }
   }, []);
 
@@ -32,7 +28,6 @@ export default function TradeManagementView() {
     setTradingMode(false);
   }, []);
 
-  // Sync state if user exits fullscreen via browser UI (Esc, etc.)
   useEffect(() => {
     const onFsChange = () => {
       if (!document.fullscreenElement) setTradingMode(false);
@@ -40,44 +35,6 @@ export default function TradeManagementView() {
     document.addEventListener('fullscreenchange', onFsChange);
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
-
-  const sharedLayout = (inTradingMode: boolean) => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Daily Favorites + Calculator - Left */}
-      <div className="space-y-6">
-        <QuickWatchlist
-          onSelectTicker={setSelectedTicker}
-          calculatorRef={inTradingMode ? tradingModeCalculatorRef : calculatorRef}
-        />
-        <div
-          ref={inTradingMode ? tradingModeCalculatorRef : calculatorRef}
-          className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden sticky top-6"
-        >
-          <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
-            <Calculator className="w-5 h-5 text-[#F97316]" />
-            <h3 className="text-lg font-semibold text-white">Position Calculator</h3>
-          </div>
-          <div className="p-6">
-            <PositionCalculator
-              initialTicker={selectedTicker}
-              onTickerChange={setSelectedTicker}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Watchlist - Right */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50 shrink-0">
-          <Bookmark className="w-5 h-5 text-[#F97316]" />
-          <h3 className="text-lg font-semibold text-white">Watchlist</h3>
-        </div>
-        <div className="p-6 flex-1 min-h-0 overflow-y-auto">
-          <WatchlistView hideClosedPositions={inTradingMode} />
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <>
@@ -93,10 +50,39 @@ export default function TradeManagementView() {
             Trading Mode
           </button>
         </div>
-        {sharedLayout(false)}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Daily Favorites + Calculator - Left */}
+          <div className="space-y-6">
+            <QuickWatchlist
+              onSelectTicker={setSelectedTicker}
+              calculatorRef={calculatorRef}
+            />
+            <div ref={calculatorRef} className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden sticky top-6">
+              <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
+                <Calculator className="w-5 h-5 text-[#F97316]" />
+                <h3 className="text-lg font-semibold text-white">Position Calculator</h3>
+              </div>
+              <div className="p-6">
+                <PositionCalculator initialTicker={selectedTicker} onTickerChange={setSelectedTicker} />
+              </div>
+            </div>
+          </div>
+
+          {/* Watchlist - Right */}
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50 shrink-0">
+              <Bookmark className="w-5 h-5 text-[#F97316]" />
+              <h3 className="text-lg font-semibold text-white">Watchlist</h3>
+            </div>
+            <div className="p-6 flex-1 min-h-0 overflow-y-auto">
+              <WatchlistView />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Trading Mode — fullscreen container */}
+      {/* Trading Mode — fullscreen: Calculator left, Watchlist (active + potential) right */}
       {tradingMode && (
         <div
           ref={tradingModeContainerRef}
@@ -120,7 +106,29 @@ export default function TradeManagementView() {
 
           {/* Content */}
           <div className="flex-1 min-h-0 overflow-y-auto p-6">
-            {sharedLayout(true)}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+              {/* Calculator - Left */}
+              <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+                <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
+                  <Calculator className="w-5 h-5 text-[#F97316]" />
+                  <h3 className="text-lg font-semibold text-white">Position Calculator</h3>
+                </div>
+                <div className="p-6">
+                  <PositionCalculator initialTicker={selectedTicker} onTickerChange={setSelectedTicker} />
+                </div>
+              </div>
+
+              {/* Watchlist - Right (Active + Potential only) */}
+              <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
+                <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50 shrink-0">
+                  <Bookmark className="w-5 h-5 text-[#F97316]" />
+                  <h3 className="text-lg font-semibold text-white">Watchlist</h3>
+                </div>
+                <div className="p-6 flex-1 min-h-0 overflow-y-auto">
+                  <WatchlistView hideClosedPositions />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
