@@ -71,7 +71,12 @@ export default function ActiveTradesStrip() {
   useEffect(() => {
     fetchTrades();
     const id = setInterval(fetchTrades, 30_000);
-    return () => clearInterval(id);
+    // Re-fetch immediately when WatchlistView moves a trade to active
+    window.addEventListener('juno:active-trades-updated', fetchTrades);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('juno:active-trades-updated', fetchTrades);
+    };
   }, []);
 
   useEffect(() => {
