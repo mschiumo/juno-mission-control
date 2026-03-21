@@ -44,18 +44,6 @@ export default function ActiveTradesStrip() {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const priceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchTrades = async () => {
-    try {
-      const res = await fetch(`/api/active-trades?userId=${DEFAULT_USER_ID}`);
-      const result = await res.json();
-      setTrades(result.data || []);
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchPrices = async (activeTrades: ActiveTradeWithPnL[]) => {
     const tickers = [...new Set(activeTrades.map((t) => t.ticker))];
     if (tickers.length === 0) return;
@@ -65,6 +53,21 @@ export default function ActiveTradesStrip() {
       setPrices((prev) => ({ ...prev, ...data.prices }));
     } catch {
       // silently fail
+    }
+  };
+
+  const fetchTrades = async () => {
+    try {
+      const res = await fetch(`/api/active-trades?userId=${DEFAULT_USER_ID}`);
+      const result = await res.json();
+      const newTrades: ActiveTradeWithPnL[] = result.data || [];
+      setTrades(newTrades);
+      // Kick off price fetch immediately — don't wait for the useEffect cycle
+      fetchPrices(newTrades);
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -78,10 +81,10 @@ export default function ActiveTradesStrip() {
     };
   }, []);
 
+  // Keep price polling interval in sync with latest trades (no initial fetch — fetchTrades handles it)
   useEffect(() => {
     if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
     if (trades.length === 0) return;
-    fetchPrices(trades);
     priceIntervalRef.current = setInterval(() => fetchPrices(trades), PRICE_POLL_MS);
     return () => {
       if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
@@ -179,9 +182,11 @@ export default function ActiveTradesStrip() {
               {trades.map((trade) => {
                 const currentPrice = prices[trade.ticker];
                 const hasPrice = currentPrice !== undefined;
-                const status: StopStatus = hasPrice
+                // Stop-loss warning only fires when orderPlaced — avoids false red pulses on pending trades
+                const status: StopStatus = (trade.orderPlaced && hasPrice)
                   ? stopStatus(currentPrice, trade.plannedStop, trade.actualEntry)
                   : 'safe';
+                // P&L shows for all trades with a live price
                 const pnl = hasPrice
                   ? (currentPrice - trade.actualEntry) * trade.actualShares
                   : null;
