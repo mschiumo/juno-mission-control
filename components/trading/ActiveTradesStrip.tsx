@@ -251,6 +251,7 @@ export default function ActiveTradesStrip() {
                       )}
                     </div>
 
+
                     {/* Key levels — 2x2 grid */}
                     <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                       <div>
