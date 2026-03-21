@@ -6,8 +6,7 @@ import type { ActiveTradeWithPnL } from '@/types/active-trade';
 
 const DEFAULT_USER_ID = 'default';
 const PRICE_POLL_MS = 3000;
-// Within this % of stop → warn. At or below → danger.
-const STOP_WARN_PCT = 0.05;
+const STOP_WARN_PCT = 0.05; // within 5% of stop → warn
 
 function getNowInEST(): string {
   return new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
@@ -23,6 +22,7 @@ function formatCurrency(n: number): string {
 
 type StopStatus = 'safe' | 'warn' | 'danger';
 
+// Only meaningful when order is placed — stop is live
 function stopStatus(current: number, stop: number, entry: number): StopStatus {
   const isLong = entry > stop;
   if (isLong) {
@@ -41,6 +41,8 @@ export default function ActiveTradesStrip() {
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [closingTrade, setClosingTrade] = useState<ActiveTradeWithPnL | null>(null);
   const [closing, setClosing] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const priceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchTrades = async () => {
@@ -67,14 +69,12 @@ export default function ActiveTradesStrip() {
     }
   };
 
-  // Fetch trades on mount + every 30s
   useEffect(() => {
     fetchTrades();
     const id = setInterval(fetchTrades, 30_000);
     return () => clearInterval(id);
   }, []);
 
-  // Poll prices every 3s whenever trades change
   useEffect(() => {
     if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
     if (trades.length === 0) return;
@@ -106,11 +106,9 @@ export default function ActiveTradesStrip() {
           pnl: undefined,
         }),
       });
-
       await fetch(`/api/active-trades?id=${closingTrade.id}&userId=${DEFAULT_USER_ID}`, {
         method: 'DELETE',
       });
-
       await fetchTrades();
       window.dispatchEvent(new CustomEvent('juno:active-trades-updated'));
       window.dispatchEvent(new CustomEvent('juno:closed-positions-updated'));
@@ -120,6 +118,39 @@ export default function ActiveTradesStrip() {
     } finally {
       setClosing(false);
     }
+  };
+
+  // ── Drag handlers (local reorder only) ──────────────────────────────────
+  const onDragStart = (e: React.DragEvent, id: string) => {
+    setDraggingId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    if (id !== draggingId) setDragOverId(id);
+  };
+
+  const onDragLeave = () => setDragOverId(null);
+
+  const onDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDragOverId(null);
+    if (!draggingId || draggingId === targetId) return;
+    setTrades((prev) => {
+      const next = [...prev];
+      const fromIdx = next.findIndex((t) => t.id === draggingId);
+      const toIdx = next.findIndex((t) => t.id === targetId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const [item] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, item);
+      return next;
+    });
+  };
+
+  const onDragEnd = () => {
+    setDraggingId(null);
+    setDragOverId(null);
   };
 
   return (
@@ -143,27 +174,28 @@ export default function ActiveTradesStrip() {
           </button>
         </div>
 
-        {/* Strip */}
+        {/* Grid */}
         <div className="p-4">
           {loading ? (
-            <div className="flex gap-4 overflow-x-auto pb-1">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="shrink-0 w-52 h-52 bg-[#161b22] border border-[#30363d] rounded-xl animate-pulse" />
+            <div className="grid grid-cols-3 xl:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="w-full h-52 bg-[#161b22] border border-[#30363d] rounded-xl animate-pulse" />
               ))}
             </div>
           ) : trades.length === 0 ? (
             <p className="text-sm text-[#8b949e] py-2">No active trades</p>
           ) : (
-            <div className="flex gap-4 overflow-x-auto pb-1">
+            <div className="grid grid-cols-3 xl:grid-cols-4 gap-4">
               {trades.map((trade) => {
                 const currentPrice = prices[trade.ticker];
                 const hasPrice = currentPrice !== undefined;
-                const pnl = hasPrice
-                  ? (currentPrice - trade.actualEntry) * trade.actualShares
-                  : null;
-                const status = hasPrice
+                // Stop-loss warnings only apply once an order is in
+                const status: StopStatus = (trade.orderPlaced && hasPrice)
                   ? stopStatus(currentPrice, trade.plannedStop, trade.actualEntry)
                   : 'safe';
+                const pnl = (trade.orderPlaced && hasPrice)
+                  ? (currentPrice - trade.actualEntry) * trade.actualShares
+                  : null;
 
                 const cardClass = (() => {
                   if (status === 'danger')
@@ -175,27 +207,41 @@ export default function ActiveTradesStrip() {
                   return 'bg-[#161b22] border border-[#238636]/40 hover:border-[#238636]/70';
                 })();
 
+                const isDragging = draggingId === trade.id;
+                const isOver = dragOverId === trade.id;
+
                 return (
                   <div
                     key={trade.id}
-                    className={`shrink-0 w-52 h-52 rounded-xl p-5 flex flex-col justify-between transition-colors group ${cardClass}`}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, trade.id)}
+                    onDragOver={(e) => onDragOver(e, trade.id)}
+                    onDragLeave={onDragLeave}
+                    onDrop={(e) => onDrop(e, trade.id)}
+                    onDragEnd={onDragEnd}
+                    className={`h-52 rounded-xl p-5 flex flex-col justify-between transition-all cursor-grab active:cursor-grabbing group
+                      ${cardClass}
+                      ${isDragging ? 'opacity-40 scale-95' : ''}
+                      ${isOver ? 'ring-2 ring-[#238636] scale-[1.02]' : ''}
+                    `}
                   >
                     {/* Top: ticker + close */}
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
-                        {trade.orderPlaced && status === 'safe' && (
-                          <span className="w-2 h-2 rounded-full bg-[#238636] animate-pulse shrink-0 mt-0.5" />
+                        {status === 'danger' && (
+                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0 mt-0.5" />
                         )}
                         {status === 'warn' && (
                           <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse shrink-0 mt-0.5" />
                         )}
-                        {status === 'danger' && (
-                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0 mt-0.5" />
+                        {status === 'safe' && trade.orderPlaced && (
+                          <span className="w-2 h-2 rounded-full bg-[#238636] animate-pulse shrink-0 mt-0.5" />
                         )}
                         <span className="font-bold text-white text-xl tracking-wide">{trade.ticker}</span>
                       </div>
                       <button
                         onClick={() => setClosingTrade(trade)}
+                        onMouseDown={(e) => e.stopPropagation()}
                         className="p-1 rounded text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 transition-colors opacity-0 group-hover:opacity-100"
                         title="Close trade"
                       >
@@ -203,8 +249,8 @@ export default function ActiveTradesStrip() {
                       </button>
                     </div>
 
-                    {/* Live price + P&L (when order placed) */}
-                    {trade.orderPlaced && (
+                    {/* Live price + P&L (order placed) */}
+                    {trade.orderPlaced ? (
                       <div>
                         {hasPrice ? (
                           <>
@@ -225,10 +271,7 @@ export default function ActiveTradesStrip() {
                           </div>
                         )}
                       </div>
-                    )}
-
-                    {/* Pending status (no order yet) */}
-                    {!trade.orderPlaced && (
+                    ) : (
                       <div className="flex items-center gap-1.5 text-[#8b949e]">
                         <Clock className="w-4 h-4" />
                         <span className="text-xs">Pending</span>
