@@ -63,11 +63,20 @@ export default function ActiveTradesStrip() {
             {trades.map((trade) => (
               <div
                 key={trade.id}
-                className="shrink-0 w-56 bg-[#161b22] border border-[#238636]/40 rounded-lg p-4 space-y-3 hover:border-[#238636]/70 transition-colors"
+                className={`shrink-0 w-56 rounded-lg p-4 space-y-3 transition-colors ${
+                  trade.orderPlaced
+                    ? 'bg-[#238636]/10 border border-[#238636] shadow-[0_0_12px_rgba(35,134,54,0.25)]'
+                    : 'bg-[#161b22] border border-[#238636]/40 hover:border-[#238636]/70'
+                }`}
               >
                 {/* Ticker + order status */}
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-white text-base tracking-wide">{trade.ticker}</span>
+                  <div className="flex items-center gap-2">
+                    {trade.orderPlaced && (
+                      <span className="w-2 h-2 rounded-full bg-[#238636] animate-pulse shrink-0" />
+                    )}
+                    <span className="font-bold text-white text-base tracking-wide">{trade.ticker}</span>
+                  </div>
                   {trade.orderPlaced ? (
                     <div className="flex items-center gap-1.5 text-[#238636]" title="Order placed">
                       <CheckCircle className="w-4 h-4" />
