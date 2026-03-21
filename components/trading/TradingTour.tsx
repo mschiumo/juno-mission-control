@@ -94,8 +94,6 @@ const STEPS: TourStep[] = [
   },
   {
     subtab: 'trade-management',
-    targetDataTour: 'position-calculator',
-    tooltipSide: 'bottom',
     icon: <Calculator className="w-9 h-9 text-[#F97316]" />,
     title: 'Position Calculator',
     description:
@@ -272,13 +270,14 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
     const vw = window.innerWidth;
 
     if (!targetRect) {
-      // Anchor near the top of the viewport, horizontally centered
+      // Centered modal — wider when a preview panel is present
+      const w = current.preview ? Math.min(720, vw - 32) : Math.min(TOOLTIP_WIDTH, vw - 32);
       return {
         position: 'fixed',
-        top: 80,
+        top: '50%',
         left: '50%',
-        transform: 'translateX(-50%)',
-        width: Math.min(TOOLTIP_WIDTH, vw - 32),
+        transform: 'translate(-50%, -50%)',
+        width: w,
         zIndex: 10004,
       };
     }
