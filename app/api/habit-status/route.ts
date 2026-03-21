@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
+import { requireUserId } from '@/lib/auth-session';
 
 const STORAGE_KEY_PREFIX = 'habits_data';
-const HABITS_LIST_KEY = 'habits_list'; // Persistent canonical habit definitions
+const HABITS_LIST_KEY = 'habits_list';
 
 type HabitFrequency = 'daily' | 'weekdays' | '3x' | '4x' | '5x' | '6x';
 
@@ -19,14 +20,11 @@ function weeklyGoal(frequency: HabitFrequency | string | undefined): number {
 
 // MJ's specific habits with rolling history
 const DEFAULT_HABITS = [
-  { id: 'make-bed',      name: 'Make Bed',                         icon: '🛏️', target: 'Daily',        category: 'productivity', frequency: 'daily'    as HabitFrequency },
-  { id: 'take-meds',     name: 'Take Meds (Morning)',               icon: '💊', target: 'Daily',        category: 'health',       frequency: 'daily'    as HabitFrequency },
-  { id: 'market-brief',  name: 'Read Market Brief, Stock Screeners',icon: '📈', target: 'Weekdays',     category: 'trading',      frequency: 'weekdays' as HabitFrequency },
-  { id: 'exercise',      name: 'Exercise / Lift',                   icon: '💪', target: '4x/week',      category: 'fitness',      frequency: '4x'       as HabitFrequency },
-  { id: 'read',          name: 'Read',                              icon: '📚', target: '30 min',       category: 'learning',     frequency: 'daily'    as HabitFrequency },
-  { id: 'drink-water',   name: 'Drink Water',                       icon: '💧', target: '2L daily',     category: 'health',       frequency: 'daily'    as HabitFrequency },
-  { id: 'journal',       name: 'Journal',                           icon: '📝', target: 'Daily',        category: 'mindfulness',  frequency: 'daily'    as HabitFrequency },
-  { id: 'trade-journal', name: 'Trade Journal',                     icon: '📊', target: 'Trading days', category: 'trading',      frequency: 'weekdays' as HabitFrequency },
+  { id: 'make-bed',    name: 'Make Bed',     icon: '🛏️', target: 'Daily',   category: 'productivity', frequency: 'daily' as HabitFrequency },
+  { id: 'exercise',   name: 'Exercise',     icon: '💪', target: '4x/week', category: 'fitness',      frequency: '4x'    as HabitFrequency },
+  { id: 'read',       name: 'Read',         icon: '📚', target: '30 min',  category: 'learning',     frequency: 'daily' as HabitFrequency },
+  { id: 'drink-water',name: 'Drink Water',  icon: '💧', target: '2L daily',category: 'health',       frequency: 'daily' as HabitFrequency },
+  { id: 'journal',    name: 'Journal',      icon: '📝', target: 'Daily',   category: 'mindfulness',  frequency: 'daily' as HabitFrequency },
 ];
 
 // Lazy Redis client initialization
@@ -47,8 +45,12 @@ async function getRedisClient() {
   }
 }
 
-function getStorageKey(date: string) {
-  return `${STORAGE_KEY_PREFIX}:${date}`;
+function getStorageKey(userId: string, date: string) {
+  return `${STORAGE_KEY_PREFIX}:${userId}:${date}`;
+}
+
+function getHabitsListKey(userId: string) {
+  return `${HABITS_LIST_KEY}:${userId}`;
 }
 
 function getToday() {
@@ -94,18 +96,20 @@ interface HabitData {
 
 type HabitDefinition = Pick<HabitData, 'id' | 'name' | 'icon' | 'target' | 'category' | 'frequency' | 'order'>;
 
-async function saveHabitsList(redis: ReturnType<typeof createClient>, habits: HabitData[]) {
+async function saveHabitsList(redis: ReturnType<typeof createClient>, userId: string, habits: HabitData[]) {
   const defs: HabitDefinition[] = habits.map(({ id, name, icon, target, category, frequency, order }) => ({
     id, name, icon, target, category, frequency, order,
   }));
-  await redis.set(HABITS_LIST_KEY, JSON.stringify(defs));
+  await redis.set(getHabitsListKey(userId), JSON.stringify(defs));
 }
 
-async function loadHabitsList(redis: ReturnType<typeof createClient>): Promise<HabitDefinition[]> {
-  const stored = await redis.get(HABITS_LIST_KEY);
-  if (stored) return JSON.parse(stored);
+async function loadHabitsList(redis: ReturnType<typeof createClient>, userId: string): Promise<HabitDefinition[]> {
+  const stored = await redis.get(getHabitsListKey(userId));
+  const parsed = stored ? JSON.parse(stored) : null;
+  if (parsed && parsed.length > 0) return parsed;
+  // No habits stored (new user or all deleted) — seed with defaults
   const defs = DEFAULT_HABITS.map((h, i) => ({ ...h, order: i }));
-  await redis.set(HABITS_LIST_KEY, JSON.stringify(defs));
+  await redis.set(getHabitsListKey(userId), JSON.stringify(defs));
   return defs;
 }
 
@@ -149,20 +153,20 @@ function calculateStreak(completedToday: boolean, history: boolean[]): number {
  * Fetch historical completion data for a habit
  * Walks backwards through dates to build a complete picture
  */
-async function fetchHistoricalData(redis: ReturnType<typeof createClient> | null, startDate: string, daysToFetch: number): Promise<Map<string, HabitData[]>> {
+async function fetchHistoricalData(redis: ReturnType<typeof createClient> | null, userId: string, startDate: string, daysToFetch: number): Promise<Map<string, HabitData[]>> {
   const historicalData = new Map<string, HabitData[]>();
-  
+
   if (!redis) return historicalData;
-  
+
   for (let i = 0; i < daysToFetch; i++) {
     const date = getPreviousDate(startDate, i);
-    const key = getStorageKey(date);
+    const key = getStorageKey(userId, date);
     const data = await redis.get(key);
     if (data) {
       historicalData.set(date, JSON.parse(data));
     }
   }
-  
+
   return historicalData;
 }
 
@@ -229,31 +233,34 @@ function initializeHabits(previousData: HabitData[] | null, today: string, habit
 }
 
 export async function GET() {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
     const redis = await getRedisClient();
     const today = getToday();
-    const storageKey = getStorageKey(today);
-    
+    const storageKey = getStorageKey(userId, today);
+
     let habits: HabitData[];
-    
+
     if (redis) {
       // Try to load today's data
       const stored = await redis.get(storageKey);
-      
+
       if (stored) {
         // Today's data exists - recalculate streaks to ensure accuracy
         habits = JSON.parse(stored);
-        
+
         // Fetch historical data for accurate streak calculation
-        const historicalData = await fetchHistoricalData(redis, today, 30);
-        
+        const historicalData = await fetchHistoricalData(redis, userId, today, 30);
+
         habits = habits.map(habit => {
           // Build complete history from historical data
           const completeHistory = buildCompleteHistory(habit.id, habit.history, historicalData, today);
-          
+
           // Recalculate streak based on complete history
           const streak = calculateStreak(habit.completedToday, completeHistory);
-          
+
           return {
             ...habit,
             history: completeHistory,
@@ -263,10 +270,10 @@ export async function GET() {
       } else {
         // No data for today - check yesterday to initialize
         const yesterday = getPreviousDate(today, 1);
-        const yesterdayKey = getStorageKey(yesterday);
+        const yesterdayKey = getStorageKey(userId, yesterday);
         const yesterdayData = await redis.get(yesterdayKey);
-        
-        const habitDefs = await loadHabitsList(redis);
+
+        const habitDefs = await loadHabitsList(redis, userId);
         habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today, habitDefs);
         await redis.set(storageKey, JSON.stringify(habits));
       }
@@ -335,18 +342,21 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
     const body = await request.json();
     const { habitId, completed } = body;
-    
+
     if (!habitId) {
       return NextResponse.json({ success: false, error: 'habitId is required' }, { status: 400 });
     }
 
     const redis = await getRedisClient();
     const today = getToday();
-    const storageKey = getStorageKey(today);
-    
+    const storageKey = getStorageKey(userId, today);
+
     // Load current habits
     let habits: HabitData[];
     if (redis) {
@@ -356,7 +366,7 @@ export async function POST(request: Request) {
       } else {
         // Initialize from yesterday if needed
         const yesterday = getPreviousDate(today, 1);
-        const yesterdayData = await redis.get(getStorageKey(yesterday));
+        const yesterdayData = await redis.get(getStorageKey(userId, yesterday));
         habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today);
       }
     } else {
@@ -401,6 +411,9 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
     const body = await request.json();
     const { habitId, name, icon, target, category, frequency } = body;
@@ -413,7 +426,7 @@ export async function PUT(request: Request) {
     if (!redis) return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
 
     const today = getToday();
-    const storageKey = getStorageKey(today);
+    const storageKey = getStorageKey(userId, today);
 
     let habits: HabitData[];
     const stored = await redis.get(storageKey);
@@ -421,8 +434,8 @@ export async function PUT(request: Request) {
       habits = JSON.parse(stored);
     } else {
       const yesterday = getPreviousDate(today, 1);
-      const yesterdayData = await redis.get(getStorageKey(yesterday));
-      const habitDefs = await loadHabitsList(redis);
+      const yesterdayData = await redis.get(getStorageKey(userId, yesterday));
+      const habitDefs = await loadHabitsList(redis, userId);
       habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today, habitDefs);
     }
 
@@ -451,7 +464,7 @@ export async function PUT(request: Request) {
     }
 
     await redis.set(storageKey, JSON.stringify(habits));
-    await saveHabitsList(redis, habits);
+    await saveHabitsList(redis, userId, habits);
 
     const completedToday = habits.filter(h => h.completedToday).length;
     const totalCompletions = habits.reduce((acc, h) =>
@@ -478,18 +491,21 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
     const { searchParams } = new URL(request.url);
     const habitId = searchParams.get('habitId');
-    
+
     if (!habitId) {
       return NextResponse.json({ success: false, error: 'habitId is required' }, { status: 400 });
     }
 
     const redis = await getRedisClient();
     const today = getToday();
-    const storageKey = getStorageKey(today);
-    
+    const storageKey = getStorageKey(userId, today);
+
     // Load current habits
     let habits: HabitData[];
     if (redis) {
@@ -516,7 +532,7 @@ export async function DELETE(request: Request) {
       .map((h, index) => ({ ...h, order: index }));
     
     await redis.set(storageKey, JSON.stringify(reorderedHabits));
-    await saveHabitsList(redis, reorderedHabits);
+    await saveHabitsList(redis, userId, reorderedHabits);
 
     const completedToday = reorderedHabits.filter(h => h.completedToday).length;
     const totalCompletions = reorderedHabits.reduce((acc, h) =>
@@ -542,21 +558,24 @@ export async function DELETE(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
     const body = await request.json();
     const { habitIds } = body;
-    
+
     if (!habitIds || !Array.isArray(habitIds)) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'habitIds array is required' 
+      return NextResponse.json({
+        success: false,
+        error: 'habitIds array is required'
       }, { status: 400 });
     }
 
     const redis = await getRedisClient();
     const today = getToday();
-    const storageKey = getStorageKey(today);
-    
+    const storageKey = getStorageKey(userId, today);
+
     // Load current habits
     let habits: HabitData[];
     if (redis) {
@@ -583,7 +602,7 @@ export async function PATCH(request: Request) {
     updatedHabits.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     
     await redis.set(storageKey, JSON.stringify(updatedHabits));
-    await saveHabitsList(redis, updatedHabits);
+    await saveHabitsList(redis, userId, updatedHabits);
 
     const completedToday = updatedHabits.filter(h => h.completedToday).length;
     const totalCompletions = updatedHabits.reduce((acc, h) =>

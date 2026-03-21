@@ -11,25 +11,39 @@ import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
-import { LayoutDashboard, Target, TrendingUp, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Target, TrendingUp, Menu, X, LogOut } from 'lucide-react';
+import { signOut, useSession } from 'next-auth/react';
 
 type TabId = 'dashboard' | 'trading' | 'goals';
 
+const OWNER_EMAIL = 'mschiumo18@gmail.com';
+
 // Inner component that uses searchParams
 function DashboardContent() {
+  const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  
+
+  const isOwner = session?.user?.email === OWNER_EMAIL;
+
   // Get tab from URL query param, default to 'dashboard'
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
-    if (tab === 'trading' || tab === 'goals') return tab;
+    if (tab === 'trading') return tab;
+    if (tab === 'goals' && isOwner) return tab;
     return 'dashboard';
-  }, [searchParams]);
-  
+  }, [searchParams, isOwner]);
+
   const [activeTab, setActiveTabState] = useState<TabId>(getTabFromUrl);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Redirect external users away from goals tab if they navigate there directly
+  useEffect(() => {
+    if (activeTab === 'goals' && !isOwner) {
+      setActiveTab('dashboard');
+    }
+  }, [isOwner, activeTab]);
   const [habitsHeight, setHabitsHeight] = useState<number>(980);
   const habitsRef = useRef<HTMLDivElement>(null);
 
@@ -59,7 +73,7 @@ function DashboardContent() {
   const tabs = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
-    { id: 'goals' as const, label: 'Goals', icon: Target },
+    ...(isOwner ? [{ id: 'goals' as const, label: 'Goals', icon: Target }] : []),
   ];
 
   return (
@@ -100,6 +114,18 @@ function DashboardContent() {
               {/* Desktop Widgets */}
               <div className="hidden md:flex items-center gap-4">
                 <LiveClock />
+                <div className="flex items-center gap-2 border-l border-[#30363d] pl-4">
+                  {session?.user?.name && (
+                    <span className="text-xs text-[#8b949e]">{session.user.name}</span>
+                  )}
+                  <button
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    title="Sign out"
+                    className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e] hover:text-white"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Mobile Menu Button */}

@@ -1,8 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from 'redis';
-
-const STORAGE_KEY = 'evening_checkins';
-const HABITS_KEY_PREFIX = 'habits_data';
+import { requireUserId } from '@/lib/auth-session';
 
 // Evening habit check-in questions
 const DEFAULT_QUESTIONS = [
@@ -30,7 +28,7 @@ let redisClient: ReturnType<typeof createClient> | null = null;
 
 async function getRedisClient() {
   if (redisClient) return redisClient;
-  
+
   try {
     const client = createClient({ url: process.env.REDIS_URL || undefined });
     client.on('error', (err) => console.error('Redis Client Error:', err));
@@ -41,6 +39,14 @@ async function getRedisClient() {
     console.error('Failed to connect to Redis:', error);
     return null;
   }
+}
+
+function eveningCheckinKey(userId: string) {
+  return `evening_checkins:${userId}`;
+}
+
+function habitDataKey(userId: string, date: string) {
+  return `habits_data:${userId}:${date}`;
 }
 
 function getToday() {
@@ -65,14 +71,14 @@ interface HabitData {
 /**
  * Get habit completions for a specific date
  */
-async function getHabitCompletionsForDate(redis: ReturnType<typeof createClient>, date: string): Promise<Record<string, boolean>> {
+async function getHabitCompletionsForDate(redis: ReturnType<typeof createClient>, userId: string, date: string): Promise<Record<string, boolean>> {
   try {
-    const habitsData = await redis.get(`${HABITS_KEY_PREFIX}:${date}`);
+    const habitsData = await redis.get(habitDataKey(userId, date));
     if (!habitsData) return {};
-    
+
     const habits: HabitData[] = JSON.parse(habitsData);
     const completions: Record<string, boolean> = {};
-    
+
     for (const habit of habits) {
       const questionId = HABIT_TO_QUESTION_MAP[habit.id];
       if (questionId) {
@@ -82,7 +88,7 @@ async function getHabitCompletionsForDate(redis: ReturnType<typeof createClient>
         }
       }
     }
-    
+
     return completions;
   } catch (error) {
     console.error('Error fetching habit completions:', error);
@@ -90,29 +96,32 @@ async function getHabitCompletionsForDate(redis: ReturnType<typeof createClient>
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || getToday();
     const range = searchParams.get('range') || '7'; // days for report
 
     const redis = await getRedisClient();
-    
+
     if (!redis) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Redis not available' 
+      return NextResponse.json({
+        success: false,
+        error: 'Redis not available'
       }, { status: 503 });
     }
 
-    const stored = await redis.get(STORAGE_KEY);
+    const stored = await redis.get(eveningCheckinKey(userId));
     const allCheckins = stored ? JSON.parse(stored) : [];
 
     // Filter by date range if specified
     const daysBack = parseInt(range, 10);
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysBack);
-    
+
     const filteredCheckins = allCheckins.filter((c: { date: string }) => {
       const checkinDate = new Date(c.date);
       return checkinDate >= cutoffDate;
@@ -120,16 +129,16 @@ export async function GET(request: Request) {
 
     // Get today's checkin if exists
     const todayCheckin = allCheckins.find((c: { date: string }) => c.date === date);
-    
+
     // Get habit completions for today
-    const habitCompletions = await getHabitCompletionsForDate(redis, date);
-    
+    const habitCompletions = await getHabitCompletionsForDate(redis, userId, date);
+
     // Merge habit completions with checkin responses
     const mergedResponses = {
       ...habitCompletions,
       ...(todayCheckin?.responses || {})
     };
-    
+
     // Create merged checkin data
     const mergedCheckin = todayCheckin ? {
       ...todayCheckin,
@@ -156,36 +165,39 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Evening checkin GET error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Failed to fetch checkin data' 
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch checkin data'
     }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const { responses, notes } = body;
 
     if (!responses || typeof responses !== 'object') {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'responses object is required' 
+      return NextResponse.json({
+        success: false,
+        error: 'responses object is required'
       }, { status: 400 });
     }
 
     const redis = await getRedisClient();
-    
+
     if (!redis) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Redis not available' 
+      return NextResponse.json({
+        success: false,
+        error: 'Redis not available'
       }, { status: 503 });
     }
 
     const today = getToday();
-    const stored = await redis.get(STORAGE_KEY);
+    const stored = await redis.get(eveningCheckinKey(userId));
     const allCheckins = stored ? JSON.parse(stored) : [];
 
     // Check if already submitted today
@@ -214,7 +226,7 @@ export async function POST(request: Request) {
       return new Date(c.date) >= cutoffDate;
     });
 
-    await redis.set(STORAGE_KEY, JSON.stringify(trimmedCheckins));
+    await redis.set(eveningCheckinKey(userId), JSON.stringify(trimmedCheckins));
 
     return NextResponse.json({
       success: true,
@@ -223,9 +235,9 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Evening checkin POST error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Failed to save checkin' 
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to save checkin'
     }, { status: 500 });
   }
 }
@@ -260,8 +272,7 @@ function calculateStats(checkins: { date: string; responses: Record<string, bool
   // Calculate streak (consecutive days with checkins)
   let streak = 0;
   const sortedDates = checkins.map(c => c.date).sort().reverse();
-  const today = getToday();
-  
+
   for (let i = 0; i < sortedDates.length; i++) {
     const expectedDate = new Date();
     expectedDate.setDate(expectedDate.getDate() - i);
@@ -271,7 +282,7 @@ function calculateStats(checkins: { date: string; responses: Record<string, bool
       month: '2-digit',
       day: '2-digit'
     }).split('/').reverse().join('-');
-    
+
     if (sortedDates[i] === expectedDateStr) {
       streak++;
     } else {
@@ -281,7 +292,7 @@ function calculateStats(checkins: { date: string; responses: Record<string, bool
 
   // Calculate by question
   const byQuestion: Record<string, { yes: number; no: number; rate: number }> = {};
-  
+
   questions.forEach(q => {
     const yes = checkins.filter(c => c.responses?.[q.id] === true).length;
     const no = checkins.filter(c => c.responses?.[q.id] === false).length;

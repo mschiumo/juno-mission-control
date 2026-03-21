@@ -11,6 +11,7 @@ import type { Trade, UpdateTradeRequest } from '@/types/trading';
 import { TradeStatus, TradeSide } from '@/types/trading';
 import { getTradeById, updateTrade, deleteTrade } from '@/lib/db/trades-v2';
 import { getNowInEST } from '@/lib/date-utils';
+import { requireUserId } from '@/lib/auth-session';
 
 interface RouteParams {
   params: Promise<{
@@ -27,28 +28,21 @@ export async function GET(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
     const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    
-    const trade = await getTradeById(id);
-    
+
+    const trade = await getTradeById(id, userId);
+
     if (!trade) {
       return NextResponse.json(
         { success: false, error: 'Trade not found' },
         { status: 404 }
       );
     }
-    
-    // Verify user has access to this trade
-    if (userId && trade.userId && trade.userId !== userId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 403 }
-      );
-    }
-    
+
     return NextResponse.json({ success: true, data: trade });
     
   } catch (error) {
@@ -72,26 +66,19 @@ export async function PUT(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
     const { id } = await params;
     const body: UpdateTradeRequest = await request.json();
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    
-    const trade = await getTradeById(id);
-    
+
+    const trade = await getTradeById(id, userId);
+
     if (!trade) {
       return NextResponse.json(
         { success: false, error: 'Trade not found' },
         { status: 404 }
-      );
-    }
-    
-    // Verify user has access to this trade
-    if (userId && trade.userId && trade.userId !== userId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 403 }
       );
     }
     
@@ -245,7 +232,7 @@ export async function PUT(
     }
     
     // Update trade in Redis
-    const updatedTrade = await updateTrade(id, updates);
+    const updatedTrade = await updateTrade(id, updates, userId);
     
     if (!updatedTrade) {
       return NextResponse.json(
@@ -274,29 +261,22 @@ export async function DELETE(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
     const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    
-    const trade = await getTradeById(id);
-    
+
+    const trade = await getTradeById(id, userId);
+
     if (!trade) {
       return NextResponse.json(
         { success: false, error: 'Trade not found' },
         { status: 404 }
       );
     }
-    
-    // Verify user has access to this trade
-    if (userId && trade.userId && trade.userId !== userId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 403 }
-      );
-    }
-    
-    await deleteTrade(id);
+
+    await deleteTrade(id, userId);
     
     return NextResponse.json({ 
       success: true, 

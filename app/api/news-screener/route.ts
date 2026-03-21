@@ -232,17 +232,27 @@ export async function GET() {
     const rawNews = await fetchFinnhubNews();
     
     // Categorize news items
-    const categorizedNews: CategorizedNews[] = [];
+    let categorizedNews: CategorizedNews[] = [];
     const seenHeadlines = new Set<string>();
-    
+
     for (const item of rawNews) {
       // Skip duplicates
       if (seenHeadlines.has(item.headline)) continue;
       seenHeadlines.add(item.headline);
-      
+
       const categorized = categorizeNews(item);
       if (categorized) {
         categorizedNews.push(categorized);
+      }
+    }
+
+    // If live data produced no categorized items, fall back to mock data
+    if (categorizedNews.length === 0 && FINNHUB_API_KEY) {
+      console.warn('[NewsScreener] Live data produced 0 categorized items, falling back to mock data');
+      const mockItems = getMockNews();
+      for (const item of mockItems) {
+        const categorized = categorizeNews(item);
+        if (categorized) categorizedNews.push(categorized);
       }
     }
     
