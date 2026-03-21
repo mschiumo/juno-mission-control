@@ -70,7 +70,7 @@ const CARD_GRID: Record<number, string> = {
   5: 'grid-cols-5',
 };
 
-export default function WatchlistView({ hideActiveTrades = false, hideClosedPositions = false, cardColumns = 3 }: { hideActiveTrades?: boolean; hideClosedPositions?: boolean; cardColumns?: number }) {
+export default function WatchlistView({ hideActiveTrades = false, hideClosedPositions = false, cardColumns = 3, emptyMessage }: { hideActiveTrades?: boolean; hideClosedPositions?: boolean; cardColumns?: number; emptyMessage?: string }) {
   const cardGridClass = CARD_GRID[cardColumns] ?? 'grid-cols-3';
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
