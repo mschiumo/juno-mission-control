@@ -4,6 +4,7 @@ import { getRedisClient } from '@/lib/redis';
 
 interface UserPrefs {
   calendarUrl: string | null;
+  tradingTourCompleted?: boolean;
 }
 
 async function getPrefs(userId: string): Promise<UserPrefs> {
@@ -60,6 +61,29 @@ export async function POST(request: Request) {
   await savePrefs(userId, { ...existing, calendarUrl: body.calendarUrl.trim() });
 
   return NextResponse.json({ success: true });
+}
+
+export async function PATCH(request: Request) {
+  const authResult = await requireUserId();
+  if (authResult.error) return authResult.error;
+  const { userId } = authResult;
+
+  let body: Partial<UserPrefs>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ success: false, error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const existing = await getPrefs(userId);
+  const updated: UserPrefs = { ...existing };
+
+  if (typeof body.tradingTourCompleted === 'boolean') {
+    updated.tradingTourCompleted = body.tradingTourCompleted;
+  }
+
+  await savePrefs(userId, updated);
+  return NextResponse.json({ success: true, prefs: updated });
 }
 
 export async function DELETE() {
