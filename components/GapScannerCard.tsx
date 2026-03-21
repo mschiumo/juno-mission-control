@@ -203,7 +203,7 @@ export default function GapScannerCard() {
         href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
         target="_blank" rel="noopener noreferrer"
         title={stock.name}
-        className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-2 px-3 py-[6px] hover:bg-[#21262d] group border-b border-[#21262d]/60 last:border-0 transition-colors"
+        className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-2 px-3 py-2 hover:bg-[#21262d] group border-b border-[#30363d] last:border-0 transition-colors"
       >
         {/* Symbol */}
         <div className="flex items-center gap-1.5 min-w-0">
