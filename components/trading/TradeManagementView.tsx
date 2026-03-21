@@ -40,13 +40,13 @@ export default function TradeManagementView() {
           </div>
         </div>
 
-        {/* Watchlist Section - Right (fixed height matching left column) */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-full">
+        {/* Watchlist Section - Right (stretches to match left column via grid default align-self:stretch) */}
+        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
           <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50 shrink-0">
             <Bookmark className="w-5 h-5 text-[#F97316]" />
             <h3 className="text-lg font-semibold text-white">Watchlist</h3>
           </div>
-          <div className="p-6 flex-1 overflow-y-auto">
+          <div className="p-6 flex-1 min-h-0 overflow-y-auto">
             <WatchlistView />
           </div>
         </div>
