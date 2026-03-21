@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calculator, TrendingUp, Target, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, BarChart2, DollarSign } from 'lucide-react';
 
 interface ProjectionParams {
   tradesPerDay: number;
@@ -24,23 +24,23 @@ interface ProjectionResult {
 
 function calculateProjection(params: ProjectionParams): ProjectionResult {
   const { riskPerTrade, tradesPerDay, rewardToRisk, winRate } = params;
-  
+
   const winningTrades = tradesPerDay * winRate;
   const losingTrades = tradesPerDay * (1 - winRate);
-  
+
   const profitPerWin = riskPerTrade * rewardToRisk;
   const lossPerLoss = riskPerTrade;
-  
+
   const totalProfit = winningTrades * profitPerWin;
   const totalLoss = losingTrades * lossPerLoss;
-  
+
   const netPerDay = totalProfit - totalLoss;
   const netPerWeek = netPerDay * 5;
   const netPerMonth = netPerDay * 21;
   const netPerYear = netPerDay * 252;
-  
+
   const sharpeRatio = lossPerLoss > 0 ? profitPerWin / lossPerLoss : 0;
-  
+
   return {
     winningTrades,
     losingTrades,
@@ -54,263 +54,211 @@ function calculateProjection(params: ProjectionParams): ProjectionResult {
   };
 }
 
+function fmt(n: number) {
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export default function ProfitProjectionView() {
-  // Use string state to allow empty/cleared inputs
   const [inputs, setInputs] = useState({
     tradesPerDay: '15',
     riskPerTrade: '10',
     rewardToRisk: '2.0',
     winRate: '50',
   });
-  
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Parse and validate params for calculation
-  const params: ProjectionParams = useMemo(() => {
-    const tradesPerDay = parseFloat(inputs.tradesPerDay);
-    const riskPerTrade = parseFloat(inputs.riskPerTrade);
-    const rewardToRisk = parseFloat(inputs.rewardToRisk);
-    const winRate = parseFloat(inputs.winRate) / 100;
-    
-    return {
-      tradesPerDay: isNaN(tradesPerDay) ? 0 : tradesPerDay,
-      riskPerTrade: isNaN(riskPerTrade) ? 0 : riskPerTrade,
-      rewardToRisk: isNaN(rewardToRisk) ? 0 : rewardToRisk,
-      winRate: isNaN(winRate) ? 0 : winRate,
-    };
-  }, [inputs]);
+  const params: ProjectionParams = useMemo(() => ({
+    tradesPerDay: parseFloat(inputs.tradesPerDay) || 0,
+    riskPerTrade: parseFloat(inputs.riskPerTrade) || 0,
+    rewardToRisk: parseFloat(inputs.rewardToRisk) || 0,
+    winRate: (parseFloat(inputs.winRate) || 0) / 100,
+  }), [inputs]);
 
   const projection = useMemo(() => calculateProjection(params), [params]);
 
-  const validateField = (name: string, value: string): string => {
-    if (value === '' || value === undefined || value === null) {
-      return 'This field is required';
-    }
-    const num = parseFloat(value);
-    if (isNaN(num)) {
-      return 'Please enter a valid number';
-    }
-    if (num < 0) {
-      return 'Value must be positive';
-    }
-    return '';
-  };
+  const isValid = params.tradesPerDay > 0 && params.riskPerTrade > 0 && params.rewardToRisk > 0 && params.winRate > 0;
+  const winPct = Math.min(100, Math.max(0, params.winRate * 100));
+  const isPositive = projection.netPerDay >= 0;
 
-  const updateInput = (field: keyof typeof inputs, value: string) => {
-    setInputs(prev => ({ ...prev, [field]: value }));
-    
-    const error = validateField(field, value);
-    setErrors(prev => ({ ...prev, [field]: error }));
-  };
-
-  const hasErrors = Object.values(errors).some(e => e !== '');
+  const inputClass = "w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-sm font-semibold text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors";
 
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
         <div className="p-2 bg-[#F97316]/10 rounded-lg">
-          <Calculator className="w-5 h-5 text-[#F97316]" />
+          <BarChart2 className="w-5 h-5 text-[#F97316]" />
         </div>
-        <h2 className="text-lg font-semibold text-white">Profit Projection</h2>
+        <div>
+          <h2 className="text-base font-semibold text-white">Profit Projection</h2>
+          <p className="text-[11px] text-[#8b949e]">Simulate your trading edge over time</p>
+        </div>
       </div>
+
       <div className="p-6 space-y-6">
 
-      {/* Main Inputs - Like Excel Top Section */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-        <h3 className="text-sm font-medium text-[#8b949e] mb-4 flex items-center gap-2">
-          <Target className="w-4 h-4" />
-          Trading Parameters
-        </h3>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-4">
-            <label className="block text-xs text-[#fef08a] font-medium mb-1.5 uppercase tracking-wide">
-              Trades/Day
-            </label>
+        {/* Input row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-medium text-[#8b949e] uppercase tracking-wider">Trades / Day</label>
             <input
-              type="text"
-              inputMode="decimal"
+              type="text" inputMode="decimal"
               value={inputs.tradesPerDay}
-              onChange={(e) => updateInput('tradesPerDay', e.target.value)}
+              onChange={e => setInputs(p => ({ ...p, tradesPerDay: e.target.value }))}
               placeholder="15"
-              className="w-full px-3 py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-[#F97316]"
+              className={inputClass}
             />
-            {errors.tradesPerDay && (
-              <p className="text-xs text-[#f85149] mt-1">{errors.tradesPerDay}</p>
-            )}
           </div>
-
-          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-4">
-            <label className="block text-xs text-[#fef08a] font-medium mb-1.5 uppercase tracking-wide">
-              Risk/Trade ($)
-            </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={inputs.riskPerTrade}
-              onChange={(e) => updateInput('riskPerTrade', e.target.value)}
-              placeholder="10"
-              className="w-full px-3 py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-[#F97316]"
-            />
-            {errors.riskPerTrade && (
-              <p className="text-xs text-[#f85149] mt-1">{errors.riskPerTrade}</p>
-            )}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-medium text-[#8b949e] uppercase tracking-wider">Risk / Trade ($)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#8b949e]">$</span>
+              <input
+                type="text" inputMode="decimal"
+                value={inputs.riskPerTrade}
+                onChange={e => setInputs(p => ({ ...p, riskPerTrade: e.target.value }))}
+                placeholder="10"
+                className={`${inputClass} pl-6`}
+              />
+            </div>
           </div>
-
-          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-4">
-            <label className="block text-xs text-[#fef08a] font-medium mb-1.5 uppercase tracking-wide">
-              Reward to Risk
-            </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={inputs.rewardToRisk}
-              onChange={(e) => updateInput('rewardToRisk', e.target.value)}
-              placeholder="2.0"
-              className="w-full px-3 py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-[#F97316]"
-            />
-            {errors.rewardToRisk && (
-              <p className="text-xs text-[#f85149] mt-1">{errors.rewardToRisk}</p>
-            )}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-medium text-[#8b949e] uppercase tracking-wider">Reward : Risk</label>
+            <div className="relative">
+              <input
+                type="text" inputMode="decimal"
+                value={inputs.rewardToRisk}
+                onChange={e => setInputs(p => ({ ...p, rewardToRisk: e.target.value }))}
+                placeholder="2.0"
+                className={`${inputClass} pr-6`}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8b949e]">:1</span>
+            </div>
           </div>
-
-          <div className="bg-[#fef08a]/10 border border-[#fef08a]/30 rounded-lg p-4">
-            <label className="block text-xs text-[#fef08a] font-medium mb-1.5 uppercase tracking-wide">
-              Win Rate (%)
-            </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={inputs.winRate}
-              onChange={(e) => updateInput('winRate', e.target.value)}
-              placeholder="50"
-              className="w-full px-3 py-2 bg-[#0d1117] border border-[#fef08a]/30 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-[#F97316]"
-            />
-            {errors.winRate && (
-              <p className="text-xs text-[#f85149] mt-1">{errors.winRate}</p>
-            )}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-medium text-[#8b949e] uppercase tracking-wider">Win Rate (%)</label>
+            <div className="relative">
+              <input
+                type="text" inputMode="decimal"
+                value={inputs.winRate}
+                onChange={e => setInputs(p => ({ ...p, winRate: e.target.value }))}
+                placeholder="50"
+                className={`${inputClass} pr-6`}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8b949e]">%</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Results Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Current Scenario Breakdown */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-          <h3 className="text-sm font-medium text-[#8b949e] mb-4">
-            Trade Breakdown (${isNaN(parseFloat(inputs.riskPerTrade)) ? '0' : inputs.riskPerTrade} Risk)
-          </h3>
-          
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-4 text-sm border-b border-[#30363d] pb-2">
-              <div></div>
-              <div className="text-center text-[#3fb950] font-medium">Winning Trades</div>
-              <div className="text-center text-[#f85149] font-medium">Losing Trades</div>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-4 py-2 border-b border-[#21262d] text-sm">
-              <span className="text-[#8b949e]">Trades per day</span>
-              <span className="text-center text-white">{hasErrors ? '-' : projection.winningTrades.toFixed(2)}</span>
-              <span className="text-center text-white">{hasErrors ? '-' : projection.losingTrades.toFixed(2)}</span>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-4 py-2 border-b border-[#21262d] text-sm">
-              <span className="text-[#8b949e]">R Per trade</span>
-              <span className="text-center text-white">{hasErrors ? '-' : params.rewardToRisk.toFixed(1)}</span>
-              <span className="text-center text-white">1.0</span>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-4 py-2 border-b border-[#21262d] text-sm">
-              <span className="text-[#8b949e]">Risk Unit</span>
-              <span className="text-center text-[#3fb950]">{hasErrors ? '-' : '$' + (projection.winningTrades * params.riskPerTrade).toFixed(2)}</span>
-              <span className="text-center text-[#f85149]">{hasErrors ? '-' : '$' + (projection.losingTrades * params.riskPerTrade).toFixed(2)}</span>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-4 py-2 text-sm">
-              <span className="text-[#8b949e]">Profit (Gain/Loss)</span>
-              <span className="text-center text-[#3fb950] font-semibold">{hasErrors ? '-' : '$' + projection.profitPerWin.toFixed(2)}</span>
-              <span className="text-center text-[#f85149] font-semibold">{hasErrors ? '-' : '-$' + projection.lossPerLoss.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-[#30363d]">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-[#8b949e]">Sharpe Ratio</span>
-              <span className={`font-semibold ${hasErrors ? 'text-[#8b949e]' : projection.sharpeRatio >= 1 ? 'text-[#3fb950]' : 'text-[#8b949e]'}`}>
-                {hasErrors ? '-' : projection.sharpeRatio.toFixed(2)}
+        {/* Win / Loss visual bar */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-[#8b949e]">
+            <div className="flex items-center gap-1.5">
+              <TrendingUp className="w-3.5 h-3.5 text-[#3fb950]" />
+              <span>
+                <span className="text-white font-medium">{isValid ? projection.winningTrades.toFixed(1) : '—'}</span> wins/day
+                {isValid && <span className="ml-1 text-[#3fb950]">(+{fmt(projection.profitPerWin)} each)</span>}
               </span>
             </div>
+            <div className="flex items-center gap-1.5">
+              <span>
+                {isValid && <span className="mr-1 text-[#f85149]">(−{fmt(projection.lossPerLoss)} each)</span>}
+                <span className="text-white font-medium">{isValid ? projection.losingTrades.toFixed(1) : '—'}</span> losses/day
+              </span>
+              <TrendingDown className="w-3.5 h-3.5 text-[#f85149]" />
+            </div>
+          </div>
+          <div className="h-2 rounded-full overflow-hidden bg-[#f85149]/30 flex">
+            <div
+              className="h-full bg-[#3fb950] rounded-full transition-all duration-500"
+              style={{ width: `${winPct}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-[#8b949e]">
+            <span>{winPct.toFixed(0)}% win rate</span>
+            {isValid && (
+              <span className={`font-medium ${projection.sharpeRatio >= 1 ? 'text-[#3fb950]' : 'text-[#8b949e]'}`}>
+                Sharpe {projection.sharpeRatio.toFixed(2)}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Income Projection */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-          <h3 className="text-sm font-medium text-[#8b949e] mb-4 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" />
-            Income Projection (${isNaN(parseFloat(inputs.riskPerTrade)) ? '0' : inputs.riskPerTrade} Risk)
-          </h3>
-          
-          <div className="space-y-3">
-            <ProjectionRow label="Per day" value={hasErrors ? null : projection.netPerDay} />
-            <ProjectionRow label="Per week" value={hasErrors ? null : projection.netPerWeek} />
-            <ProjectionRow label="Per month" value={hasErrors ? null : projection.netPerMonth} />
-            <ProjectionRow label="Per year" value={hasErrors ? null : projection.netPerYear} isTotal />
-          </div>
+        {/* Time-period projection cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: 'Per Day', value: isValid ? projection.netPerDay : null, sub: '1 trading day' },
+            { label: 'Per Week', value: isValid ? projection.netPerWeek : null, sub: '5 trading days' },
+            { label: 'Per Month', value: isValid ? projection.netPerMonth : null, sub: '21 trading days' },
+            { label: 'Per Year', value: isValid ? projection.netPerYear : null, sub: '252 trading days', highlight: true },
+          ].map(({ label, value, sub, highlight }) => {
+            const positive = value !== null && value >= 0;
+            return (
+              <div
+                key={label}
+                className={`rounded-xl p-4 border ${
+                  highlight
+                    ? 'bg-gradient-to-br from-[#F97316]/10 to-[#d97706]/5 border-[#F97316]/30'
+                    : 'bg-[#0d1117] border-[#30363d]'
+                }`}
+              >
+                <p className={`text-[10px] font-medium uppercase tracking-wider mb-2 ${highlight ? 'text-[#F97316]' : 'text-[#8b949e]'}`}>{label}</p>
+                <p className={`font-bold tabular-nums ${highlight ? 'text-2xl' : 'text-lg'} ${
+                  value === null ? 'text-[#8b949e]' : positive ? 'text-[#3fb950]' : 'text-[#f85149]'
+                }`}>
+                  {value === null ? '—' : fmt(value)}
+                </p>
+                <p className="text-[10px] text-[#8b949e] mt-1">{sub}</p>
+              </div>
+            );
+          })}
         </div>
-      </div>
 
-      {/* Summary Card */}
-      <div className="bg-gradient-to-r from-[#F97316]/20 to-[#d97706]/20 border border-[#F97316]/30 rounded-xl p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-[#8b949e] mb-1">Total Yearly Income (${isNaN(parseFloat(inputs.riskPerTrade)) ? '0' : inputs.riskPerTrade} Risk/Trade)</p>
-            <p className="text-3xl font-bold text-white">
-              {hasErrors ? '-' : '$' + projection.netPerYear.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        {/* Edge summary strip */}
+        {isValid && (
+          <div className={`rounded-xl border p-4 ${isPositive ? 'bg-[#3fb950]/5 border-[#3fb950]/20' : 'bg-[#f85149]/5 border-[#f85149]/20'}`}>
+            <div className="grid grid-cols-3 divide-x divide-[#30363d] text-center">
+              <div className="px-4">
+                <p className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Daily Net</p>
+                <p className={`text-base font-bold ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                  {fmt(projection.netPerDay)}
+                </p>
+              </div>
+              <div className="px-4">
+                <p className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Edge per Trade</p>
+                <p className={`text-base font-bold ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                  {fmt(projection.netPerDay / (params.tradesPerDay || 1))}
+                </p>
+              </div>
+              <div className="px-4">
+                <p className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Strategy</p>
+                <p className="text-base font-bold text-white flex items-center justify-center gap-1">
+                  <Target className="w-3.5 h-3.5 text-[#F97316]" />
+                  {params.rewardToRisk.toFixed(1)}:1 @ {(params.winRate * 100).toFixed(0)}%
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Hero yearly call-out */}
+        {isValid && (
+          <div className="flex items-center justify-between bg-gradient-to-r from-[#F97316]/15 to-transparent border border-[#F97316]/25 rounded-xl px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-[#F97316]/10 rounded-lg">
+                <DollarSign className="w-5 h-5 text-[#F97316]" />
+              </div>
+              <div>
+                <p className="text-xs text-[#8b949e]">Projected annual income</p>
+                <p className="text-[11px] text-[#8b949e]">{inputs.tradesPerDay} trades/day · {inputs.winRate}% win rate · {inputs.rewardToRisk}:1 R:R · ${inputs.riskPerTrade} risk</p>
+              </div>
+            </div>
+            <p className={`text-3xl font-bold tabular-nums ${projection.netPerYear >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+              {fmt(projection.netPerYear)}
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-[#8b949e] mb-1">Based on</p>
-            <p className="text-sm text-white">{hasErrors ? '-' : `${inputs.tradesPerDay} trades/day @ ${inputs.winRate}% win rate`}</p>
-            <p className="text-sm text-[#8b949e]">{hasErrors ? '-' : `${inputs.rewardToRisk}:1 Reward/Risk`}</p>
-          </div>
-        </div>
-      </div>
-      </div>
-    </div>
-  );
-}
+        )}
 
-function ProjectionRow({ 
-  label, 
-  value, 
-  isTotal = false 
-}: { 
-  label: string;
-  value: number | null;
-  isTotal?: boolean;
-}) {
-  if (value === null) {
-    return (
-      <div className={`flex items-center justify-between py-2 ${isTotal ? 'border-t border-[#30363d] pt-3' : 'border-b border-[#21262d] last:border-0'}`}>
-        <div className="flex items-center gap-2">
-          <Calendar className={`w-4 h-4 ${isTotal ? 'text-[#F97316]' : 'text-[#8b949e]'}`} />
-          <span className={isTotal ? 'text-white font-medium' : 'text-[#8b949e]'}>{label}</span>
-        </div>
-        <span className="text-[#8b949e]">-</span>
       </div>
-    );
-  }
-  
-  return (
-    <div className={`flex items-center justify-between py-2 ${isTotal ? 'border-t border-[#30363d] pt-3' : 'border-b border-[#21262d] last:border-0'}`}>
-      <div className="flex items-center gap-2">
-        <Calendar className={`w-4 h-4 ${isTotal ? 'text-[#F97316]' : 'text-[#8b949e]'}`} />
-        <span className={isTotal ? 'text-white font-medium' : 'text-[#8b949e]'}>{label}</span>
-      </div>
-      <span className={`font-semibold ${value >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-        ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-      </span>
     </div>
   );
 }

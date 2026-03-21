@@ -10,7 +10,6 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Star,
   X,
   Calculator,
   TrendingUp,
@@ -387,26 +386,6 @@ export default function QuickWatchlist({
     };
   }, [removeFromFavorites]);
 
-  const toggleFavorite = async (item: WatchlistItem) => {
-    try {
-      const response = await fetch('/api/watchlist', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: item.id,
-          updates: { isFavorite: !item.isFavorite },
-          userId: DEFAULT_USER_ID,
-        }),
-      });
-      if (!response.ok) throw new Error('Failed to update');
-      setWatchlist(prev =>
-        prev.map(w => w.id === item.id ? { ...w, isFavorite: !w.isFavorite } : w)
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update');
-    }
-  };
-
   const handleSort = (field: SortField) => {
     setSort(prev => ({
       field,
@@ -590,10 +569,7 @@ export default function QuickWatchlist({
                   return (
                     <div key={item.id} className="grid grid-cols-12 gap-2 px-3 py-2 border-b border-[#30363d] last:border-b-0 hover:bg-[#0d1117]/50 transition-colors items-center">
                       <div className="col-span-3 flex items-center gap-2">
-                        <button onClick={() => toggleFavorite(item)} className="text-[#8b949e] hover:text-yellow-400 transition-colors">
-                          <Star className={`w-3 h-3 ${item.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                        </button>
-                        <button 
+                        <button
                           onClick={() => handleSelectTicker(item.ticker, item.id)}
                           className="text-sm font-medium text-white hover:text-[#F97316] transition-colors cursor-pointer"
                           title="Click to use in calculator"
@@ -662,9 +638,8 @@ export default function QuickWatchlist({
           )}
 
           {watchlist.length > 0 && (
-            <div className="flex items-center justify-between text-xs text-[#8b949e] pt-2 border-t border-[#30363d]">
-              <span>Total: {watchlist.length}</span>
-              <span>Favorites: {watchlist.filter(i => i.isFavorite).length}</span>
+            <div className="pt-2 border-t border-[#30363d]">
+              <span className="text-xs text-[#8b949e]">Total: {watchlist.length}</span>
             </div>
           )}
         </div>

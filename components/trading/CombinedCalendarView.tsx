@@ -443,8 +443,48 @@ export default function CombinedCalendarView() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-[#F97316]/30 border-t-[#F97316] rounded-full animate-spin" />
+      <div className="space-y-4 animate-pulse">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 bg-[#30363d] rounded-lg" />
+            <div className="h-6 w-40 bg-[#30363d] rounded-lg" />
+            <div className="w-8 h-8 bg-[#30363d] rounded-lg" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-8 w-24 bg-[#30363d] rounded-lg" />
+            <div className="h-8 w-24 bg-[#30363d] rounded-lg" />
+          </div>
+        </div>
+        {/* Stats row skeleton */}
+        <div className="grid grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 space-y-2">
+              <div className="h-3 w-16 bg-[#30363d] rounded" />
+              <div className="h-6 w-20 bg-[#30363d] rounded" />
+            </div>
+          ))}
+        </div>
+        {/* Calendar grid skeleton */}
+        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+          {/* Day-of-week headers */}
+          <div className="grid grid-cols-7 border-b border-[#30363d]">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <div key={i} className="py-2 flex justify-center">
+                <div className="h-3 w-6 bg-[#30363d] rounded" />
+              </div>
+            ))}
+          </div>
+          {/* Day cells */}
+          <div className="grid grid-cols-7">
+            {Array.from({ length: 35 }).map((_, i) => (
+              <div key={i} className="aspect-square border-r border-b border-[#30363d] p-1.5 last:border-r-0">
+                <div className="h-3 w-5 bg-[#30363d] rounded mb-1" />
+                <div className="h-2 w-full bg-[#30363d]/50 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
