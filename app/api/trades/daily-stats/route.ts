@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getAllTrades } from '@/lib/db/trades-v2';
 import { getESTDateFromTimestamp } from '@/lib/date-utils';
+import { requireUserId } from '@/lib/auth-session';
 
 export async function GET() {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
-    const trades = await getAllTrades();
+    const trades = await getAllTrades(userId);
     
     if (trades.length === 0) {
       return NextResponse.json({

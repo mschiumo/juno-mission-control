@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Trade } from '@/types/trading';
 import { deleteTrade, saveTrade, getTradeById } from '@/lib/db/trades-v2';
 import { mergeTrades } from '@/lib/trading/duplicate-detection';
+import { requireUserId } from '@/lib/auth-session';
 
 interface MergeRequestBody {
   action: 'merge' | 'keep_both' | 'skip';
@@ -26,6 +27,9 @@ interface MergeRequestBody {
  * - csvTradeData: Trade (the CSV trade data to merge or save)
  */
 export async function PUT(request: NextRequest): Promise<NextResponse> {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
     const body: MergeRequestBody = await request.json();
     const { action, dashboardTradeId, csvTradeData } = body;
@@ -48,7 +52,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     switch (action) {
       case 'merge': {
         // Get the dashboard trade
-        const dashboardTrade = await getTradeById(dashboardTradeId);
+        const dashboardTrade = await getTradeById(dashboardTradeId, userId);
         
         if (!dashboardTrade) {
           return NextResponse.json(
@@ -61,10 +65,10 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
         const mergedTrade = mergeTrades(dashboardTrade, csvTradeData);
         
         // Delete the old dashboard trade
-        await deleteTrade(dashboardTradeId);
+        await deleteTrade(dashboardTradeId, userId);
         
         // Save the merged trade
-        await saveTrade(mergedTrade);
+        await saveTrade(mergedTrade, userId);
 
         return NextResponse.json({
           success: true,
@@ -78,7 +82,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
       case 'keep_both': {
         // Save the CSV trade as a separate trade
-        await saveTrade(csvTradeData);
+        await saveTrade(csvTradeData, userId);
 
         return NextResponse.json({
           success: true,

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade } from '@/types/trading';
 import { getAllTrades } from '@/lib/db/trades-v2';
+import { requireUserId } from '@/lib/auth-session';
 
 /**
  * GET /api/trades/export
@@ -23,19 +24,12 @@ import { getAllTrades } from '@/lib/db/trades-v2';
  * - includeJournal: boolean (default: false)
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
     const { searchParams } = new URL(request.url);
-    
-    // Required parameters
-    const userId = searchParams.get('userId');
-    
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'userId is required' },
-        { status: 400 }
-      );
-    }
-    
+
     // Optional filters
     const format = searchParams.get('format') || 'csv';
     const startDate = searchParams.get('startDate');
@@ -43,9 +37,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const status = searchParams.get('status') as Trade['status'] | null;
     const symbol = searchParams.get('symbol');
     const includeJournal = searchParams.get('includeJournal') === 'true';
-    
+
     // Get all trades from Redis
-    const allTrades = await getAllTrades();
+    const allTrades = await getAllTrades(userId);
     
     // Get filtered trades
     let trades = allTrades.filter(

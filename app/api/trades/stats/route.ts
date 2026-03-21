@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, Metrics, DailySummary, TradeStatsResponse } from '@/types/trading';
 import { getAllTrades } from '@/lib/db/trades-v2';
+import { requireUserId } from '@/lib/auth-session';
 
 /**
  * GET /api/trades/stats
@@ -20,19 +21,12 @@ import { getAllTrades } from '@/lib/db/trades-v2';
  * - strategy: string (optional filter)
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
     const { searchParams } = new URL(request.url);
-    
-    // Required parameters
-    const userId = searchParams.get('userId');
-    
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'userId is required' },
-        { status: 400 }
-      );
-    }
-    
+
     // Get date range
     const period = (searchParams.get('period') as Metrics['period']) || 'month';
     let startDate: Date;
@@ -71,7 +65,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const strategy = searchParams.get('strategy');
     
     // Get all trades from Redis
-    const allTrades = await getAllTrades();
+    const allTrades = await getAllTrades(userId);
     
     // Get all user trades in date range
     let trades = allTrades.filter((trade) => {

@@ -162,6 +162,8 @@ export function findPotentialDuplicates(
     if (matchedCsvTradeIds.has(csvTrade.id)) continue;
 
     for (const dashboardTrade of dashboardTrades) {
+      // Skip already-merged trades to prevent re-merging
+      if (dashboardTrade.isMerged) continue;
       // Skip if dashboard trade was already imported from CSV (has import marker)
       if (dashboardTrade.entryNotes?.includes('Imported from TOS')) continue;
 

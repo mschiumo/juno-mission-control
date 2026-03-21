@@ -7,9 +7,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, CreateTradeRequest, TradeListResponse } from '@/types/trading';
-import { TradeStatus, Strategy, TradeSide } from '@/types/trading';
-import { getAllTrades, saveTrade, deleteTrade } from '@/lib/db/trades-v2';
+import { TradeStatus, Strategy } from '@/types/trading';
+import { getAllTrades, saveTrade } from '@/lib/db/trades-v2';
 import { getNowInEST } from '@/lib/date-utils';
+import { requireUserId } from '@/lib/auth-session';
 
 // Helper to generate UUID
 function generateId(): string {
@@ -32,15 +33,14 @@ function generateId(): string {
  * - sortOrder: 'asc' | 'desc' (default: 'desc')
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
     const { searchParams } = new URL(request.url);
-    
-    // Get all trades from Redis
-    const allTrades = await getAllTrades();
-    
-    // Required parameters
-    const userId = searchParams.get('userId') || 'default';
-    
+
+    const allTrades = await getAllTrades(userId);
+
     // Optional filters
     const symbol = searchParams.get('symbol');
     const status = searchParams.get('status') as Trade['status'] | null;
@@ -57,11 +57,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const sortBy = searchParams.get('sortBy') || 'entryDate';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     
-    // Filter trades by user
-    let filteredTrades = allTrades.filter(
-      (trade) => trade.userId === userId || !trade.userId // Include trades without userId for backward compat
-    );
-    
+    let filteredTrades = [...allTrades];
+
     // Apply filters
     if (symbol) {
       filteredTrades = filteredTrades.filter(
@@ -155,6 +152,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
  * Creates a new trade entry
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const { userId, error } = await requireUserId();
+  if (error) return error;
+
   try {
     const body: CreateTradeRequest = await request.json();
     
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Create trade object
     const newTrade: Trade = {
       id: generateId(),
-      userId: body.userId || 'default',
+      userId,
       symbol: body.symbol.toUpperCase(),
       side: body.side,
       status: TradeStatus.OPEN,
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     
     // Store trade in Redis
-    await saveTrade(newTrade);
+    await saveTrade(newTrade, userId);
     
     return NextResponse.json(
       { success: true, data: newTrade },

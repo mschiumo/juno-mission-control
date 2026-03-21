@@ -10,6 +10,7 @@ import { Strategy, TradeStatus, TradeSide } from '@/types/trading';
 import { saveTrades } from '@/lib/db/trades-v2';
 import { parseTOSCSV } from '@/lib/parsers/tos-parser';
 import { getNowInEST } from '@/lib/date-utils';
+import { requireUserId } from '@/lib/auth-session';
 
 /**
  * POST /api/trades/import
@@ -28,16 +29,17 @@ import { getNowInEST } from '@/lib/date-utils';
  */
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
   try {
     const contentType = request.headers.get('content-type') || '';
     let csv: string;
-    let userId: string;
 
     if (contentType.includes('multipart/form-data')) {
       // Handle FormData (file upload)
       const formData = await request.formData();
       const file = formData.get('file') as File | null;
-      userId = (formData.get('userId') as string) || 'default';
 
       if (!file) {
         return NextResponse.json(
@@ -52,7 +54,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Handle JSON
       const body = await request.json();
       csv = body.csv;
-      userId = body.userId || 'default';
 
       if (!csv) {
         return NextResponse.json(
@@ -185,7 +186,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       // Save to Redis
-      await saveTrades(trades);
+      await saveTrades(trades, userId);
 
       return NextResponse.json({
         success: true,
@@ -313,7 +314,7 @@ async function importTradesFromCSV(
 
   // Save all trades to Redis
   if (trades.length > 0) {
-    await saveTrades(trades);
+    await saveTrades(trades, userId);
   }
 
   return {

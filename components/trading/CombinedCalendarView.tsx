@@ -169,7 +169,7 @@ export default function CombinedCalendarView() {
       const [statsRes, journalRes, tradesRes] = await Promise.all([
         fetch(`/api/trades/daily-stats?_t=${Date.now()}`),
         fetch(`/api/daily-journal?_t=${Date.now()}`),
-        fetch('/api/trades?userId=default&perPage=1000')
+        fetch('/api/trades?perPage=1000')
       ]);
 
       const [statsData, journalData, tradesData] = await Promise.all([
@@ -286,7 +286,7 @@ export default function CombinedCalendarView() {
     
     // Fetch trades for this date
     try {
-      const res = await fetch(`/api/trades?userId=default&startDate=${date}&endDate=${date}&perPage=100`);
+      const res = await fetch(`/api/trades?startDate=${date}&endDate=${date}&perPage=100`);
       const data = await res.json();
       setSelectedDateTrades(data.success && data.data ? data.data.trades : []);
       setShowTradeModal(true);
@@ -371,7 +371,7 @@ export default function CombinedCalendarView() {
     
     try {
       for (const tradeId of idsToDelete) {
-        await fetch(`/api/trades/${tradeId}?userId=default`, {
+        await fetch(`/api/trades/${tradeId}`, {
           method: 'DELETE'
         });
       }
@@ -411,7 +411,7 @@ export default function CombinedCalendarView() {
   const handleSaveTrade = async (updatedTrade: Trade) => {
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/trades/${updatedTrade.id}?userId=default`, {
+      const response = await fetch(`/api/trades/${updatedTrade.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedTrade),
@@ -462,13 +462,13 @@ export default function CombinedCalendarView() {
     console.log('Merging trades:', dashboardTrade.id, csvTrade.id);
     try {
       // Delete the dashboard trade
-      await fetch(`/api/trades/${dashboardTrade.id}?userId=default`, {
+      await fetch(`/api/trades/${dashboardTrade.id}`, {
         method: 'DELETE'
       });
       
       // Update the CSV trade with merged notes
       const mergedTrade = mergeTrades(dashboardTrade, csvTrade);
-      await fetch(`/api/trades/${csvTrade.id}?userId=default`, {
+      await fetch(`/api/trades/${csvTrade.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(mergedTrade),
@@ -489,7 +489,7 @@ export default function CombinedCalendarView() {
   const handleSkip = async (csvTrade: Trade) => {
     console.log('Skipping trade, deleting:', csvTrade.id);
     try {
-      await fetch(`/api/trades/${csvTrade.id}?userId=default`, {
+      await fetch(`/api/trades/${csvTrade.id}`, {
         method: 'DELETE'
       });
     } catch (error) {
@@ -1202,7 +1202,7 @@ export default function CombinedCalendarView() {
           onSave={async (entryNotes, exitNotes) => {
             setIsSavingNotes(true);
             try {
-              const response = await fetch(`/api/trades/${editingNotesTrade.id}?userId=default`, {
+              const response = await fetch(`/api/trades/${editingNotesTrade.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
