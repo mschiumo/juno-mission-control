@@ -26,7 +26,7 @@ export default function TradeManagementView() {
             calculatorRef={calculatorRef}
           />
 
-          <div ref={calculatorRef} className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+          <div ref={calculatorRef} className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden sticky top-6">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
               <Calculator className="w-5 h-5 text-[#F97316]" />
               <h3 className="text-lg font-semibold text-white">Position Calculator</h3>
