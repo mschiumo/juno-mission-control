@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 const favicon = process.env.NODE_ENV === 'production' ? '/favicon-prod.svg' : '/favicon.svg';
 
 export const metadata: Metadata = {
-  title: "Juno Mission Control",
-  description: "Personal dashboard for mission control",
+  title: "Confluence Trading",
+  description: "Your disciplined trading command center",
   icons: {
     icon: favicon,
     shortcut: favicon,

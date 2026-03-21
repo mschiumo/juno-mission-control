@@ -18,7 +18,7 @@ import {
 import type { WatchlistItem } from '@/types/watchlist';
 
 const DEFAULT_USER_ID = 'default';
-const STORAGE_KEY = 'juno:daily-favorites:last-cleared';
+const STORAGE_KEY = 'ct:daily-favorites:last-cleared';
 
 type SortField = 'ticker' | 'addedAt' | 'premarket';
 type SortDirection = 'asc' | 'desc';
@@ -378,11 +378,11 @@ export default function QuickWatchlist({
       removeFromFavorites(ticker);
     };
     
-    window.addEventListener('juno:watchlist-updated', handleWatchlistUpdated);
-    window.addEventListener('juno:ticker-moved-to-potential' as any, handleTickerMovedToPotential);
+    window.addEventListener('ct:watchlist-updated', handleWatchlistUpdated);
+    window.addEventListener('ct:ticker-moved-to-potential' as any, handleTickerMovedToPotential);
     return () => {
-      window.removeEventListener('juno:watchlist-updated', handleWatchlistUpdated);
-      window.removeEventListener('juno:ticker-moved-to-potential' as any, handleTickerMovedToPotential);
+      window.removeEventListener('ct:watchlist-updated', handleWatchlistUpdated);
+      window.removeEventListener('ct:ticker-moved-to-potential' as any, handleTickerMovedToPotential);
     };
   }, [removeFromFavorites]);
 

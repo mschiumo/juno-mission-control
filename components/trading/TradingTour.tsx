@@ -89,7 +89,7 @@ const STEPS: TourStep[] = [
     icon: <Upload className="w-9 h-9 text-[#F97316]" />,
     title: 'Import from ThinkorSwim',
     description:
-      "Export Today's Trade Activity from TOS and drop the CSV here. Juno pairs buys with sells, calculates P&L, and flags trades that already exist in your journal so you can merge or skip them.",
+      "Export Today's Trade Activity from TOS and drop the CSV here. Confluence Trading pairs buys with sells, calculates P&L, and flags trades that already exist in your journal so you can merge or skip them.",
     tip: 'Merged trades keep your notes — brokerage numbers always win for the financials.',
   },
   {

@@ -146,7 +146,7 @@ export async function GET(request: Request) {
 
   try {
     const res = await fetch(calendarUrl, {
-      headers: { 'User-Agent': 'JunoMissionControl/1.0', Accept: 'text/calendar' },
+      headers: { 'User-Agent': 'ConfluenceTrading/1.0', Accept: 'text/calendar' },
       next: { revalidate: 300 }, // cache 5 minutes server-side
     });
 

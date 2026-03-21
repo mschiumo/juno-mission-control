@@ -14,8 +14,8 @@ async function updateGoal() {
   const goalIndex = goals.collaborative?.findIndex((g: any) => g.id === 'c1771342996221');
   
   if (goalIndex !== -1 && goalIndex !== undefined) {
-    goals.collaborative[goalIndex].title = 'Update Juno to Sonnet 4.6';
-    goals.collaborative[goalIndex].notes = `## Update Juno to Sonnet 4.6 - Research & Decision
+    goals.collaborative[goalIndex].title = 'Update AI to Sonnet 4.6';
+    goals.collaborative[goalIndex].notes = `## Update AI to Sonnet 4.6 - Research & Decision
 
 ### Current Status
 - **Current Model:** Kimi K2.5

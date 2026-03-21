@@ -83,12 +83,16 @@ function DashboardContent() {
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-[#ff6b35] to-[#ff8c5a] flex items-center justify-center text-white font-bold text-lg md:text-xl shadow-lg">
-                J
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-[#0d9488] to-[#0891b2] flex items-center justify-center shadow-lg">
+                <svg viewBox="0 0 48 48" fill="none" className="w-6 h-6 md:w-7 md:h-7">
+                  <path d="M8,12 Q20,12 24,24" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+                  <path d="M8,36 Q20,36 24,24" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+                  <path d="M24,24 L40,24" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+                </svg>
               </div>
               <div>
-                <h1 className="text-lg md:text-2xl font-bold text-white">Juno Mission Control</h1>
-                <p className="hidden sm:block text-xs md:text-sm text-[#8b949e]">Your personal command center</p>
+                <h1 className="text-lg md:text-2xl font-bold text-white">Confluence Trading</h1>
+                <p className="hidden sm:block text-xs md:text-sm text-[#8b949e]">Your disciplined trading command center</p>
               </div>
             </div>
 
@@ -209,7 +213,7 @@ function DashboardContent() {
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-2">
             <p className="text-center md:text-left text-xs md:text-sm text-[#8b949e]">
-              Juno Mission Control © {new Date().getFullYear()}
+              Confluence Trading © {new Date().getFullYear()}
             </p>
             <div className="flex items-center gap-4">
               <a

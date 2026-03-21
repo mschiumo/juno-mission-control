@@ -49,19 +49,19 @@ interface ApiResponse<T> {
 
 // Custom event names for cross-section sync (kept for backward compatibility)
 const EVENTS = {
-  WATCHLIST_UPDATED: 'juno:watchlist-updated',
-  ACTIVE_TRADES_UPDATED: 'juno:active-trades-updated',
-  CLOSED_POSITIONS_UPDATED: 'juno:closed-positions-updated',
+  WATCHLIST_UPDATED: 'ct:watchlist-updated',
+  ACTIVE_TRADES_UPDATED: 'ct:active-trades-updated',
+  CLOSED_POSITIONS_UPDATED: 'ct:closed-positions-updated',
 } as const;
 
 // Default user ID (can be made dynamic with auth later)
 const DEFAULT_USER_ID = 'default';
 
 // LocalStorage key for order placed state
-const ORDER_PLACED_STORAGE_KEY = 'juno:active-trades-orders';
+const ORDER_PLACED_STORAGE_KEY = 'ct:active-trades-orders';
 
 // LocalStorage key for collapsed sections state
-const COLLAPSED_SECTIONS_STORAGE_KEY = 'juno:watchlist-collapsed-sections';
+const COLLAPSED_SECTIONS_STORAGE_KEY = 'ct:watchlist-collapsed-sections';
 
 const CARD_GRID: Record<number, string> = {
   2: 'grid-cols-2',
@@ -1202,7 +1202,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
       }, 3000);
 
       // Dispatch event to refresh calendar if needed
-      window.dispatchEvent(new CustomEvent('juno:calendar-trades-updated'));
+      window.dispatchEvent(new CustomEvent('ct:calendar-trades-updated'));
 
     } catch (err) {
       console.error('Error adding to calendar:', err);

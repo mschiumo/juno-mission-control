@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
 
-const STORAGE_KEY = 'juno:active-trades';
+const STORAGE_KEY = 'ct:active-trades';
 
 interface ActiveTradesViewProps {
   onTradeClosed?: () => void;
@@ -51,8 +51,8 @@ export default function ActiveTradesView({ onTradeClosed }: ActiveTradesViewProp
       loadActiveTrades();
     };
 
-    window.addEventListener('juno:active-trades-updated', handleActiveTradesUpdate);
-    return () => window.removeEventListener('juno:active-trades-updated', handleActiveTradesUpdate);
+    window.addEventListener('ct:active-trades-updated', handleActiveTradesUpdate);
+    return () => window.removeEventListener('ct:active-trades-updated', handleActiveTradesUpdate);
   }, []);
 
   const loadActiveTrades = () => {
@@ -80,7 +80,7 @@ export default function ActiveTradesView({ onTradeClosed }: ActiveTradesViewProp
     
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new Event('juno:active-trades-updated'));
+      window.dispatchEvent(new Event('ct:active-trades-updated'));
     } catch (error) {
       console.error('Error saving active trades:', error);
     }
@@ -125,7 +125,7 @@ export default function ActiveTradesView({ onTradeClosed }: ActiveTradesViewProp
     
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new Event('juno:active-trades-updated'));
+      window.dispatchEvent(new Event('ct:active-trades-updated'));
     } catch (error) {
       console.error('Error saving order placed state:', error);
     }

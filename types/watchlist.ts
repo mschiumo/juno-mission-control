@@ -20,4 +20,4 @@ export interface WatchlistItem {
   order?: number; // Optional order index for drag-and-drop sorting
 }
 
-export type WatchlistStorageKey = 'juno:trade-watchlist';
+export type WatchlistStorageKey = 'ct:trade-watchlist';

@@ -34,10 +34,14 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#0d1117] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#F97316] mb-4">
-            <span className="text-2xl font-bold text-white">J</span>
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-[#0d9488] to-[#0891b2] mb-4">
+            <svg viewBox="0 0 48 48" fill="none" className="w-7 h-7">
+              <path d="M8,12 Q20,12 24,24" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+              <path d="M8,36 Q20,36 24,24" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+              <path d="M24,24 L40,24" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+            </svg>
           </div>
-          <h1 className="text-xl font-bold text-[#e6edf3]">Juno Mission Control</h1>
+          <h1 className="text-xl font-bold text-[#e6edf3]">Confluence Trading</h1>
           <p className="text-sm text-[#8b949e] mt-1">Sign in to your account</p>
         </div>
 

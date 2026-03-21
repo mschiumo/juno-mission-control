@@ -41,7 +41,7 @@ interface PositionCalculatorProps {
 
 export default function PositionCalculator({ initialTicker, onTickerChange }: PositionCalculatorProps) {
   const [inputs, setInputs] = useState<CalculatorInputs>(() => {
-    const savedRisk = typeof window !== 'undefined' ? localStorage.getItem('juno:risk-amount') : null;
+    const savedRisk = typeof window !== 'undefined' ? localStorage.getItem('ct:risk-amount') : null;
     return {
       ...DEFAULT_VALUES,
       riskAmount: savedRisk || DEFAULT_VALUES.riskAmount,
@@ -70,7 +70,7 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
     } else if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setInputs(prev => ({ ...prev, [field]: value }));
       if (field === 'riskAmount' && value) {
-        try { localStorage.setItem('juno:risk-amount', value); } catch { /* ignore */ }
+        try { localStorage.setItem('ct:risk-amount', value); } catch { /* ignore */ }
       }
     }
   };
@@ -183,8 +183,8 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
 
       // Dispatch custom event to notify WatchlistView in same tab
       const tickerToRemove = inputs.ticker.trim().toUpperCase();
-      window.dispatchEvent(new CustomEvent('juno:watchlist-updated'));
-      window.dispatchEvent(new CustomEvent('juno:ticker-moved-to-potential', { detail: tickerToRemove }));
+      window.dispatchEvent(new CustomEvent('ct:watchlist-updated'));
+      window.dispatchEvent(new CustomEvent('ct:ticker-moved-to-potential', { detail: tickerToRemove }));
 
       // Clear inputs after successful save
       handleClear();
