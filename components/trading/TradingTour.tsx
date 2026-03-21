@@ -14,13 +14,12 @@ import {
 } from 'lucide-react';
 
 type TradingSubTab = 'overview' | 'market' | 'projection' | 'trade-management';
+type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
 
 interface TourStep {
   subtab: TradingSubTab;
-  /** value of the data-tour attribute to spotlight; omit for centered modal */
   targetDataTour?: string;
-  /** which side of the spotlight box to anchor the tooltip */
-  tooltipSide?: 'top' | 'bottom' | 'left' | 'right';
+  tooltipSide?: TooltipSide;
   icon: React.ReactNode;
   title: string;
   description: string;
@@ -30,57 +29,57 @@ interface TourStep {
 const STEPS: TourStep[] = [
   {
     subtab: 'overview',
-    icon: <LayoutDashboard className="w-8 h-8 text-[#F97316]" />,
+    icon: <LayoutDashboard className="w-9 h-9 text-[#F97316]" />,
     title: 'Welcome to Your Trading Hub',
     description:
-      'The Trading tab is your all-in-one workspace for tracking, analyzing, and planning trades. This quick tour highlights the most important features — it only takes a minute.',
+      'The Trading tab is your all-in-one workspace for tracking, analyzing, and planning trades. This quick tour will walk you through the most important features — it only takes a minute.',
     tip: 'Use the tabs at the top to switch between sections at any time.',
   },
   {
     subtab: 'overview',
     targetDataTour: 'trading-nav',
     tooltipSide: 'bottom',
-    icon: <LayoutDashboard className="w-8 h-8 text-[#F97316]" />,
+    icon: <LayoutDashboard className="w-9 h-9 text-[#F97316]" />,
     title: 'Four Sections, One Tab',
     description:
-      'Overview shows your P&L calendar and trade journal. Market gives you the live gap scanner. Trade Management has the position calculator and watchlist. Profit Projection lets you model your strategy.',
-    tip: 'Click any tab to jump to that section — we\'ll walk through each one.',
+      'Overview shows your P&L calendar and trade journal. Market gives you a live gap scanner. Trade Management has the position calculator and watchlist. Profit Projection lets you model your strategy.',
+    tip: "Click any tab to jump to that section — we'll show you each one.",
   },
   {
     subtab: 'overview',
     targetDataTour: 'trading-calendar',
     tooltipSide: 'bottom',
-    icon: <BookOpen className="w-8 h-8 text-[#F97316]" />,
+    icon: <BookOpen className="w-9 h-9 text-[#F97316]" />,
     title: 'P&L Calendar',
     description:
-      'Each day is color-coded: green for winners, red for losers. Click any day to see every trade from that session, write journal notes, rate your emotional state, and log lessons learned.',
+      'Each day is color-coded: green for profitable sessions, red for losing ones. Click any day to open its trade journal — log notes, rate your emotional state, and record lessons learned.',
     tip: 'Consistent journaling is the fastest way to find patterns in your trading.',
   },
   {
     subtab: 'overview',
     targetDataTour: 'trading-import',
     tooltipSide: 'bottom',
-    icon: <Upload className="w-8 h-8 text-[#F97316]" />,
+    icon: <Upload className="w-9 h-9 text-[#F97316]" />,
     title: 'Import from ThinkorSwim',
     description:
-      'Export Today\'s Trade Activity from TOS and drop the CSV here. Juno pairs your buys with sells, calculates P&L, and flags trades that might already be in your journal so you can merge or skip them.',
-    tip: 'Merged trades keep your notes and emotions — brokerage numbers always win for the financials.',
+      "Export Today's Trade Activity from TOS and drop the CSV here. Juno pairs buys with sells, calculates P&L, and flags trades that already exist in your journal so you can merge or skip them.",
+    tip: 'Merged trades keep your notes — brokerage numbers always win for the financials.',
   },
   {
     subtab: 'trade-management',
     targetDataTour: 'position-calculator',
     tooltipSide: 'right',
-    icon: <Calculator className="w-8 h-8 text-[#F97316]" />,
+    icon: <Calculator className="w-9 h-9 text-[#F97316]" />,
     title: 'Position Calculator',
     description:
-      'Enter your account size, max risk per trade, and stop-loss distance — the calculator tells you exactly how many shares to buy. The watchlist on the right lets you pin tickers you\'re watching.',
+      "Enter your account size, max risk per trade, and stop-loss distance — the calculator tells you exactly how many shares to buy. The watchlist on the right lets you pin tickers you're monitoring.",
     tip: 'Hit "Trading Mode" for a distraction-free fullscreen layout during the session.',
   },
   {
     subtab: 'market',
     targetDataTour: 'gap-scanner',
     tooltipSide: 'right',
-    icon: <TrendingUp className="w-8 h-8 text-[#F97316]" />,
+    icon: <TrendingUp className="w-9 h-9 text-[#F97316]" />,
     title: 'Live Gap Scanner',
     description:
       'Stocks gapping ≥ 2% with significant volume refresh every 15 seconds. Star any ticker to pin it to your watchlist. Review this list pre-market to build your trade plan for the day.',
@@ -90,7 +89,7 @@ const STEPS: TourStep[] = [
     subtab: 'projection',
     targetDataTour: 'profit-projection',
     tooltipSide: 'top',
-    icon: <BarChart2 className="w-8 h-8 text-[#F97316]" />,
+    icon: <BarChart2 className="w-9 h-9 text-[#F97316]" />,
     title: 'Profit Projection',
     description:
       'Enter your win rate, average R:R, and trades per day to see projected monthly P&L, max drawdown, and Sharpe ratio. Stress-test your strategy before risking real capital.',
@@ -98,8 +97,9 @@ const STEPS: TourStep[] = [
   },
 ];
 
-const TOOLTIP_WIDTH = 340;
-const TOOLTIP_OFFSET = 16; // gap between spotlight border and tooltip
+const TOOLTIP_WIDTH = 460;
+const PAD = 10; // spotlight padding around the target element
+const GAP = 18; // space between spotlight edge and tooltip card
 
 interface TargetRect {
   top: number;
@@ -108,10 +108,77 @@ interface TargetRect {
   height: number;
 }
 
+const OVERLAY = 'rgba(2,6,12,0.82)';
+
 interface TradingTourProps {
   activeSubTab: TradingSubTab;
   onNavigate: (subtab: TradingSubTab) => void;
   onComplete: () => void;
+}
+
+/** Diamond arrow connecting the tooltip to the highlighted element */
+function Arrow({ side }: { side: TooltipSide }) {
+  const shared: React.CSSProperties = {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    background: '#161b22',
+  };
+
+  if (side === 'bottom') {
+    return (
+      <div
+        style={{
+          ...shared,
+          top: -7,
+          left: '50%',
+          transform: 'translateX(-50%) rotate(45deg)',
+          borderTop: '1px solid #30363d',
+          borderLeft: '1px solid #30363d',
+        }}
+      />
+    );
+  }
+  if (side === 'top') {
+    return (
+      <div
+        style={{
+          ...shared,
+          bottom: -7,
+          left: '50%',
+          transform: 'translateX(-50%) rotate(45deg)',
+          borderBottom: '1px solid #30363d',
+          borderRight: '1px solid #30363d',
+        }}
+      />
+    );
+  }
+  if (side === 'right') {
+    return (
+      <div
+        style={{
+          ...shared,
+          left: -7,
+          top: '50%',
+          transform: 'translateY(-50%) rotate(45deg)',
+          borderLeft: '1px solid #30363d',
+          borderBottom: '1px solid #30363d',
+        }}
+      />
+    );
+  }
+  return (
+    <div
+      style={{
+        ...shared,
+        right: -7,
+        top: '50%',
+        transform: 'translateY(-50%) rotate(45deg)',
+        borderRight: '1px solid #30363d',
+        borderTop: '1px solid #30363d',
+      }}
+    />
+  );
 }
 
 export default function TradingTour({ activeSubTab, onNavigate, onComplete }: TradingTourProps) {
@@ -123,13 +190,11 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
   const isFirst = step === 0;
   const isLast = step === STEPS.length - 1;
 
-  // Fade in on first mount
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 50);
     return () => clearTimeout(t);
   }, []);
 
-  // When step changes: switch tab if needed, then find + scroll to target element
   const locateTarget = useCallback(() => {
     if (!current.targetDataTour) {
       setTargetRect(null);
@@ -140,26 +205,23 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
       setTargetRect(null);
       return;
     }
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // Wait for scroll to settle before measuring
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     setTimeout(() => {
       const r = el.getBoundingClientRect();
       setTargetRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-    }, 350);
+    }, 320);
   }, [current.targetDataTour]);
 
   useEffect(() => {
     setTargetRect(null);
     if (current.subtab !== activeSubTab) {
       onNavigate(current.subtab);
-      // Give the tab content time to render before measuring
-      const t = setTimeout(locateTarget, 500);
-      return () => clearTimeout(t);
-    } else {
-      const t = setTimeout(locateTarget, 150);
+      const t = setTimeout(locateTarget, 480);
       return () => clearTimeout(t);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const t = setTimeout(locateTarget, 120);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
   function dismiss() {
@@ -168,28 +230,24 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
   }
 
   function next() {
-    if (isLast) {
-      dismiss();
-    } else {
-      setStep((s) => s + 1);
-    }
+    if (isLast) dismiss();
+    else setStep((s) => s + 1);
   }
 
   function prev() {
     if (!isFirst) setStep((s) => s - 1);
   }
 
-  // ── Tooltip positioning ────────────────────────────────────────────────────
+  // Tooltip card position — anchored to the spotlight box
   function tooltipStyle(): React.CSSProperties {
     if (!targetRect) {
-      // Centered modal fallback
       return {
         position: 'fixed',
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
         width: TOOLTIP_WIDTH,
-        zIndex: 10002,
+        zIndex: 10004,
       };
     }
 
@@ -197,69 +255,119 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
     const side = current.tooltipSide ?? 'bottom';
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const TOOLTIP_HEIGHT_EST = 280;
-    const style: React.CSSProperties = { position: 'fixed', width: TOOLTIP_WIDTH, zIndex: 10002 };
+    const CARD_H = 330;
+    const style: React.CSSProperties = { position: 'fixed', width: TOOLTIP_WIDTH, zIndex: 10004 };
+
+    const sTop = top - PAD;
+    const sLeft = left - PAD;
+    const sRight = left + width + PAD;
+    const sBottom = top + height + PAD;
+    const cx = left + width / 2;
+    const cy = top + height / 2;
 
     if (side === 'bottom') {
-      style.top = Math.min(top + height + TOOLTIP_OFFSET, vh - TOOLTIP_HEIGHT_EST - 8);
-      style.left = Math.max(8, Math.min(left + width / 2 - TOOLTIP_WIDTH / 2, vw - TOOLTIP_WIDTH - 8));
+      style.top = Math.min(sBottom + GAP, vh - CARD_H - 8);
+      style.left = Math.max(8, Math.min(cx - TOOLTIP_WIDTH / 2, vw - TOOLTIP_WIDTH - 8));
     } else if (side === 'top') {
-      style.top = Math.max(8, top - TOOLTIP_HEIGHT_EST - TOOLTIP_OFFSET);
-      style.left = Math.max(8, Math.min(left + width / 2 - TOOLTIP_WIDTH / 2, vw - TOOLTIP_WIDTH - 8));
+      style.top = Math.max(8, sTop - GAP - CARD_H);
+      style.left = Math.max(8, Math.min(cx - TOOLTIP_WIDTH / 2, vw - TOOLTIP_WIDTH - 8));
     } else if (side === 'right') {
-      style.top = Math.max(8, Math.min(top + height / 2 - TOOLTIP_HEIGHT_EST / 2, vh - TOOLTIP_HEIGHT_EST - 8));
-      style.left = Math.min(left + width + TOOLTIP_OFFSET, vw - TOOLTIP_WIDTH - 8);
+      style.top = Math.max(8, Math.min(cy - CARD_H / 2, vh - CARD_H - 8));
+      style.left = Math.min(sRight + GAP, vw - TOOLTIP_WIDTH - 8);
     } else {
-      // left
-      style.top = Math.max(8, Math.min(top + height / 2 - TOOLTIP_HEIGHT_EST / 2, vh - TOOLTIP_HEIGHT_EST - 8));
-      style.left = Math.max(8, left - TOOLTIP_WIDTH - TOOLTIP_OFFSET);
+      style.top = Math.max(8, Math.min(cy - CARD_H / 2, vh - CARD_H - 8));
+      style.left = Math.max(8, sLeft - GAP - TOOLTIP_WIDTH);
     }
 
     return style;
   }
+
+  // 4-rect spotlight that leaves the target element fully visible
+  function renderSpotlight() {
+    if (!targetRect) return null;
+    const { top, left, width, height } = targetRect;
+
+    const sTop = top - PAD;
+    const sLeft = left - PAD;
+    const sRight = left + width + PAD;
+    const sBottom = top + height + PAD;
+
+    return (
+      <>
+        {/* Top */}
+        <div
+          onClick={dismiss}
+          style={{ position: 'fixed', inset: `0 0 auto 0`, height: sTop, background: OVERLAY, zIndex: 10001, pointerEvents: 'auto', cursor: 'default' }}
+        />
+        {/* Bottom */}
+        <div
+          onClick={dismiss}
+          style={{ position: 'fixed', top: sBottom, left: 0, right: 0, bottom: 0, background: OVERLAY, zIndex: 10001, pointerEvents: 'auto', cursor: 'default' }}
+        />
+        {/* Left */}
+        <div
+          onClick={dismiss}
+          style={{ position: 'fixed', top: sTop, left: 0, width: sLeft, height: sBottom - sTop, background: OVERLAY, zIndex: 10001, pointerEvents: 'auto', cursor: 'default' }}
+        />
+        {/* Right */}
+        <div
+          onClick={dismiss}
+          style={{ position: 'fixed', top: sTop, left: sRight, right: 0, height: sBottom - sTop, background: OVERLAY, zIndex: 10001, pointerEvents: 'auto', cursor: 'default' }}
+        />
+        {/* Orange highlight ring */}
+        <div
+          style={{
+            position: 'fixed',
+            top: sTop,
+            left: sLeft,
+            width: sRight - sLeft,
+            height: sBottom - sTop,
+            borderRadius: 10,
+            border: '2px solid #F97316',
+            boxShadow: '0 0 0 3px rgba(249,115,22,0.15)',
+            zIndex: 10002,
+            pointerEvents: 'none',
+          }}
+        />
+      </>
+    );
+  }
+
+  const hasTarget = !!targetRect;
+  const side = current.tooltipSide;
 
   return (
     <div
       className={`transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}
       style={{ position: 'fixed', inset: 0, zIndex: 10000, pointerEvents: 'none' }}
     >
-      {/* Dark overlay — full screen backdrop */}
-      <div
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)', pointerEvents: 'auto' }}
-        onClick={dismiss}
-      />
-
-      {/* Spotlight cutout — sits on top of backdrop, cut out by the shadow */}
-      {targetRect && (
+      {/* Full backdrop when no spotlight target */}
+      {!hasTarget && (
         <div
-          style={{
-            position: 'fixed',
-            top: targetRect.top - 6,
-            left: targetRect.left - 6,
-            width: targetRect.width + 12,
-            height: targetRect.height + 12,
-            borderRadius: 10,
-            boxShadow: '0 0 0 9999px rgba(0,0,0,0.72)',
-            border: '2px solid #F97316',
-            pointerEvents: 'none',
-            zIndex: 10001,
-          }}
+          onClick={dismiss}
+          style={{ position: 'fixed', inset: 0, background: OVERLAY, zIndex: 10001, pointerEvents: 'auto' }}
         />
       )}
+
+      {/* 4-rect spotlight */}
+      {renderSpotlight()}
 
       {/* Tooltip card */}
       <div
         style={{ ...tooltipStyle(), pointerEvents: 'auto' }}
-        className="bg-[#161b22] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden"
+        className="bg-[#161b22] border border-[#30363d] rounded-2xl shadow-2xl overflow-visible"
       >
+        {/* Arrow toward highlighted element */}
+        {hasTarget && side && <Arrow side={side} />}
+
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[#30363d] bg-[#0d1117]/60">
-          <span className="text-xs font-medium text-[#8b949e] uppercase tracking-wider">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/60 rounded-t-2xl">
+          <span className="text-xs font-semibold text-[#8b949e] uppercase tracking-widest">
             Tour · {step + 1} of {STEPS.length}
           </span>
           <button
             onClick={dismiss}
-            className="p-1 rounded-md text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-colors"
+            className="p-1.5 rounded-md text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-colors"
             aria-label="Skip tour"
           >
             <X className="w-4 h-4" />
@@ -267,19 +375,19 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5">
-          <div className="flex items-start gap-4">
-            <div className="shrink-0 w-12 h-12 rounded-xl bg-[#F97316]/10 border border-[#F97316]/20 flex items-center justify-center">
+        <div className="px-8 py-7">
+          <div className="flex items-start gap-5">
+            <div className="shrink-0 w-14 h-14 rounded-2xl bg-[#F97316]/10 border border-[#F97316]/20 flex items-center justify-center">
               {current.icon}
             </div>
-            <div className="space-y-2 min-w-0">
-              <h2 className="text-base font-bold text-white leading-snug">{current.title}</h2>
+            <div className="space-y-3 min-w-0">
+              <h2 className="text-lg font-bold text-white leading-snug">{current.title}</h2>
               <p className="text-sm text-[#8b949e] leading-relaxed">{current.description}</p>
             </div>
           </div>
 
           {current.tip && (
-            <div className="mt-4 bg-[#F97316]/5 border border-[#F97316]/20 rounded-xl px-4 py-2.5">
+            <div className="mt-5 bg-[#F97316]/5 border border-[#F97316]/25 rounded-xl px-5 py-3">
               <p className="text-xs text-[#F97316] font-medium leading-relaxed">
                 Tip: {current.tip}
               </p>
@@ -288,13 +396,13 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
         </div>
 
         {/* Progress dots */}
-        <div className="flex justify-center gap-1.5 pb-1">
+        <div className="flex justify-center gap-2 pb-2">
           {STEPS.map((_, i) => (
             <button
               key={i}
               onClick={() => setStep(i)}
               className={`rounded-full transition-all ${
-                i === step ? 'w-5 h-2 bg-[#F97316]' : 'w-2 h-2 bg-[#30363d] hover:bg-[#8b949e]'
+                i === step ? 'w-6 h-2.5 bg-[#F97316]' : 'w-2.5 h-2.5 bg-[#30363d] hover:bg-[#8b949e]'
               }`}
               aria-label={`Go to step ${i + 1}`}
             />
@@ -302,26 +410,26 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-[#30363d]">
+        <div className="flex items-center justify-between px-6 py-5 border-t border-[#30363d]">
           <button
             onClick={prev}
             disabled={isFirst}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#8b949e] border border-[#30363d] rounded-lg hover:text-white hover:border-[#8b949e] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#8b949e] border border-[#30363d] rounded-lg hover:text-white hover:border-[#8b949e] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <ChevronLeft className="w-3.5 h-3.5" />
+            <ChevronLeft className="w-4 h-4" />
             Back
           </button>
 
-          <button onClick={dismiss} className="text-xs text-[#8b949e] hover:text-white transition-colors">
+          <button onClick={dismiss} className="text-sm text-[#8b949e] hover:text-white transition-colors">
             Skip tour
           </button>
 
           <button
             onClick={next}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold bg-[#F97316] text-white rounded-lg hover:bg-[#ea6c0a] transition-colors"
+            className="flex items-center gap-2 px-5 py-2 text-sm font-semibold bg-[#F97316] text-white rounded-lg hover:bg-[#ea6c0a] transition-colors"
           >
             {isLast ? 'Get Started' : 'Next'}
-            {!isLast && <ChevronRight className="w-3.5 h-3.5" />}
+            {!isLast && <ChevronRight className="w-4 h-4" />}
           </button>
         </div>
       </div>
