@@ -166,7 +166,7 @@ export default function ActiveTradesStrip() {
         </div>
 
         {/* Card area — fixed height, scrolls vertically if cards overflow into a 2nd row */}
-        <div className="p-3 overflow-y-auto" style={{ maxHeight: '216px' }}>
+        <div className="p-3 overflow-y-auto" style={{ maxHeight: '264px' }}>
           {loading ? (
             <div className="grid grid-cols-5 xl:grid-cols-6 gap-3">
               {Array.from({ length: 6 }).map((_, i) => (
