@@ -627,13 +627,17 @@ export default function HabitCard() {
               Generate Report
             </div>
           </div>
-          <button
-            onClick={() => { setEditingHabit(null); setNewHabitName(''); setNewHabitIcon('⭐'); setNewHabitTarget('Daily'); setNewHabitFrequency('daily'); setShowAddModal(true); }}
-            className="p-1.5 bg-[#F97316] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors"
-            title="Add new habit"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
+          <div className="relative group">
+            <button
+              onClick={() => { setEditingHabit(null); setNewHabitName(''); setNewHabitIcon('⭐'); setNewHabitTarget('Daily'); setNewHabitFrequency('daily'); setShowAddModal(true); }}
+              className="p-1.5 bg-[#F97316] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0d1117] border border-[#30363d] rounded text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              Add New Habit
+            </div>
+          </div>
           <button
             onClick={fetchHabits}
             disabled={loading}
