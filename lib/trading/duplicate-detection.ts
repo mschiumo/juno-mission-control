@@ -179,7 +179,10 @@ function confidenceLevel(total: number): 'high' | 'medium' | 'low' {
 /**
  * Find potential duplicate trades between dashboard trades and CSV imports.
  *
- * Each CSV trade is matched to at most one dashboard trade (best score wins).
+ * Enforces strict 1:1 matching — each dashboard trade and each CSV trade can
+ * only be paired once. This correctly handles multiple trades in the same
+ * ticker on the same day (e.g. two AAPL LONG trades). The highest-scoring
+ * pair wins when there is ambiguity.
  */
 export function findPotentialDuplicates(
   dashboardTrades: Trade[],
@@ -188,6 +191,7 @@ export function findPotentialDuplicates(
 ): PotentialDuplicate[] {
   const duplicates: PotentialDuplicate[] = [];
   const matchedCsvTradeIds = new Set<string>();
+  const matchedDashboardTradeIds = new Set<string>();
 
   for (const csvTrade of csvTrades) {
     if (matchedCsvTradeIds.has(csvTrade.id)) continue;
@@ -199,6 +203,8 @@ export function findPotentialDuplicates(
       if (dashboardTrade.isMerged) continue;
       // Skip trades that were themselves imported from a brokerage CSV
       if (dashboardTrade.entryNotes?.includes('Imported from TOS')) continue;
+      // Enforce 1:1 — each dashboard trade can only be paired once
+      if (matchedDashboardTradeIds.has(dashboardTrade.id)) continue;
 
       if (!passesGates(dashboardTrade, csvTrade)) continue;
 
@@ -219,6 +225,7 @@ export function findPotentialDuplicates(
         matchReasons: bestMatch.reasons,
       });
       matchedCsvTradeIds.add(csvTrade.id);
+      matchedDashboardTradeIds.add(bestMatch.dashboard.id);
     }
   }
 
