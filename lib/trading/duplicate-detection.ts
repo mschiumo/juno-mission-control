@@ -1,153 +1,185 @@
 /**
  * Duplicate Trade Detection
- * 
- * Detects potential duplicate trades between dashboard entries and CSV imports
- * using symbol, date, and PnL matching with configurable tolerance.
+ *
+ * Matches trades between dashboard (manual entry) and CSV imports (brokerage).
+ * Strategy: anchor on concrete, reliable facts (symbol, date, side) and use
+ * financial metrics (shares, entry price, PnL) as supporting evidence.
+ *
+ * PnL is intentionally a weak signal — it's the field most likely to differ
+ * between user-entered approximations and brokerage-reported values.
  */
 
 import { Trade, PotentialDuplicate, MergedTrade } from '@/types/trading';
 
 export interface DuplicateDetectionConfig {
-  pnlTolerance: number; // Dollar amount tolerance for PnL matching (default: $2.00)
-  dateToleranceHours: number; // Hours tolerance for date matching (default: 24)
+  /** Minimum confidence score to flag as a potential duplicate (default: 5) */
+  minScore: number;
 }
 
 export const DEFAULT_CONFIG: DuplicateDetectionConfig = {
-  pnlTolerance: 2.0,
-  dateToleranceHours: 24,
+  minScore: 5,
 };
 
 /**
- * Extract date string (YYYY-MM-DD) from ISO date
+ * Extract calendar date (YYYY-MM-DD) in EST from an ISO date string.
+ * Day trades open and close on the same calendar date, making this the
+ * tightest reliable anchor.
  */
-function extractDate(dateStr: string): string {
-  return dateStr.split('T')[0];
+function extractTradingDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  // en-CA gives YYYY-MM-DD format
 }
 
 /**
- * Check if two dates are within tolerance hours of each other
+ * Minutes between two ISO date strings (absolute difference).
  */
-function datesMatch(date1: string, date2: string, toleranceHours: number): boolean {
-  const d1 = new Date(date1);
-  const d2 = new Date(date2);
-  const diffMs = Math.abs(d1.getTime() - d2.getTime());
-  const diffHours = diffMs / (1000 * 60 * 60);
-  return diffHours <= toleranceHours;
+function minutesBetween(a: string, b: string): number {
+  return Math.abs(new Date(a).getTime() - new Date(b).getTime()) / 60000;
 }
 
 /**
- * Check if two PnL values are within tolerance
+ * Percentage difference between two numbers, relative to the larger value.
  */
-function pnlMatches(pnl1: number | undefined, pnl2: number | undefined, tolerance: number): boolean {
-  // If both are undefined/null, they match
-  if ((pnl1 === undefined || pnl1 === null) && (pnl2 === undefined || pnl2 === null)) {
-    return true;
-  }
-  // If only one is undefined, they don't match
-  if (pnl1 === undefined || pnl1 === null || pnl2 === undefined || pnl2 === null) {
-    return false;
-  }
-  return Math.abs(pnl1 - pnl2) <= tolerance;
+function pctDiff(a: number, b: number): number {
+  const max = Math.max(Math.abs(a), Math.abs(b));
+  if (max === 0) return 0;
+  return Math.abs(a - b) / max;
 }
 
 /**
- * Calculate confidence level based on match quality
+ * Hard gates: all must pass for a pair to be considered a candidate.
+ * These fields are concrete, rarely mis-entered, and together uniquely
+ * identify a trade within a user's account on a given day.
  */
-function calculateConfidence(
-  dashboardTrade: Trade,
-  csvTrade: Trade,
-  config: DuplicateDetectionConfig
-): { level: 'high' | 'medium' | 'low'; reasons: string[] } {
-  const reasons: string[] = [];
-  let score = 0;
+function passesGates(dashboard: Trade, csv: Trade): boolean {
+  // Same ticker symbol
+  if (dashboard.symbol.toUpperCase() !== csv.symbol.toUpperCase()) return false;
 
-  // Symbol match (required)
-  if (dashboardTrade.symbol.toUpperCase() === csvTrade.symbol.toUpperCase()) {
-    reasons.push('Same symbol: ' + dashboardTrade.symbol);
-    score += 3;
-  }
+  // Same trading day (EST calendar date)
+  if (extractTradingDate(dashboard.entryDate) !== extractTradingDate(csv.entryDate)) return false;
 
-  // Date match
-  const entryDateMatch = datesMatch(dashboardTrade.entryDate, csvTrade.entryDate, config.dateToleranceHours);
-  if (entryDateMatch) {
-    reasons.push('Same entry date');
-    score += 2;
-  }
-
-  // PnL match (strong indicator)
-  const pnlDiff = Math.abs((dashboardTrade.netPnL || 0) - (csvTrade.netPnL || 0));
-  if (pnlDiff <= 0.5) {
-    reasons.push(`Identical P\u0026L: ${dashboardTrade.netPnL?.toFixed(2)}`);
-    score += 4;
-  } else if (pnlDiff <= config.pnlTolerance) {
-    reasons.push(`Similar P\u0026L: ${dashboardTrade.netPnL?.toFixed(2)} vs ${csvTrade.netPnL?.toFixed(2)} (diff: ${pnlDiff.toFixed(2)})`);
-    score += 3;
-  }
-
-  // Side match
-  if (dashboardTrade.side === csvTrade.side) {
-    reasons.push(`Same side: ${dashboardTrade.side}`);
-    score += 1;
-  }
-
-  // Shares match (within 10%)
-  if (dashboardTrade.shares && csvTrade.shares) {
-    const sharesDiff = Math.abs(dashboardTrade.shares - csvTrade.shares);
-    const sharesDiffPercent = sharesDiff / Math.max(dashboardTrade.shares, csvTrade.shares);
-    if (sharesDiffPercent <= 0.1) {
-      reasons.push(`Similar shares: ${dashboardTrade.shares} vs ${csvTrade.shares}`);
-      score += 1;
-    }
-  }
-
-  // Determine confidence
-  let level: 'high' | 'medium' | 'low';
-  if (score >= 7) {
-    level = 'high';
-  } else if (score >= 5) {
-    level = 'medium';
-  } else {
-    level = 'low';
-  }
-
-  return { level, reasons };
-}
-
-/**
- * Check if a specific dashboard trade matches a CSV trade
- */
-function isPotentialDuplicate(
-  dashboardTrade: Trade,
-  csvTrade: Trade,
-  config: DuplicateDetectionConfig
-): boolean {
-  // Must have same symbol
-  if (dashboardTrade.symbol.toUpperCase() !== csvTrade.symbol.toUpperCase()) {
-    return false;
-  }
-
-  // Must have same date (within tolerance)
-  if (!datesMatch(dashboardTrade.entryDate, csvTrade.entryDate, config.dateToleranceHours)) {
-    return false;
-  }
-
-  // Must have matching PnL (within tolerance) - for closed trades
-  if (dashboardTrade.status === 'CLOSED' && csvTrade.status === 'CLOSED') {
-    if (!pnlMatches(dashboardTrade.netPnL, csvTrade.netPnL, config.pnlTolerance)) {
-      return false;
-    }
-  }
+  // Same direction — a user always knows if they went long or short
+  if (dashboard.side !== csv.side) return false;
 
   return true;
 }
 
 /**
- * Find potential duplicate trades between dashboard trades and CSV trades
- * 
- * @param dashboardTrades - Existing trades from dashboard (with potential user notes)
- * @param csvTrades - New trades from CSV import
- * @param config - Optional configuration for detection
- * @returns Array of potential duplicates
+ * Score the quality of a match for display and confidence classification.
+ * Higher = more evidence they are the same trade.
+ *
+ * Scoring philosophy:
+ * - Concrete brokerage facts (shares, price) score higher
+ * - PnL scores lower — it's derived and often differs between sources
+ * - Timestamp proximity is a bonus, not a requirement
+ */
+function score(
+  dashboard: Trade,
+  csv: Trade
+): { total: number; reasons: string[] } {
+  const reasons: string[] = [];
+  let total = 0;
+
+  // Symbol + date + side already passed gates — award base points
+  reasons.push(`Same symbol: ${dashboard.symbol}`);
+  total += 3;
+  reasons.push(`Same trading day: ${extractTradingDate(dashboard.entryDate)}`);
+  total += 3;
+  reasons.push(`Same side: ${dashboard.side}`);
+  total += 3;
+
+  // Entry timestamp proximity (bonus — manual entry is often approximate)
+  const entryMinDiff = minutesBetween(dashboard.entryDate, csv.entryDate);
+  if (entryMinDiff <= 5) {
+    reasons.push(`Entry time within 5 min (${entryMinDiff.toFixed(0)} min apart)`);
+    total += 3;
+  } else if (entryMinDiff <= 30) {
+    reasons.push(`Entry time within 30 min (${entryMinDiff.toFixed(0)} min apart)`);
+    total += 2;
+  } else if (entryMinDiff <= 120) {
+    reasons.push(`Entry time within 2 hr (${entryMinDiff.toFixed(0)} min apart)`);
+    total += 1;
+  }
+
+  // Shares / quantity — strong concrete fact
+  if (dashboard.shares && csv.shares) {
+    const diff = pctDiff(dashboard.shares, csv.shares);
+    if (diff === 0) {
+      reasons.push(`Exact share count: ${dashboard.shares}`);
+      total += 4;
+    } else if (diff <= 0.05) {
+      reasons.push(`Shares within 5%: ${dashboard.shares} vs ${csv.shares}`);
+      total += 3;
+    } else if (diff <= 0.20) {
+      reasons.push(`Shares within 20%: ${dashboard.shares} vs ${csv.shares}`);
+      total += 1;
+    }
+  }
+
+  // Entry price — reliable brokerage fact; manual entry often approximates
+  if (dashboard.entryPrice && csv.entryPrice) {
+    const diff = pctDiff(dashboard.entryPrice, csv.entryPrice);
+    if (diff <= 0.005) {
+      reasons.push(`Entry price within 0.5%: $${dashboard.entryPrice.toFixed(2)} vs $${csv.entryPrice.toFixed(2)}`);
+      total += 3;
+    } else if (diff <= 0.02) {
+      reasons.push(`Entry price within 2%: $${dashboard.entryPrice.toFixed(2)} vs $${csv.entryPrice.toFixed(2)}`);
+      total += 2;
+    } else if (diff <= 0.05) {
+      reasons.push(`Entry price within 5%: $${dashboard.entryPrice.toFixed(2)} vs $${csv.entryPrice.toFixed(2)}`);
+      total += 1;
+    }
+  }
+
+  // Exit timestamp proximity (for closed trades)
+  if (dashboard.exitDate && csv.exitDate) {
+    const exitMinDiff = minutesBetween(dashboard.exitDate, csv.exitDate);
+    if (exitMinDiff <= 5) {
+      reasons.push(`Exit time within 5 min (${exitMinDiff.toFixed(0)} min apart)`);
+      total += 2;
+    } else if (exitMinDiff <= 30) {
+      reasons.push(`Exit time within 30 min (${exitMinDiff.toFixed(0)} min apart)`);
+      total += 1;
+    }
+  }
+
+  // PnL — supporting evidence only; expected to differ between sources
+  const dashPnl = dashboard.netPnL ?? dashboard.grossPnL;
+  const csvPnl = csv.netPnL ?? csv.grossPnL;
+  if (dashPnl !== undefined && csvPnl !== undefined) {
+    const pnlDiff = Math.abs(dashPnl - csvPnl);
+    if (pnlDiff <= 1) {
+      reasons.push(`P&L nearly identical: $${dashPnl.toFixed(2)} vs $${csvPnl.toFixed(2)}`);
+      total += 2;
+    } else if (pnlDiff <= 10) {
+      reasons.push(`P&L within $10: $${dashPnl.toFixed(2)} vs $${csvPnl.toFixed(2)} (Δ$${pnlDiff.toFixed(2)})`);
+      total += 1;
+    } else {
+      reasons.push(`P&L differs: $${dashPnl.toFixed(2)} vs $${csvPnl.toFixed(2)} (Δ$${pnlDiff.toFixed(2)})`);
+      // No points — but we still flag and let the user decide
+    }
+  }
+
+  return { total, reasons };
+}
+
+/**
+ * Classify a score into a confidence level.
+ *
+ * Base gates (symbol + date + side) = 9 pts → always "low" minimum.
+ * Add shares or entry price match → "medium".
+ * Add both + timestamp proximity → "high".
+ */
+function confidenceLevel(total: number): 'high' | 'medium' | 'low' {
+  if (total >= 16) return 'high';
+  if (total >= 12) return 'medium';
+  return 'low';
+}
+
+/**
+ * Find potential duplicate trades between dashboard trades and CSV imports.
+ *
+ * Each CSV trade is matched to at most one dashboard trade (best score wins).
  */
 export function findPotentialDuplicates(
   dashboardTrades: Trade[],
@@ -158,73 +190,81 @@ export function findPotentialDuplicates(
   const matchedCsvTradeIds = new Set<string>();
 
   for (const csvTrade of csvTrades) {
-    // Skip if this CSV trade has already been matched
     if (matchedCsvTradeIds.has(csvTrade.id)) continue;
 
+    let bestMatch: { dashboard: Trade; total: number; reasons: string[] } | null = null;
+
     for (const dashboardTrade of dashboardTrades) {
-      // Skip if dashboard trade was already imported from CSV (has import marker)
+      // Skip already-merged trades — they've been reconciled
+      if (dashboardTrade.isMerged) continue;
+      // Skip trades that were themselves imported from a brokerage CSV
       if (dashboardTrade.entryNotes?.includes('Imported from TOS')) continue;
 
-      if (isPotentialDuplicate(dashboardTrade, csvTrade, config)) {
-        const { level, reasons } = calculateConfidence(dashboardTrade, csvTrade, config);
+      if (!passesGates(dashboardTrade, csvTrade)) continue;
 
-        duplicates.push({
-          id: `${dashboardTrade.id}_${csvTrade.id}`,
-          dashboardTrade,
-          csvTrade,
-          confidence: level,
-          matchReasons: reasons,
-        });
+      const { total, reasons } = score(dashboardTrade, csvTrade);
+      if (total < config.minScore) continue;
 
-        matchedCsvTradeIds.add(csvTrade.id);
-        break; // One CSV trade matches one dashboard trade
+      if (!bestMatch || total > bestMatch.total) {
+        bestMatch = { dashboard: dashboardTrade, total, reasons };
       }
+    }
+
+    if (bestMatch) {
+      duplicates.push({
+        id: `${bestMatch.dashboard.id}_${csvTrade.id}`,
+        dashboardTrade: bestMatch.dashboard,
+        csvTrade,
+        confidence: confidenceLevel(bestMatch.total),
+        matchReasons: bestMatch.reasons,
+      });
+      matchedCsvTradeIds.add(csvTrade.id);
     }
   }
 
-  // Sort by confidence (high first)
-  const confidenceOrder: Record<'high' | 'medium' | 'low', number> = { high: 0, medium: 1, low: 2 };
-  return duplicates.sort((a, b) => confidenceOrder[a.confidence] - confidenceOrder[b.confidence]);
+  // Sort by confidence (high first), then score descending within each tier
+  const order: Record<'high' | 'medium' | 'low', number> = { high: 0, medium: 1, low: 2 };
+  return duplicates.sort((a, b) => order[a.confidence] - order[b.confidence]);
 }
 
 /**
- * Get CSV trades that don't have duplicates
+ * Get CSV trades that had no duplicate match.
  */
 export function getNonDuplicateTrades(
   csvTrades: Trade[],
   duplicates: PotentialDuplicate[]
 ): Trade[] {
   const duplicateIds = new Set(duplicates.map(d => d.csvTrade.id));
-  return csvTrades.filter(trade => !duplicateIds.has(trade.id));
+  return csvTrades.filter(t => !duplicateIds.has(t.id));
 }
 
 /**
- * Merge two trades, keeping CSV data as primary but preserving dashboard notes
+ * Merge two trades.
+ * CSV data (brokerage) is the authoritative source for financial figures.
+ * Dashboard data is the authoritative source for notes, emotion, and journal fields.
  */
 export function mergeTrades(dashboardTrade: Trade, csvTrade: Trade): MergedTrade {
   const now = new Date().toISOString();
-  
-  // Combine notes
+
   const combinedNotes = [
     dashboardTrade.entryNotes,
     csvTrade.entryNotes,
-    '[Merged: Combined dashboard notes with CSV data]'
+    '[Merged: brokerage data with dashboard notes]',
   ].filter(Boolean).join('\n\n');
 
   return {
-    // Use CSV data as primary
+    // Brokerage CSV is authoritative for all financial fields
     ...csvTrade,
-    // Preserve important dashboard fields
-    id: csvTrade.id, // Keep CSV ID
+    // Dashboard is authoritative for notes and journal fields
+    id: csvTrade.id,
     entryNotes: combinedNotes,
     exitNotes: dashboardTrade.exitNotes || csvTrade.exitNotes,
-    // Preserve journal-related fields from dashboard
     emotion: dashboardTrade.emotion || csvTrade.emotion,
     setupQuality: dashboardTrade.setupQuality || csvTrade.setupQuality,
     mistakes: [...(dashboardTrade.mistakes || []), ...(csvTrade.mistakes || [])],
     lessons: [...(dashboardTrade.lessons || []), ...(csvTrade.lessons || [])],
     tags: [...new Set([...(dashboardTrade.tags || []), ...(csvTrade.tags || [])])],
-    // Mark as merged
+    // Merge metadata
     isMerged: true,
     mergedFrom: [dashboardTrade.id, csvTrade.id],
     mergedAt: now,
@@ -233,17 +273,13 @@ export function mergeTrades(dashboardTrade: Trade, csvTrade: Trade): MergedTrade
 }
 
 /**
- * Get summary stats for duplicates
+ * Summary stats for the duplicate review UI.
  */
 export function getDuplicateStats(duplicates: PotentialDuplicate[]) {
-  const byConfidence = {
+  return {
+    total: duplicates.length,
     high: duplicates.filter(d => d.confidence === 'high').length,
     medium: duplicates.filter(d => d.confidence === 'medium').length,
     low: duplicates.filter(d => d.confidence === 'low').length,
-  };
-
-  return {
-    total: duplicates.length,
-    ...byConfidence,
   };
 }
