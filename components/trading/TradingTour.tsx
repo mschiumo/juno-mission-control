@@ -58,7 +58,7 @@ const STEPS: TourStep[] = [
   {
     subtab: 'overview',
     targetDataTour: 'trading-import',
-    tooltipSide: 'bottom',
+    tooltipSide: 'left',
     icon: <Upload className="w-9 h-9 text-[#F97316]" />,
     title: 'Import from ThinkorSwim',
     description:
@@ -205,7 +205,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
       setTargetRect(null);
       return;
     }
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Scroll to top so elements are measured at their natural page position
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => {
       const r = el.getBoundingClientRect();
       setTargetRect({ top: r.top, left: r.left, width: r.width, height: r.height });
@@ -258,6 +259,21 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
     const side = current.tooltipSide ?? 'bottom';
     const vh = window.innerHeight;
     const CARD_H = 360;
+
+    // For elements that are very wide or tall (e.g. the full calendar grid),
+    // there's no clean place to anchor the tooltip — fall back to top-center.
+    const isLargeElement = width > vw * 0.6 || height > vh * 0.35;
+    if (isLargeElement) {
+      return {
+        position: 'fixed',
+        top: Math.max(80, top - CARD_H - GAP),
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: Math.min(TOOLTIP_WIDTH, vw - 32),
+        zIndex: 10004,
+      };
+    }
+
     const style: React.CSSProperties = { position: 'fixed', width: TOOLTIP_WIDTH, zIndex: 10004 };
 
     const sTop = top - PAD;

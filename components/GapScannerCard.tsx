@@ -1,7 +1,23 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Star, Download, List, ChevronUp, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Star, Download, List, ChevronUp, ChevronDown, Info } from 'lucide-react';
+
+/** Simple hover tooltip wrapper — shows text above/below the child on hover */
+function Tip({ label, children, position = 'bottom' }: { label: string; children: React.ReactNode; position?: 'top' | 'bottom' }) {
+  return (
+    <div className="relative group/tip">
+      {children}
+      <div
+        className={`absolute ${position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} left-1/2 -translate-x-1/2 hidden group-hover/tip:block z-50 pointer-events-none`}
+      >
+        <div className="bg-[#0d1117] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-[11px] text-[#c9d1d9] whitespace-nowrap shadow-xl">
+          {label}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface GapStock {
   symbol: string;
@@ -249,7 +265,15 @@ export default function GapScannerCard() {
             </div>
             <div>
               <h2 className="text-sm font-semibold text-white leading-none">Gap Scanner</h2>
-              <p className="text-[10px] text-[#8b949e] mt-0.5">2%+ gap | 1M+ vol | $50M+ cap | US</p>
+              <div className="flex items-center gap-1 mt-0.5">
+                <p className="text-[10px] text-[#8b949e]">2%+ gap | 1M+ vol | $50M+ cap | US</p>
+                <Tip
+                  position="bottom"
+                  label="Scans US stocks gapping ≥2% vs prev close, with volume ≥1M and market cap ≥$50M. Refreshes every 15s during market hours."
+                >
+                  <Info className="w-3 h-3 text-[#8b949e] hover:text-[#58a6ff] cursor-help transition-colors" />
+                </Tip>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -272,17 +296,23 @@ export default function GapScannerCard() {
             )}
             {data && !loading && (
               <>
-                <button onClick={exportToCSV} className="p-1.5 hover:bg-[#30363d] rounded transition-colors" title="Export CSV">
-                  <Download className="w-3.5 h-3.5 text-[#8b949e]" />
-                </button>
-                <button onClick={() => setShowModal(true)} className="p-1.5 hover:bg-[#30363d] rounded transition-colors" title="View all">
-                  <List className="w-3.5 h-3.5 text-[#8b949e]" />
-                </button>
+                <Tip label="Export results to CSV" position="bottom">
+                  <button onClick={exportToCSV} className="p-1.5 hover:bg-[#30363d] rounded transition-colors">
+                    <Download className="w-3.5 h-3.5 text-[#8b949e]" />
+                  </button>
+                </Tip>
+                <Tip label="View full list" position="bottom">
+                  <button onClick={() => setShowModal(true)} className="p-1.5 hover:bg-[#30363d] rounded transition-colors">
+                    <List className="w-3.5 h-3.5 text-[#8b949e]" />
+                  </button>
+                </Tip>
               </>
             )}
-            <button onClick={fetchGapData} disabled={loading} className="p-1.5 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50" title="Refresh">
-              <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
-            </button>
+            <Tip label="Refresh now" position="bottom">
+              <button onClick={fetchGapData} disabled={loading} className="p-1.5 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50">
+                <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </Tip>
           </div>
         </div>
 
