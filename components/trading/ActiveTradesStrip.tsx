@@ -42,19 +42,8 @@ export default function ActiveTradesStrip() {
   const [closing, setClosing] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const priceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const fetchTrades = async () => {
-    try {
-      const res = await fetch(`/api/active-trades?userId=${DEFAULT_USER_ID}`);
-      const result = await res.json();
-      setTrades(result.data || []);
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false);
-    }
-  };
+  const esRef = useRef<EventSource | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchPrices = async (activeTrades: ActiveTradeWithPnL[]) => {
     const tickers = [...new Set(activeTrades.map((t) => t.ticker))];
@@ -68,6 +57,21 @@ export default function ActiveTradesStrip() {
     }
   };
 
+  const fetchTrades = async () => {
+    try {
+      const res = await fetch(`/api/active-trades?userId=${DEFAULT_USER_ID}`);
+      const result = await res.json();
+      const newTrades: ActiveTradeWithPnL[] = result.data || [];
+      setTrades(newTrades);
+      // REST snapshot immediately — SSE will stream live updates on top
+      fetchPrices(newTrades);
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchTrades();
     const id = setInterval(fetchTrades, 30_000);
@@ -78,13 +82,46 @@ export default function ActiveTradesStrip() {
     };
   }, []);
 
+  // Live price feed via SSE → Finnhub WebSocket. Falls back to REST polling if unavailable.
   useEffect(() => {
-    if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
+    // Tear down previous connection
+    if (esRef.current) { esRef.current.close(); esRef.current = null; }
+    if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
+
     if (trades.length === 0) return;
-    fetchPrices(trades);
-    priceIntervalRef.current = setInterval(() => fetchPrices(trades), PRICE_POLL_MS);
+
+    const tickers = [...new Set(trades.map((t) => t.ticker))];
+    const es = new EventSource(`/api/prices/stream?symbols=${tickers.join(',')}`);
+    esRef.current = es;
+
+    es.onopen = () => {
+      // SSE connected — cancel polling fallback if it was running
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+
+    es.onmessage = (event) => {
+      try {
+        const updates: Record<string, number> = JSON.parse(event.data);
+        setPrices((prev) => ({ ...prev, ...updates }));
+      } catch {
+        // ignore malformed frames
+      }
+    };
+
+    es.onerror = () => {
+      // SSE dropped or unavailable — run polling until it recovers
+      if (!pollIntervalRef.current) {
+        fetchPrices(trades);
+        pollIntervalRef.current = setInterval(() => fetchPrices(trades), PRICE_POLL_MS);
+      }
+    };
+
     return () => {
-      if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
+      if (esRef.current) { esRef.current.close(); esRef.current = null; }
+      if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
     };
   }, [trades]);
 
@@ -179,17 +216,19 @@ export default function ActiveTradesStrip() {
               {trades.map((trade) => {
                 const currentPrice = prices[trade.ticker];
                 const hasPrice = currentPrice !== undefined;
+                // Stop-loss warning only fires when orderPlaced — avoids false red pulses on pending trades
                 const status: StopStatus = (trade.orderPlaced && hasPrice)
                   ? stopStatus(currentPrice, trade.plannedStop, trade.actualEntry)
                   : 'safe';
-                const pnl = (trade.orderPlaced && hasPrice)
+                // P&L shows for all trades with a live price
+                const pnl = hasPrice
                   ? (currentPrice - trade.actualEntry) * trade.actualShares
                   : null;
 
                 const cardClass = (() => {
                   if (status === 'danger') return 'bg-red-500/10 border border-red-500 animate-pulse shadow-[0_0_16px_rgba(239,68,68,0.4)]';
                   if (status === 'warn') return 'bg-orange-500/10 border border-orange-400 animate-pulse shadow-[0_0_12px_rgba(251,146,60,0.3)]';
-                  if (trade.orderPlaced) return 'bg-[#238636]/10 border border-[#238636] shadow-[0_0_10px_rgba(35,134,54,0.2)]';
+                  if (hasPrice || trade.orderPlaced) return 'bg-[#238636]/10 border border-[#238636] shadow-[0_0_10px_rgba(35,134,54,0.2)]';
                   return 'bg-[#161b22] border border-[#30363d] hover:border-[#238636]/50';
                 })();
 
@@ -226,25 +265,26 @@ export default function ActiveTradesStrip() {
                       </button>
                     </div>
 
-                    {/* Live price + P&L or status */}
-                    {trade.orderPlaced ? (
-                      <div>
-                        {hasPrice ? (
-                          <>
-                            <p className="text-base font-bold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
-                            {pnl !== null && (
-                              <div className={`flex items-center gap-1 text-xs font-semibold ${pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-                                {pnl >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                {formatCurrency(pnl)}
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-[#238636]">
-                            <CheckCircle className="w-4 h-4" />
-                            <span className="text-xs font-semibold">Order In</span>
+                    {/* Live price + Profit side by side */}
+                    {hasPrice ? (
+                      <div className="flex gap-4">
+                        <div>
+                          <p className="text-[#8b949e] text-[10px] mb-0.5">Price</p>
+                          <p className="text-sm font-bold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
+                        </div>
+                        {pnl !== null && (
+                          <div>
+                            <p className="text-[#8b949e] text-[10px] mb-0.5">Profit</p>
+                            <p className={`text-sm font-bold tabular-nums ${pnl >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                              {formatCurrency(pnl)}
+                            </p>
                           </div>
                         )}
+                      </div>
+                    ) : trade.orderPlaced ? (
+                      <div className="flex items-center gap-1.5 text-[#238636]">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-xs font-semibold">Order In</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5 text-[#8b949e]">
@@ -252,6 +292,7 @@ export default function ActiveTradesStrip() {
                         <span className="text-xs">Pending</span>
                       </div>
                     )}
+
 
                     {/* Key levels — 2x2 grid */}
                     <div className="grid grid-cols-2 gap-x-3 gap-y-2">

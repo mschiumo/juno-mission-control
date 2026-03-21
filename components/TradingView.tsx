@@ -38,8 +38,18 @@ export default function TradingView() {
   const [activeSubTab, setActiveSubTabState] = useState<TradingSubTab>(getSubTabFromUrl);
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
-  // TESTING: tour always visible — restore prefs gate before shipping
-  const [showTour, setShowTour] = useState(true);
+  const [showTour, setShowTour] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/user/prefs')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data?.prefs?.tradingTourCompleted) {
+          setShowTour(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Update URL when subtab changes
   const setActiveSubTab = useCallback(
