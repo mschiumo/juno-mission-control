@@ -98,11 +98,11 @@ function getMarketSession(): {
 const MIN_AVG_VOLUME = 1_000_000;  // 90-day avg daily volume
 const MIN_MARKET_CAP = 50_000_000; // $50M
 
-async function fetchScreener(scrId: 'day_gainers' | 'day_losers', count: number): Promise<YahooQuote[]> {
+async function fetchScreener(scrId: 'day_gainers' | 'day_losers', count: number, isMarketOpen: boolean): Promise<YahooQuote[]> {
   const url = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?count=${count}&scrIds=${scrId}`;
   const res = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    next: { revalidate: 60 },
+    next: { revalidate: isMarketOpen ? 15 : 300 }, // 15s during market hours, 5min otherwise
   });
   if (!res.ok) throw new Error(`Yahoo Finance screener error: ${res.status}`);
   const data = await res.json();
@@ -141,9 +141,10 @@ export async function GET(request: Request) {
   const marketInfo = getMarketSession();
 
   try {
+    const isMarketOpen = marketInfo.session === 'market-open';
     const [gainersRaw, losersRaw] = await Promise.all([
-      fetchScreener('day_gainers', count),
-      fetchScreener('day_losers', count),
+      fetchScreener('day_gainers', count, isMarketOpen),
+      fetchScreener('day_losers', count, isMarketOpen),
     ]);
 
     const gainers = gainersRaw.filter(meetsQualityCriteria).slice(0, limit).map((q) => toGapStock(q, 'gainer'));
