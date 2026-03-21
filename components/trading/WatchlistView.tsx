@@ -63,7 +63,7 @@ const ORDER_PLACED_STORAGE_KEY = 'juno:active-trades-orders';
 // LocalStorage key for collapsed sections state
 const COLLAPSED_SECTIONS_STORAGE_KEY = 'juno:watchlist-collapsed-sections';
 
-export default function WatchlistView() {
+export default function WatchlistView({ hideActiveTrades = false, hideClosedPositions = false }: { hideActiveTrades?: boolean; hideClosedPositions?: boolean }) {
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
@@ -1291,7 +1291,7 @@ export default function WatchlistView() {
       )}
 
       {/* ===== ACTIVE TRADES SECTION ===== */}
-      <div className="space-y-4 p-3 rounded-xl border-2 border-green-500/50 bg-green-500/5">
+      {!hideActiveTrades && <div className="space-y-4 p-3 rounded-xl border-2 border-green-500/50 bg-green-500/5">
         {/* Section Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1633,10 +1633,10 @@ export default function WatchlistView() {
           </div>
         )}
         </div>{/* End of collapsible content */}
-      </div>
+      </div>}
 
       {/* Divider */}
-      <div className="border-t border-[#30363d]"></div>
+      {!hideActiveTrades && <div className="border-t border-[#30363d]"></div>}
 
       {/* ===== POTENTIAL TRADES SECTION ===== */}
       <div 
@@ -2073,10 +2073,10 @@ export default function WatchlistView() {
       </div>
 
       {/* Divider */}
-      <div className="border-t border-[#30363d]"></div>
+      {!hideClosedPositions && <div className="border-t border-[#30363d]"></div>}
 
       {/* ===== CLOSED POSITIONS SECTION ===== */}
-      <div className="space-y-4 p-3 rounded-xl border-2 border-red-500/50 bg-red-500/5">
+      {!hideClosedPositions && <div className="space-y-4 p-3 rounded-xl border-2 border-red-500/50 bg-red-500/5">
         {/* Section Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -2379,7 +2379,7 @@ export default function WatchlistView() {
           </div>
         )}
         </div>{/* End of collapsible content */}
-      </div>
+      </div>}
 
       {/* ===== MODALS ===== */}
 
