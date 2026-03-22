@@ -233,6 +233,21 @@ function SortableGoalCard({
             </div>
           )}
         </div>
+
+        {/* Action items row — always visible for collaborative/AI-assisted goals */}
+        {(isCollaborative || goal.aiAssisted) && (
+          <button
+            onClick={(e) => { e.stopPropagation(); openActionItems(goal); }}
+            className="flex items-center gap-1.5 mt-2 px-2 py-1 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-[11px] transition-colors w-full"
+          >
+            <Bot className="w-3 h-3 flex-shrink-0" />
+            <span>Action Items</span>
+            {pendingActions > 0 && (
+              <span className="ml-auto px-1.5 py-0.5 bg-[#d29922]/20 text-[#d29922] rounded text-[10px]">{pendingActions} pending</span>
+            )}
+            <ChevronRight className="w-3 h-3 ml-auto text-purple-400/50" />
+          </button>
+        )}
       </div>
 
       {/* Hover actions */}
@@ -348,6 +363,20 @@ function MobileGoalCard({
           )}
           {goal.notes && <FileText className="w-3 h-3 text-[#F97316]/60" />}
         </div>
+
+        {/* Action items — always visible for collaborative/AI-assisted */}
+        {(isCollaborative || goal.aiAssisted) && (
+          <button
+            onClick={(e) => { e.stopPropagation(); openActionItems(goal); }}
+            className="flex items-center gap-1.5 mt-2 px-2 py-1 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-[11px] transition-colors w-full"
+          >
+            <Bot className="w-3 h-3 flex-shrink-0" />
+            <span>Action Items</span>
+            {pendingActions > 0 && (
+              <span className="ml-auto px-1.5 py-0.5 bg-[#d29922]/20 text-[#d29922] rounded text-[10px]">{pendingActions}</span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Actions */}
