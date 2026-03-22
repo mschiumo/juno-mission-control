@@ -42,9 +42,9 @@ interface Goal {
   phase: 'not-started' | 'in-progress' | 'achieved';
   category: 'yearly' | 'weekly' | 'daily' | 'collaborative';
   notes?: string;
-  junoAssisted?: boolean;
+  aiAssisted?: boolean;
   actionItems?: ActionItem[];
-  source?: 'mj' | 'juno' | 'subagent';
+  source?: 'mj' | 'ai' | 'subagent';
   dueDate?: string;
   createdAt?: string;
   order?: number;
@@ -59,7 +59,7 @@ interface GoalsData {
 
 type Phase = 'not-started' | 'in-progress' | 'achieved';
 type Category = 'yearly' | 'weekly' | 'daily' | 'collaborative';
-type Source = 'mj' | 'juno' | 'subagent';
+type Source = 'mj' | 'ai' | 'subagent';
 
 const phaseLabels: Record<Phase, string> = {
   'not-started': 'Not Started',
@@ -84,12 +84,12 @@ const categoryDescriptions: Record<Category, string> = {
   yearly: 'Long-term personal goals',
   weekly: 'Weekly personal targets',
   daily: 'Daily habits & tasks',
-  collaborative: 'Tasks with Juno & subagents'
+  collaborative: 'Tasks with AI & subagents'
 };
 
 const sourceLabels: Record<Source, { label: string; color: string; icon: string }> = {
   mj: { label: 'MJ', color: 'text-[#F97316]', icon: '👤' },
-  juno: { label: 'Juno', color: 'text-purple-400', icon: '🤖' },
+  ai: { label: 'AI', color: 'text-purple-400', icon: '🤖' },
   subagent: { label: 'Subagent', color: 'text-blue-400', icon: '⚡' }
 };
 
@@ -106,7 +106,7 @@ interface SortableGoalCardProps {
   openActionItems: (goal: Goal) => void;
   moveGoal: (goal: Goal, newPhase: Phase) => void;
   moveCategory: (goal: Goal, newCategory: Category) => void;
-  toggleJunoAssisted: (goal: Goal) => void;
+  toggleAiAssisted: (goal: Goal) => void;
   isMobile: boolean;
 }
 
@@ -121,7 +121,7 @@ function SortableGoalCard({
   openActionItems,
   moveGoal,
   moveCategory,
-  toggleJunoAssisted,
+  toggleAiAssisted,
   isMobile
 }: SortableGoalCardProps) {
   const {
@@ -236,7 +236,7 @@ function SortableGoalCard({
         </div>
       )}
       
-      {/* For personal goals: Juno checkbox */}
+      {/* For personal goals: AI checkbox */}
       {!isCollaborative && (
         <div className="flex items-center justify-between mt-2">
           <label 
@@ -245,14 +245,14 @@ function SortableGoalCard({
           >
             <input
               type="checkbox"
-              checked={goal.junoAssisted || false}
-              onChange={(e) => { e.stopPropagation(); toggleJunoAssisted(goal); }}
+              checked={goal.aiAssisted || false}
+              onChange={(e) => { e.stopPropagation(); toggleAiAssisted(goal); }}
               className="w-3.5 h-3.5 rounded border-[#262626] bg-[#0F0F0F] text-purple-500 focus:ring-purple-500/20"
             />
-            <span className="text-[10px] text-[#737373]">Juno-assisted</span>
+            <span className="text-[10px] text-[#737373]">AI-assisted</span>
           </label>
           
-          {goal.junoAssisted && (
+          {goal.aiAssisted && (
             <button
               onClick={(e) => { e.stopPropagation(); openActionItems(goal); }}
               className="flex items-center gap-1.5 text-xs px-3 py-2 min-h-[44px] min-w-[44px] bg-purple-500/20 text-purple-400 rounded-full hover:bg-purple-500/30 transition-colors font-medium"
@@ -439,14 +439,14 @@ function MobileGoalCard({
           <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
             <input
               type="checkbox"
-              checked={goal.junoAssisted || false}
+              checked={goal.aiAssisted || false}
               onChange={(e) => { e.stopPropagation(); }}
               className="w-3.5 h-3.5 rounded border-[#262626] bg-[#0F0F0F] text-purple-500 focus:ring-purple-500/20"
             />
-            <span className="text-[10px] text-[#737373]">Juno-assisted</span>
+            <span className="text-[10px] text-[#737373]">AI-assisted</span>
           </label>
           
-          {goal.junoAssisted && (
+          {goal.aiAssisted && (
             <button
               onClick={(e) => { e.stopPropagation(); openActionItems(goal); }}
               className="flex items-center gap-1.5 text-xs px-3 py-2 min-h-[44px] min-w-[44px] bg-purple-500/20 text-purple-400 rounded-full hover:bg-purple-500/30 transition-colors font-medium"
@@ -509,7 +509,7 @@ export default function GoalsCard() {
   const [notesGoal, setNotesGoal] = useState<Goal | null>(null);
   const [notesContent, setNotesContent] = useState('');
 
-  // Juno-assisted state
+  // AI-assisted state
   const [showActionItemsModal, setShowActionItemsModal] = useState(false);
   const [actionItemsGoal, setActionItemsGoal] = useState<Goal | null>(null);
   const [newActionItem, setNewActionItem] = useState('');
@@ -832,7 +832,7 @@ export default function GoalsCard() {
           category: goalToRestore.category,
           notes: goalToRestore.notes,
           phase: goalToRestore.phase,
-          junoAssisted: goalToRestore.junoAssisted,
+          aiAssisted: goalToRestore.aiAssisted,
           actionItems: goalToRestore.actionItems,
           id: goalToRestore.id // Pass the original ID to restore
         })
@@ -960,14 +960,14 @@ export default function GoalsCard() {
     }
   };
 
-  // Juno-assisted functions
-  const toggleJunoAssisted = async (goal: Goal) => {
-    const newValue = !goal.junoAssisted;
+  // AI-assisted functions
+  const toggleAiAssisted = async (goal: Goal) => {
+    const newValue = !goal.aiAssisted;
     
     const updatedGoals = { ...goals };
     const goalIndex = updatedGoals[goal.category].findIndex(g => g.id === goal.id);
     if (goalIndex > -1) {
-      updatedGoals[goal.category][goalIndex].junoAssisted = newValue;
+      updatedGoals[goal.category][goalIndex].aiAssisted = newValue;
       setGoals(updatedGoals);
     }
 
@@ -978,21 +978,21 @@ export default function GoalsCard() {
         body: JSON.stringify({
           goalId: goal.id,
           category: goal.category,
-          junoAssisted: newValue
+          aiAssisted: newValue
         })
       });
 
       if (!response.ok) {
         fetchGoals();
-        showNotification('Failed to update Juno setting', 'error');
+        showNotification('Failed to update AI setting', 'error');
       } else {
         await fetchGoals();
-        showNotification(newValue ? 'Juno assistance enabled' : 'Juno assistance disabled', 'success');
+        showNotification(newValue ? 'AI assistance enabled' : 'AI assistance disabled', 'success');
       }
     } catch (error) {
-      console.error('Failed to toggle Juno-assisted:', error);
+      console.error('Failed to toggle AI-assisted:', error);
       fetchGoals();
-      showNotification('Failed to update Juno setting', 'error');
+      showNotification('Failed to update AI setting', 'error');
     }
   };
 
@@ -1893,7 +1893,7 @@ export default function GoalsCard() {
                         openActionItems={openActionItems}
                         moveGoal={moveGoal}
                         moveCategory={moveCategory}
-                        toggleJunoAssisted={toggleJunoAssisted}
+                        toggleAiAssisted={toggleAiAssisted}
                         isMobile={isMobile}
                       />
                     ))}
@@ -2085,7 +2085,7 @@ export default function GoalsCard() {
                 type="text"
                 value={newActionItem}
                 onChange={(e) => setNewActionItem(e.target.value)}
-                placeholder="Add a new action item for Juno..."
+                placeholder="Add a new action item..."
                 className="flex-1 px-4 py-3 bg-[#0F0F0F] border border-[#262626] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-purple-500"
                 onKeyPress={(e) => e.key === 'Enter' && addActionItem()}
               />
@@ -2104,7 +2104,7 @@ export default function GoalsCard() {
                 <div className="text-center py-8 text-[#737373]">
                   <Bot className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   <p>No action items yet.</p>
-                  <p className="text-sm mt-1">Add items for Juno to work on!</p>
+                  <p className="text-sm mt-1">Add items to work on!</p>
                 </div>
               ) : (
                 (actionItemsGoal.actionItems || []).map((item) => (
@@ -2149,15 +2149,15 @@ export default function GoalsCard() {
               )}
             </div>
 
-            {/* Juno assistance indicator */}
-            {actionItemsGoal.junoAssisted && (
+            {/* AI assistance indicator */}
+            {actionItemsGoal.aiAssisted && (
               <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl mb-4">
                 <div className="flex items-center gap-2 text-purple-400">
                   <Bot className="w-4 h-4" />
-                  <span className="text-sm font-medium">Juno is monitoring this goal</span>
+                  <span className="text-sm font-medium">AI is monitoring this goal</span>
                 </div>
                 <p className="text-xs text-[#737373] mt-1">
-                  Juno will ask before taking action on pending items
+                  AI will ask before taking action on pending items
                 </p>
               </div>
             )}

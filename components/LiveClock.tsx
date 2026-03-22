@@ -3,49 +3,55 @@
 import { useState, useEffect } from 'react';
 
 export default function LiveClock() {
-  const [time, setTime] = useState('');
+  const [hhmm, setHhmm] = useState('');
+  const [seconds, setSeconds] = useState('');
+  const [ampm, setAmpm] = useState('');
   const [date, setDate] = useState('');
 
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
-      
-      const timeOptions: Intl.DateTimeFormatOptions = {
+
+      const parts = now.toLocaleTimeString('en-US', {
         timeZone: 'America/New_York',
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
-        hour12: true
-      };
+        hour12: true,
+      }).split(':');
 
-      const dateOptions: Intl.DateTimeFormatOptions = {
+      setHhmm(`${parts[0]}:${parts[1]}`);
+      setSeconds(parts[2].slice(0, 2));
+      setAmpm(parts[2].slice(3));
+
+      setDate(now.toLocaleDateString('en-US', {
         timeZone: 'America/New_York',
         weekday: 'short',
-        year: 'numeric',
         month: 'short',
-        day: 'numeric'
-      };
-
-      setTime(now.toLocaleTimeString('en-US', timeOptions));
-      setDate(now.toLocaleDateString('en-US', dateOptions));
+        day: 'numeric',
+      }));
     };
 
-    // Initial update
     updateClock();
-
-    // Update every second
     const interval = setInterval(updateClock, 1000);
-
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="text-right">
-      <div className="text-lg font-mono text-[#ff6b35]">
-        {time || '--:--:--'}
+      <div className="flex items-baseline justify-end">
+        <span className="text-base font-mono tabular-nums text-[#e6edf3]">
+          {hhmm || '--:--'}
+        </span>
+        <span className="text-sm font-mono tabular-nums text-[#ff6b35]">
+          :{seconds || '--'}
+        </span>
+        <span className="text-xs text-[#8b949e] ml-1">
+          {ampm || 'AM'}
+        </span>
       </div>
-      <div className="text-xs text-[#8b949e]">
-        {date || 'Loading...'} (EST)
+      <div className="text-[10px] text-[#484f58] tracking-wide">
+        {date || '---'} · EST
       </div>
     </div>
   );

@@ -75,10 +75,10 @@ export default function ActiveTradesStrip() {
   useEffect(() => {
     fetchTrades();
     const id = setInterval(fetchTrades, 30_000);
-    window.addEventListener('juno:active-trades-updated', fetchTrades);
+    window.addEventListener('ct:active-trades-updated', fetchTrades);
     return () => {
       clearInterval(id);
-      window.removeEventListener('juno:active-trades-updated', fetchTrades);
+      window.removeEventListener('ct:active-trades-updated', fetchTrades);
     };
   }, []);
 
@@ -150,8 +150,8 @@ export default function ActiveTradesStrip() {
         method: 'DELETE',
       });
       await fetchTrades();
-      window.dispatchEvent(new CustomEvent('juno:active-trades-updated'));
-      window.dispatchEvent(new CustomEvent('juno:closed-positions-updated'));
+      window.dispatchEvent(new CustomEvent('ct:active-trades-updated'));
+      window.dispatchEvent(new CustomEvent('ct:closed-positions-updated'));
       setClosingTrade(null);
     } catch {
       // silently fail

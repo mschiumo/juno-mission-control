@@ -18,9 +18,9 @@ interface Goal {
   phase: 'not-started' | 'in-progress' | 'achieved';
   category: Category;
   notes?: string;
-  junoAssisted?: boolean;
+  aiAssisted?: boolean;
   actionItems?: ActionItem[];
-  source?: 'mj' | 'juno' | 'subagent';  // Who created this goal
+  source?: 'mj' | 'ai' | 'subagent';  // Who created this goal
   dueDate?: string;  // ISO date string for goal deadline
   createdAt?: string; // ISO timestamp when goal was created
   order?: number;    // Display order for drag-and-drop reordering
@@ -30,7 +30,7 @@ interface GoalsData {
   yearly: Goal[];
   weekly: Goal[];
   daily: Goal[];
-  collaborative: Goal[];  // Tasks/Projects involving MJ, Juno, and subagents
+  collaborative: Goal[];  // Tasks/Projects involving MJ, AI, and subagents
 }
 
 // Default goals structure
@@ -59,8 +59,8 @@ const DEFAULT_GOALS: GoalsData = {
       title: 'Dashboard Theme Improvements',
       phase: 'in-progress',
       category: 'collaborative',
-      source: 'juno',
-      junoAssisted: true,
+      source: 'ai',
+      aiAssisted: true,
       actionItems: [
         { id: 'ai-1', text: 'Update GoalsCard with tabs', status: 'completed', createdAt: new Date().toISOString() }
       ]
@@ -71,7 +71,7 @@ const DEFAULT_GOALS: GoalsData = {
       phase: 'not-started',
       category: 'collaborative',
       source: 'subagent',
-      junoAssisted: true
+      aiAssisted: true
     }
   ]
 };
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { goalId, newPhase, category, notes, junoAssisted, actionItems, title, dueDate } = body;
+    const { goalId, newPhase, category, notes, aiAssisted, actionItems, title, dueDate } = body;
 
     if (!goalId || !category) {
       return NextResponse.json({
@@ -192,9 +192,9 @@ export async function POST(request: NextRequest) {
       goals[category][goalIndex].notes = notes;
     }
 
-    // Update junoAssisted if provided
-    if (junoAssisted !== undefined) {
-      goals[category][goalIndex].junoAssisted = junoAssisted;
+    // Update aiAssisted if provided
+    if (aiAssisted !== undefined) {
+      goals[category][goalIndex].aiAssisted = aiAssisted;
     }
 
     // Update actionItems if provided
@@ -237,7 +237,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { title, category, notes, phase, junoAssisted, actionItems, id, source, dueDate } = body;
+    const { title, category, notes, phase, aiAssisted, actionItems, id, source, dueDate } = body;
 
     if (!title || !category) {
       return NextResponse.json({
@@ -271,7 +271,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Determine source - MJ-created goals default to 'mj', unless explicitly set
-    const goalSource: 'mj' | 'juno' | 'subagent' = source || 'mj';
+    const goalSource: 'mj' | 'ai' | 'subagent' = source || 'mj';
 
     // Auto-categorize collaborative goals
     const finalCategory = goalSource !== 'mj' ? 'collaborative' : category;
@@ -283,7 +283,7 @@ export async function PUT(request: NextRequest) {
       phase: phase || 'not-started',
       category: finalCategory,
       notes: notes || undefined,
-      junoAssisted: junoAssisted || goalSource !== 'mj',
+      aiAssisted: aiAssisted || goalSource !== 'mj',
       actionItems: actionItems || undefined,
       source: goalSource,
       dueDate: dueDate || undefined,

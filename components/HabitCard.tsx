@@ -72,9 +72,9 @@ type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 
 const EMOJI_OPTIONS = ['💪', '🏃', '📚', '💧', '🧘', '🛏️', '💊', '📝', '📊', '🎯', '🔥', '⭐', '🌟', '✨', '🎨', '🎵', '🌱', '☀️', '🌙', '🍎', '🥗', '💤', '🧠', '❤️', '🌈'];
 
-const STORAGE_KEY = 'juno_habits_cache';
-const STORAGE_STATS_KEY = 'juno_habits_stats_cache';
-const STORAGE_TIMESTAMP_KEY = 'juno_habits_timestamp';
+const STORAGE_KEY = 'ct_habits_cache';
+const STORAGE_STATS_KEY = 'ct_habits_stats_cache';
+const STORAGE_TIMESTAMP_KEY = 'ct_habits_timestamp';
 
 // Sortable habit item component
 interface SortableHabitItemProps {

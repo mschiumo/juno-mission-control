@@ -10,7 +10,7 @@ const NEW_GOAL = {
   title: "Implement AI Agency Architecture",
   phase: "in-progress",
   category: "collaborative",
-  description: "Deploy multi-agent system with specialized agents on different models (Kimi for operations, Sonnet for coding/writing). Juno acts as VP of Operations supervising specialists.",
+  description: "Deploy multi-agent system with specialized agents on different models (Kimi for operations, Sonnet for coding/writing). AI acts as VP of Operations supervising specialists.",
   notes: `## Architecture Document
 
 Full documentation at: docs/AI_AGENCY_ARCHITECTURE.md
@@ -33,7 +33,7 @@ Full documentation at: docs/AI_AGENCY_ARCHITECTURE.md
 
 ### Agent Roles
 
-- **Juno** (Kimi K2.5) - VP Operations, supervision
+- **AI** (Kimi K2.5) - VP Operations, supervision
 - **KeepLiving-Shopify** (Sonnet 4.6) - E-commerce specialist
 - **Content-Creator** (Sonnet 4.6) - Social media automation
 
@@ -55,8 +55,8 @@ See Section 8 in architecture doc for full research.
 ---
 
 *Created: 2026-02-18*`,
-  junoAssisted: true,
-  source: "juno",
+  aiAssisted: true,
+  source: "ai",
   actionItems: [
     { id: `ai-${Date.now()}-1`, text: "Push branch to GitHub (token expired - needs manual)", status: "in-progress", createdAt: new Date().toISOString() },
     { id: `ai-${Date.now()}-2`, text: "Create PR via GitHub UI", status: "pending", createdAt: new Date().toISOString() },

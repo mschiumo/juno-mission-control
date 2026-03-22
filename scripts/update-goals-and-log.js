@@ -26,10 +26,10 @@ const NEW_GOAL = {
   title: "Create Documents Page for Research & Notes",
   phase: "not-started",
   category: "collaborative",
-  description: "Build a dedicated Documents page in the dashboard to store research reports, project briefs, and shared notes between MJ and Juno. This will centralize knowledge and make it easier to reference past research and decisions.",
-  notes: "## Documents Page\n\n### Purpose\nCentral repository for all research, reports, and notes shared between MJ and Juno\n\n### Content Types\n- Research reports (market analysis, API comparisons, tool research)\n- Project briefs and specifications\n- Meeting notes and decisions\n- Decision logs with rationale\n\n### Features\n- Rich text editing\n- Categorization/tags\n- Search functionality\n- Version history\n\n### Integration\n- Link from Goals, Projects, and other dashboard sections\n- Reference documents in activity logs\n\n### Access\n- Both MJ and Juno can add/edit documents\n- Documents are collaborative and editable",
-  junoAssisted: true,
-  source: "juno",
+  description: "Build a dedicated Documents page in the dashboard to store research reports, project briefs, and shared notes between MJ and AI. This will centralize knowledge and make it easier to reference past research and decisions.",
+  notes: "## Documents Page\n\n### Purpose\nCentral repository for all research, reports, and notes shared between MJ and AI\n\n### Content Types\n- Research reports (market analysis, API comparisons, tool research)\n- Project briefs and specifications\n- Meeting notes and decisions\n- Decision logs with rationale\n\n### Features\n- Rich text editing\n- Categorization/tags\n- Search functionality\n- Version history\n\n### Integration\n- Link from Goals, Projects, and other dashboard sections\n- Reference documents in activity logs\n\n### Access\n- Both MJ and AI can add/edit documents\n- Documents are collaborative and editable",
+  aiAssisted: true,
+  source: "ai",
   actionItems: []
 };
 
