@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+// 2-second in-memory cache — deduplicates burst REST polling from multiple users
+const priceCache = new Map<string, { price: number; expiresAt: number }>();
+const CACHE_TTL_MS = 2000;
+
 async function fetchYahooPrice(symbol: string): Promise<number | null> {
   try {
     const res = await fetch(
@@ -49,9 +53,16 @@ export async function GET(req: NextRequest) {
 
   const entries = await Promise.all(
     symbols.map(async (symbol) => {
+      const cached = priceCache.get(symbol);
+      if (cached && cached.expiresAt > Date.now()) {
+        return [symbol, cached.price] as const;
+      }
       const price = apiKey
         ? await fetchFinnhubPrice(symbol, apiKey)
         : await fetchYahooPrice(symbol);
+      if (price !== null) {
+        priceCache.set(symbol, { price, expiresAt: Date.now() + CACHE_TTL_MS });
+      }
       return [symbol, price] as const;
     })
   );

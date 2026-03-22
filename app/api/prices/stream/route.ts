@@ -1,14 +1,14 @@
 import { NextRequest } from 'next/server';
+import { getPriceBus } from '@/lib/price-bus';
 
-export const runtime = 'edge';
+// Node.js runtime required — edge runtime is stateless and cannot share the singleton bus
+export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   const symbolsParam = req.nextUrl.searchParams.get('symbols') ?? '';
   const symbols = symbolsParam.split(',').map((s) => s.trim()).filter(Boolean);
 
-  const apiKey = process.env.FINNHUB_API_KEY;
-
-  if (!apiKey) {
+  if (!process.env.FINNHUB_API_KEY) {
     return new Response('FINNHUB_API_KEY not configured', { status: 503 });
   }
 
@@ -16,47 +16,28 @@ export async function GET(req: NextRequest) {
     return new Response('No symbols provided', { status: 400 });
   }
 
+  const bus = getPriceBus();
+  if (!bus) {
+    return new Response('Price bus unavailable', { status: 503 });
+  }
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     start(controller) {
-      const ws = new WebSocket(`wss://ws.finnhub.io?token=${apiKey}`);
-
-      ws.addEventListener('open', () => {
-        for (const symbol of symbols) {
-          ws.send(JSON.stringify({ type: 'subscribe', symbol }));
-        }
-        // Send an initial ping so the client knows the connection is live
-        controller.enqueue(encoder.encode(': connected\n\n'));
-      });
-
-      ws.addEventListener('message', (event) => {
+      const send = (prices: Record<string, number>) => {
         try {
-          const msg = JSON.parse(event.data as string);
-          if (msg.type !== 'trade' || !Array.isArray(msg.data)) return;
-
-          // Deduplicate: keep only the latest price per symbol in this batch
-          const latest: Record<string, number> = {};
-          for (const tick of msg.data) {
-            latest[tick.s] = tick.p;
-          }
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(latest)}\n\n`));
-        } catch {
-          // ignore malformed messages
-        }
-      });
-
-      const cleanup = () => {
-        for (const symbol of symbols) {
-          try { ws.send(JSON.stringify({ type: 'unsubscribe', symbol })); } catch {}
-        }
-        ws.close();
-        try { controller.close(); } catch {}
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(prices)}\n\n`));
+        } catch {}
       };
 
-      ws.addEventListener('error', cleanup);
-      ws.addEventListener('close', () => { try { controller.close(); } catch {} });
-      req.signal.addEventListener('abort', cleanup);
+      bus.subscribe(symbols, send);
+      controller.enqueue(encoder.encode(': connected\n\n'));
+
+      req.signal.addEventListener('abort', () => {
+        bus.unsubscribe(symbols, send);
+        try { controller.close(); } catch {}
+      });
     },
   });
 
