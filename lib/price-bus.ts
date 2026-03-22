@@ -99,6 +99,20 @@ class PriceBus {
 
 // Global singleton — shared across all requests within a server instance.
 // Uses global to survive Next.js hot-reloads in dev.
+//
+// To verify the bus is working locally, run `npm run dev` and open the app in
+// two browser windows with active trades. You should see this in the terminal:
+//
+//   [PriceBus] Creating singleton          ← only once, ever
+//   [PriceBus] Opening Finnhub WebSocket   ← only once, ever
+//   [PriceBus] WebSocket connected
+//   [PriceBus] +subscriber for [TSLA] — total connections: 1, symbols tracked: 1
+//   [PriceBus] Reusing existing singleton  ← second window connects
+//   [PriceBus] +subscriber for [TSLA] — total connections: 2, symbols tracked: 1
+//                                                            ↑                  ↑
+//                                                    grows per window   stays the same
+//
+// If "Opening Finnhub WebSocket" appears more than once, the singleton is broken.
 declare global {
   // eslint-disable-next-line no-var
   var __priceBus: PriceBus | undefined;
