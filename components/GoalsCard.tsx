@@ -144,8 +144,8 @@ function SortableGoalCard({
 
   const pendingActions = (goal.actionItems || []).filter(item => item.status === 'pending').length;
   const isCollaborative = goal.category === 'collaborative' || goal.source !== 'mj';
-  const source = goal.source || 'mj';
-  const sourceInfo = sourceLabels[source];
+  const source = (goal.source || 'mj') as Source;
+  const sourceInfo = sourceLabels[source] ?? sourceLabels['mj'];
   const accent = phaseAccent[phase];
 
   return (
@@ -308,8 +308,8 @@ function MobileGoalCard({
 }: MobileGoalCardProps) {
   const pendingActions = (goal.actionItems || []).filter(item => item.status === 'pending').length;
   const isCollaborative = goal.category === 'collaborative' || goal.source !== 'mj';
-  const source = goal.source || 'mj';
-  const sourceInfo = sourceLabels[source];
+  const source = (goal.source || 'mj') as Source;
+  const sourceInfo = sourceLabels[source] ?? sourceLabels['mj'];
   const accent = phaseAccent[phase];
 
   return (
