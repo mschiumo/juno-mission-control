@@ -95,26 +95,29 @@ function getMarketSession(): {
   };
 }
 
-const MIN_AVG_VOLUME = 1_000_000;  // 90-day avg daily volume
-const MIN_MARKET_CAP = 50_000_000; // $50M
-
 async function fetchScreener(scrId: 'day_gainers' | 'day_losers', count: number, isMarketOpen: boolean): Promise<YahooQuote[]> {
   const url = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?count=${count}&scrIds=${scrId}`;
   const res = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    next: { revalidate: isMarketOpen ? 15 : 300 }, // 15s during market hours, 5min otherwise
+    next: { revalidate: isMarketOpen ? 15 : 300 },
   });
   if (!res.ok) throw new Error(`Yahoo Finance screener error: ${res.status}`);
   const data = await res.json();
   return (data?.finance?.result?.[0]?.quotes ?? []) as YahooQuote[];
 }
 
-function meetsQualityCriteria(q: YahooQuote): boolean {
-  // 90-day avg daily volume >= 1M
-  if ((q.averageDailyVolume3Month ?? 0) < MIN_AVG_VOLUME) return false;
-  // Market cap >= $50M
-  if ((q.marketCap ?? 0) < MIN_MARKET_CAP) return false;
-  // US-listed domestic stock only — no ADRs
+function meetsQualityCriteria(
+  q: YahooQuote,
+  minVolume: number,
+  minMarketCap: number,
+  minGap: number,
+  minPrice: number,
+  maxPrice: number,
+): boolean {
+  if ((q.averageDailyVolume3Month ?? 0) < minVolume) return false;
+  if ((q.marketCap ?? 0) < minMarketCap) return false;
+  if (Math.abs(q.regularMarketChangePercent) < minGap) return false;
+  if (q.regularMarketPrice < minPrice || q.regularMarketPrice > maxPrice) return false;
   if (isLikelyADR(q)) return false;
   return true;
 }
@@ -135,9 +138,14 @@ function toGapStock(q: YahooQuote, status: 'gainer' | 'loser'): GapStock {
 export async function GET(request: Request) {
   const startTime = Date.now();
   const { searchParams } = new URL(request.url);
-  // Fetch more candidates to account for filter attrition
   const count = parseInt(searchParams.get('count') || '50', 10);
   const limit = parseInt(searchParams.get('limit') || '20', 10);
+  // Configurable filter params (with same defaults as before)
+  const minGap = parseFloat(searchParams.get('minGap') || '2');
+  const minVolume = parseInt(searchParams.get('minVolume') || '1000000', 10);
+  const minMarketCap = parseInt(searchParams.get('minMarketCap') || '50000000', 10);
+  const minPrice = parseFloat(searchParams.get('minPrice') || '1');
+  const maxPrice = parseFloat(searchParams.get('maxPrice') || '1000');
   const marketInfo = getMarketSession();
 
   try {
@@ -147,8 +155,9 @@ export async function GET(request: Request) {
       fetchScreener('day_losers', count, isMarketOpen),
     ]);
 
-    const gainers = gainersRaw.filter(meetsQualityCriteria).slice(0, limit).map((q) => toGapStock(q, 'gainer'));
-    const losers = losersRaw.filter(meetsQualityCriteria).slice(0, limit).map((q) => toGapStock(q, 'loser'));
+    const filter = (q: YahooQuote) => meetsQualityCriteria(q, minVolume, minMarketCap, minGap, minPrice, maxPrice);
+    const gainers = gainersRaw.filter(filter).slice(0, limit).map((q) => toGapStock(q, 'gainer'));
+    const losers = losersRaw.filter(filter).slice(0, limit).map((q) => toGapStock(q, 'loser'));
 
     return NextResponse.json({
       success: true,
