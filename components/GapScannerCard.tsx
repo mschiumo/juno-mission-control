@@ -151,7 +151,7 @@ export default function GapScannerCard() {
   useEffect(() => {
     fetchGapData();
     fetchExistingFavorites();
-    const interval = setInterval(() => fetchGapData(), 15000);
+    const interval = setInterval(() => fetchGapData(), 120000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
