@@ -247,22 +247,12 @@ export default function ActiveTradesStrip() {
                       ${dragOverId === trade.id ? 'ring-2 ring-[#238636] scale-[1.02]' : ''}
                     `}
                   >
-                    {/* Ticker + close */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {status === 'danger' && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />}
-                        {status === 'warn'   && <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse shrink-0" />}
-                        {status === 'safe'   && <span className="w-2 h-2 rounded-full bg-[#238636] animate-pulse shrink-0" />}
-                        <span className="font-bold text-white text-base tracking-wide truncate">{trade.ticker}</span>
-                      </div>
-                      <button
-                        onClick={() => setClosingTrade(trade)}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        className="p-1 rounded text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
-                        title="Close trade"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                    {/* Ticker */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      {status === 'danger' && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />}
+                      {status === 'warn'   && <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse shrink-0" />}
+                      {status === 'safe'   && <span className="w-2 h-2 rounded-full bg-[#238636] animate-pulse shrink-0" />}
+                      <span className="font-bold text-white text-base tracking-wide truncate">{trade.ticker}</span>
                     </div>
 
                     {/* Live price + Profit side by side */}
@@ -294,26 +284,36 @@ export default function ActiveTradesStrip() {
                     )}
 
 
-                    {/* Key levels — 2x2 grid */}
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                      <div>
-                        <p className="text-[#8b949e] text-[10px] mb-0.5">Entry</p>
-                        <p className="text-white text-xs font-semibold">${trade.actualEntry.toFixed(2)}</p>
+                    {/* Key levels + close */}
+                    <div className="flex flex-col gap-1.5">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                        <div>
+                          <p className="text-[#8b949e] text-[10px] mb-0.5">Entry</p>
+                          <p className="text-white text-xs font-semibold">${trade.actualEntry.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[#8b949e] text-[10px] mb-0.5">Stop</p>
+                          <p className={`text-xs font-semibold ${status !== 'safe' ? 'text-red-400' : 'text-[#f85149]'}`}>
+                            ${trade.plannedStop.toFixed(2)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[#8b949e] text-[10px] mb-0.5">Target</p>
+                          <p className="text-[#3fb950] text-xs font-semibold">${trade.plannedTarget.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[#8b949e] text-[10px] mb-0.5">Shares</p>
+                          <p className="text-[#F97316] text-xs font-semibold">{trade.actualShares.toLocaleString()}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[#8b949e] text-[10px] mb-0.5">Stop</p>
-                        <p className={`text-xs font-semibold ${status !== 'safe' ? 'text-red-400' : 'text-[#f85149]'}`}>
-                          ${trade.plannedStop.toFixed(2)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[#8b949e] text-[10px] mb-0.5">Target</p>
-                        <p className="text-[#3fb950] text-xs font-semibold">${trade.plannedTarget.toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[#8b949e] text-[10px] mb-0.5">Shares</p>
-                        <p className="text-[#F97316] text-xs font-semibold">{trade.actualShares.toLocaleString()}</p>
-                      </div>
+                      <button
+                        onClick={() => setClosingTrade(trade)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="w-full flex items-center justify-center gap-1.5 py-1 rounded-lg text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 border border-[#30363d] hover:border-red-400/30 transition-colors text-[10px] font-medium"
+                      >
+                        <X className="w-3 h-3" />
+                        Close Trade
+                      </button>
                     </div>
                   </div>
                 );
