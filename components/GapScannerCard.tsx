@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Star, Download, List, ChevronUp, ChevronDown, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Star, Download, List, ChevronUp, ChevronDown, Info, SlidersHorizontal } from 'lucide-react';
 
 /** Simple hover tooltip — small single-line label */
 function Tip({ label, children, position = 'bottom' }: { label: string; children: React.ReactNode; position?: 'top' | 'bottom' }) {
@@ -17,27 +17,22 @@ function Tip({ label, children, position = 'bottom' }: { label: string; children
   );
 }
 
-/** Larger hover card explaining the gap scanner criteria */
-function CriteriaCard({ children }: { children: React.ReactNode }) {
+/** Hover card showing the active scan criteria */
+function CriteriaCard({ criteria, children }: {
+  criteria: { label: string; value: string; detail: string }[];
+  children: React.ReactNode;
+}) {
   return (
     <div className="relative group/criteria">
       {children}
       <div className="absolute left-0 top-full mt-2 hidden group-hover/criteria:block z-50 pointer-events-none">
         <div className="w-72 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl overflow-hidden">
-          {/* Card header */}
           <div className="flex items-center gap-2 px-4 py-3 bg-[#0d1117]/60 border-b border-[#30363d]">
             <Activity className="w-3.5 h-3.5 text-[#F97316]" />
-            <span className="text-xs font-semibold text-white">Scan Criteria</span>
+            <span className="text-xs font-semibold text-white">Active Scan Criteria</span>
           </div>
-          {/* Criteria rows */}
           <div className="px-4 py-3 space-y-3">
-            {[
-              { label: 'Gap', value: '≥ 2%', detail: 'vs previous close' },
-              { label: 'Volume', value: '≥ 1M shares', detail: 'pre/intraday' },
-              { label: 'Market Cap', value: '≥ $50M', detail: 'filters micro-caps' },
-              { label: 'Market', value: 'US only', detail: 'NYSE · NASDAQ · AMEX' },
-              { label: 'Refresh', value: 'Every 15s', detail: 'during market hours' },
-            ].map(({ label, value, detail }) => (
+            {criteria.map(({ label, value, detail }) => (
               <div key={label} className="flex items-start justify-between gap-3">
                 <span className="text-[11px] font-medium text-[#8b949e] w-16 shrink-0">{label}</span>
                 <div className="text-right">
@@ -49,7 +44,7 @@ function CriteriaCard({ children }: { children: React.ReactNode }) {
           </div>
           <div className="px-4 py-2.5 border-t border-[#30363d] bg-[#0d1117]/40">
             <p className="text-[10px] text-[#8b949e] leading-relaxed">
-              Results are sorted by gap % by default. Star any ticker to add it to your watchlist.
+              Results sorted by gap % by default. Star any ticker to add it to your watchlist.
             </p>
           </div>
         </div>
@@ -57,6 +52,22 @@ function CriteriaCard({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+interface ScanFilters {
+  minGap: number;
+  minVolume: number;
+  minMarketCap: number;
+  minPrice: number;
+  maxPrice: number;
+}
+
+const DEFAULT_FILTERS: ScanFilters = {
+  minGap: 2,
+  minVolume: 1_000_000,
+  minMarketCap: 50_000_000,
+  minPrice: 1,
+  maxPrice: 1000,
+};
 
 interface GapStock {
   symbol: string;
@@ -92,12 +103,30 @@ interface GapResponse {
 
 type SortCol = 'gap' | 'price' | 'volume' | 'cap';
 
+function filtersToParams(f: ScanFilters): string {
+  return new URLSearchParams({
+    minGap: String(f.minGap),
+    minVolume: String(f.minVolume),
+    minMarketCap: String(f.minMarketCap),
+    minPrice: String(f.minPrice),
+    maxPrice: String(f.maxPrice),
+  }).toString();
+}
+
+function fmtFilterVol(v: number) {
+  return v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? (v / 1e3).toFixed(0) + 'K' : String(v);
+}
+function fmtFilterCap(c: number) {
+  return c >= 1e9 ? '$' + (c / 1e9).toFixed(0) + 'B' : '$' + (c / 1e6).toFixed(0) + 'M';
+}
+
 export default function GapScannerCard() {
   const [data, setData] = useState<GapData | null>(null);
   const [response, setResponse] = useState<GapResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [gainerSort, setGainerSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' }>({ col: 'gap', dir: 'desc' });
   const [loserSort, setLoserSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' }>({ col: 'gap', dir: 'desc' });
   const [modalSort, setModalSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' }>({ col: 'gap', dir: 'desc' });
@@ -111,11 +140,20 @@ export default function GapScannerCard() {
   const [tickerIdMap, setTickerIdMap] = useState<Record<string, string>>({});
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Committed filters (used by auto-refresh)
+  const [filters, setFilters] = useState<ScanFilters>(DEFAULT_FILTERS);
+  // Draft filters (edited in the panel, applied on "Run Scan")
+  const [draft, setDraft] = useState<ScanFilters>(DEFAULT_FILTERS);
+  // Ref so the 15s interval always uses the latest committed filters
+  const filtersRef = useRef<ScanFilters>(DEFAULT_FILTERS);
+  useEffect(() => { filtersRef.current = filters; }, [filters]);
+
   useEffect(() => {
     fetchGapData();
     fetchExistingFavorites();
-    const interval = setInterval(fetchGapData, 15000);
+    const interval = setInterval(() => fetchGapData(), 15000);
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchExistingFavorites = async () => {
@@ -127,7 +165,6 @@ export default function GapScannerCard() {
         const idMap: Record<string, string> = {};
         result.data.forEach((item: { ticker: string; id: string }) => { idMap[item.ticker] = item.id; });
         setTickerIdMap(idMap);
-        // Use DB as source of truth — don't merge with stale localStorage
         setAddedTickers(() => {
           const fresh = new Set<string>(tickers);
           try { localStorage.setItem('gap-scanner-favorites', JSON.stringify([...fresh])); } catch { /* ignore */ }
@@ -137,23 +174,32 @@ export default function GapScannerCard() {
     } catch { /* silent */ }
   };
 
-  const fetchGapData = async () => {
+  const fetchGapData = async (overrideFilters?: ScanFilters) => {
+    const active = overrideFilters ?? filtersRef.current;
     setLoading(true);
     try {
       let result: GapResponse | null = null;
+      const qs = filtersToParams(active);
       try {
-        const res = await fetch('/api/gap-scanner-polygon');
+        const res = await fetch(`/api/gap-scanner-polygon?${qs}`);
         if (res.ok) { const j: GapResponse = await res.json(); if (j.success) result = j; }
       } catch { /* try yahoo */ }
       if (!result) {
         try {
-          const res = await fetch('/api/gap-scanner-yahoo');
+          const res = await fetch(`/api/gap-scanner-yahoo?${qs}`);
           if (res.ok) { const j: GapResponse = await res.json(); if (j.success) result = j; }
         } catch { /* failed */ }
       }
       if (result?.success) { setData(result.data); setResponse(result); setLastUpdated(new Date()); }
     } catch (e) { console.error('gap fetch error', e); }
     finally { setLoading(false); }
+  };
+
+  const runScan = () => {
+    setFilters(draft);
+    filtersRef.current = draft;
+    setShowFilters(false);
+    fetchGapData(draft);
   };
 
   const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -169,7 +215,6 @@ export default function GapScannerCard() {
 
   const toggleFavorite = async (symbol: string) => {
     if (addedTickers.has(symbol)) {
-      // Remove
       const id = tickerIdMap[symbol];
       if (!id) return;
       try {
@@ -186,7 +231,6 @@ export default function GapScannerCard() {
         }
       } catch { /* silent */ }
     } else {
-      // Add
       try {
         const res = await fetch('/api/watchlist', {
           method: 'POST',
@@ -253,6 +297,20 @@ export default function GapScannerCard() {
   };
   const session = response?.marketSession ? sessionInfo[response.marketSession] : null;
 
+  // Dynamic criteria for the info hover card
+  const activeCriteria = [
+    { label: 'Gap', value: `≥ ${filters.minGap}%`, detail: 'vs previous close' },
+    { label: 'Volume', value: `≥ ${fmtFilterVol(filters.minVolume)} shares`, detail: 'pre/intraday' },
+    { label: 'Mkt Cap', value: `≥ ${fmtFilterCap(filters.minMarketCap)}`, detail: 'Yahoo source only' },
+    { label: 'Price', value: `$${filters.minPrice} – $${filters.maxPrice}`, detail: 'filters sub-penny junk' },
+    { label: 'Market', value: 'US only', detail: 'NYSE · NASDAQ · AMEX' },
+    { label: 'Refresh', value: 'Every 15s', detail: 'during market hours' },
+  ];
+
+  const criteriaSubtitle = `${filters.minGap}%+ gap | ${fmtFilterVol(filters.minVolume)}+ vol | ${fmtFilterCap(filters.minMarketCap)}+ cap | $${filters.minPrice}–$${filters.maxPrice}`;
+
+  const numInputClass = 'bg-[#21262d] border border-[#30363d] hover:border-[#8b949e] focus:border-[#F97316] focus:outline-none rounded px-1.5 py-0.5 text-xs text-white text-center transition-colors';
+
   const StockRow = ({ stock }: { stock: GapStock }) => {
     const isGainer = stock.status === 'gainer';
     const added = addedTickers.has(stock.symbol);
@@ -263,7 +321,6 @@ export default function GapScannerCard() {
         title={stock.name}
         className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-2 hover:bg-[#21262d] group border-b border-[#30363d] last:border-0 transition-colors"
       >
-        {/* Symbol */}
         <div className="flex items-center gap-1.5 min-w-0">
           {isGainer
             ? <TrendingUp className="w-3 h-3 text-[#238636] flex-shrink-0" />
@@ -273,15 +330,11 @@ export default function GapScannerCard() {
             {stock.symbol}
           </span>
         </div>
-        {/* Price */}
         <span className="text-xs text-[#8b949e] tabular-nums">{fmt(stock.price)}</span>
-        {/* Volume */}
         <span className="text-xs text-[#8b949e] tabular-nums">{fmtVol(stock.volume)}</span>
-        {/* Gap % */}
         <span className={`text-xs font-semibold tabular-nums w-14 text-right ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
           {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%
         </span>
-        {/* Star */}
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(stock.symbol); }}
           className={`transition-colors ${added ? 'text-[#F97316]' : 'text-transparent group-hover:text-[#8b949e] hover:!text-[#F97316]'}`}
@@ -305,8 +358,8 @@ export default function GapScannerCard() {
             <div>
               <h2 className="text-sm font-semibold text-white leading-none">Gap Scanner</h2>
               <div className="flex items-center gap-1 mt-0.5">
-                <p className="text-[10px] text-[#8b949e]">2%+ gap | 1M+ vol | $50M+ cap | US</p>
-                <CriteriaCard>
+                <p className="text-[10px] text-[#8b949e]">{criteriaSubtitle}</p>
+                <CriteriaCard criteria={activeCriteria}>
                   <Info className="w-3 h-3 text-[#8b949e] hover:text-[#58a6ff] cursor-help transition-colors" />
                 </CriteriaCard>
               </div>
@@ -321,9 +374,7 @@ export default function GapScannerCard() {
                 </div>
               </div>
             )}
-            {isWeekend && (
-              <span className="text-[10px] text-[#d29922]">Weekend</span>
-            )}
+            {isWeekend && <span className="text-[10px] text-[#d29922]">Weekend</span>}
             {!loading && dataSource === 'polygon' && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#58a6ff]/20 text-[#58a6ff]">POLYGON</span>
             )}
@@ -344,13 +395,99 @@ export default function GapScannerCard() {
                 </Tip>
               </>
             )}
+            <Tip label="Configure filters" position="bottom">
+              <button
+                onClick={() => { setDraft(filters); setShowFilters(s => !s); }}
+                className={`p-1.5 rounded transition-colors ${showFilters ? 'bg-[#F97316]/20 text-[#F97316]' : 'hover:bg-[#30363d] text-[#8b949e]'}`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+              </button>
+            </Tip>
             <Tip label="Refresh now" position="bottom">
-              <button onClick={fetchGapData} disabled={loading} className="p-1.5 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50">
+              <button onClick={() => fetchGapData()} disabled={loading} className="p-1.5 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50">
                 <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
               </button>
             </Tip>
           </div>
         </div>
+
+        {/* Filter Panel */}
+        {showFilters && (
+          <div className="px-4 py-3 bg-[#0d1117]/70 border-b border-[#30363d] flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
+              <label className="flex items-center gap-1.5">
+                <span className="text-[10px] text-[#8b949e] whitespace-nowrap">Gap ≥</span>
+                <input
+                  type="number" min={0} max={100} step={0.5}
+                  value={draft.minGap}
+                  onChange={e => setDraft(d => ({ ...d, minGap: parseFloat(e.target.value) || 0 }))}
+                  className={`${numInputClass} w-12`}
+                />
+                <span className="text-[10px] text-[#8b949e]">%</span>
+              </label>
+
+              <label className="flex items-center gap-1.5">
+                <span className="text-[10px] text-[#8b949e] whitespace-nowrap">Vol ≥</span>
+                <input
+                  type="number" min={0} step={0.5}
+                  value={draft.minVolume / 1e6}
+                  onChange={e => setDraft(d => ({ ...d, minVolume: (parseFloat(e.target.value) || 0) * 1e6 }))}
+                  className={`${numInputClass} w-14`}
+                />
+                <span className="text-[10px] text-[#8b949e]">M shares</span>
+              </label>
+
+              <label className="flex items-center gap-1.5">
+                <span className="text-[10px] text-[#8b949e] whitespace-nowrap">Cap ≥ $</span>
+                <input
+                  type="number" min={0} step={10}
+                  value={draft.minMarketCap / 1e6}
+                  onChange={e => setDraft(d => ({ ...d, minMarketCap: (parseFloat(e.target.value) || 0) * 1e6 }))}
+                  className={`${numInputClass} w-14`}
+                />
+                <span className="text-[10px] text-[#8b949e]">M</span>
+              </label>
+
+              <label className="flex items-center gap-1.5">
+                <span className="text-[10px] text-[#8b949e] whitespace-nowrap">Price $</span>
+                <input
+                  type="number" min={0} step={1}
+                  value={draft.minPrice}
+                  onChange={e => setDraft(d => ({ ...d, minPrice: parseFloat(e.target.value) || 0 }))}
+                  className={`${numInputClass} w-12`}
+                />
+                <span className="text-[10px] text-[#8b949e]">–</span>
+                <span className="text-[10px] text-[#8b949e]">$</span>
+                <input
+                  type="number" min={0} step={100}
+                  value={draft.maxPrice}
+                  onChange={e => setDraft(d => ({ ...d, maxPrice: parseFloat(e.target.value) || 0 }))}
+                  className={`${numInputClass} w-16`}
+                />
+              </label>
+
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  onClick={() => setDraft(DEFAULT_FILTERS)}
+                  className="text-[10px] text-[#8b949e] hover:text-white transition-colors"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={runScan}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 bg-[#F97316] hover:bg-[#ea6a0a] text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <Activity className="w-3 h-3" />
+                  Run Scan
+                </button>
+              </div>
+            </div>
+            <p className="text-[10px] text-[#8b949e]/60 mt-2">
+              Market cap filter applies when Yahoo Finance is used as source — Polygon free tier does not return market cap.
+            </p>
+          </div>
+        )}
 
         {/* Body */}
         {loading && !data ? (
@@ -398,7 +535,7 @@ export default function GapScannerCard() {
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.gainers?.length
                   ? sortStocks(data.gainers, gainerSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
-                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isWeekend ? 'Market closed' : 'No gainers 2%+'}</div>
+                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isWeekend ? 'Market closed' : 'No gainers matching criteria'}</div>
                 }
               </div>
             </div>
@@ -421,7 +558,7 @@ export default function GapScannerCard() {
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.losers?.length
                   ? sortStocks(data.losers, loserSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
-                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isWeekend ? 'Market closed' : 'No losers 2%+'}</div>
+                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isWeekend ? 'Market closed' : 'No losers matching criteria'}</div>
                 }
               </div>
             </div>
@@ -490,8 +627,6 @@ export default function GapScannerCard() {
           </div>
         </div>
       )}
-
-
 
       {/* Toast */}
       {toast && (
