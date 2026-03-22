@@ -12,11 +12,13 @@ class PriceBus {
   }
 
   private connect() {
+    console.log('[PriceBus] Opening Finnhub WebSocket');
     const ws = new WebSocket(`wss://ws.finnhub.io?token=${this.apiKey}`);
     this.ws = ws;
 
     ws.addEventListener('open', () => {
       this.reconnectDelay = 1000;
+      console.log('[PriceBus] WebSocket connected');
       for (const symbol of this.symbolSubscribers.keys()) {
         if ((this.symbolSubscribers.get(symbol)?.size ?? 0) > 0) {
           ws.send(JSON.stringify({ type: 'subscribe', symbol }));
@@ -50,6 +52,7 @@ class PriceBus {
     });
 
     ws.addEventListener('close', () => {
+      console.log(`[PriceBus] WebSocket closed, reconnecting in ${this.reconnectDelay}ms`);
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30_000);
       setTimeout(() => this.connect(), this.reconnectDelay);
     });
@@ -57,6 +60,12 @@ class PriceBus {
     ws.addEventListener('error', () => {
       ws.close();
     });
+  }
+
+  private get subscriberCount() {
+    let total = 0;
+    for (const subs of this.symbolSubscribers.values()) total += subs.size;
+    return total;
   }
 
   subscribe(symbols: string[], callback: PriceCallback) {
@@ -69,6 +78,7 @@ class PriceBus {
       }
       this.symbolSubscribers.get(symbol)!.add(callback);
     }
+    console.log(`[PriceBus] +subscriber for [${symbols.join(', ')}] — total connections: ${this.subscriberCount}, symbols tracked: ${this.symbolSubscribers.size}`);
   }
 
   unsubscribe(symbols: string[], callback: PriceCallback) {
@@ -83,6 +93,7 @@ class PriceBus {
         }
       }
     }
+    console.log(`[PriceBus] -subscriber for [${symbols.join(', ')}] — total connections: ${this.subscriberCount}, symbols tracked: ${this.symbolSubscribers.size}`);
   }
 }
 
@@ -97,7 +108,10 @@ export function getPriceBus(): PriceBus | null {
   const apiKey = process.env.FINNHUB_API_KEY;
   if (!apiKey) return null;
   if (!global.__priceBus) {
+    console.log('[PriceBus] Creating singleton');
     global.__priceBus = new PriceBus(apiKey);
+  } else {
+    console.log('[PriceBus] Reusing existing singleton');
   }
   return global.__priceBus;
 }
