@@ -397,8 +397,8 @@ export default function GapScannerCard() {
             )}
             <Tip label="Configure filters" position="bottom">
               <button
-                onClick={() => { setDraft(filters); setShowFilters(s => !s); }}
-                className={`p-1.5 rounded transition-colors ${showFilters ? 'bg-[#F97316]/20 text-[#F97316]' : 'hover:bg-[#30363d] text-[#8b949e]'}`}
+                onClick={() => { setDraft(filters); setShowFilters(true); }}
+                className="p-1.5 hover:bg-[#30363d] rounded transition-colors text-[#8b949e]"
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
               </button>
@@ -410,84 +410,6 @@ export default function GapScannerCard() {
             </Tip>
           </div>
         </div>
-
-        {/* Filter Panel */}
-        {showFilters && (
-          <div className="px-4 py-3 bg-[#0d1117]/70 border-b border-[#30363d] flex-shrink-0">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
-              <label className="flex items-center gap-1.5">
-                <span className="text-[10px] text-[#8b949e] whitespace-nowrap">Gap ≥</span>
-                <input
-                  type="number" min={0} max={100} step={0.5}
-                  value={draft.minGap}
-                  onChange={e => setDraft(d => ({ ...d, minGap: parseFloat(e.target.value) || 0 }))}
-                  className={`${numInputClass} w-12`}
-                />
-                <span className="text-[10px] text-[#8b949e]">%</span>
-              </label>
-
-              <label className="flex items-center gap-1.5">
-                <span className="text-[10px] text-[#8b949e] whitespace-nowrap">Vol ≥</span>
-                <input
-                  type="number" min={0} step={0.5}
-                  value={draft.minVolume / 1e6}
-                  onChange={e => setDraft(d => ({ ...d, minVolume: (parseFloat(e.target.value) || 0) * 1e6 }))}
-                  className={`${numInputClass} w-14`}
-                />
-                <span className="text-[10px] text-[#8b949e]">M shares</span>
-              </label>
-
-              <label className="flex items-center gap-1.5">
-                <span className="text-[10px] text-[#8b949e] whitespace-nowrap">Cap ≥ $</span>
-                <input
-                  type="number" min={0} step={10}
-                  value={draft.minMarketCap / 1e6}
-                  onChange={e => setDraft(d => ({ ...d, minMarketCap: (parseFloat(e.target.value) || 0) * 1e6 }))}
-                  className={`${numInputClass} w-14`}
-                />
-                <span className="text-[10px] text-[#8b949e]">M</span>
-              </label>
-
-              <label className="flex items-center gap-1.5">
-                <span className="text-[10px] text-[#8b949e] whitespace-nowrap">Price $</span>
-                <input
-                  type="number" min={0} step={1}
-                  value={draft.minPrice}
-                  onChange={e => setDraft(d => ({ ...d, minPrice: parseFloat(e.target.value) || 0 }))}
-                  className={`${numInputClass} w-12`}
-                />
-                <span className="text-[10px] text-[#8b949e]">–</span>
-                <span className="text-[10px] text-[#8b949e]">$</span>
-                <input
-                  type="number" min={0} step={100}
-                  value={draft.maxPrice}
-                  onChange={e => setDraft(d => ({ ...d, maxPrice: parseFloat(e.target.value) || 0 }))}
-                  className={`${numInputClass} w-16`}
-                />
-              </label>
-
-              <div className="flex items-center gap-2 ml-auto">
-                <button
-                  onClick={() => setDraft(DEFAULT_FILTERS)}
-                  className="text-[10px] text-[#8b949e] hover:text-white transition-colors"
-                >
-                  Reset
-                </button>
-                <button
-                  onClick={runScan}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 bg-[#F97316] hover:bg-[#ea6a0a] text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <Activity className="w-3 h-3" />
-                  Run Scan
-                </button>
-              </div>
-            </div>
-            <p className="text-[10px] text-[#8b949e]/60 mt-2">
-              Market cap filter applies when Yahoo Finance is used as source — Polygon free tier does not return market cap.
-            </p>
-          </div>
-        )}
 
         {/* Body */}
         {loading && !data ? (
@@ -623,6 +545,122 @@ export default function GapScannerCard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filter Settings Modal */}
+      {showFilters && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowFilters(false)}>
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-sm flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#30363d]">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="w-4 h-4 text-[#F97316]" />
+                <span className="font-semibold text-white text-sm">Scan Filters</span>
+              </div>
+              <button onClick={() => setShowFilters(false)} className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e] hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Filter fields */}
+            <div className="px-5 py-4 space-y-4">
+              {/* Min Gap */}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-white">Min Gap %</p>
+                  <p className="text-[11px] text-[#8b949e]">vs previous close</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number" min={0} max={100} step={0.5}
+                    value={draft.minGap}
+                    onChange={e => setDraft(d => ({ ...d, minGap: parseFloat(e.target.value) || 0 }))}
+                    className={`${numInputClass} w-20`}
+                  />
+                  <span className="text-sm text-[#8b949e]">%</span>
+                </div>
+              </div>
+
+              {/* Min Volume */}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-white">Min Volume</p>
+                  <p className="text-[11px] text-[#8b949e]">pre/intraday shares</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number" min={0} step={0.5}
+                    value={draft.minVolume / 1e6}
+                    onChange={e => setDraft(d => ({ ...d, minVolume: (parseFloat(e.target.value) || 0) * 1e6 }))}
+                    className={`${numInputClass} w-20`}
+                  />
+                  <span className="text-sm text-[#8b949e]">M</span>
+                </div>
+              </div>
+
+              {/* Min Market Cap */}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-white">Min Market Cap</p>
+                  <p className="text-[11px] text-[#8b949e]">Yahoo source only</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm text-[#8b949e]">$</span>
+                  <input
+                    type="number" min={0} step={10}
+                    value={draft.minMarketCap / 1e6}
+                    onChange={e => setDraft(d => ({ ...d, minMarketCap: (parseFloat(e.target.value) || 0) * 1e6 }))}
+                    className={`${numInputClass} w-20`}
+                  />
+                  <span className="text-sm text-[#8b949e]">M</span>
+                </div>
+              </div>
+
+              {/* Price range */}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-white">Price Range</p>
+                  <p className="text-[11px] text-[#8b949e]">filters sub-penny stocks</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm text-[#8b949e]">$</span>
+                  <input
+                    type="number" min={0} step={1}
+                    value={draft.minPrice}
+                    onChange={e => setDraft(d => ({ ...d, minPrice: parseFloat(e.target.value) || 0 }))}
+                    className={`${numInputClass} w-16`}
+                  />
+                  <span className="text-sm text-[#8b949e]">–</span>
+                  <span className="text-sm text-[#8b949e]">$</span>
+                  <input
+                    type="number" min={0} step={100}
+                    value={draft.maxPrice}
+                    onChange={e => setDraft(d => ({ ...d, maxPrice: parseFloat(e.target.value) || 0 }))}
+                    className={`${numInputClass} w-16`}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex items-center justify-between px-5 py-3 border-t border-[#30363d]">
+              <button
+                onClick={() => setDraft(DEFAULT_FILTERS)}
+                className="text-xs text-[#8b949e] hover:text-white transition-colors"
+              >
+                Reset to defaults
+              </button>
+              <button
+                onClick={runScan}
+                disabled={loading}
+                className="flex items-center gap-1.5 bg-[#F97316] hover:bg-[#ea6a0a] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <Activity className="w-3.5 h-3.5" />
+                Run Scan
+              </button>
             </div>
           </div>
         </div>
