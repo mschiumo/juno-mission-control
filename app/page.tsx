@@ -83,11 +83,12 @@ function DashboardContent() {
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-[#0d9488] to-[#0891b2] flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-[#0d1117] border border-[#30363d] flex items-center justify-center shadow-lg">
                 <svg viewBox="0 0 48 48" fill="none" className="w-6 h-6 md:w-7 md:h-7">
-                  <path d="M8,12 Q20,12 24,24" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
-                  <path d="M8,36 Q20,36 24,24" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
-                  <path d="M24,24 L40,24" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+                  <line x1="7" y1="13" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
+                  <line x1="7" y1="35" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
+                  <line x1="24" y1="24" x2="41" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
+                  <circle cx="24" cy="24" r="2.5" fill="white"/>
                 </svg>
               </div>
               <div>
