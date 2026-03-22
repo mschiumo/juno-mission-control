@@ -114,10 +114,6 @@ export default function TradeManagementView() {
 
             {/* Row 2 — Potential Trades: ~40% */}
             <div className="flex-[2] min-h-0 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 shrink-0">
-                <Bookmark className="w-4 h-4 text-[#F97316]" />
-                <h3 className="text-sm font-semibold text-white">Potential Trades</h3>
-              </div>
               <div className="flex-1 min-h-0 overflow-y-auto p-4">
                 <WatchlistView hideActiveTrades hideClosedPositions cardColumns={4} emptyMessage="Add trades to your Watchlist to see them here" />
               </div>
