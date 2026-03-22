@@ -206,7 +206,7 @@ export default function ActiveTradesStrip() {
           {loading ? (
             <div className="grid grid-cols-5 xl:grid-cols-6 gap-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-56 bg-[#161b22] border border-[#30363d] rounded-xl animate-pulse" />
+                <div key={i} className="h-64 bg-[#161b22] border border-[#30363d] rounded-xl animate-pulse" />
               ))}
             </div>
           ) : trades.length === 0 ? (
@@ -241,7 +241,7 @@ export default function ActiveTradesStrip() {
                     onDragLeave={onDragLeave}
                     onDrop={(e) => onDrop(e, trade.id)}
                     onDragEnd={onDragEnd}
-                    className={`h-56 rounded-xl p-4 flex flex-col justify-between transition-all cursor-grab active:cursor-grabbing group
+                    className={`h-64 rounded-xl p-4 flex flex-col justify-between transition-all cursor-grab active:cursor-grabbing group
                       ${cardClass}
                       ${draggingId === trade.id ? 'opacity-40 scale-95' : ''}
                       ${dragOverId === trade.id ? 'ring-2 ring-[#238636] scale-[1.02]' : ''}
@@ -309,7 +309,7 @@ export default function ActiveTradesStrip() {
                       <button
                         onClick={() => setClosingTrade(trade)}
                         onMouseDown={(e) => e.stopPropagation()}
-                        className="w-full flex items-center justify-center gap-1.5 py-1 rounded-lg text-[#8b949e] hover:text-red-400 hover:bg-red-400/10 border border-[#30363d] hover:border-red-400/30 transition-colors text-[10px] font-medium"
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-red-400/70 hover:text-red-400 bg-red-500/5 hover:bg-red-400/15 border border-red-500/20 hover:border-red-400/40 transition-colors text-[11px] font-medium"
                       >
                         <X className="w-3 h-3" />
                         Close Trade
