@@ -774,7 +774,7 @@ export default function CombinedCalendarView() {
       </div>{/* end left column */}
 
       {/* Right column: All Trades (1/3 width) */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', maxHeight: leftColumnHeight ? `${leftColumnHeight}px` : undefined, overflow: 'hidden' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: leftColumnHeight ? `${leftColumnHeight}px` : undefined, overflow: 'hidden' }}>
         {isLoading ? (
           <div className="flex-1 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
