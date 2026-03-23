@@ -163,6 +163,18 @@ export default function CombinedCalendarView() {
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
 
+  // Sync All Trades height to calendar column height
+  const leftColumnRef = useRef<HTMLDivElement>(null);
+  const [leftColumnHeight, setLeftColumnHeight] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (!leftColumnRef.current) return;
+    const observer = new ResizeObserver(entries => {
+      setLeftColumnHeight(entries[0].contentRect.height);
+    });
+    observer.observe(leftColumnRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   // Fetch data on mount
   useEffect(() => {
     fetchData();
@@ -595,7 +607,7 @@ export default function CombinedCalendarView() {
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
 
       {/* Left column: Calendar + Legend (2/3 width) */}
-      <div style={{ flex: 2, minWidth: 0 }}>
+      <div ref={leftColumnRef} style={{ flex: 2, minWidth: 0 }}>
 
       {/* Calendar Grid */}
       <div data-tour="trading-calendar" className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
@@ -762,7 +774,7 @@ export default function CombinedCalendarView() {
       </div>{/* end left column */}
 
       {/* Right column: All Trades (1/3 width) */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', maxHeight: leftColumnHeight ? `${leftColumnHeight}px` : undefined, overflow: 'hidden' }}>
         {isLoading ? (
           <div className="flex-1 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
