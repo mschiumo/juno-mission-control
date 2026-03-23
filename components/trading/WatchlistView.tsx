@@ -109,6 +109,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   // Active Trades state
   const [activeTrades, setActiveTrades] = useState<ActiveTradeWithPnL[]>([]);
   const [activeTradesLoading, setActiveTradesLoading] = useState(false);
+  const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
   const [activeTradesSearchQuery, setActiveTradesSearchQuery] = useState('');
   
@@ -324,6 +325,22 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     loadAllData();
     fetchCalendarTrades();
   }, [loadAllData, fetchCalendarTrades]);
+
+  // Fetch live prices for active trades and poll every 30s
+  useEffect(() => {
+    const tickers = [...new Set(activeTrades.map((t) => t.ticker))];
+    if (tickers.length === 0) return;
+    const fetchPrices = async () => {
+      try {
+        const res = await fetch(`/api/prices?symbols=${tickers.join(',')}`);
+        const data = await res.json();
+        if (data.prices) setLivePrices((prev) => ({ ...prev, ...data.prices }));
+      } catch {}
+    };
+    fetchPrices();
+    const id = setInterval(fetchPrices, 30_000);
+    return () => clearInterval(id);
+  }, [activeTrades]);
 
   // Listen for custom events (for backward compatibility with other components)
   useEffect(() => {
@@ -1610,25 +1627,18 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     <div>
                       <div className="text-xs text-[#8b949e]">Profit</div>
                       {(() => {
-                        // Use unrealized P&L if available from API
-                        if (trade.unrealizedPnL !== undefined) {
-                          const isProfit = trade.unrealizedPnL >= 0;
+                        const livePrice = livePrices[trade.ticker];
+                        const pnl = livePrice !== undefined
+                          ? (livePrice - trade.actualEntry) * trade.actualShares
+                          : trade.unrealizedPnL;
+                        if (pnl !== undefined) {
                           return (
-                            <div className={`text-sm font-bold ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-                              {formatCurrency(trade.unrealizedPnL)}
+                            <div className={`text-sm font-bold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {formatCurrency(pnl)}
                             </div>
                           );
                         }
-                        // Otherwise calculate potential profit at target
-                        const isLong = trade.plannedTarget > trade.actualEntry;
-                        const profit = isLong
-                          ? (trade.plannedTarget - trade.actualEntry) * trade.actualShares
-                          : (trade.actualEntry - trade.plannedTarget) * trade.actualShares;
-                        return (
-                          <div className="text-sm font-bold text-green-400">
-                            {formatCurrency(profit)}
-                          </div>
-                        );
+                        return <div className="text-sm text-[#484f58]">—</div>;
                       })()}
                     </div>
 
