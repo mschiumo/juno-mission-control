@@ -548,13 +548,11 @@ export default function CombinedCalendarView() {
             <Upload className="w-4 h-4" />
             <span>Import</span>
           </button>
-        </div>
 
-        <div className="flex items-center gap-2">
           <button
             onClick={fetchData}
             disabled={isLoading}
-            className="p-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors disabled:opacity-50"
+            className="hidden sm:flex p-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors disabled:opacity-50"
             title="Refresh data"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -594,7 +592,7 @@ export default function CombinedCalendarView() {
       </div>
 
       {/* Two-column layout: Calendar (2/3) + All Trades (1/3) */}
-      <div className="flex gap-4 items-end">
+      <div className="flex gap-4 items-start">
       <div className="flex-[2] min-w-0">
 
       {/* Calendar Grid */}
