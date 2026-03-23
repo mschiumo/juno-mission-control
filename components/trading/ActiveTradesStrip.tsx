@@ -196,9 +196,12 @@ export default function ActiveTradesStrip() {
             <span className="text-sm font-semibold text-[#238636]">Active Trades</span>
             {!loading && <span className="text-xs text-[#8b949e]">({trades.length})</span>}
           </div>
-          <button onClick={fetchTrades} className="p-1 text-[#8b949e] hover:text-white transition-colors rounded" title="Refresh">
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-[#484f58] italic">prices may be a few seconds delayed</span>
+            <button onClick={fetchTrades} className="p-1 text-[#8b949e] hover:text-white transition-colors rounded" title="Refresh">
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* Card area — fills remaining height, scrolls if cards overflow */}
