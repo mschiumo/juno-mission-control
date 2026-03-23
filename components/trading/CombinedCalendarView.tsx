@@ -591,11 +591,10 @@ export default function CombinedCalendarView() {
         </div>
       </div>
 
-      {/* Two-column layout: Calendar (2/3) + All Trades (1/3) */}
-      <div className="flex gap-4">
-      <div className="flex-[2] min-w-0 flex flex-col">
+      {/* Grid layout: Calendar (2/3) row1col1 | All Trades (1/3) row1col2 | Legend row2col1 */}
+      <div className="grid grid-cols-[2fr_1fr] gap-x-4 gap-y-3">
 
-      {/* Calendar Grid */}
+      {/* Calendar Grid - row 1, col 1 */}
       <div data-tour="trading-calendar" className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
         {/* Day Headers */}
         <div className="grid grid-cols-7 border-b border-[#30363d]">
@@ -722,48 +721,8 @@ export default function CombinedCalendarView() {
         </div>
       </div>
 
-      {/* Legend - centered within calendar width */}
-      <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs sm:text-sm pt-3">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-[#238636]/25 text-[#3fb950] rounded-xl ring-1 ring-[#3fb950]/30">
-            <BarChart3 className="w-5 h-5" strokeWidth={2.5} />
-          </div>
-          <span className="text-[#8b949e]">Profitable Day</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-[#da3633]/25 text-[#f85149] rounded-xl ring-1 ring-[#f85149]/30">
-            <BarChart3 className="w-5 h-5" strokeWidth={2.5} />
-          </div>
-          <span className="text-[#8b949e]">Loss Day</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20 text-[#58a6ff] rounded-xl ring-1 ring-[#58a6ff]/50 relative">
-            <BookOpen className="w-5 h-5" strokeWidth={2.5} />
-            <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center bg-[#58a6ff] text-[#0d1117] rounded-full">
-              <CheckCircle className="w-2.5 h-2.5" strokeWidth={3} />
-            </span>
-          </div>
-          <span className="text-[#8b949e]">Journal Entry</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-[#21262d] text-[#6e7681] rounded-xl ring-1 ring-[#6e7681]/30 border border-dashed border-[#6e7681]/50">
-            <BookOpen className="w-5 h-5" strokeWidth={1.5} />
-          </div>
-          <span className="text-[#8b949e]">No Entry (today/past weekdays)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 ring-2 ring-[#F97316] rounded-xl" />
-          <span className="text-[#8b949e]">Today</span>
-        </div>
-      </div>
-
-      </div>{/* end left column */}
-
-      {/* Right column - All Trades 1/3 */}
-      <div className="flex-1 min-w-0 flex flex-col">
-
-      {/* Trades List Section */}
-      <div className="flex-1 flex flex-col">
+      {/* All Trades - row 1, col 2 (must come before legend for correct grid auto-placement) */}
+      <div className="flex flex-col">
         {isLoading ? (
           <div className="flex-1 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
@@ -1052,8 +1011,43 @@ export default function CombinedCalendarView() {
           </div>
         )}
       </div>
-      </div>{/* end right column */}
-      </div>{/* end two-column layout */}
+
+      {/* Legend - row 2, col 1 (auto-placed after All Trades) */}
+      <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs sm:text-sm pt-3">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center w-8 h-8 bg-[#238636]/25 text-[#3fb950] rounded-xl ring-1 ring-[#3fb950]/30">
+            <BarChart3 className="w-5 h-5" strokeWidth={2.5} />
+          </div>
+          <span className="text-[#8b949e]">Profitable Day</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center w-8 h-8 bg-[#da3633]/25 text-[#f85149] rounded-xl ring-1 ring-[#f85149]/30">
+            <BarChart3 className="w-5 h-5" strokeWidth={2.5} />
+          </div>
+          <span className="text-[#8b949e]">Loss Day</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20 text-[#58a6ff] rounded-xl ring-1 ring-[#58a6ff]/50 relative">
+            <BookOpen className="w-5 h-5" strokeWidth={2.5} />
+            <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center bg-[#58a6ff] text-[#0d1117] rounded-full">
+              <CheckCircle className="w-2.5 h-2.5" strokeWidth={3} />
+            </span>
+          </div>
+          <span className="text-[#8b949e]">Journal Entry</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center w-8 h-8 bg-[#21262d] text-[#6e7681] rounded-xl ring-1 ring-[#6e7681]/30 border border-dashed border-[#6e7681]/50">
+            <BookOpen className="w-5 h-5" strokeWidth={1.5} />
+          </div>
+          <span className="text-[#8b949e]">No Entry (today/past weekdays)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 ring-2 ring-[#F97316] rounded-xl" />
+          <span className="text-[#8b949e]">Today</span>
+        </div>
+      </div>
+
+      </div>{/* end grid layout */}
 
       {/* Trade Modal */}
       {showTradeModal && selectedDate && (
