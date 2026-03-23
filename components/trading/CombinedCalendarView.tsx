@@ -493,7 +493,7 @@ export default function CombinedCalendarView() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
           <button
             onClick={() => navigateMonth('prev')}
             className="p-2 hover:bg-[#262626] rounded-lg transition-colors"
@@ -509,10 +509,7 @@ export default function CombinedCalendarView() {
           >
             <ChevronRight className="w-5 h-5 text-[#8b949e]" />
           </button>
-        </div>
-        
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-          {/* Month Stats */}
+          {/* Month Stats - inline with title */}
           <div className="hidden sm:flex items-center gap-3 text-sm bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2">
             <div className="flex flex-col items-center">
               <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Monthly PnL</span>
@@ -540,7 +537,9 @@ export default function CombinedCalendarView() {
               <span className="text-[#58a6ff] font-semibold">{monthStats.journalDays}</span>
             </div>
           </div>
-          
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
           <button
             onClick={fetchData}
             disabled={isLoading}
@@ -595,7 +594,7 @@ export default function CombinedCalendarView() {
       </div>
 
       {/* Two-column layout: Calendar (2/3) + All Trades (1/3) */}
-      <div className="flex gap-4 items-start">
+      <div className="flex gap-4 items-end">
       <div className="flex-[2] min-w-0 space-y-4">
 
       {/* Calendar Grid */}
