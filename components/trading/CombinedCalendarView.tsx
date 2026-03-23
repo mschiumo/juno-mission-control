@@ -591,11 +591,14 @@ export default function CombinedCalendarView() {
         </div>
       </div>
 
-      {/* Grid layout: Calendar (2/3) row1col1 | All Trades (1/3) row1col2 | Legend row2col1 */}
-      <div className="grid gap-x-4 gap-y-3" style={{ gridTemplateColumns: '2fr 1fr' }}>
+      {/* Two-column layout: Calendar 2/3 | All Trades 1/3 */}
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
 
-      {/* Calendar Grid - row 1, col 1 (2fr) */}
-      <div data-tour="trading-calendar" style={{ gridColumn: '1', gridRow: '1' }} className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+      {/* Left column: Calendar + Legend (2/3 width) */}
+      <div style={{ flex: 2, minWidth: 0 }}>
+
+      {/* Calendar Grid */}
+      <div data-tour="trading-calendar" className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
         {/* Day Headers */}
         <div className="grid grid-cols-7 border-b border-[#30363d]">
           {DAY_NAMES.map(day => (
@@ -721,8 +724,45 @@ export default function CombinedCalendarView() {
         </div>
       </div>
 
-      {/* All Trades - row 1, col 2 (1fr) */}
-      <div style={{ gridColumn: '2', gridRow: '1' }} className="flex flex-col h-full">
+      {/* Legend - below calendar */}
+      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-center w-5 h-5 bg-[#238636]/25 text-[#3fb950] rounded-md ring-1 ring-[#3fb950]/30">
+            <BarChart3 className="w-3 h-3" strokeWidth={2.5} />
+          </div>
+          <span className="text-[10px] text-[#8b949e]">Profitable</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-center w-5 h-5 bg-[#da3633]/25 text-[#f85149] rounded-md ring-1 ring-[#f85149]/30">
+            <BarChart3 className="w-3 h-3" strokeWidth={2.5} />
+          </div>
+          <span className="text-[10px] text-[#8b949e]">Loss</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex items-center justify-center w-5 h-5 bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20 text-[#58a6ff] rounded-md ring-1 ring-[#58a6ff]/50">
+            <BookOpen className="w-3 h-3" strokeWidth={2.5} />
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 flex items-center justify-center bg-[#58a6ff] text-[#0d1117] rounded-full">
+              <CheckCircle className="w-1.5 h-1.5" strokeWidth={3} />
+            </span>
+          </div>
+          <span className="text-[10px] text-[#8b949e]">Journal</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-center w-5 h-5 bg-[#21262d] text-[#6e7681] rounded-md ring-1 ring-[#6e7681]/30 border border-dashed border-[#6e7681]/50">
+            <BookOpen className="w-3 h-3" strokeWidth={1.5} />
+          </div>
+          <span className="text-[10px] text-[#8b949e]">No Entry</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 ring-2 ring-[#F97316] rounded-md" />
+          <span className="text-[10px] text-[#8b949e]">Today</span>
+        </div>
+      </div>
+
+      </div>{/* end left column */}
+
+      {/* Right column: All Trades (1/3 width) */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {isLoading ? (
           <div className="flex-1 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
@@ -1012,42 +1052,7 @@ export default function CombinedCalendarView() {
         )}
       </div>
 
-      {/* Legend - row 2, col 1 (under calendar) */}
-      <div style={{ gridColumn: '1', gridRow: '2' }} className="flex flex-wrap items-center justify-center gap-3 pt-2">
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center justify-center w-5 h-5 bg-[#238636]/25 text-[#3fb950] rounded-md ring-1 ring-[#3fb950]/30">
-            <BarChart3 className="w-3 h-3" strokeWidth={2.5} />
-          </div>
-          <span className="text-[10px] text-[#8b949e]">Profitable</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center justify-center w-5 h-5 bg-[#da3633]/25 text-[#f85149] rounded-md ring-1 ring-[#f85149]/30">
-            <BarChart3 className="w-3 h-3" strokeWidth={2.5} />
-          </div>
-          <span className="text-[10px] text-[#8b949e]">Loss</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="relative flex items-center justify-center w-5 h-5 bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20 text-[#58a6ff] rounded-md ring-1 ring-[#58a6ff]/50">
-            <BookOpen className="w-3 h-3" strokeWidth={2.5} />
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 flex items-center justify-center bg-[#58a6ff] text-[#0d1117] rounded-full">
-              <CheckCircle className="w-1.5 h-1.5" strokeWidth={3} />
-            </span>
-          </div>
-          <span className="text-[10px] text-[#8b949e]">Journal</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center justify-center w-5 h-5 bg-[#21262d] text-[#6e7681] rounded-md ring-1 ring-[#6e7681]/30 border border-dashed border-[#6e7681]/50">
-            <BookOpen className="w-3 h-3" strokeWidth={1.5} />
-          </div>
-          <span className="text-[10px] text-[#8b949e]">No Entry</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-5 h-5 ring-2 ring-[#F97316] rounded-md" />
-          <span className="text-[10px] text-[#8b949e]">Today</span>
-        </div>
-      </div>
-
-      </div>{/* end grid layout */}
+      </div>{/* end outer flex container */}
 
       {/* Trade Modal */}
       {showTradeModal && selectedDate && (
