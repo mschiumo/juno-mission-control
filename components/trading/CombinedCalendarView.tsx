@@ -594,8 +594,8 @@ export default function CombinedCalendarView() {
       {/* Grid layout: Calendar (2/3) row1col1 | All Trades (1/3) row1col2 | Legend row2col1 */}
       <div className="grid gap-x-4 gap-y-3" style={{ gridTemplateColumns: '2fr 1fr' }}>
 
-      {/* Calendar Grid - row 1, col 1 */}
-      <div data-tour="trading-calendar" className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+      {/* Calendar Grid - row 1, col 1 (2fr) */}
+      <div data-tour="trading-calendar" style={{ gridColumn: '1', gridRow: '1' }} className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
         {/* Day Headers */}
         <div className="grid grid-cols-7 border-b border-[#30363d]">
           {DAY_NAMES.map(day => (
@@ -721,8 +721,8 @@ export default function CombinedCalendarView() {
         </div>
       </div>
 
-      {/* All Trades - row 1, col 2 (must come before legend for correct grid auto-placement) */}
-      <div className="flex flex-col h-full">
+      {/* All Trades - row 1, col 2 (1fr) */}
+      <div style={{ gridColumn: '2', gridRow: '1' }} className="flex flex-col h-full">
         {isLoading ? (
           <div className="flex-1 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
@@ -1012,8 +1012,8 @@ export default function CombinedCalendarView() {
         )}
       </div>
 
-      {/* Legend - row 2, col 1 (auto-placed under calendar) */}
-      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+      {/* Legend - row 2, col 1 (under calendar) */}
+      <div style={{ gridColumn: '1', gridRow: '2' }} className="flex flex-wrap items-center justify-center gap-3 pt-2">
         <div className="flex items-center gap-1.5">
           <div className="flex items-center justify-center w-5 h-5 bg-[#238636]/25 text-[#3fb950] rounded-md ring-1 ring-[#3fb950]/30">
             <BarChart3 className="w-3 h-3" strokeWidth={2.5} />
