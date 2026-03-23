@@ -493,7 +493,7 @@ export default function CombinedCalendarView() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
           <button
             onClick={() => navigateMonth('prev')}
             className="p-2 hover:bg-[#262626] rounded-lg transition-colors"
@@ -509,10 +509,7 @@ export default function CombinedCalendarView() {
           >
             <ChevronRight className="w-5 h-5 text-[#8b949e]" />
           </button>
-        </div>
-        
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-          {/* Month Stats */}
+          {/* Month Stats - inline with title */}
           <div className="hidden sm:flex items-center gap-3 text-sm bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2">
             <div className="flex flex-col items-center">
               <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Monthly PnL</span>
@@ -540,25 +537,25 @@ export default function CombinedCalendarView() {
               <span className="text-[#58a6ff] font-semibold">{monthStats.journalDays}</span>
             </div>
           </div>
-          
-          <button
-            onClick={fetchData}
-            disabled={isLoading}
-            className="p-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors disabled:opacity-50"
-            title="Refresh data"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
 
           {/* Import Button */}
           <button
             data-tour="trading-import"
             onClick={() => setShowImportModal(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors font-medium text-sm"
+            className="hidden sm:flex items-center gap-2 px-3 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors font-medium text-sm"
             title="Import trades from CSV"
           >
             <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">Import</span>
+            <span>Import</span>
+          </button>
+
+          <button
+            onClick={fetchData}
+            disabled={isLoading}
+            className="hidden sm:flex p-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors disabled:opacity-50"
+            title="Refresh data"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -593,6 +590,12 @@ export default function CombinedCalendarView() {
           </div>
         </div>
       </div>
+
+      {/* Two-column layout: Calendar 2/3 | All Trades 1/3 */}
+      <div style={{ position: 'relative' }}>
+
+      {/* Left column: Calendar + Legend (2/3 width) — drives outer container height */}
+      <div style={{ width: 'calc(66.667% - 0.5rem)' }}>
 
       {/* Calendar Grid */}
       <div data-tour="trading-calendar" className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
@@ -721,45 +724,47 @@ export default function CombinedCalendarView() {
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs sm:text-sm">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-[#238636]/25 text-[#3fb950] rounded-xl ring-1 ring-[#3fb950]/30">
-            <BarChart3 className="w-5 h-5" strokeWidth={2.5} />
+      {/* Legend - below calendar */}
+      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-center w-5 h-5 bg-[#238636]/25 text-[#3fb950] rounded-md ring-1 ring-[#3fb950]/30">
+            <BarChart3 className="w-3 h-3" strokeWidth={2.5} />
           </div>
-          <span className="text-[#8b949e]">Profitable Day</span>
+          <span className="text-[10px] text-[#8b949e]">Profitable</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-[#da3633]/25 text-[#f85149] rounded-xl ring-1 ring-[#f85149]/30">
-            <BarChart3 className="w-5 h-5" strokeWidth={2.5} />
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-center w-5 h-5 bg-[#da3633]/25 text-[#f85149] rounded-md ring-1 ring-[#f85149]/30">
+            <BarChart3 className="w-3 h-3" strokeWidth={2.5} />
           </div>
-          <span className="text-[#8b949e]">Loss Day</span>
+          <span className="text-[10px] text-[#8b949e]">Loss</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20 text-[#58a6ff] rounded-xl ring-1 ring-[#58a6ff]/50 relative">
-            <BookOpen className="w-5 h-5" strokeWidth={2.5} />
-            <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center bg-[#58a6ff] text-[#0d1117] rounded-full">
-              <CheckCircle className="w-2.5 h-2.5" strokeWidth={3} />
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex items-center justify-center w-5 h-5 bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20 text-[#58a6ff] rounded-md ring-1 ring-[#58a6ff]/50">
+            <BookOpen className="w-3 h-3" strokeWidth={2.5} />
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 flex items-center justify-center bg-[#58a6ff] text-[#0d1117] rounded-full">
+              <CheckCircle className="w-1.5 h-1.5" strokeWidth={3} />
             </span>
           </div>
-          <span className="text-[#8b949e]">Journal Entry</span>
+          <span className="text-[10px] text-[#8b949e]">Journal</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-[#21262d] text-[#6e7681] rounded-xl ring-1 ring-[#6e7681]/30 border border-dashed border-[#6e7681]/50">
-            <BookOpen className="w-5 h-5" strokeWidth={1.5} />
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-center w-5 h-5 bg-[#21262d] text-[#6e7681] rounded-md ring-1 ring-[#6e7681]/30 border border-dashed border-[#6e7681]/50">
+            <BookOpen className="w-3 h-3" strokeWidth={1.5} />
           </div>
-          <span className="text-[#8b949e]">No Entry (today/past weekdays)</span>
+          <span className="text-[10px] text-[#8b949e]">No Entry</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 ring-2 ring-[#F97316] rounded-xl" />
-          <span className="text-[#8b949e]">Today</span>
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 ring-2 ring-[#F97316] rounded-md" />
+          <span className="text-[10px] text-[#8b949e]">Today</span>
         </div>
       </div>
 
-      {/* Trades List Section */}
-      <div className="mt-8">
+      </div>{/* end left column */}
+
+      {/* Right column: All Trades (1/3 width) — absolutely positioned to match left column height */}
+      <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 'calc(33.333% - 0.5rem)', display: 'flex', flexDirection: 'column' }}>
         {isLoading ? (
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+          <div className="flex-1 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
               <BarChart3 className="w-5 h-5 text-[#F97316]" />
               <h3 className="text-lg font-semibold text-white">All Trades</h3>
@@ -770,7 +775,7 @@ export default function CombinedCalendarView() {
             </div>
           </div>
         ) : allTrades.length === 0 ? (
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+          <div className="flex-1 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
               <BarChart3 className="w-5 h-5 text-[#F97316]" />
               <h3 className="text-lg font-semibold text-white">All Trades</h3>
@@ -782,7 +787,7 @@ export default function CombinedCalendarView() {
             </div>
           </div>
         ) : (
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+          <div className="flex-1 flex flex-col bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50 flex-wrap gap-4">
               <div className="flex items-center gap-3">
@@ -851,7 +856,7 @@ export default function CombinedCalendarView() {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto overflow-y-auto max-h-[520px]">
+            <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-[#30363d] bg-[#0d1117]">
@@ -1046,6 +1051,8 @@ export default function CombinedCalendarView() {
           </div>
         )}
       </div>
+
+      </div>{/* end outer flex container */}
 
       {/* Trade Modal */}
       {showTradeModal && selectedDate && (
