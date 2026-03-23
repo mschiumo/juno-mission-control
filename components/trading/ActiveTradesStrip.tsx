@@ -38,6 +38,8 @@ export default function ActiveTradesStrip() {
   const [trades, setTrades] = useState<ActiveTradeWithPnL[]>([]);
   const [loading, setLoading] = useState(true);
   const [prices, setPrices] = useState<Record<string, number>>({});
+  const [priceFlash, setPriceFlash] = useState<Record<string, { dir: 'up' | 'down'; n: number }>>({});
+  const prevPricesRef = useRef<Record<string, number>>({});
   const [closingTrade, setClosingTrade] = useState<ActiveTradeWithPnL | null>(null);
   const [closing, setClosing] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -125,6 +127,21 @@ export default function ActiveTradesStrip() {
     };
   }, [trades]);
 
+  // Detect price direction changes and trigger flash animation
+  useEffect(() => {
+    const updates: Record<string, { dir: 'up' | 'down'; n: number }> = {};
+    let changed = false;
+    for (const [symbol, price] of Object.entries(prices)) {
+      const prev = prevPricesRef.current[symbol];
+      if (prev !== undefined && prev !== price) {
+        updates[symbol] = { dir: price > prev ? 'up' : 'down', n: (priceFlash[symbol]?.n ?? 0) + 1 };
+        changed = true;
+      }
+      prevPricesRef.current[symbol] = price;
+    }
+    if (changed) setPriceFlash((prev) => ({ ...prev, ...updates }));
+  }, [prices]);
+
   const handleCloseTrade = async () => {
     if (!closingTrade) return;
     setClosing(true);
@@ -187,6 +204,16 @@ export default function ActiveTradesStrip() {
 
   return (
     <>
+      <style>{`
+        @keyframes price-flash-up {
+          0%   { background-color: rgba(35, 134, 54, 0.55); border-radius: 3px; }
+          100% { background-color: transparent; }
+        }
+        @keyframes price-flash-down {
+          0%   { background-color: rgba(248, 81, 73, 0.45); border-radius: 3px; }
+          100% { background-color: transparent; }
+        }
+      `}</style>
       {/* Fills the height given by its parent (50% of Trading Mode) */}
       <div className="flex-1 min-h-0 bg-[#0d1117] border border-[#238636]/40 rounded-xl overflow-hidden flex flex-col">
         {/* Header */}
@@ -260,7 +287,18 @@ export default function ActiveTradesStrip() {
                       <div className="flex gap-4">
                         <div>
                           <p className="text-[#8b949e] text-[10px] mb-0.5">Price</p>
-                          <p className="text-sm font-bold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
+                          {(() => {
+                            const flash = priceFlash[trade.ticker];
+                            return (
+                              <p
+                                key={flash ? `${trade.ticker}-${flash.n}` : trade.ticker}
+                                className="text-sm font-bold text-white tabular-nums px-1 -mx-1"
+                                style={flash ? { animation: `price-flash-${flash.dir} 0.6s ease-out forwards` } : {}}
+                              >
+                                ${currentPrice.toFixed(2)}
+                              </p>
+                            );
+                          })()}
                         </div>
                         {pnl !== null && (
                           <div>
