@@ -594,6 +594,10 @@ export default function CombinedCalendarView() {
         </div>
       </div>
 
+      {/* Two-column layout: Calendar (2/3) + All Trades (1/3) */}
+      <div className="flex gap-4 items-start">
+      <div className="flex-[2] min-w-0 space-y-4">
+
       {/* Calendar Grid */}
       <div data-tour="trading-calendar" className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
         {/* Day Headers */}
@@ -755,9 +759,13 @@ export default function CombinedCalendarView() {
           <span className="text-[#8b949e]">Today</span>
         </div>
       </div>
+      </div>{/* end left column */}
+
+      {/* Right column - All Trades 1/3 */}
+      <div className="flex-1 min-w-0">
 
       {/* Trades List Section */}
-      <div className="mt-8">
+      <div>
         {isLoading ? (
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
@@ -1046,6 +1054,8 @@ export default function CombinedCalendarView() {
           </div>
         )}
       </div>
+      </div>{/* end right column */}
+      </div>{/* end two-column layout */}
 
       {/* Trade Modal */}
       {showTradeModal && selectedDate && (
