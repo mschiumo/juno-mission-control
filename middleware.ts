@@ -10,7 +10,8 @@ export default auth((req) => {
     nextUrl.pathname.startsWith('/api/cron') ||
     nextUrl.pathname.startsWith('/api/cron-jobs') ||
     nextUrl.pathname.startsWith('/api/run-cron') ||
-    nextUrl.pathname.startsWith('/api/cron-results');
+    nextUrl.pathname.startsWith('/api/cron-results') ||
+    nextUrl.pathname.startsWith('/api/gap-scanner');
 
   if (isInternalApi) return NextResponse.next();
 
