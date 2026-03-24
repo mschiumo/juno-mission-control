@@ -72,11 +72,13 @@ function DashboardContent() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
-  const tabs = [
-    ...(isOwner ? [{ id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard }] : []),
-    // Trading tab hidden from nav — Trading view is the default landing for all users
-    ...(isOwner ? [{ id: 'goals' as const, label: 'Goals', icon: Target }] : []),
-  ];
+  const tabs = isOwner
+    ? [
+        { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
+        { id: 'goals' as const, label: 'Goals', icon: Target },
+      ]
+    : [];
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
@@ -101,7 +103,7 @@ function DashboardContent() {
 
             <div className="flex items-center gap-2 md:gap-4">
               {/* Desktop Tab Navigation */}
-              <div className="hidden md:flex items-center gap-1 bg-[#0d1117] rounded-lg p-1 border border-[#30363d]">
+              {tabs.length > 0 && <div className="hidden md:flex items-center gap-1 bg-[#0d1117] rounded-lg p-1 border border-[#30363d]">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
@@ -116,7 +118,7 @@ function DashboardContent() {
                     <span className="text-sm font-medium">{tab.label}</span>
                   </button>
                 ))}
-              </div>
+              </div>}
 
               {/* Desktop Widgets */}
               <div className="hidden md:flex items-center gap-4">
@@ -136,7 +138,7 @@ function DashboardContent() {
               </div>
 
               {/* Mobile Menu Button */}
-              <button
+              {isOwner && <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden p-2 hover:bg-[#30363d] rounded-lg"
               >
@@ -145,7 +147,7 @@ function DashboardContent() {
                 ) : (
                   <Menu className="w-5 h-5 text-white" />
                 )}
-              </button>
+              </button>}
             </div>
           </div>
 
