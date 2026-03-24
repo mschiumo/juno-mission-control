@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireUserId } from '@/lib/auth-session';
 import { getRedisClient } from '@/lib/redis';
+import { RRule, rrulestr } from 'rrule';
 
 interface CalendarEvent {
   id: string;
@@ -44,8 +45,6 @@ function parseICalDate(value: string, propName: string): Date {
 
   if (tzid) {
     // Convert local time in the given TZID to a UTC Date.
-    // Trick: treat localIso as UTC to get a starting point, then compute the
-    // real UTC offset of that timezone at that moment and adjust.
     const utcGuess = new Date(localIso + 'Z');
     const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: tzid,
@@ -81,8 +80,6 @@ function unescape(s: string): string {
 }
 
 // Return a day's start/end as UTC ms, computed in the caller's IANA timezone.
-// Accepts an optional YYYY-MM-DD dateStr; defaults to today.
-// Prevents Vercel's UTC server clock from shifting the date relative to the user.
 function getDayBoundsForTz(tz: string, dateStr?: string): { dayStart: number; dayEnd: number } {
   const fmt = new Intl.DateTimeFormat('en-CA', {
     timeZone: tz,
@@ -95,7 +92,6 @@ function getDayBoundsForTz(tz: string, dateStr?: string): { dayStart: number; da
   if (dateStr) {
     const [y, m, d] = dateStr.split('-').map(Number);
     year = y; month0 = m - 1; day = d;
-    // Use noon UTC of the target date to compute a DST-correct offset for that day
     const noonApprox = new Date(Date.UTC(year, month0, day, 12, 0, 0));
     const parts = fmt.formatToParts(noonApprox);
     const get = (t: string) => Number(parts.find(p => p.type === t)?.value ?? 0);
@@ -114,6 +110,177 @@ function getDayBoundsForTz(tz: string, dateStr?: string): { dayStart: number; da
   const dayEnd   = new Date(year, month0, day, 23, 59, 59, 999).getTime() - utcOffsetMs;
 
   return { dayStart, dayEnd };
+}
+
+// Parsed VEVENT before recurrence expansion
+interface ParsedVEvent {
+  uid: string;
+  title: string;
+  startDate: Date;
+  endDate: Date;
+  durationMs: number;
+  allDay: boolean;
+  location: string;
+  description: string;
+  color: string;
+  rrule: string | null;       // raw RRULE string
+  exdates: Date[];            // EXDATE exclusions
+  hasRecurrenceId: boolean;   // true if this is an exception instance
+  startKey: string;           // original DTSTART property name (for TZID)
+}
+
+/**
+ * Expand a recurring event into occurrences that fall within [windowStart, windowEnd].
+ * Non-recurring events are returned as-is if they overlap the window.
+ */
+function expandEvent(
+  ev: ParsedVEvent,
+  windowStart: Date,
+  windowEnd: Date,
+): CalendarEvent[] {
+  const results: CalendarEvent[] = [];
+
+  if (!ev.rrule) {
+    // Non-recurring: check simple overlap
+    const s = ev.startDate.getTime();
+    const e = ev.endDate.getTime();
+    if (s <= windowEnd.getTime() && e >= windowStart.getTime()) {
+      results.push({
+        id: ev.uid,
+        title: ev.title,
+        start: ev.startDate.toISOString(),
+        end: ev.endDate.toISOString(),
+        allDay: ev.allDay,
+        location: ev.location,
+        description: ev.description,
+        color: ev.color,
+      });
+    }
+    return results;
+  }
+
+  // Build an RRule from the RRULE string + DTSTART
+  try {
+    // Extract TZID from original DTSTART property if present.
+    // BYDAY rules (e.g. TU) must be evaluated in the event's local timezone,
+    // otherwise an event at 9 PM ET on Tuesday (= 1 AM UTC Wednesday) would
+    // be skipped by a BYDAY=TU rule evaluated in UTC.
+    const tzid = ev.startKey.match(/TZID=([^;:]+)/)?.[1];
+
+    let rule: InstanceType<typeof RRule>;
+
+    if (tzid) {
+      // Build RRule using local datetime components so BYDAY matches the
+      // event's local day-of-week, then convert occurrences back to UTC.
+      const localDt = toLocalComponents(ev.startDate, tzid);
+      rule = rrulestr(
+        `DTSTART;TZID=${tzid}:${localDt}\nRRULE:${ev.rrule}`,
+        { tzid }
+      );
+    } else {
+      const dtStartStr = formatDateForRRule(ev.startDate);
+      rule = rrulestr(`DTSTART:${dtStartStr}\nRRULE:${ev.rrule}`);
+    }
+
+    // Get occurrences within a padded window (pad by 1 day to be safe with timezones)
+    const padMs = 24 * 60 * 60 * 1000;
+    const occurrences = rule.between(
+      new Date(windowStart.getTime() - padMs),
+      new Date(windowEnd.getTime() + padMs),
+      true, // inclusive
+    );
+
+    // Build EXDATE set for quick lookup
+    const exdateSet = new Set(ev.exdates.map(d => d.toISOString().slice(0, 10)));
+
+    for (const occ of occurrences) {
+      // rrule with TZID returns "local-looking" UTC dates — the numeric
+      // components represent the local time but the Date object is in UTC.
+      // Convert to a real UTC timestamp.
+      const occUtc = tzid ? localFakeUtcToReal(occ, tzid) : occ;
+
+      // Skip if excluded
+      if (exdateSet.has(occUtc.toISOString().slice(0, 10))) continue;
+
+      const occStart = occUtc;
+      const occEnd = new Date(occUtc.getTime() + ev.durationMs);
+
+      // Final overlap check against the actual window
+      if (occStart.getTime() <= windowEnd.getTime() && occEnd.getTime() >= windowStart.getTime()) {
+        results.push({
+          id: `${ev.uid}_${occUtc.toISOString()}`,
+          title: ev.title,
+          start: occStart.toISOString(),
+          end: occEnd.toISOString(),
+          allDay: ev.allDay,
+          location: ev.location,
+          description: ev.description,
+          color: ev.color,
+        });
+      }
+    }
+  } catch (err) {
+    // If RRULE parsing fails, fall back to treating as non-recurring
+    console.error(`Failed to parse RRULE for "${ev.title}":`, err);
+    const s = ev.startDate.getTime();
+    const e = ev.endDate.getTime();
+    if (s <= windowEnd.getTime() && e >= windowStart.getTime()) {
+      results.push({
+        id: ev.uid,
+        title: ev.title,
+        start: ev.startDate.toISOString(),
+        end: ev.endDate.toISOString(),
+        allDay: ev.allDay,
+        location: ev.location,
+        description: ev.description,
+        color: ev.color,
+      });
+    }
+  }
+
+  return results;
+}
+
+/** Format a Date as an iCal UTC datetime string for rrule parsing */
+function formatDateForRRule(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+}
+
+/**
+ * Convert a UTC Date to local iCal datetime string (YYYYMMDDTHHMMSS) in a
+ * given IANA timezone.  This is needed so rrule evaluates BYDAY in the
+ * event's local timezone.
+ */
+function toLocalComponents(utcDate: Date, tzid: string): string {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tzid,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  });
+  const parts = fmt.formatToParts(utcDate);
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? '00';
+  return `${get('year')}${get('month')}${get('day')}T${get('hour')}${get('minute')}${get('second')}`;
+}
+
+/**
+ * The rrule library with TZID returns Date objects whose UTC components
+ * actually represent the local time (fake-UTC).  Convert to a real UTC
+ * timestamp by computing the timezone offset.
+ */
+function localFakeUtcToReal(fakeUtc: Date, tzid: string): Date {
+  // fakeUtc.getUTCHours() etc. hold the local-time values.
+  // We need to find the real UTC time that corresponds to those local values.
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tzid,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  });
+  const parts = fmt.formatToParts(fakeUtc);
+  const get = (t: string) => Number(parts.find(p => p.type === t)?.value ?? 0);
+  const tzAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
+  const offsetMs = fakeUtc.getTime() - tzAsUtc;
+  return new Date(fakeUtc.getTime() + offsetMs);
 }
 
 export async function GET(request: Request) {
@@ -157,8 +324,13 @@ export async function GET(request: Request) {
     const text = await res.text();
     const lines = unfold(text);
 
-    type RawEvent = CalendarEvent & { hasRecurrenceId: boolean };
-    const events: RawEvent[] = [];
+    // ---------------------------------------------------------------
+    // Phase 1: Parse all VEVENTs into ParsedVEvent objects
+    // ---------------------------------------------------------------
+    const masterEvents: ParsedVEvent[] = [];
+    const exceptionEvents: CalendarEvent[] = []; // exception instances (RECURRENCE-ID)
+    const exceptionUids = new Set<string>(); // UIDs that have exceptions on the target day
+
     let inEvent = false;
     let props: Record<string, string> = {};
 
@@ -182,19 +354,59 @@ export async function GET(request: Request) {
         const endDate = endVal ? parseICalDate(endVal, endKey) : startDate;
         const allDay = isAllDay(startKey, startVal);
         const title = unescape(props['SUMMARY'] ?? 'Untitled');
+        const uid = props['UID'] ?? `${startVal}-${title}`;
         const hasRecurrenceId = Object.keys(props).some(k => k.startsWith('RECURRENCE-ID'));
+        const rruleStr = props['RRULE'] ?? null;
 
-        events.push({
-          id: props['UID'] ?? `${startVal}-${title}`,
+        // Collect EXDATE values (comma-separated dates that should be excluded)
+        const exdates: Date[] = [];
+        for (const [k, v] of Object.entries(props)) {
+          if (k.startsWith('EXDATE')) {
+            for (const part of v.split(',')) {
+              const trimmed = part.trim();
+              if (trimmed) {
+                try {
+                  exdates.push(parseICalDate(trimmed, k));
+                } catch { /* skip unparseable */ }
+              }
+            }
+          }
+        }
+
+        const durationMs = endDate.getTime() - startDate.getTime();
+
+        const parsed: ParsedVEvent = {
+          uid,
           title,
-          start: startDate.toISOString(),
-          end: endDate.toISOString(),
+          startDate,
+          endDate,
+          durationMs: durationMs > 0 ? durationMs : 3600000, // default 1h
           allDay,
           location: unescape(props['LOCATION'] ?? ''),
           description: unescape(props['DESCRIPTION'] ?? ''),
           color: colorForTitle(title),
+          rrule: rruleStr,
+          exdates,
           hasRecurrenceId,
-        });
+          startKey,
+        };
+
+        if (hasRecurrenceId) {
+          // This is an exception to a recurring event — store as a one-off
+          exceptionEvents.push({
+            id: `${uid}_exception_${startVal}`,
+            title: parsed.title,
+            start: startDate.toISOString(),
+            end: endDate.toISOString(),
+            allDay,
+            location: parsed.location,
+            description: parsed.description,
+            color: parsed.color,
+          });
+        } else {
+          masterEvents.push(parsed);
+        }
+
         continue;
       }
 
@@ -207,32 +419,51 @@ export async function GET(request: Request) {
       props[key] = val;
     }
 
-    // Filter to the requested day, using the caller's timezone
+    // ---------------------------------------------------------------
+    // Phase 2: Expand recurring events for the requested day
+    // ---------------------------------------------------------------
     const { dayStart, dayEnd } = getDayBoundsForTz(tz, dateStr);
+    const windowStartDate = new Date(dayStart);
+    const windowEndDate = new Date(dayEnd);
 
-    const todayRaw = events.filter(e => {
-      const s = new Date(e.start).getTime();
-      const en = new Date(e.end).getTime();
-      return s <= dayEnd && en >= dayStart;
-    });
+    const allOccurrences: CalendarEvent[] = [];
 
-    // Deduplicate by UID: when a recurring event has both a master VEVENT
-    // (RRULE, DTSTART = today) and a specific exception (RECURRENCE-ID = today),
-    // both pass the filter. Keep only the exception; fall back to master if none.
-    const byUid = new Map<string, RawEvent>();
-    for (const e of todayRaw) {
-      const existing = byUid.get(e.id);
-      if (!existing || (!existing.hasRecurrenceId && e.hasRecurrenceId)) {
-        byUid.set(e.id, e);
+    for (const ev of masterEvents) {
+      const expanded = expandEvent(ev, windowStartDate, windowEndDate);
+      allOccurrences.push(...expanded);
+    }
+
+    // Add exception events that fall on this day
+    for (const ex of exceptionEvents) {
+      const s = new Date(ex.start).getTime();
+      const e = new Date(ex.end).getTime();
+      if (s <= dayEnd && e >= dayStart) {
+        allOccurrences.push(ex);
+        // Track that this UID has an exception on this day
+        const baseUid = ex.id.split('_exception_')[0];
+        exceptionUids.add(baseUid);
       }
     }
 
-    const todayEvents = [...byUid.values()]
-      .sort((a, b) => {
-        if (a.allDay && !b.allDay) return -1;
-        if (!a.allDay && b.allDay) return 1;
-        return new Date(a.start).getTime() - new Date(b.start).getTime();
-      });
+    // ---------------------------------------------------------------
+    // Phase 3: Deduplicate — if an exception exists for a UID on this
+    // day, remove the master occurrence that was generated by RRULE
+    // ---------------------------------------------------------------
+    const deduped = allOccurrences.filter(e => {
+      if (exceptionUids.size === 0) return true;
+      // Exception events themselves should always be kept
+      if (e.id.includes('_exception_')) return true;
+      // For master occurrences, strip the timestamp suffix to get the base UID
+      const baseUid = e.id.includes('_') ? e.id.slice(0, e.id.lastIndexOf('_')) : e.id;
+      return !exceptionUids.has(baseUid);
+    });
+
+    // Sort: all-day first, then by start time
+    const todayEvents = deduped.sort((a, b) => {
+      if (a.allDay && !b.allDay) return -1;
+      if (!a.allDay && b.allDay) return 1;
+      return new Date(a.start).getTime() - new Date(b.start).getTime();
+    });
 
     return NextResponse.json({
       success: true,
