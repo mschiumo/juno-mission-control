@@ -10,7 +10,7 @@ const NEWS_CATEGORIES = {
   },
   macro: {
     name: 'Macro & Policy',
-    keywords: ['cpi', 'inflation', 'jobs report', 'unemployment', 'gdp', 'non-farm payrolls', 'nfp', 'retail sales', 'consumer confidence', 'pmi', 'economic growth', 'white house', 'executive order', 'trump', 'administration', 'legislation', 'congress', 'senate', 'regulation', 'tariff', 'fiscal policy'],
+    keywords: ['cpi', 'inflation', 'jobs report', 'unemployment', 'gdp', 'non-farm payrolls', 'nfp', 'retail sales', 'consumer confidence', 'pmi', 'purchasing managers', 'ism manufacturing', 'ism services', 'flash manufacturing', 'manufacturing index', 'services index', 'economic growth', 'white house', 'executive order', 'trump', 'administration', 'legislation', 'congress', 'senate', 'regulation', 'tariff', 'fiscal policy'],
     priority: 'high',
     color: '#3b82f6' // Blue
   },
@@ -113,37 +113,82 @@ function getTimeAgo(timestamp: number): string {
  * Fetch general market news from Finnhub
  * Free tier: 60 calls/minute
  */
+async function fetchEconomicCalendarNews(): Promise<NewsItem[]> {
+  if (!FINNHUB_API_KEY) return [];
+
+  try {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const fromDate = yesterday.toISOString().split('T')[0];
+    const toDate = now.toISOString().split('T')[0];
+
+    const response = await fetch(
+      `https://finnhub.io/api/v1/calendar/economic?from=${fromDate}&to=${toDate}&token=${FINNHUB_API_KEY}`,
+      { next: { revalidate: 900 } }
+    );
+
+    if (!response.ok) {
+      console.warn(`Finnhub economic calendar error: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    const events = data?.economicCalendar ?? [];
+
+    if (!Array.isArray(events)) return [];
+
+    const now_ts = Math.floor(Date.now() / 1000);
+
+    return events.map((event: { event: string; time: string; country: string; actual?: number; previous?: number; estimate?: number; unit?: string }) => {
+      const actualStr = event.actual != null ? `Actual: ${event.actual}${event.unit ?? ''}` : 'Pending';
+      const prevStr = event.previous != null ? `Previous: ${event.previous}${event.unit ?? ''}` : '';
+      const estStr = event.estimate != null ? `Estimate: ${event.estimate}${event.unit ?? ''}` : '';
+
+      return {
+        category: 'economic calendar',
+        datetime: now_ts,
+        headline: `${event.event} (${event.country})`,
+        image: '',
+        related: '',
+        source: 'Economic Calendar',
+        summary: [actualStr, estStr, prevStr].filter(Boolean).join(' | '),
+        url: ''
+      };
+    });
+  } catch (error) {
+    console.warn('Finnhub economic calendar fetch error:', error);
+    return [];
+  }
+}
+
 async function fetchFinnhubNews(): Promise<NewsItem[]> {
   if (!FINNHUB_API_KEY) {
     console.warn('FINNHUB_API_KEY not set, using mock data');
     return getMockNews();
   }
-  
+
   try {
-    // Get news from the last 24 hours
-    const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const fromDate = yesterday.toISOString().split('T')[0];
-    const toDate = now.toISOString().split('T')[0];
-    
-    const response = await fetch(
-      `https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_API_KEY}`,
-      { next: { revalidate: 900 } } // Cache for 15 minutes
-    );
-    
-    if (!response.ok) {
-      console.warn(`Finnhub news error: ${response.status}`);
-      return getMockNews();
+    const [newsResponse, calendarNews] = await Promise.all([
+      fetch(
+        `https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_API_KEY}`,
+        { next: { revalidate: 900 } }
+      ),
+      fetchEconomicCalendarNews()
+    ]);
+
+    if (!newsResponse.ok) {
+      console.warn(`Finnhub news error: ${newsResponse.status}`);
+      return [...getMockNews(), ...calendarNews];
     }
-    
-    const data = await response.json();
-    
+
+    const data = await newsResponse.json();
+
     if (!Array.isArray(data)) {
       console.warn('Finnhub news response is not an array');
-      return getMockNews();
+      return [...getMockNews(), ...calendarNews];
     }
-    
-    return data;
+
+    return [...data, ...calendarNews];
   } catch (error) {
     console.error('Finnhub news fetch error:', error);
     return getMockNews();
