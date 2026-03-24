@@ -11,6 +11,7 @@ import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
+import LandingPage from "@/components/landing/LandingPage";
 import { LayoutDashboard, Target, TrendingUp, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 
@@ -234,11 +235,30 @@ function DashboardContent() {
   );
 }
 
-// Main component with Suspense boundary
+// Session-aware router — landing for guests, dashboard for auth'd users
+function HomeRouter() {
+  const { status } = useSession();
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
+        <div className="text-[#8b949e]">Loading…</div>
+      </div>
+    );
+  }
+
+  if (status === 'unauthenticated') {
+    return <LandingPage />;
+  }
+
+  return <DashboardContent />;
+}
+
+// Main component with Suspense boundary (required for useSearchParams inside DashboardContent)
 export default function Home() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0d1117] flex items-center justify-center"><div className="text-[#8b949e]">Loading...</div></div>}>
-      <DashboardContent />
+    <Suspense fallback={<div className="min-h-screen bg-[#0d1117] flex items-center justify-center"><div className="text-[#8b949e]">Loading…</div></div>}>
+      <HomeRouter />
     </Suspense>
   );
 }
