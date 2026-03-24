@@ -1325,80 +1325,20 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
             </div>
             <div>
               <h3 className="text-base font-bold text-white mb-1">
-                Heads up — duplicates possible
+                Existing trades will be replaced
               </h3>
               <p className="text-sm text-[#8b949e] leading-relaxed">
-                Importing will{" "}
-                <span className="text-white font-medium">add</span> these
-                trades to your existing journal. Any trades you&apos;ve
-                already entered for these dates won&apos;t be removed or
-                replaced.
+                Any trades already in your journal for the{" "}
+                <span className="text-white font-medium">same dates</span> as this file will be
+                overwritten. Trades on other dates are not affected.
               </p>
             </div>
           </div>
 
           <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3 mb-5 text-sm text-[#8b949e] space-y-1.5">
-            <p>
-              • If you manually added trades for the same dates, you&apos;ll
-              end up with duplicates.
-            </p>
-            <p>
-              • If you&apos;re importing the same file again, all trades will
-              be doubled.
-            </p>
-            <p>
-              • After importing, review your trade list and delete any
-              duplicates.
-            </p>
-          </div>
-
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setShowDuplicateWarning(false)}
-              className="px-4 py-2 text-[#8b949e] hover:text-white transition-colors"
-            >
-              Go Back
-            </button>
-            <button
-              onClick={handleConfirmUpload}
-              className="px-4 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors"
-            >
-              Continue with Import
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (showDuplicateWarning) {
-    return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-        <div className="bg-[#161b22] border border-[#F97316]/40 rounded-xl w-full max-w-md p-6">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="w-8 h-8 rounded-full bg-[#F97316]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <span className="text-[#F97316] text-sm font-bold">!</span>
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white mb-1">
-                Heads up — duplicates possible
-              </h3>
-              <p className="text-sm text-[#8b949e] leading-relaxed">
-                Importing will{" "}
-                <span className="text-white font-medium">add</span> these trades to your existing
-                journal. Any trades you&apos;ve already entered for these dates won&apos;t be
-                removed or replaced.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3 mb-5 text-sm text-[#8b949e] space-y-1.5">
-            <p>
-              &bull; If you manually added trades for the same dates, you&apos;ll end up with
-              duplicates.
-            </p>
-            <p>&bull; If you&apos;re importing the same file again, all trades will be doubled.</p>
-            <p>&bull; After importing, review your trade list and delete any duplicates.</p>
+            <p>&bull; Safe to re-import — a larger statement replaces only the dates it covers.</p>
+            <p>&bull; Manually added trades on those dates will also be removed.</p>
+            <p>&bull; Trades outside the imported date range are untouched.</p>
           </div>
 
           <div className="flex justify-end gap-3">
@@ -1941,8 +1881,10 @@ function EditTradeModal({ trade, onClose, onSave, isSaving }: EditTradeModalProp
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Omit computed P&L fields so the server recalculates them from the new prices
+    const { netPnL: _n, ...tradeBase } = trade;
     onSave({
-      ...trade,
+      ...tradeBase,
       symbol: formData.symbol.toUpperCase(),
       side: formData.side as 'LONG' | 'SHORT',
       shares: parseInt(formData.shares) || 0,
