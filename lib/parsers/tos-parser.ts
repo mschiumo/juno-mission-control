@@ -432,6 +432,119 @@ function parseTOSStatement(csvText: string): TOSTrade[] {
   return trades;
 }
 
+// ============================================================================
+// Account Value Extraction from Position Statements
+// ============================================================================
+
+export interface PositionStatementAccountData {
+  date: string; // YYYY-MM-DD
+  totalPositionValue: number; // sum of Qty * Mark for all positions
+  totalPLOpen: number; // sum of P/L Open
+  totalPLDay: number; // sum of P/L Day
+}
+
+/** Parse a TOS dollar string like "$62.00" or "($5.00)" into a number. */
+function parseDollarValue(str: string | undefined): number | null {
+  if (!str) return null;
+  const clean = str.replace('$', '').replace(/[()]/g, '').replace(/,/g, '').trim();
+  const val = parseFloat(clean);
+  if (isNaN(val)) return null;
+  if (str.includes('(') && str.includes(')')) return -Math.abs(val);
+  return val;
+}
+
+/**
+ * Extract account-level data from a TOS Position Statement CSV.
+ * Returns null if the CSV is not a position statement.
+ */
+export function extractAccountValueFromPositionStatement(
+  csvText: string
+): PositionStatementAccountData | null {
+  const isPositionStatement =
+    (csvText.includes('Position Statement for') ||
+      csvText.includes('Account Statement')) &&
+    csvText.includes('P/L Day');
+
+  if (!isPositionStatement) return null;
+
+  const lines = csvText
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .filter((line) => line.trim());
+
+  // Extract date from header
+  let statementDate = '';
+  for (const line of lines) {
+    const match = line.match(
+      /(?:Position Statement|Account Statement|Statement) for.+on\s+(\d{1,2}\/\d{1,2}\/\d{2})/
+    );
+    if (match) {
+      const [month, day, yearShort] = match[1].split('/');
+      const year = '20' + yearShort;
+      statementDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      break;
+    }
+  }
+
+  if (!statementDate) {
+    statementDate = getTodayInEST();
+  }
+
+  let inDataSection = false;
+  let totalPositionValue = 0;
+  let totalPLOpen = 0;
+  let totalPLDay = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (trimmed.includes('Instrument') && trimmed.includes('P/L Day')) {
+      inDataSection = true;
+      continue;
+    }
+
+    // Parse Overall Totals / Subtotals row for aggregate P/L
+    if (trimmed.startsWith('Overall Totals:') || trimmed.startsWith('Subtotals:')) {
+      const parts = trimmed.split(',').map((p) => p.trim());
+      if (parts.length >= 8) {
+        const plOpenStr = parts[6] || parts[parts.length - 3];
+        const plDayStr = parts[7] || parts[parts.length - 2];
+        const parsedPLOpen = parseDollarValue(plOpenStr);
+        const parsedPLDay = parseDollarValue(plDayStr);
+        if (parsedPLOpen !== null) totalPLOpen = parsedPLOpen;
+        if (parsedPLDay !== null) totalPLDay = parsedPLDay;
+      }
+      inDataSection = false;
+      continue;
+    }
+
+    if (!inDataSection) continue;
+
+    // Data row: SYMBOL,Qty,Days,Trade Price,Mark,Mrk Chng,P/L Open,P/L Day,BP Effect
+    const parts = trimmed.split(',').map((p) => p.trim());
+    if (parts.length < 8) continue;
+
+    const symbol = parts[0];
+    if (!symbol || symbol.includes(' ') || symbol === 'Instrument') continue;
+
+    const qty = parseInt(parts[1], 10) || 0;
+    const mark = parseFloat(parts[4]) || 0;
+
+    // Position value = shares held * current mark price
+    if (qty !== 0 && mark > 0) {
+      totalPositionValue += Math.abs(qty) * mark;
+    }
+  }
+
+  return {
+    date: statementDate,
+    totalPositionValue: Math.round(totalPositionValue * 100) / 100,
+    totalPLOpen: Math.round(totalPLOpen * 100) / 100,
+    totalPLDay: Math.round(totalPLDay * 100) / 100,
+  };
+}
+
 // Calculate daily PnL from trades
 export function calculateDailyPnL(trades: TOSTrade[]): DayData[] {
   const byDate: Record<string, TOSTrade[]> = {};

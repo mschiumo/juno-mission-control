@@ -24,8 +24,11 @@ import type { Trade } from '@/types/trading';
 import { Strategy } from '@/types/trading';
 import { saveTradesReplacingByDate } from '@/lib/db/trades-v2';
 import { parseFlexibleCSV, detectCSVFormat, validateCSVFormat, CSVFormat, getFormatSample } from '@/lib/parsers/flexible-csv-parser';
+import { extractAccountValueFromPositionStatement } from '@/lib/parsers/tos-parser';
 import { getNowInEST } from '@/lib/date-utils';
 import { requireUserId } from '@/lib/auth-session';
+import { saveSnapshot } from '@/lib/db/account-value';
+import type { AccountValueSnapshot } from '@/types/account-value';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const { userId, error: authError } = await requireUserId();
@@ -38,7 +41,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     let delimiter = ',';
 
     if (contentType.includes('multipart/form-data')) {
-      // Handle FormData (file upload)
       const formData = await request.formData();
       const file = formData.get('file') as File | null;
       format = (formData.get('format') as CSVFormat | 'auto') || 'auto';
@@ -51,10 +53,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
       }
 
-      // Read file content
       csv = await file.text();
     } else {
-      // Handle JSON
       const body = await request.json();
       csv = body.csv;
       format = body.format || 'auto';
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           success: false,
           error: validation.message,
           detectedFormat: validation.format,
-          sample: getFormatSample(validation.format)
+          sample: getFormatSample(validation.format),
         },
         { status: 400 }
       );
@@ -92,9 +92,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       defaultStrategy: Strategy.DAY_TRADE,
     });
 
-    // Save trades to Redis
+    // Save trades to Redis (replace any existing trades on the same dates)
     if (result.trades.length > 0) {
       await saveTradesReplacingByDate(result.trades, userId);
+    }
+
+    // Extract and save account value snapshot from Position Statements
+    let accountValueSnapshot: AccountValueSnapshot | null = null;
+    if (csv.includes('Position Statement for')) {
+      const accountData = extractAccountValueFromPositionStatement(csv);
+      if (accountData) {
+        const now = new Date().toISOString();
+        accountValueSnapshot = {
+          id: crypto.randomUUID(),
+          userId,
+          date: accountData.date,
+          totalPositionValue: accountData.totalPositionValue,
+          totalPLOpen: accountData.totalPLOpen,
+          totalPLDay: accountData.totalPLDay,
+          netLiquidatingValue: accountData.totalPositionValue,
+          source: 'position_statement',
+          createdAt: now,
+          updatedAt: now,
+        };
+        await saveSnapshot(accountValueSnapshot);
+      }
     }
 
     return NextResponse.json({
@@ -105,8 +127,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         errors: result.errors,
         trades: result.trades,
         detectedFormat,
+        accountValueSnapshot,
       },
-      count: result.imported
+      count: result.imported,
     });
 
   } catch (error) {
@@ -114,7 +137,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to import trades'
+        error: error instanceof Error ? error.message : 'Failed to import trades',
       },
       { status: 500 }
     );

@@ -29,6 +29,7 @@ import {
   Upload
 } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
+import AccountValueChart, { type AccountValuePoint } from './AccountValueChart';
 
 // ============================================================================
 // Types
@@ -130,6 +131,7 @@ export default function CombinedCalendarView() {
   const [dailyStats, setDailyStats] = useState<DayData[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
+  const [accountValueData, setAccountValueData] = useState<AccountValuePoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal states
@@ -171,21 +173,33 @@ export default function CombinedCalendarView() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, journalRes, tradesRes] = await Promise.all([
+      const [statsRes, journalRes, tradesRes, accountValueRes] = await Promise.all([
         fetch(`/api/trades/daily-stats?_t=${Date.now()}`),
         fetch(`/api/daily-journal?_t=${Date.now()}`),
-        fetch('/api/trades?userId=default&perPage=1000')
+        fetch('/api/trades?userId=default&perPage=1000'),
+        fetch(`/api/account-value?_t=${Date.now()}`)
       ]);
 
-      const [statsData, journalData, tradesData] = await Promise.all([
+      const [statsData, journalData, tradesData, accountValueDataRes] = await Promise.all([
         statsRes.json(),
         journalRes.json(),
-        tradesRes.json()
+        tradesRes.json(),
+        accountValueRes.json()
       ]);
 
       if (statsData.success) setDailyStats(statsData.dailyStats || []);
       if (journalData.success) setJournalEntries(journalData.entries || []);
       if (tradesData.success && tradesData.data) setAllTrades(tradesData.data.trades || []);
+      if (accountValueDataRes.success && accountValueDataRes.snapshots) {
+        const points: AccountValuePoint[] = accountValueDataRes.snapshots.map(
+          (s: { date: string; netLiquidatingValue: number; totalPLDay: number }) => ({
+            date: s.date,
+            value: s.netLiquidatingValue,
+            plDay: s.totalPLDay,
+          })
+        );
+        setAccountValueData(points);
+      }
     } catch (error) {
       console.error('Error fetching calendar data:', error);
     } finally {
@@ -761,8 +775,11 @@ export default function CombinedCalendarView() {
 
       </div>{/* end left column */}
 
-      {/* Right column: All Trades (1/3 width) — absolutely positioned to match left column height */}
-      <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 'calc(33.333% - 0.5rem)', display: 'flex', flexDirection: 'column' }}>
+      {/* Right column: Account Value + All Trades (1/3 width) — absolutely positioned to match left column height */}
+      <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 'calc(33.333% - 0.5rem)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* Account Value Chart */}
+        <AccountValueChart data={accountValueData} />
+
         {isLoading ? (
           <div className="flex-1 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
@@ -1230,12 +1247,14 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; count?: number } | null>(null);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (selectedFile: File) => {
     if (selectedFile.name.endsWith('.csv') || selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls')) {
       setFile(selectedFile);
       setUploadResult(null);
+      setShowDuplicateWarning(false);
     } else {
       setUploadResult({ success: false, message: 'Please select a CSV or Excel file' });
     }
@@ -1250,27 +1269,33 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
     }
   };
 
-  const handleUpload = async () => {
+  const handleUpload = () => {
     if (!file) return;
-    
+    setShowDuplicateWarning(true);
+  };
+
+  const handleConfirmUpload = async () => {
+    if (!file) return;
+
+    setShowDuplicateWarning(false);
     setIsUploading(true);
-    
+
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const response = await fetch('/api/trades/import', {
         method: 'POST',
         body: formData,
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
-        setUploadResult({ 
-          success: true, 
+        setUploadResult({
+          success: true,
           message: `Successfully imported ${result.count || 0} trades`,
-          count: result.count 
+          count: result.count,
         });
         setTimeout(() => {
           onClose();
@@ -1289,6 +1314,111 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
       setIsUploading(false);
     }
   };
+
+  if (showDuplicateWarning) {
+    return (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="bg-[#161b22] border border-[#F97316]/40 rounded-xl w-full max-w-md p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-8 h-8 rounded-full bg-[#F97316]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-[#F97316] text-sm font-bold">!</span>
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white mb-1">
+                Heads up — duplicates possible
+              </h3>
+              <p className="text-sm text-[#8b949e] leading-relaxed">
+                Importing will{" "}
+                <span className="text-white font-medium">add</span> these
+                trades to your existing journal. Any trades you&apos;ve
+                already entered for these dates won&apos;t be removed or
+                replaced.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3 mb-5 text-sm text-[#8b949e] space-y-1.5">
+            <p>
+              • If you manually added trades for the same dates, you&apos;ll
+              end up with duplicates.
+            </p>
+            <p>
+              • If you&apos;re importing the same file again, all trades will
+              be doubled.
+            </p>
+            <p>
+              • After importing, review your trade list and delete any
+              duplicates.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setShowDuplicateWarning(false)}
+              className="px-4 py-2 text-[#8b949e] hover:text-white transition-colors"
+            >
+              Go Back
+            </button>
+            <button
+              onClick={handleConfirmUpload}
+              className="px-4 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors"
+            >
+              Continue with Import
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showDuplicateWarning) {
+    return (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="bg-[#161b22] border border-[#F97316]/40 rounded-xl w-full max-w-md p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-8 h-8 rounded-full bg-[#F97316]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-[#F97316] text-sm font-bold">!</span>
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white mb-1">
+                Heads up — duplicates possible
+              </h3>
+              <p className="text-sm text-[#8b949e] leading-relaxed">
+                Importing will{" "}
+                <span className="text-white font-medium">add</span> these trades to your existing
+                journal. Any trades you&apos;ve already entered for these dates won&apos;t be
+                removed or replaced.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3 mb-5 text-sm text-[#8b949e] space-y-1.5">
+            <p>
+              &bull; If you manually added trades for the same dates, you&apos;ll end up with
+              duplicates.
+            </p>
+            <p>&bull; If you&apos;re importing the same file again, all trades will be doubled.</p>
+            <p>&bull; After importing, review your trade list and delete any duplicates.</p>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setShowDuplicateWarning(false)}
+              className="px-4 py-2 text-[#8b949e] hover:text-white transition-colors"
+            >
+              Go Back
+            </button>
+            <button
+              onClick={handleConfirmUpload}
+              className="px-4 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors"
+            >
+              Continue with Import
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
