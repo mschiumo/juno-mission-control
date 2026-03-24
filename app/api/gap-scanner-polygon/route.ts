@@ -180,17 +180,18 @@ function isLikelyADRBySymbol(symbol: string): boolean {
  * Fetch all stock snapshots from Polygon
  * This returns ALL stocks in a single API call!
  */
-async function fetchAllSnapshots(isMarketOpen: boolean): Promise<PolygonSnapshot[]> {
+async function fetchAllSnapshots(session: 'pre-market' | 'market-open' | 'post-market' | 'closed'): Promise<PolygonSnapshot[]> {
   if (!POLYGON_API_KEY) {
     throw new Error('POLYGON_API_KEY environment variable is required');
   }
 
   const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=${POLYGON_API_KEY}`;
-  
+
   console.log('[GapScanner-Polygon] Fetching all stock snapshots...');
-  
+
+  const revalidate = session === 'market-open' ? 15 : session === 'pre-market' ? 60 : 300;
   const response = await fetch(url, {
-    next: { revalidate: isMarketOpen ? 15 : 300 } // 15s during market hours, 5min otherwise
+    next: { revalidate } // 15s market-open, 60s pre-market, 5min otherwise
   });
   
   if (!response.ok) {
@@ -218,9 +219,10 @@ function processGaps(
     minVolume: number;
     minPrice: number;
     maxPrice: number;
+    isPreMarket: boolean;
   }
 ): { gainers: GapStock[]; losers: GapStock[]; skipped: { gap: number; volume: number; price: number } } {
-  const { minGapPercent, minVolume, minPrice, maxPrice } = options;
+  const { minGapPercent, minVolume, minPrice, maxPrice, isPreMarket } = options;
 
   const gainers: GapStock[] = [];
   const losers: GapStock[] = [];
@@ -238,7 +240,9 @@ function processGaps(
 
     const currentPrice = snap.lastTrade?.p || snap.day.c;
     const previousClose = snap.prevDay.c;
+    // During pre-market, today's session volume is 0 — use previous day's as a liquidity proxy
     const volume = snap.day.v || 0;
+    const volumeForFilter = isPreMarket && volume < 1000 ? (snap.prevDay?.v || 0) : volume;
 
     // Skip if price out of range — minPrice filters sub-penny junk
     if (currentPrice < minPrice || currentPrice > maxPrice) {
@@ -246,9 +250,8 @@ function processGaps(
       continue;
     }
 
-    // Skip if today's volume < 1M (proxy for 90-day avg; Polygon snapshots
-    // don't include historical avg volume on the free tier)
-    if (volume < minVolume) {
+    // Skip if volume too low (pre-market uses prevDay volume as proxy)
+    if (volumeForFilter < minVolume) {
       skippedVolume++;
       continue;
     }
@@ -320,7 +323,7 @@ export async function GET(request: Request) {
     console.log(`[GapScanner-Polygon] Filters: minGap=${minGapPercent}%, minVolume=${minVolume}, minPrice=${minPrice}, maxPrice=${maxPrice}`);
 
     // Fetch all snapshots in ONE API call
-    const snapshots = await fetchAllSnapshots(marketInfo.session === 'market-open');
+    const snapshots = await fetchAllSnapshots(marketInfo.session);
 
     // Process gaps
     const { gainers, losers, skipped } = processGaps(snapshots, {
@@ -328,6 +331,7 @@ export async function GET(request: Request) {
       minVolume,
       minPrice,
       maxPrice,
+      isPreMarket: marketInfo.isPreMarket,
     });
 
     const durationMs = Date.now() - startTime;
