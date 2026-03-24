@@ -332,13 +332,16 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
     });
   } else {
     // Trade Activity format: pair buys/sells to calculate PnL
-    const bySymbol: Record<string, typeof tosTrades> = {};
+    // Group by symbol+date so multi-day statements don't pair across days
+    const bySymbolDate: Record<string, typeof tosTrades> = {};
     tosTrades.forEach(t => {
-      if (!bySymbol[t.symbol]) bySymbol[t.symbol] = [];
-      bySymbol[t.symbol].push(t);
+      const key = `${t.symbol}::${t.date}`;
+      if (!bySymbolDate[key]) bySymbolDate[key] = [];
+      bySymbolDate[key].push(t);
     });
-    
-    Object.entries(bySymbol).forEach(([symbol, symbolTrades]) => {
+
+    Object.entries(bySymbolDate).forEach(([key, symbolTrades]) => {
+      const symbol = key.split('::')[0];
       const buys = symbolTrades.filter(t => t.side === 'BUY').sort((a, b) =>
         new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()
       );
