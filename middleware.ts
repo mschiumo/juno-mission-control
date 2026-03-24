@@ -14,7 +14,7 @@ export default auth((req) => {
 
   if (isInternalApi) return NextResponse.next();
 
-  const publicPaths = ['/login', '/signup'];
+  const publicPaths = ['/', '/login', '/signup'];
   if (!isLoggedIn && !publicPaths.includes(nextUrl.pathname)) {
     const loginUrl = new URL('/login', nextUrl.origin);
     loginUrl.searchParams.set('callbackUrl', nextUrl.pathname);
