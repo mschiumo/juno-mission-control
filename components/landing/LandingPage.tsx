@@ -114,6 +114,7 @@ export default function LandingPage() {
             <a href="#features"    className="text-sm text-[#8b949e] hover:text-white transition-colors">Features</a>
             <a href="#analytics"   className="text-sm text-[#8b949e] hover:text-white transition-colors">Analytics</a>
             <a href="#how-it-works" className="text-sm text-[#8b949e] hover:text-white transition-colors">How It Works</a>
+            <a href="#pricing"     className="text-sm text-[#8b949e] hover:text-white transition-colors">Pricing</a>
           </div>
 
           <div className="flex items-center gap-3">
@@ -574,6 +575,88 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ═══ PRICING ═══ */}
+      <section id="pricing" className="py-24 px-6">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#F97316]/25 bg-[#F97316]/10 text-xs text-[#F97316] mb-4">
+              <Zap className="w-3.5 h-3.5" />
+              Limited-time offer
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
+            <p className="text-[#8b949e] text-lg max-w-xl mx-auto">
+              Everything you need to trade with discipline — no hidden fees, no tiers.
+            </p>
+          </div>
+
+          {/* Pricing card */}
+          <div className="relative max-w-md mx-auto rounded-3xl border border-[#F97316]/40 bg-[#161b22] overflow-hidden shadow-2xl shadow-[#F97316]/10">
+            {/* Top gradient glow */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#F97316] to-transparent" />
+
+            <div className="p-10">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F97316]/15 border border-[#F97316]/30 text-[#F97316] text-xs font-semibold mb-6">
+                Most Popular
+              </div>
+
+              <h3 className="text-2xl font-bold text-white mb-2">Pro Trader</h3>
+              <p className="text-[#8b949e] text-sm mb-6">Full access to every feature, updated daily.</p>
+
+              {/* Price */}
+              <div className="flex items-end gap-3 mb-8">
+                <div className="flex items-start">
+                  <span className="text-[#8b949e] text-xl font-medium mt-1.5">$</span>
+                  <span className="text-6xl font-extrabold text-white leading-none">9.99</span>
+                </div>
+                <div className="flex flex-col pb-1">
+                  <span className="text-[#8b949e] line-through text-lg">$14.99</span>
+                  <span className="text-[#8b949e] text-sm">/ month</span>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <Link
+                href="/signup"
+                className="flex items-center justify-center gap-2 w-full py-4 bg-[#F97316] hover:bg-[#ea6c0a] text-white font-bold rounded-xl transition-colors text-base shadow-lg shadow-[#F97316]/25 mb-8"
+              >
+                Start Free Trial
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+
+              {/* Divider */}
+              <div className="border-t border-[#30363d] mb-8" />
+
+              {/* Feature list */}
+              <ul className="space-y-3.5">
+                {[
+                  'Unlimited trade journal entries',
+                  'Real-time P&L analytics & equity curve',
+                  'Pre-market gap scanner with catalysts',
+                  'Strategy breakdown & win-rate heatmap',
+                  'Position sizing & risk calculator',
+                  'Watchlist with live market data',
+                  'Emotional analysis & performance tracking',
+                  'Market events calendar',
+                  'Goal tracking & habit streaks',
+                  'Priority support',
+                ].map((feature) => (
+                  <li key={feature} className="flex items-center gap-3 text-sm text-[#cdd9e5]">
+                    <CheckCircle className="w-4 h-4 text-[#F97316] flex-shrink-0" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <p className="text-center text-[#8b949e] text-sm mt-6">
+            No credit card required to start · Cancel anytime
+          </p>
         </div>
       </section>
 
