@@ -10,7 +10,6 @@ import {
   Calculator,
   TrendingUp,
   BarChart2,
-  BookOpen,
 } from 'lucide-react';
 
 type TradingSubTab = 'overview' | 'market' | 'projection' | 'trade-management';
@@ -71,16 +70,6 @@ const STEPS: TourStep[] = [
     description:
       'Overview shows your P&L calendar and trade journal. Market gives you a live gap scanner. Trade Management has the position calculator and watchlist. Profit Projection lets you model your strategy.',
     tip: "Click any tab to jump to that section — we'll show you each one.",
-  },
-  {
-    subtab: 'overview',
-    targetDataTour: 'trading-calendar',
-    tooltipSide: 'bottom',
-    icon: <BookOpen className="w-9 h-9 text-[#F97316]" />,
-    title: 'P&L Calendar',
-    description:
-      'Each day is color-coded: green for profitable sessions, red for losing ones. Click any day to open its trade journal — log notes, rate your emotional state, and record lessons learned.',
-    tip: 'Consistent journaling is the fastest way to find patterns in your trading.',
   },
   {
     subtab: 'overview',
