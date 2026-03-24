@@ -15,13 +15,15 @@ export default auth((req) => {
   if (isInternalApi) return NextResponse.next();
 
   const publicPaths = ['/', '/login', '/signup'];
+  const authPages = ['/login', '/signup']; // pages to redirect away from when logged in
+
   if (!isLoggedIn && !publicPaths.includes(nextUrl.pathname)) {
     const loginUrl = new URL('/login', nextUrl.origin);
     loginUrl.searchParams.set('callbackUrl', nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (isLoggedIn && publicPaths.includes(nextUrl.pathname)) {
+  if (isLoggedIn && authPages.includes(nextUrl.pathname)) {
     return NextResponse.redirect(new URL('/', nextUrl.origin));
   }
 
