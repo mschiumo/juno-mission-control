@@ -13,15 +13,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const favicon = process.env.NODE_ENV === 'production' ? '/favicon-prod.svg' : '/favicon.svg';
-
 export const metadata: Metadata = {
   title: "Confluence Trading",
   description: "Your disciplined trading command center",
-  icons: {
-    icon: favicon,
-    shortcut: favicon,
-    apple: favicon,
+  openGraph: {
+    title: "Confluence Trading",
+    description: "Your disciplined trading command center",
+    siteName: "Confluence Trading",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Confluence Trading",
+    description: "Your disciplined trading command center",
   },
 };
 
