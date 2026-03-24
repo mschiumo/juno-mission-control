@@ -20,6 +20,9 @@ interface YahooQuote {
   marketCap?: number;
   exchange?: string;
   quoteType?: string;
+  preMarketPrice?: number;
+  preMarketChangePercent?: number;
+  preMarketVolume?: number;
 }
 
 // Primary US domestic exchange codes — excludes OTC/Pink Sheets where most ADRs debut
@@ -95,11 +98,12 @@ function getMarketSession(): {
   };
 }
 
-async function fetchScreener(scrId: 'day_gainers' | 'day_losers', count: number, isMarketOpen: boolean): Promise<YahooQuote[]> {
+async function fetchScreener(scrId: 'day_gainers' | 'day_losers', count: number, session: 'pre-market' | 'market-open' | 'post-market' | 'closed'): Promise<YahooQuote[]> {
   const url = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?count=${count}&scrIds=${scrId}`;
+  const revalidate = session === 'market-open' ? 15 : session === 'pre-market' ? 60 : 300;
   const res = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    next: { revalidate: isMarketOpen ? 15 : 300 },
+    next: { revalidate },
   });
   if (!res.ok) throw new Error(`Yahoo Finance screener error: ${res.status}`);
   const data = await res.json();
@@ -113,23 +117,32 @@ function meetsQualityCriteria(
   minGap: number,
   minPrice: number,
   maxPrice: number,
+  isPreMarket: boolean,
 ): boolean {
   if ((q.averageDailyVolume3Month ?? 0) < minVolume) return false;
   if ((q.marketCap ?? 0) < minMarketCap) return false;
-  if (Math.abs(q.regularMarketChangePercent) < minGap) return false;
-  if (q.regularMarketPrice < minPrice || q.regularMarketPrice > maxPrice) return false;
+  const price = isPreMarket && q.preMarketPrice ? q.preMarketPrice : q.regularMarketPrice;
+  const changePercent = isPreMarket && q.preMarketPrice && q.regularMarketPreviousClose
+    ? ((q.preMarketPrice - q.regularMarketPreviousClose) / q.regularMarketPreviousClose) * 100
+    : q.regularMarketChangePercent;
+  if (Math.abs(changePercent) < minGap) return false;
+  if (price < minPrice || price > maxPrice) return false;
   if (isLikelyADR(q)) return false;
   return true;
 }
 
-function toGapStock(q: YahooQuote, status: 'gainer' | 'loser'): GapStock {
+function toGapStock(q: YahooQuote, status: 'gainer' | 'loser', isPreMarket: boolean): GapStock {
+  const price = isPreMarket && q.preMarketPrice ? q.preMarketPrice : q.regularMarketPrice;
+  const gapPercent = isPreMarket && q.preMarketPrice && q.regularMarketPreviousClose
+    ? ((q.preMarketPrice - q.regularMarketPreviousClose) / q.regularMarketPreviousClose) * 100
+    : q.regularMarketChangePercent;
   return {
     symbol: q.symbol,
     name: q.longName || q.shortName || q.symbol,
-    price: q.regularMarketPrice,
+    price,
     previousClose: q.regularMarketPreviousClose,
-    gapPercent: Number(q.regularMarketChangePercent.toFixed(2)),
-    volume: q.regularMarketVolume,
+    gapPercent: Number(gapPercent.toFixed(2)),
+    volume: (isPreMarket && q.preMarketVolume) ? q.preMarketVolume : q.regularMarketVolume,
     marketCap: q.marketCap ?? 0,
     status,
   };
@@ -149,15 +162,15 @@ export async function GET(request: Request) {
   const marketInfo = getMarketSession();
 
   try {
-    const isMarketOpen = marketInfo.session === 'market-open';
     const [gainersRaw, losersRaw] = await Promise.all([
-      fetchScreener('day_gainers', count, isMarketOpen),
-      fetchScreener('day_losers', count, isMarketOpen),
+      fetchScreener('day_gainers', count, marketInfo.session),
+      fetchScreener('day_losers', count, marketInfo.session),
     ]);
 
-    const filter = (q: YahooQuote) => meetsQualityCriteria(q, minVolume, minMarketCap, minGap, minPrice, maxPrice);
-    const gainers = gainersRaw.filter(filter).slice(0, limit).map((q) => toGapStock(q, 'gainer'));
-    const losers = losersRaw.filter(filter).slice(0, limit).map((q) => toGapStock(q, 'loser'));
+    const { isPreMarket } = marketInfo;
+    const filter = (q: YahooQuote) => meetsQualityCriteria(q, minVolume, minMarketCap, minGap, minPrice, maxPrice, isPreMarket);
+    const gainers = gainersRaw.filter(filter).slice(0, limit).map((q) => toGapStock(q, 'gainer', isPreMarket));
+    const losers = losersRaw.filter(filter).slice(0, limit).map((q) => toGapStock(q, 'loser', isPreMarket));
 
     return NextResponse.json({
       success: true,
