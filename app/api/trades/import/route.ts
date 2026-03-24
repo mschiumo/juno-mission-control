@@ -22,7 +22,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade } from '@/types/trading';
 import { Strategy } from '@/types/trading';
-import { saveTrades } from '@/lib/db/trades-v2';
+import { saveTradesReplacingByDate } from '@/lib/db/trades-v2';
 import { parseFlexibleCSV, detectCSVFormat, validateCSVFormat, CSVFormat, getFormatSample } from '@/lib/parsers/flexible-csv-parser';
 import { getNowInEST } from '@/lib/date-utils';
 import { requireUserId } from '@/lib/auth-session';
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Save trades to Redis
     if (result.trades.length > 0) {
-      await saveTrades(result.trades, userId);
+      await saveTradesReplacingByDate(result.trades, userId);
     }
 
     return NextResponse.json({

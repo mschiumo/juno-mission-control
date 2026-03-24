@@ -52,6 +52,35 @@ export async function saveTrades(trades: Trade[], userId: string): Promise<numbe
   }
 }
 
+/**
+ * Replace trades on specific dates then add the new ones.
+ * Used by CSV import so re-importing a larger statement doesn't create duplicates.
+ */
+export async function saveTradesReplacingByDate(trades: Trade[], userId: string): Promise<number> {
+  try {
+    const redis = await getRedisClient();
+    const existing = await getAllTrades(userId);
+
+    // Collect every calendar date (YYYY-MM-DD) touched by the incoming trades
+    const incomingDates = new Set(trades.map(t => {
+      const ts = (t.status === 'CLOSED' && t.exitDate) ? t.exitDate : t.entryDate;
+      return ts.slice(0, 10);
+    }));
+
+    // Keep only existing trades that fall outside the incoming date set
+    const kept = existing.filter(t => {
+      const ts = (t.status === 'CLOSED' && t.exitDate) ? t.exitDate : t.entryDate;
+      return !incomingDates.has(ts.slice(0, 10));
+    });
+
+    await redis.set(tradesKey(userId), JSON.stringify({ trades: [...kept, ...trades] }));
+    return trades.length;
+  } catch (error) {
+    console.error('Error saving trades to Redis:', error);
+    throw error;
+  }
+}
+
 export async function getTradeById(id: string, userId: string): Promise<Trade | null> {
   try {
     const trades = await getAllTrades(userId);
