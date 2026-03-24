@@ -43,7 +43,9 @@ interface GapScannerResponse {
 async function triggerGapScanner(): Promise<GapScannerResponse> {
   try {
     // Call the existing gap scanner API
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
     const response = await fetch(
       `${baseUrl}/api/gap-scanner?cache=false&minGap=5`,
       { 

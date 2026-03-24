@@ -4,6 +4,15 @@
   "functions": {
     "app/api/gap-scanner/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/cron-jobs/gap-scanner-trigger/route.ts": {
+      "maxDuration": 300
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron-jobs/gap-scanner-trigger",
+      "schedule": "30 13 * * 1-5"
+    }
+  ]
 }
