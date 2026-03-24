@@ -73,7 +73,7 @@ function DashboardContent() {
 
   const tabs = [
     ...(isOwner ? [{ id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard }] : []),
-    { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
+    // Trading tab hidden from nav — Trading view is the default landing for all users
     ...(isOwner ? [{ id: 'goals' as const, label: 'Goals', icon: Target }] : []),
   ];
 
