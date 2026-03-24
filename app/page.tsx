@@ -27,21 +27,22 @@ function DashboardContent() {
 
   const isOwner = session?.user?.email === OWNER_EMAIL;
 
-  // Get tab from URL query param, default to 'dashboard'
+  // Get tab from URL query param; non-owners land on trading, not dashboard
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
-    if (tab === 'trading') return tab;
-    if (tab === 'goals' && isOwner) return tab;
-    return 'dashboard';
+    if (tab === 'trading') return 'trading';
+    if (tab === 'goals' && isOwner) return 'goals';
+    if (isOwner) return 'dashboard';
+    return 'trading';
   }, [searchParams, isOwner]);
 
   const [activeTab, setActiveTabState] = useState<TabId>(getTabFromUrl);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Redirect external users away from goals tab if they navigate there directly
+  // Redirect non-owners away from owner-only tabs (dashboard, goals)
   useEffect(() => {
-    if (activeTab === 'goals' && !isOwner) {
-      setActiveTab('dashboard');
+    if (!isOwner && (activeTab === 'dashboard' || activeTab === 'goals')) {
+      setActiveTab('trading');
     }
   }, [isOwner, activeTab]);
   const [habitsHeight, setHabitsHeight] = useState<number>(980);
@@ -71,7 +72,7 @@ function DashboardContent() {
   };
 
   const tabs = [
-    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
+    ...(isOwner ? [{ id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard }] : []),
     { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
     ...(isOwner ? [{ id: 'goals' as const, label: 'Goals', icon: Target }] : []),
   ];
