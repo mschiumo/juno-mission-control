@@ -64,7 +64,7 @@ export async function saveTradesReplacingByDate(trades: Trade[], userId: string)
     // Collect every calendar date (YYYY-MM-DD) touched by the incoming trades
     const incomingDates = new Set(trades.map(t => {
       const ts = (t.status === 'CLOSED' && t.exitDate) ? t.exitDate : t.entryDate;
-      return ts.slice(0, 10);
+      return ts.slice(0, 10); // fast YYYY-MM-DD extraction
     }));
 
     // Keep only existing trades that fall outside the incoming date set
