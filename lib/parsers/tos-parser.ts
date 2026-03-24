@@ -75,23 +75,112 @@ function getNowInEST(): string {
 }
 
 export function parseTOSCSV(csvText: string): TOSTrade[] {
+  // Check for Account Statement format (has individual execution history)
+  if (csvText.includes('Account Statement for') && csvText.includes('Account Trade History')) {
+    return parseTOSAccountStatement(csvText);
+  }
+
   // Check if this is a "Position Statement" format (has P/L per position)
   if ((csvText.includes('Position Statement for') || csvText.includes('Account Statement')) && csvText.includes('P/L Day')) {
     return parseTOSPositionStatement(csvText);
   }
-  
+
   // Check for generic "Statement for" format
   if (csvText.includes('Statement for') && csvText.includes('P/L Day')) {
     return parseTOSPositionStatement(csvText);
   }
-  
+
   // Check if this is a "Today's Trade Activity" format
   if (csvText.includes("Today's Trade Activity") || csvText.includes('Filled Orders')) {
     return parseTOSTradeActivity(csvText);
   }
-  
+
   // Otherwise use the original statement parser
   return parseTOSStatement(csvText);
+}
+
+function parseTOSAccountStatement(csvText: string): TOSTrade[] {
+  const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim());
+  const trades: TOSTrade[] = [];
+
+  let inTradeHistory = false;
+  let headerFound = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Enter Account Trade History section
+    if (trimmed === 'Account Trade History') {
+      inTradeHistory = true;
+      headerFound = false;
+      continue;
+    }
+
+    if (!inTradeHistory) continue;
+
+    // Header row: ,Exec Time,Spread,Side,Qty,Pos Effect,Symbol,...
+    if (!headerFound) {
+      if (trimmed.includes('Exec Time') && trimmed.includes('Spread')) {
+        headerFound = true;
+      }
+      continue;
+    }
+
+    // Any line not starting with "," signals the end of this section
+    if (!line.startsWith(',')) {
+      inTradeHistory = false;
+      continue;
+    }
+
+    // Data row: ,3/24/26 12:32:59,STOCK,SELL,-131,TO CLOSE,WRD,,,STOCK,7.52,7.52,MKT
+    // Columns: [0]blank [1]ExecTime [2]Spread [3]Side [4]Qty [5]PosEffect [6]Symbol
+    //          [7]Exp [8]Strike [9]Type [10]Price [11]NetPrice [12]OrderType
+    const parts = line.split(',').map(p => p.trim());
+    if (parts.length < 11) continue;
+
+    const execTime = parts[1];
+    const side = parts[3] as 'BUY' | 'SELL';
+    const qtyStr = parts[4];
+    const posEffect = parts[5];
+    const symbol = parts[6];
+    const priceStr = parts[10];
+    const orderType = parts[12] || 'MKT';
+
+    if (!execTime || !execTime.includes('/')) continue;
+    if (!symbol || !side || (side !== 'BUY' && side !== 'SELL')) continue;
+
+    const quantity = Math.abs(parseInt(qtyStr.replace(/[+,]/g, ''), 10) || 0);
+    const price = parseFloat(priceStr) || 0;
+
+    if (quantity <= 0 || price <= 0) continue;
+
+    // Parse "3/24/26 12:32:59"
+    const spaceIdx = execTime.indexOf(' ');
+    if (spaceIdx === -1) continue;
+    const datePart = execTime.slice(0, spaceIdx);
+    const timePart = execTime.slice(spaceIdx + 1);
+
+    const [month, day, yearShort] = datePart.split('/');
+    if (!month || !day || !yearShort) continue;
+
+    const year = '20' + yearShort;
+    const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
+    trades.push({
+      id: `${symbol}-${isoDate}-${timePart.replace(/:/g, '-')}-${Math.random().toString(36).substr(2, 9)}`,
+      symbol,
+      side,
+      quantity,
+      price,
+      date: isoDate,
+      time: timePart,
+      execTime,
+      posEffect,
+      orderType
+    });
+  }
+
+  return trades;
 }
 
 function parseTOSTradeActivity(csvText: string): TOSTrade[] {
