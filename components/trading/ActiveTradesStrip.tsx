@@ -251,8 +251,11 @@ export default function ActiveTradesStrip() {
                   ? stopStatus(currentPrice, trade.plannedStop, trade.actualEntry)
                   : 'safe';
                 // P&L shows for all trades with a live price
+                const isLong = trade.plannedTarget > trade.plannedEntry;
                 const pnl = hasPrice
-                  ? (currentPrice - trade.actualEntry) * trade.actualShares
+                  ? isLong
+                    ? (currentPrice - trade.actualEntry) * trade.actualShares
+                    : (trade.actualEntry - currentPrice) * trade.actualShares
                   : null;
 
                 const cardClass = (() => {

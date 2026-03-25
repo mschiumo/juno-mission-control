@@ -1623,22 +1623,19 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                       )}
                     </div>
 
-                    {/* Profit */}
+                    {/* Profit (planned reward based on target) */}
                     <div>
                       <div className="text-xs text-[#8b949e]">Profit</div>
                       {(() => {
-                        const livePrice = livePrices[trade.ticker];
-                        const pnl = livePrice !== undefined
-                          ? (livePrice - trade.actualEntry) * trade.actualShares
-                          : trade.unrealizedPnL;
-                        if (pnl !== undefined) {
-                          return (
-                            <div className={`text-sm font-bold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                              {formatCurrency(pnl)}
-                            </div>
-                          );
-                        }
-                        return <div className="text-sm text-[#484f58]">—</div>;
+                        const isLong = trade.plannedTarget > trade.plannedEntry;
+                        const profit = isLong
+                          ? (trade.plannedTarget - trade.actualEntry) * trade.actualShares
+                          : (trade.actualEntry - trade.plannedTarget) * trade.actualShares;
+                        return (
+                          <div className={`text-sm font-bold ${profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {formatCurrency(profit)}
+                          </div>
+                        );
                       })()}
                     </div>
 
