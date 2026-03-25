@@ -192,6 +192,42 @@ export async function logToActivityLog(
 }
 
 /**
+ * Cache structured gap scan results in Redis so the UI can serve them instantly.
+ * TTL defaults to 30 minutes — long enough to survive until the user opens the dashboard.
+ */
+const GAP_SCAN_CACHE_KEY = 'gap_scan_latest';
+
+export async function cacheGapScanResults(
+  data: unknown,
+  ttlSeconds: number = 1800
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const redis = await getRedisClient();
+    if (!redis) return { success: false, error: 'Redis unavailable' };
+
+    await redis.set(GAP_SCAN_CACHE_KEY, JSON.stringify(data), { EX: ttlSeconds });
+    console.log('[CronHelper] Cached gap scan results');
+    return { success: true };
+  } catch (error) {
+    console.error('[CronHelper] Failed to cache gap scan results:', error);
+    return { success: false, error: String(error) };
+  }
+}
+
+export async function getCachedGapScanResults(): Promise<unknown | null> {
+  try {
+    const redis = await getRedisClient();
+    if (!redis) return null;
+
+    const data = await redis.get(GAP_SCAN_CACHE_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error('[CronHelper] Failed to read cached gap scan results:', error);
+    return null;
+  }
+}
+
+/**
  * Format a date for display
  */
 export function formatDate(date: Date = new Date()): string {

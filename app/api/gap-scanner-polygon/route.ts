@@ -7,6 +7,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { getCachedGapScanResults } from '@/lib/cron-helpers';
 
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
 
@@ -307,6 +308,19 @@ export async function GET(request: Request) {
   const marketInfo = getMarketSession();
 
   try {
+    // Before hitting Polygon, check for fresh cron-cached results (pre-market)
+    if (marketInfo.session === 'pre-market' || marketInfo.session === 'closed') {
+      const cached = await getCachedGapScanResults() as ScanResult | null;
+      if (cached?.success && cached?.data) {
+        console.log('[GapScanner-Polygon] Serving cached cron results');
+        return NextResponse.json({
+          ...cached,
+          source: 'polygon-cached',
+          durationMs: Date.now() - startTime,
+        });
+      }
+    }
+
     // Check API key
     if (!POLYGON_API_KEY) {
       return NextResponse.json({

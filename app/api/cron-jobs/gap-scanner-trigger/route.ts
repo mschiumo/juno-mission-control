@@ -10,7 +10,8 @@ import {
   sendTelegramIfNeeded,
   logToActivityLog,
   formatDate,
-  isMarketOpenToday
+  isMarketOpenToday,
+  cacheGapScanResults
 } from '@/lib/cron-helpers';
 import { runGapScan } from '@/lib/gap-scanner-core';
 
@@ -94,6 +95,7 @@ export async function POST() {
     const reportContent = reportLines.join('\n');
 
     await postToCronResults('Gap Scanner', reportContent, 'market');
+    await cacheGapScanResults(result);
     await logToActivityLog('Gap Scanner', `Completed: ${gainers.length} gainers, ${losers.length} losers`, 'cron');
     await sendTelegramIfNeeded(reportContent);
 
