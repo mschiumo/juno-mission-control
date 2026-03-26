@@ -12,7 +12,7 @@
   "crons": [
     {
       "path": "/api/cron-jobs/gap-scanner-trigger",
-      "schedule": "30 13 * * 1-5"
+      "schedule": "0 12 * * 1-5"
     }
   ]
 }
