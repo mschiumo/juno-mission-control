@@ -35,7 +35,7 @@ interface NewsResponse {
   nextUpdate: string;
 }
 
-type NewsCategory = 'all' | 'fed' | 'macro' | 'mergers' | 'earnings' | 'ai';
+type NewsCategory = 'all' | 'fed' | 'macro' | 'mergers' | 'earnings' | 'ai' | 'crypto';
 
 const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
   all:      { label: 'All',     color: '#f97316' },
@@ -44,6 +44,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
   mergers:  { label: 'M&A',     color: '#f97316' },
   earnings: { label: 'Earnings',color: '#14b8a6' },
   ai:       { label: 'AI',      color: '#22c55e' },
+  crypto:   { label: 'Crypto',  color: '#f59e0b' },
 };
 
 export default function NewsScreenerCard() {
@@ -127,7 +128,7 @@ export default function NewsScreenerCard() {
       {/* Filters */}
       <div className="px-4 pt-3 pb-2 flex-shrink-0">
         <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
-          {(['all', 'fed', 'macro', 'mergers', 'earnings', 'ai'] as NewsCategory[]).map((cat) => (
+          {(['all', 'fed', 'macro', 'mergers', 'earnings', 'ai', 'crypto'] as NewsCategory[]).map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}

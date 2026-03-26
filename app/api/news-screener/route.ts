@@ -30,8 +30,14 @@ const NEWS_CATEGORIES = {
     name: 'AI & Tech',
     keywords: ['artificial intelligence', 'ai model', 'large language model', 'llm', 'chatgpt', 'openai', 'anthropic', 'gemini', 'claude', 'machine learning', 'deep learning', 'generative ai', 'nvidia', 'gpu', 'semiconductor', 'chips act', 'data center', 'ai chip', 'ai infrastructure'],
     priority: 'medium',
-    color: '#22c55e' // Green
-  }
+    color: '#22c55e', // Green
+  },
+  crypto: {
+    name: 'Crypto',
+    keywords: ['bitcoin', 'btc', 'ethereum', 'eth', 'crypto', 'cryptocurrency', 'blockchain', 'solana', 'sol', 'ripple', 'xrp', 'dogecoin', 'doge', 'cardano', 'ada', 'defi', 'decentralized finance', 'nft', 'stablecoin', 'usdt', 'usdc', 'coinbase', 'binance', 'crypto exchange', 'digital asset', 'web3', 'altcoin', 'token', 'mining', 'halving', 'spot etf', 'bitcoin etf'],
+    priority: 'medium',
+    color: '#f59e0b', // Amber
+  },
 };
 
 interface NewsItem {
@@ -168,27 +174,40 @@ async function fetchFinnhubNews(): Promise<NewsItem[]> {
   }
 
   try {
-    const [newsResponse, calendarNews] = await Promise.all([
+    const [newsResponse, cryptoResponse, calendarNews] = await Promise.all([
       fetch(
         `https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_API_KEY}`,
-        { next: { revalidate: 900 } }
+        { next: { revalidate: 900 } },
       ),
-      fetchEconomicCalendarNews()
+      fetch(
+        `https://finnhub.io/api/v1/news?category=crypto&token=${FINNHUB_API_KEY}`,
+        { next: { revalidate: 900 } },
+      ),
+      fetchEconomicCalendarNews(),
     ]);
 
-    if (!newsResponse.ok) {
-      console.warn(`Finnhub news error: ${newsResponse.status}`);
-      return [...getMockNews(), ...calendarNews];
+    let generalNews: NewsItem[] = [];
+    if (newsResponse.ok) {
+      const data = await newsResponse.json();
+      if (Array.isArray(data)) generalNews = data;
+      else console.warn('Finnhub general news response is not an array');
+    } else {
+      console.warn(`Finnhub general news error: ${newsResponse.status}`);
     }
 
-    const data = await newsResponse.json();
-
-    if (!Array.isArray(data)) {
-      console.warn('Finnhub news response is not an array');
-      return [...getMockNews(), ...calendarNews];
+    let cryptoNews: NewsItem[] = [];
+    if (cryptoResponse.ok) {
+      const data = await cryptoResponse.json();
+      if (Array.isArray(data)) cryptoNews = data;
+      else console.warn('Finnhub crypto news response is not an array');
+    } else {
+      console.warn(`Finnhub crypto news error: ${cryptoResponse.status}`);
     }
 
-    return [...data, ...calendarNews];
+    const combined = [...generalNews, ...cryptoNews, ...calendarNews];
+    if (combined.length === 0) return getMockNews();
+
+    return combined;
   } catch (error) {
     console.error('Finnhub news fetch error:', error);
     return getMockNews();
