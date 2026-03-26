@@ -40,7 +40,7 @@ export default function TradesListView() {
   const fetchTrades = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/trades?userId=default&perPage=100');
+      const response = await fetch('/api/trades?userId=default&perPage=1000');
       const data = await response.json();
       
       if (data.success && data.data && data.data.trades) {
