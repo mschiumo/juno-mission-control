@@ -51,7 +51,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     
     // Pagination
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-    const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get('perPage') || '20', 10)));
+    const perPage = Math.min(1000, Math.max(1, parseInt(searchParams.get('perPage') || '20', 10)));
     
     // Sorting
     const sortBy = searchParams.get('sortBy') || 'entryDate';
