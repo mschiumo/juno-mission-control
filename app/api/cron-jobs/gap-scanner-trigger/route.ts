@@ -1,7 +1,8 @@
 /**
  * Gap Scanner Trigger API Endpoint
  *
- * Calls gap scanner logic directly (no self-referencing HTTP fetch).
+ * Uses Polygon.io (single API call for all stocks) instead of Finnhub
+ * (one call per stock) so it completes in seconds, not minutes.
  */
 
 import { NextResponse } from 'next/server';
@@ -10,9 +11,10 @@ import {
   sendTelegramIfNeeded,
   logToActivityLog,
   formatDate,
-  isMarketOpenToday
+  isMarketOpenToday,
+  cacheGapScanResults
 } from '@/lib/cron-helpers';
-import { runGapScan } from '@/lib/gap-scanner-core';
+import { runPolygonGapScan } from '@/lib/gap-scanner-polygon';
 
 function formatVolume(volume: number): string {
   if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`;
@@ -46,7 +48,7 @@ export async function POST() {
 
     await logToActivityLog('Gap Scanner', 'Starting pre-market gap scan...', 'cron');
 
-    const result = await runGapScan({ useCache: false, minGapPercent: 5 });
+    const result = await runPolygonGapScan({ minGapPercent: 5 });
 
     if (!result.success || !result.data) {
       throw new Error('Gap scanner returned no data');
@@ -94,6 +96,7 @@ export async function POST() {
     const reportContent = reportLines.join('\n');
 
     await postToCronResults('Gap Scanner', reportContent, 'market');
+    await cacheGapScanResults(result);
     await logToActivityLog('Gap Scanner', `Completed: ${gainers.length} gainers, ${losers.length} losers`, 'cron');
     await sendTelegramIfNeeded(reportContent);
 
