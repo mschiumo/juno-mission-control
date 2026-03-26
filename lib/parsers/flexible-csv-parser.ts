@@ -8,7 +8,7 @@
  * 4. Generic CSV with auto-column mapping
  */
 
-import { TOSTrade, parseTOSCSV } from './tos-parser';
+import { TOSTrade, parseTOSCSV, parseTOSAccountStatementFull, RawPositionAdjustment } from './tos-parser';
 import { Trade, TradeSide, TradeStatus, Strategy, CSVImportResult, CSVImportError } from '@/types/trading';
 import { getNowInEST } from '@/lib/date-utils';
 
@@ -286,10 +286,20 @@ function parseStandardRow(
  * Parse TOS or Schwab format using existing parser
  */
 function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): CSVImportResult {
-  // Use the existing TOS parser
-  const tosTrades = parseTOSCSV(csvText);
-  
-  if (tosTrades.length === 0) {
+  const isAccountStatement = csvText.includes('Account Statement for') && csvText.includes('Account Trade History');
+
+  let tosTrades: TOSTrade[];
+  let rawAdjustments: RawPositionAdjustment[] = [];
+
+  if (isAccountStatement) {
+    const result = parseTOSAccountStatementFull(csvText);
+    tosTrades = result.trades;
+    rawAdjustments = result.positionAdjustments;
+  } else {
+    tosTrades = parseTOSCSV(csvText);
+  }
+
+  if (tosTrades.length === 0 && rawAdjustments.length === 0) {
     return {
       success: false,
       imported: 0,
@@ -298,20 +308,17 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
       trades: [],
     };
   }
-  
+
   const trades: Trade[] = [];
   const now = getNowInEST();
-  
-  // Check if this is Position Statement format (already has PnL calculated)
   const isPositionStatement = csvText.includes('Position Statement for');
-  
+
   if (isPositionStatement) {
-    // Position Statement: trades already have PnL, use them directly
     tosTrades.forEach(t => {
       const [year, month, day] = t.date.split('-');
       const [hours, minutes, seconds] = t.time.split(':');
       const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
-      
+
       trades.push({
         id: crypto.randomUUID(),
         userId: options.userId,
@@ -331,8 +338,7 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
       });
     });
   } else {
-    // Trade Activity format: pair buys/sells to calculate PnL
-    // Group by symbol+date so multi-day statements don't pair across days
+    // Group by symbol+date
     const bySymbolDate: Record<string, typeof tosTrades> = {};
     tosTrades.forEach(t => {
       const key = `${t.symbol}::${t.date}`;
@@ -340,61 +346,172 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
       bySymbolDate[key].push(t);
     });
 
+    // Track which adjustments have been claimed
+    const claimedAdjs = new Set<number>();
+
     Object.entries(bySymbolDate).forEach(([key, symbolTrades]) => {
       const symbol = key.split('::')[0];
+      const tradeDate = key.split('::')[1];
+
       const buys = symbolTrades.filter(t => t.side === 'BUY').sort((a, b) =>
         new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()
       );
       const sells = symbolTrades.filter(t => t.side === 'SELL').sort((a, b) =>
         new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()
       );
-      
-      // Calculate PnL for completed round trips
+
+      // Pair round trips
       const minPairs = Math.min(buys.length, sells.length);
       for (let i = 0; i < minPairs; i++) {
         const buy = buys[i];
         const sell = sells[i];
         const shares = Math.min(buy.quantity, sell.quantity);
         const netPnL = (sell.price - buy.price) * shares;
-        
-        // Create entryDate with explicit EST timezone
-        const [year, month, day] = buy.date.split('-');
-        const [hours, minutes, seconds] = buy.time.split(':');
+
+        const isShort = sell.posEffect === 'TO OPEN' && buy.posEffect === 'TO CLOSE';
+        const entry = isShort ? sell : buy;
+        const exit = isShort ? buy : sell;
+
+        const [year, month, day] = entry.date.split('-');
+        const [hours, minutes, seconds] = entry.time.split(':');
         const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
-        
-        // Create exitDate
-        const [sYear, sMonth, sDay] = sell.date.split('-');
-        const [sHours, sMinutes, sSeconds] = sell.time.split(':');
-        const exitDate = `${sYear}-${sMonth}-${sDay}T${sHours}:${sMinutes}:${sSeconds}-05:00`;
-        
+
+        const [eYear, eMonth, eDay] = exit.date.split('-');
+        const [eHours, eMinutes, eSeconds] = exit.time.split(':');
+        const exitDate = `${eYear}-${eMonth}-${eDay}T${eHours}:${eMinutes}:${eSeconds}-05:00`;
+
         trades.push({
           id: crypto.randomUUID(),
           userId: options.userId,
           symbol,
-          side: TradeSide.LONG,
+          side: isShort ? TradeSide.SHORT : TradeSide.LONG,
           status: TradeStatus.CLOSED,
           strategy: Strategy.DAY_TRADE,
           entryDate,
-          entryPrice: buy.price,
+          entryPrice: entry.price,
           exitDate,
-          exitPrice: sell.price,
+          exitPrice: exit.price,
           shares,
-          netPnL,
+          netPnL: isShort ? (entry.price - exit.price) * shares : netPnL,
           createdAt: now,
           updatedAt: now,
-          entryNotes: `Imported from TOS - Buy: ${buy.posEffect}, Sell: ${sell.posEffect}`,
+          entryNotes: `Imported from TOS - ${isShort ? 'Short' : 'Long'} round trip`,
         });
       }
-      
-      // Handle unmatched orders
+
       const unmatchedBuys = buys.slice(minPairs);
       const unmatchedSells = sells.slice(minPairs);
-      
-      [...unmatchedBuys, ...unmatchedSells].forEach(t => {
+      const stillUnmatched: TOSTrade[] = [];
+
+      // Resolve unmatched BUY TO CLOSE via position adjustments (short covers)
+      for (const buy of unmatchedBuys) {
+        if (buy.posEffect === 'TO CLOSE') {
+          // Find the best matching position adjustment: closest derived price to cover price
+          let adjIdx = -1;
+          let bestDiff = Infinity;
+          rawAdjustments.forEach((a, idx) => {
+            if (claimedAdjs.has(idx) || a.date !== tradeDate) return;
+            const derivedPrice = a.amount / buy.quantity;
+            if (derivedPrice <= 0) return;
+            const diff = Math.abs(derivedPrice - buy.price) / buy.price;
+            if (diff < bestDiff && diff < 0.5) {
+              bestDiff = diff;
+              adjIdx = idx;
+            }
+          });
+
+          if (adjIdx !== -1) {
+            const adj = rawAdjustments[adjIdx];
+            claimedAdjs.add(adjIdx);
+            const derivedEntry = Math.round((adj.amount / buy.quantity) * 100) / 100;
+            const shortPnL = Math.round((derivedEntry - buy.price) * buy.quantity * 100) / 100;
+
+            const entryDate = `${adj.date}T${adj.time}-05:00`;
+            const [bY, bM, bD] = buy.date.split('-');
+            const [bH, bMi, bS] = buy.time.split(':');
+            const exitDate = `${bY}-${bM}-${bD}T${bH}:${bMi}:${bS}-05:00`;
+
+            trades.push({
+              id: crypto.randomUUID(),
+              userId: options.userId,
+              symbol,
+              side: TradeSide.SHORT,
+              status: TradeStatus.CLOSED,
+              strategy: Strategy.DAY_TRADE,
+              entryDate,
+              entryPrice: derivedEntry,
+              exitDate,
+              exitPrice: buy.price,
+              shares: buy.quantity,
+              netPnL: shortPnL,
+              returnPercent: ((derivedEntry - buy.price) / derivedEntry) * 100,
+              createdAt: now,
+              updatedAt: now,
+              entryNotes: `Short cover - entry derived from position adjustment ($${adj.amount.toFixed(2)} / ${buy.quantity} shares)`,
+            });
+            continue;
+          }
+        }
+        stillUnmatched.push(buy);
+      }
+
+      // Resolve unmatched SELL TO CLOSE via position adjustments (long closes)
+      for (const sell of unmatchedSells) {
+        if (sell.posEffect === 'TO CLOSE') {
+          let adjIdx = -1;
+          let bestDiff = Infinity;
+          rawAdjustments.forEach((a, idx) => {
+            if (claimedAdjs.has(idx) || a.date !== tradeDate) return;
+            const derivedPrice = a.amount / sell.quantity;
+            if (derivedPrice <= 0) return;
+            const diff = Math.abs(derivedPrice - sell.price) / sell.price;
+            if (diff < bestDiff && diff < 0.5) {
+              bestDiff = diff;
+              adjIdx = idx;
+            }
+          });
+
+          if (adjIdx !== -1) {
+            const adj = rawAdjustments[adjIdx];
+            claimedAdjs.add(adjIdx);
+            const derivedEntry = Math.round((adj.amount / sell.quantity) * 100) / 100;
+            const longPnL = Math.round((sell.price - derivedEntry) * sell.quantity * 100) / 100;
+
+            const entryDate = `${adj.date}T${adj.time}-05:00`;
+            const [sY, sM, sD] = sell.date.split('-');
+            const [sH, sMi, sS] = sell.time.split(':');
+            const exitDate = `${sY}-${sM}-${sD}T${sH}:${sMi}:${sS}-05:00`;
+
+            trades.push({
+              id: crypto.randomUUID(),
+              userId: options.userId,
+              symbol,
+              side: TradeSide.LONG,
+              status: TradeStatus.CLOSED,
+              strategy: Strategy.DAY_TRADE,
+              entryDate,
+              entryPrice: derivedEntry,
+              exitDate,
+              exitPrice: sell.price,
+              shares: sell.quantity,
+              netPnL: longPnL,
+              returnPercent: ((sell.price - derivedEntry) / derivedEntry) * 100,
+              createdAt: now,
+              updatedAt: now,
+              entryNotes: `Long close - entry derived from position adjustment ($${adj.amount.toFixed(2)} / ${sell.quantity} shares)`,
+            });
+            continue;
+          }
+        }
+        stillUnmatched.push(sell);
+      }
+
+      // Remaining truly unmatched orders
+      stillUnmatched.forEach(t => {
         const [year, month, day] = t.date.split('-');
         const [hours, minutes, seconds] = t.time.split(':');
         const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
-        
+
         trades.push({
           id: crypto.randomUUID(),
           userId: options.userId,
@@ -412,7 +529,7 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
       });
     });
   }
-  
+
   return {
     success: true,
     imported: trades.length,
