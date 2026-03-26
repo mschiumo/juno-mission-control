@@ -404,22 +404,30 @@ export default function PerformanceView() {
                       value={balanceInput}
                       onChange={(e) => setBalanceInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleBalanceSave(); }}
-                      className="w-24 bg-[#0d1117] border border-[#30363d] rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-[#F97316]"
-                      placeholder="0"
+                      className="w-32 bg-[#0d1117] border border-[#30363d] rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-[#F97316]"
+                      placeholder="e.g. 100000"
                       autoFocus
                     />
                     <button onClick={handleBalanceSave} className="p-1 hover:bg-[#30363d] rounded transition-colors">
                       <Check className="w-3.5 h-3.5 text-[#3fb950]" />
                     </button>
                   </div>
+                ) : startingBalance > 0 ? (
+                  <button
+                    onClick={() => { setBalanceInput(startingBalance.toString()); setEditingBalance(true); }}
+                    className="flex items-center gap-1.5 text-xs text-[#8b949e] hover:text-white transition-colors group"
+                    title="Edit starting account balance"
+                  >
+                    <span>Starting: {formatNLV(startingBalance)}</span>
+                    <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
                 ) : (
                   <button
-                    onClick={() => { setBalanceInput(startingBalance > 0 ? startingBalance.toString() : ''); setEditingBalance(true); }}
-                    className="flex items-center gap-1.5 text-xs text-[#8b949e] hover:text-white transition-colors group"
-                    title="Set starting account balance"
+                    onClick={() => { setBalanceInput(''); setEditingBalance(true); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F97316]/10 border border-[#F97316]/30 rounded-lg text-xs text-[#F97316] hover:bg-[#F97316]/20 transition-colors"
                   >
-                    <span>Starting: {startingBalance > 0 ? formatNLV(startingBalance) : 'Not set'}</span>
-                    <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <DollarSign className="w-3.5 h-3.5" />
+                    <span>Set Starting Balance</span>
                   </button>
                 )}
               </div>
@@ -437,8 +445,8 @@ export default function PerformanceView() {
 
         <div className="p-4 sm:p-6">
           {equityCurve.length > 1 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={equityCurve} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={equityCurve} margin={{ top: 10, right: 16, left: 10, bottom: 20 }}>
                 <defs>
                   <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={isPositive ? '#3fb950' : '#f85149'} stopOpacity={0.25} />
@@ -452,6 +460,7 @@ export default function PerformanceView() {
                   tickLine={false}
                   axisLine={{ stroke: '#30363d' }}
                   interval="preserveStartEnd"
+                  dy={8}
                 />
                 <YAxis
                   tick={{ fill: '#8b949e', fontSize: 11 }}
@@ -459,6 +468,7 @@ export default function PerformanceView() {
                   axisLine={{ stroke: '#30363d' }}
                   tickFormatter={(v: number) => formatNLV(v)}
                   domain={['dataMin', 'dataMax']}
+                  width={70}
                 />
                 <Tooltip content={<EquityTooltip />} cursor={{ stroke: '#30363d', strokeDasharray: '4 4' }} />
                 <Area
