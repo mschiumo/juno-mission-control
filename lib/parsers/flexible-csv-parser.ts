@@ -290,11 +290,13 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
 
   let tosTrades: TOSTrade[];
   let rawAdjustments: RawPositionAdjustment[] = [];
+  let startingBalance: number | undefined;
 
   if (isAccountStatement) {
     const result = parseTOSAccountStatementFull(csvText);
     tosTrades = result.trades;
     rawAdjustments = result.positionAdjustments;
+    startingBalance = result.startingBalance;
   } else {
     tosTrades = parseTOSCSV(csvText);
   }
@@ -536,6 +538,7 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
     failed: 0,
     errors: [],
     trades,
+    startingBalance,
   };
 }
 

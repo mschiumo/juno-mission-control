@@ -21,6 +21,7 @@ export interface RawPositionAdjustment {
 export interface TOSAccountStatementResult {
   trades: TOSTrade[];
   positionAdjustments: RawPositionAdjustment[];
+  startingBalance?: number;
 }
 
 export interface DayData {
@@ -82,7 +83,8 @@ function getNowInEST(): string {
 export function parseTOSAccountStatementFull(csvText: string): TOSAccountStatementResult {
   const trades = parseTOSAccountStatement(csvText);
   const positionAdjustments = parseCashBalanceAdjustments(csvText);
-  return { trades, positionAdjustments };
+  const startingBalance = parseCashBalanceStartingBalance(csvText);
+  return { trades, positionAdjustments, startingBalance };
 }
 
 export function parseTOSCSV(csvText: string): TOSTrade[] {
@@ -220,6 +222,63 @@ function parseCashBalanceAdjustments(csvText: string): RawPositionAdjustment[] {
     adjustments.push({ date: isoDate, time: timeStr, amount: Math.abs(amount) });
   }
   return adjustments;
+}
+
+/**
+ * Extract the earliest starting balance from the Cash Balance section.
+ * Looks for BAL-type entries ("Cash balance at the start of business day").
+ */
+function parseCashBalanceStartingBalance(csvText: string): number | undefined {
+  const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  let inCashBalance = false;
+  let headerFound = false;
+  let earliestDate = '';
+  let earliestBalance: number | undefined;
+
+  const SECTION_HEADERS = [
+    'Futures Statements', 'Forex Statements', 'Account Order History',
+    'Account Trade History', 'Profits and Losses', 'Crypto',
+  ];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (trimmed === 'Cash Balance') {
+      inCashBalance = true;
+      headerFound = false;
+      continue;
+    }
+    if (inCashBalance && !headerFound && trimmed.includes('DATE') && trimmed.includes('TYPE')) {
+      headerFound = true;
+      continue;
+    }
+    if (inCashBalance && headerFound && SECTION_HEADERS.some(h => trimmed.startsWith(h))) {
+      break;
+    }
+    if (!inCashBalance || !headerFound) continue;
+
+    const parts = splitCSVLine(line);
+    if (parts.length < 9) continue;
+
+    const dateStr = parts[0].trim();
+    const type = parts[2].trim();
+    const balanceStr = parts[8].trim();
+
+    if (!dateStr || !dateStr.includes('/')) continue;
+    if (type !== 'BAL') continue;
+
+    const dateParts = dateStr.split('/');
+    if (dateParts.length !== 3) continue;
+    const [month, day, yearShort] = dateParts;
+    const isoDate = `20${yearShort}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
+    if (!earliestDate || isoDate < earliestDate) {
+      earliestDate = isoDate;
+      earliestBalance = parseQuotedAmount(balanceStr);
+    }
+  }
+
+  return earliestBalance && earliestBalance > 0 ? earliestBalance : undefined;
 }
 
 function splitCSVLine(line: string): string[] {
