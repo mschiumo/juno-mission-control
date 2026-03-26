@@ -25,15 +25,27 @@ import {
 
 type Period = 'week' | 'month' | 'year' | 'all';
 
-interface DailySummary {
-  date: string;
-  totalTrades: number;
-  winningTrades: number;
-  losingTrades: number;
-  netPnL: number;
+interface Trade {
+  id: string;
+  symbol: string;
+  side: 'LONG' | 'SHORT';
+  shares: number;
+  entryPrice: number;
+  entryDate: string;
+  exitPrice?: number;
+  exitDate?: string;
+  netPnL?: number;
+  status: 'OPEN' | 'CLOSED';
+  strategy?: string;
 }
 
-interface StatsMetrics {
+interface EquityCurvePoint {
+  date: string;
+  label: string;
+  cumPnL: number;
+}
+
+interface ComputedMetrics {
   totalTrades: number;
   winningTrades: number;
   losingTrades: number;
@@ -54,26 +66,6 @@ interface StatsMetrics {
   maxWinStreak: number;
   currentLossStreak: number;
   maxLossStreak: number;
-}
-
-interface AnalyticsData {
-  overview: {
-    totalTrades: number;
-    closedTrades: number;
-    totalPnL: number;
-    winRate: number;
-    wins: number;
-    losses: number;
-    avgPnLPerTrade: number;
-  };
-  byStrategy: Record<string, { trades: number; pnl: number; wins: number; losses: number }>;
-  byDayOfWeek: Record<string, { trades: number; pnl: number; wins: number; losses: number }>;
-}
-
-interface EquityCurvePoint {
-  date: string;
-  label: string;
-  cumPnL: number;
 }
 
 function formatCurrency(val: number): string {
@@ -97,73 +89,171 @@ const PERIOD_LABELS: Record<Period, string> = {
   all: 'All Time',
 };
 
+function filterByPeriod(trades: Trade[], period: Period): Trade[] {
+  if (period === 'all') return trades;
+  const now = new Date();
+  const cutoff = new Date();
+  switch (period) {
+    case 'week': cutoff.setDate(now.getDate() - 7); break;
+    case 'month': cutoff.setMonth(now.getMonth() - 1); break;
+    case 'year': cutoff.setFullYear(now.getFullYear() - 1); break;
+  }
+  return trades.filter((t) => new Date(t.entryDate) >= cutoff);
+}
+
+function computeMetrics(closedTrades: Trade[]): ComputedMetrics {
+  const totalTrades = closedTrades.length;
+  const wins = closedTrades.filter((t) => (t.netPnL || 0) > 0);
+  const losses = closedTrades.filter((t) => (t.netPnL || 0) < 0);
+  const breakevens = closedTrades.filter((t) => (t.netPnL || 0) === 0);
+
+  const grossProfit = wins.reduce((s, t) => s + (t.netPnL || 0), 0);
+  const grossLoss = Math.abs(losses.reduce((s, t) => s + (t.netPnL || 0), 0));
+  const netProfit = closedTrades.reduce((s, t) => s + (t.netPnL || 0), 0);
+
+  const winAmounts = wins.map((t) => t.netPnL || 0);
+  const lossAmounts = losses.map((t) => Math.abs(t.netPnL || 0));
+
+  const averageWin = winAmounts.length > 0 ? winAmounts.reduce((a, b) => a + b, 0) / winAmounts.length : 0;
+  const averageLoss = lossAmounts.length > 0 ? lossAmounts.reduce((a, b) => a + b, 0) / lossAmounts.length : 0;
+  const averageTrade = totalTrades > 0 ? netProfit / totalTrades : 0;
+
+  // Streaks
+  let maxWinStreak = 0, maxLossStreak = 0, tempWin = 0, tempLoss = 0;
+  let currentWinStreak = 0, currentLossStreak = 0;
+  for (const t of closedTrades) {
+    const pnl = t.netPnL || 0;
+    if (pnl > 0) { tempWin++; tempLoss = 0; maxWinStreak = Math.max(maxWinStreak, tempWin); }
+    else if (pnl < 0) { tempLoss++; tempWin = 0; maxLossStreak = Math.max(maxLossStreak, tempLoss); }
+  }
+  for (let i = closedTrades.length - 1; i >= 0; i--) {
+    const pnl = closedTrades[i].netPnL || 0;
+    if (pnl > 0) { if (currentLossStreak === 0) currentWinStreak++; else break; }
+    else if (pnl < 0) { if (currentWinStreak === 0) currentLossStreak++; else break; }
+    else break;
+  }
+
+  // Max drawdown
+  let maxDrawdown = 0, peak = 0, running = 0;
+  for (const t of closedTrades) {
+    running += t.netPnL || 0;
+    if (running > peak) peak = running;
+    maxDrawdown = Math.max(maxDrawdown, peak - running);
+  }
+
+  return {
+    totalTrades,
+    winningTrades: wins.length,
+    losingTrades: losses.length,
+    breakevenTrades: breakevens.length,
+    grossProfit: Number(grossProfit.toFixed(2)),
+    grossLoss: Number(grossLoss.toFixed(2)),
+    netProfit: Number(netProfit.toFixed(2)),
+    winRate: totalTrades > 0 ? Number(((wins.length / totalTrades) * 100).toFixed(2)) : 0,
+    profitFactor: grossLoss > 0 ? Number((grossProfit / grossLoss).toFixed(2)) : grossProfit > 0 ? Infinity : 0,
+    averageWin: Number(averageWin.toFixed(2)),
+    averageLoss: Number(averageLoss.toFixed(2)),
+    averageTrade: Number(averageTrade.toFixed(2)),
+    largestWin: winAmounts.length > 0 ? Number(Math.max(...winAmounts).toFixed(2)) : 0,
+    largestLoss: lossAmounts.length > 0 ? Number(Math.max(...lossAmounts).toFixed(2)) : 0,
+    maxDrawdown: Number(maxDrawdown.toFixed(2)),
+    maxDrawdownPercent: peak > 0 ? Number(((maxDrawdown / peak) * 100).toFixed(2)) : 0,
+    currentWinStreak,
+    maxWinStreak,
+    currentLossStreak,
+    maxLossStreak,
+  };
+}
+
+const TOOLTIP_STYLE = {
+  contentStyle: {
+    backgroundColor: '#f0f6fc',
+    border: '1px solid #d0d7de',
+    borderRadius: '8px',
+    color: '#1f2328',
+  },
+  itemStyle: { color: '#1f2328' },
+  labelStyle: { color: '#656d76', fontWeight: 600 as const },
+};
+
 export default function PerformanceView() {
   const [period, setPeriod] = useState<Period>('all');
-  const [metrics, setMetrics] = useState<StatsMetrics | null>(null);
-  const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([]);
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Fetch trades from the same endpoint as Overview
   useEffect(() => {
     setLoading(true);
-    const statsUrl = `/api/trades/stats?period=${period}`;
-    const analyticsUrl = '/api/trades/analytics';
-
-    Promise.all([
-      fetch(statsUrl).then((r) => r.json()),
-      fetch(analyticsUrl).then((r) => r.json()),
-    ])
-      .then(([statsRes, analyticsRes]) => {
-        if (statsRes.success && statsRes.data) {
-          setMetrics(statsRes.data.metrics);
-          setDailySummaries(statsRes.data.dailySummaries || []);
-        }
-        if (analyticsRes.success && analyticsRes.analytics) {
-          setAnalytics(analyticsRes.analytics);
+    fetch('/api/trades?userId=default&perPage=1000')
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.data) {
+          setAllTrades(res.data.trades || []);
         }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [period]);
+  }, []);
 
-  // Build equity curve data from daily summaries (sorted chronologically)
+  // Filter by period, then split closed trades
+  const filteredTrades = useMemo(() => filterByPeriod(allTrades, period), [allTrades, period]);
+  const closedTrades = useMemo(
+    () => filteredTrades
+      .filter((t) => t.status === 'CLOSED' && t.netPnL !== undefined)
+      .sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime()),
+    [filteredTrades],
+  );
+
+  const metrics = useMemo(() => computeMetrics(closedTrades), [closedTrades]);
+
+  // Build equity curve from closed trades grouped by day
   const equityCurve = useMemo<EquityCurvePoint[]>(() => {
-    if (!dailySummaries.length) return [];
+    if (!closedTrades.length) return [];
 
-    const sorted = [...dailySummaries].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
+    const byDay = new Map<string, number>();
+    for (const t of closedTrades) {
+      const date = t.entryDate.split('T')[0];
+      byDay.set(date, (byDay.get(date) || 0) + (t.netPnL || 0));
+    }
 
+    const sortedDays = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b));
     let cumulative = 0;
-    return sorted.map((d) => {
-      cumulative += d.netPnL;
-      const dt = new Date(d.date + 'T12:00:00');
+    return sortedDays.map(([date, pnl]) => {
+      cumulative += pnl;
+      const dt = new Date(date + 'T12:00:00');
       return {
-        date: d.date,
+        date,
         label: dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         cumPnL: Number(cumulative.toFixed(2)),
       };
     });
-  }, [dailySummaries]);
+  }, [closedTrades]);
 
   // Day of week performance
   const dayOfWeekData = useMemo(() => {
-    if (!analytics?.byDayOfWeek) return [];
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-    return days
-      .filter((d) => analytics.byDayOfWeek[d])
+    if (!closedTrades.length) return [];
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const buckets: Record<string, { pnl: number; wins: number; losses: number; trades: number }> = {};
+    for (const t of closedTrades) {
+      const day = dayNames[new Date(t.entryDate).getDay()];
+      if (!buckets[day]) buckets[day] = { pnl: 0, wins: 0, losses: 0, trades: 0 };
+      buckets[day].pnl += t.netPnL || 0;
+      buckets[day].trades++;
+      if ((t.netPnL || 0) > 0) buckets[day].wins++;
+      else if ((t.netPnL || 0) < 0) buckets[day].losses++;
+    }
+    return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+      .filter((d) => buckets[d])
       .map((day) => {
-        const d = analytics.byDayOfWeek[day];
+        const b = buckets[day];
         return {
           name: day.slice(0, 3),
-          pnl: Number(d.pnl.toFixed(2)),
-          trades: d.trades,
-          winRate: d.wins + d.losses > 0
-            ? Number(((d.wins / (d.wins + d.losses)) * 100).toFixed(1))
-            : 0,
+          pnl: Number(b.pnl.toFixed(2)),
+          trades: b.trades,
+          winRate: b.wins + b.losses > 0 ? Number(((b.wins / (b.wins + b.losses)) * 100).toFixed(1)) : 0,
         };
       });
-  }, [analytics]);
+  }, [closedTrades]);
 
   const totalPnL = equityCurve.length > 0 ? equityCurve[equityCurve.length - 1].cumPnL : 0;
   const isPositive = totalPnL >= 0;
@@ -176,13 +266,13 @@ export default function PerformanceView() {
     );
   }
 
-  if (!metrics || metrics.totalTrades === 0) {
+  if (allTrades.length === 0) {
     return (
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-12 text-center">
         <BarChart3 className="w-12 h-12 text-[#F97316] mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-white mb-2">No Trade Data Yet</h3>
         <p className="text-[#8b949e]">
-          Start logging trades to see your equity curve and performance analytics.
+          Import trades on the Overview tab to see your equity curve and performance analytics.
         </p>
       </div>
     );
@@ -233,16 +323,8 @@ export default function PerformanceView() {
               <AreaChart data={equityCurve} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="0%"
-                      stopColor={isPositive ? '#3fb950' : '#f85149'}
-                      stopOpacity={0.25}
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor={isPositive ? '#3fb950' : '#f85149'}
-                      stopOpacity={0}
-                    />
+                    <stop offset="0%" stopColor={isPositive ? '#3fb950' : '#f85149'} stopOpacity={0.25} />
+                    <stop offset="100%" stopColor={isPositive ? '#3fb950' : '#f85149'} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
@@ -260,14 +342,7 @@ export default function PerformanceView() {
                   tickFormatter={(v: number) => `$${v >= 0 ? '' : '-'}${Math.abs(v) >= 1000 ? `${(Math.abs(v) / 1000).toFixed(1)}k` : Math.abs(v).toFixed(0)}`}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#f0f6fc',
-                    border: '1px solid #d0d7de',
-                    borderRadius: '8px',
-                    color: '#1f2328',
-                  }}
-                  itemStyle={{ color: '#1f2328' }}
-                  labelStyle={{ color: '#656d76', fontWeight: 600 }}
+                  {...TOOLTIP_STYLE}
                   formatter={(value) => [formatDollars(Number(value)), 'Cumulative P&L']}
                   labelFormatter={(label) => String(label)}
                 />
@@ -387,14 +462,7 @@ export default function PerformanceView() {
                     tickFormatter={(v: number) => `$${v}`}
                   />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#f0f6fc',
-                      border: '1px solid #d0d7de',
-                      borderRadius: '8px',
-                      color: '#1f2328',
-                    }}
-                    itemStyle={{ color: '#1f2328' }}
-                    labelStyle={{ color: '#656d76', fontWeight: 600 }}
+                    {...TOOLTIP_STYLE}
                     formatter={(value, _name, props) => {
                       const p = props?.payload as { trades?: number; winRate?: number } | undefined;
                       return [

@@ -181,8 +181,6 @@ export default function TradingView() {
 
       {activeSubTab === 'performance' && <PerformanceView />}
 
-      {activeSubTab === 'performance' && <PerformanceView />}
-
       {activeSubTab === 'projection' && (
         <div data-tour="profit-projection">
           <ProfitProjectionView />
