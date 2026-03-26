@@ -12,7 +12,7 @@ import {
   BarChart2,
 } from 'lucide-react';
 
-type TradingSubTab = 'overview' | 'market' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'market' | 'performance' | 'projection' | 'trade-management';
 type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
 
 /** Mini visual mockup shown alongside the step description */

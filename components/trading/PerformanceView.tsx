@@ -146,21 +146,6 @@ export default function PerformanceView() {
     });
   }, [dailySummaries]);
 
-  // Strategy breakdown for bar chart
-  const strategyData = useMemo(() => {
-    if (!analytics?.byStrategy) return [];
-    return Object.entries(analytics.byStrategy)
-      .map(([name, data]) => ({
-        name: name.replace(/_/g, ' '),
-        pnl: Number(data.pnl.toFixed(2)),
-        trades: data.trades,
-        winRate: data.wins + data.losses > 0
-          ? Number(((data.wins / (data.wins + data.losses)) * 100).toFixed(1))
-          : 0,
-      }))
-      .sort((a, b) => b.pnl - a.pnl);
-  }, [analytics]);
-
   // Day of week performance
   const dayOfWeekData = useMemo(() => {
     if (!analytics?.byDayOfWeek) return [];
@@ -276,11 +261,13 @@ export default function PerformanceView() {
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#161b22',
-                    border: '1px solid #30363d',
+                    backgroundColor: '#f0f6fc',
+                    border: '1px solid #d0d7de',
                     borderRadius: '8px',
-                    color: '#e6edf3',
+                    color: '#1f2328',
                   }}
+                  itemStyle={{ color: '#1f2328' }}
+                  labelStyle={{ color: '#656d76', fontWeight: 600 }}
                   formatter={(value) => [formatDollars(Number(value)), 'Cumulative P&L']}
                   labelFormatter={(label) => String(label)}
                 />
@@ -343,59 +330,35 @@ export default function PerformanceView() {
         />
       </div>
 
-      {/* Charts row: Strategy Breakdown + Day of Week */}
+      {/* Detailed Statistics + Day of Week side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Strategy Breakdown */}
-        {strategyData.length > 0 && (
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#30363d]">
-              <p className="text-sm font-semibold text-white">Strategy Breakdown</p>
-              <p className="text-xs text-[#8b949e]">P&L by strategy type</p>
-            </div>
-            <div className="p-4">
-              <ResponsiveContainer width="100%" height={strategyData.length * 48 + 40}>
-                <BarChart data={strategyData} layout="vertical" margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    tick={{ fill: '#8b949e', fontSize: 11 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#30363d' }}
-                    tickFormatter={(v: number) => `$${v}`}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    tick={{ fill: '#8b949e', fontSize: 11 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#30363d' }}
-                    width={110}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#161b22',
-                      border: '1px solid #30363d',
-                      borderRadius: '8px',
-                      color: '#e6edf3',
-                    }}
-                    formatter={(value, _name, props) => {
-                      const p = props?.payload as { trades?: number; winRate?: number } | undefined;
-                      return [
-                        `${formatDollars(Number(value))} (${p?.trades ?? 0} trades, ${p?.winRate ?? 0}% WR)`,
-                        'P&L',
-                      ];
-                    }}
-                  />
-                  <Bar dataKey="pnl" radius={[0, 4, 4, 0]}>
-                    {strategyData.map((entry, idx) => (
-                      <Cell key={idx} fill={entry.pnl >= 0 ? '#3fb950' : '#f85149'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+        {/* Detailed stats table */}
+        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-[#30363d]">
+            <p className="text-sm font-semibold text-white">Detailed Statistics</p>
           </div>
-        )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-[#30363d]">
+            {[
+              { label: 'Total Trades', value: String(metrics.totalTrades) },
+              { label: 'Winning Trades', value: String(metrics.winningTrades) },
+              { label: 'Losing Trades', value: String(metrics.losingTrades) },
+              { label: 'Breakeven', value: String(metrics.breakevenTrades) },
+              { label: 'Gross Profit', value: formatDollars(metrics.grossProfit), color: 'text-[#3fb950]' },
+              { label: 'Gross Loss', value: formatDollars(metrics.grossLoss), color: 'text-[#f85149]' },
+              { label: 'Largest Win', value: formatDollars(metrics.largestWin), color: 'text-[#3fb950]' },
+              { label: 'Largest Loss', value: formatDollars(metrics.largestLoss), color: 'text-[#f85149]' },
+              { label: 'Avg Trade', value: formatDollars(metrics.averageTrade), color: metrics.averageTrade >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]' },
+              { label: 'Max Win Streak', value: String(metrics.maxWinStreak) },
+              { label: 'Max Loss Streak', value: String(metrics.maxLossStreak) },
+              { label: 'Current Streak', value: metrics.currentWinStreak > 0 ? `${metrics.currentWinStreak}W` : metrics.currentLossStreak > 0 ? `${metrics.currentLossStreak}L` : '--' },
+            ].map((s) => (
+              <div key={s.label} className="bg-[#161b22] px-6 py-3 flex items-center justify-between">
+                <span className="text-xs text-[#8b949e]">{s.label}</span>
+                <span className={`text-sm font-semibold ${s.color || 'text-white'}`}>{s.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Day of Week Performance */}
         {dayOfWeekData.length > 0 && (
@@ -408,7 +371,7 @@ export default function PerformanceView() {
               <p className="text-xs text-[#8b949e]">Performance by weekday</p>
             </div>
             <div className="p-4">
-              <ResponsiveContainer width="100%" height={240}>
+              <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={dayOfWeekData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
                   <XAxis
@@ -425,11 +388,13 @@ export default function PerformanceView() {
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#161b22',
-                      border: '1px solid #30363d',
+                      backgroundColor: '#f0f6fc',
+                      border: '1px solid #d0d7de',
                       borderRadius: '8px',
-                      color: '#e6edf3',
+                      color: '#1f2328',
                     }}
+                    itemStyle={{ color: '#1f2328' }}
+                    labelStyle={{ color: '#656d76', fontWeight: 600 }}
                     formatter={(value, _name, props) => {
                       const p = props?.payload as { trades?: number; winRate?: number } | undefined;
                       return [
@@ -448,34 +413,6 @@ export default function PerformanceView() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Detailed stats table */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#30363d]">
-          <p className="text-sm font-semibold text-white">Detailed Statistics</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-[#30363d]">
-          {[
-            { label: 'Total Trades', value: String(metrics.totalTrades) },
-            { label: 'Winning Trades', value: String(metrics.winningTrades) },
-            { label: 'Losing Trades', value: String(metrics.losingTrades) },
-            { label: 'Breakeven', value: String(metrics.breakevenTrades) },
-            { label: 'Gross Profit', value: formatDollars(metrics.grossProfit), color: 'text-[#3fb950]' },
-            { label: 'Gross Loss', value: formatDollars(metrics.grossLoss), color: 'text-[#f85149]' },
-            { label: 'Largest Win', value: formatDollars(metrics.largestWin), color: 'text-[#3fb950]' },
-            { label: 'Largest Loss', value: formatDollars(metrics.largestLoss), color: 'text-[#f85149]' },
-            { label: 'Avg Trade', value: formatDollars(metrics.averageTrade), color: metrics.averageTrade >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]' },
-            { label: 'Max Win Streak', value: String(metrics.maxWinStreak) },
-            { label: 'Max Loss Streak', value: String(metrics.maxLossStreak) },
-            { label: 'Current Streak', value: metrics.currentWinStreak > 0 ? `${metrics.currentWinStreak}W` : metrics.currentLossStreak > 0 ? `${metrics.currentLossStreak}L` : '--' },
-          ].map((s) => (
-            <div key={s.label} className="bg-[#161b22] px-6 py-3 flex items-center justify-between">
-              <span className="text-xs text-[#8b949e]">{s.label}</span>
-              <span className={`text-sm font-semibold ${s.color || 'text-white'}`}>{s.value}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );

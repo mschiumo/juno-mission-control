@@ -11,12 +11,11 @@ import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
-import PerformanceView from "@/components/trading/PerformanceView";
 import LandingPage from "@/components/landing/LandingPage";
-import { LayoutDashboard, Target, TrendingUp, BarChart3, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, Target, TrendingUp, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 
-type TabId = 'dashboard' | 'trading' | 'performance' | 'goals';
+type TabId = 'dashboard' | 'trading' | 'goals';
 
 const OWNER_EMAIL = 'mschiumo18@gmail.com';
 
@@ -33,7 +32,6 @@ function DashboardContent() {
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
     if (tab === 'trading') return 'trading';
-    if (tab === 'performance' && isOwner) return 'performance';
     if (tab === 'goals' && isOwner) return 'goals';
     if (isOwner) return 'dashboard';
     return 'trading';
@@ -44,7 +42,7 @@ function DashboardContent() {
 
   // Redirect non-owners away from owner-only tabs (dashboard, goals)
   useEffect(() => {
-    if (!isOwner && (activeTab === 'dashboard' || activeTab === 'performance' || activeTab === 'goals')) {
+    if (!isOwner && (activeTab === 'dashboard' || activeTab === 'goals')) {
       setActiveTab('trading');
     }
   }, [isOwner, activeTab]);
@@ -78,7 +76,6 @@ function DashboardContent() {
     ? [
         { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
         { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
-        { id: 'performance' as const, label: 'Performance', icon: BarChart3 },
         { id: 'goals' as const, label: 'Goals', icon: Target },
       ]
     : [];
@@ -205,11 +202,6 @@ function DashboardContent() {
           /* Trading View - New Trading Journal */
           <div className="max-w-[1600px] mx-auto">
             <TradingView />
-          </div>
-        ) : activeTab === 'performance' ? (
-          /* Performance Analytics */
-          <div className="max-w-[1600px] mx-auto">
-            <PerformanceView />
           </div>
         ) : activeTab === 'goals' ? (
           /* Goals View */
