@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   AreaChart,
   Area,
@@ -21,6 +21,9 @@ import {
   BarChart3,
   Calendar,
   Loader2,
+  DollarSign,
+  Check,
+  Pencil,
 } from 'lucide-react';
 
 type Period = 'week' | 'month' | 'year' | 'all';
@@ -43,6 +46,7 @@ interface EquityCurvePoint {
   date: string;
   label: string;
   cumPnL: number;
+  nlv: number;
 }
 
 interface ComputedMetrics {
@@ -78,8 +82,12 @@ function formatCurrency(val: number): string {
 
 function formatDollars(val: number): string {
   return val < 0
-    ? `-$${Math.abs(val).toFixed(2)}`
-    : `$${val.toFixed(2)}`;
+    ? `-$${Math.abs(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatNLV(val: number): string {
+  return `$${val.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 const PERIOD_LABELS: Record<Period, string> = {
@@ -118,7 +126,6 @@ function computeMetrics(closedTrades: Trade[]): ComputedMetrics {
   const averageLoss = lossAmounts.length > 0 ? lossAmounts.reduce((a, b) => a + b, 0) / lossAmounts.length : 0;
   const averageTrade = totalTrades > 0 ? netProfit / totalTrades : 0;
 
-  // Streaks
   let maxWinStreak = 0, maxLossStreak = 0, tempWin = 0, tempLoss = 0;
   let currentWinStreak = 0, currentLossStreak = 0;
   for (const t of closedTrades) {
@@ -133,7 +140,6 @@ function computeMetrics(closedTrades: Trade[]): ComputedMetrics {
     else break;
   }
 
-  // Max drawdown
   let maxDrawdown = 0, peak = 0, running = 0;
   for (const t of closedTrades) {
     running += t.netPnL || 0;
@@ -165,37 +171,110 @@ function computeMetrics(closedTrades: Trade[]): ComputedMetrics {
   };
 }
 
-const TOOLTIP_STYLE = {
-  contentStyle: {
-    backgroundColor: '#f0f6fc',
-    border: '1px solid #d0d7de',
-    borderRadius: '8px',
-    color: '#1f2328',
-  },
-  itemStyle: { color: '#1f2328' },
-  labelStyle: { color: '#656d76', fontWeight: 600 as const },
-};
+/* ----------- Custom Tooltip Components ----------- */
+
+function EquityTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; payload: EquityCurvePoint }>; label?: string }) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload;
+  const nlv = point.nlv;
+  const pnl = point.cumPnL;
+  const isPositive = pnl >= 0;
+
+  return (
+    <div className="bg-[#1c2128] border border-[#30363d] rounded-lg shadow-xl px-4 py-3 min-w-[180px]">
+      <p className="text-xs text-[#8b949e] mb-2 font-medium">{label}</p>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-xs text-[#8b949e]">Account Value</span>
+          <span className="text-sm font-bold text-white">{formatNLV(nlv)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-xs text-[#8b949e]">Total P&L</span>
+          <span className={`text-sm font-semibold ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+            {formatCurrency(pnl)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DayOfWeekTooltip({ active, payload }: { active?: boolean; payload?: Array<{ value: number; payload: { name: string; pnl: number; trades: number; winRate: number } }> }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  const isPositive = d.pnl >= 0;
+
+  return (
+    <div className="bg-[#1c2128] border border-[#30363d] rounded-lg shadow-xl px-4 py-3 min-w-[160px]">
+      <p className="text-xs text-[#8b949e] mb-2 font-medium">{d.name}</p>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-xs text-[#8b949e]">P&L</span>
+          <span className={`text-sm font-bold ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+            {formatDollars(d.pnl)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-xs text-[#8b949e]">Trades</span>
+          <span className="text-sm font-semibold text-white">{d.trades}</span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-xs text-[#8b949e]">Win Rate</span>
+          <span className="text-sm font-semibold text-white">{d.winRate}%</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------- Main Component ----------- */
 
 export default function PerformanceView() {
   const [period, setPeriod] = useState<Period>('all');
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
+  const [startingBalance, setStartingBalance] = useState(0);
+  const [balanceInput, setBalanceInput] = useState('');
+  const [editingBalance, setEditingBalance] = useState(false);
 
-  // Fetch trades from the same endpoint as Overview
+  // Fetch trades and prefs in parallel
   useEffect(() => {
     setLoading(true);
-    fetch('/api/trades?userId=default&perPage=1000')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.success && res.data) {
-          setAllTrades(res.data.trades || []);
+    Promise.all([
+      fetch('/api/trades?userId=default&perPage=1000').then((r) => r.json()),
+      fetch('/api/user/prefs').then((r) => r.json()),
+    ])
+      .then(([tradesRes, prefsRes]) => {
+        if (tradesRes.success && tradesRes.data) {
+          setAllTrades(tradesRes.data.trades || []);
+        }
+        if (prefsRes.success && prefsRes.prefs) {
+          const bal = prefsRes.prefs.startingBalance || 0;
+          setStartingBalance(bal);
+          setBalanceInput(bal > 0 ? bal.toString() : '');
         }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  // Filter by period, then split closed trades
+  const saveBalance = useCallback((val: number) => {
+    setStartingBalance(val);
+    fetch('/api/user/prefs', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ startingBalance: val }),
+    }).catch(() => {});
+  }, []);
+
+  const handleBalanceSave = useCallback(() => {
+    const parsed = parseFloat(balanceInput);
+    if (!isNaN(parsed) && parsed >= 0) {
+      saveBalance(parsed);
+    }
+    setEditingBalance(false);
+  }, [balanceInput, saveBalance]);
+
   const filteredTrades = useMemo(() => filterByPeriod(allTrades, period), [allTrades, period]);
   const closedTrades = useMemo(
     () => filteredTrades
@@ -206,7 +285,7 @@ export default function PerformanceView() {
 
   const metrics = useMemo(() => computeMetrics(closedTrades), [closedTrades]);
 
-  // Build equity curve from closed trades grouped by day
+  // Build equity curve as NLV (starting balance + cumulative P&L)
   const equityCurve = useMemo<EquityCurvePoint[]>(() => {
     if (!closedTrades.length) return [];
 
@@ -225,9 +304,10 @@ export default function PerformanceView() {
         date,
         label: dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         cumPnL: Number(cumulative.toFixed(2)),
+        nlv: Number((startingBalance + cumulative).toFixed(2)),
       };
     });
-  }, [closedTrades]);
+  }, [closedTrades, startingBalance]);
 
   // Day of week performance
   const dayOfWeekData = useMemo(() => {
@@ -255,7 +335,9 @@ export default function PerformanceView() {
       });
   }, [closedTrades]);
 
+  const currentNLV = equityCurve.length > 0 ? equityCurve[equityCurve.length - 1].nlv : startingBalance;
   const totalPnL = equityCurve.length > 0 ? equityCurve[equityCurve.length - 1].cumPnL : 0;
+  const pnlPercent = startingBalance > 0 ? ((totalPnL / startingBalance) * 100).toFixed(2) : null;
   const isPositive = totalPnL >= 0;
 
   if (loading) {
@@ -305,15 +387,51 @@ export default function PerformanceView() {
 
       {/* Equity Curve Card */}
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#30363d] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-white">Equity Curve</p>
-            <p className="text-xs text-[#8b949e]">Account Growth &mdash; {PERIOD_LABELS[period]}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className={`text-xl font-bold ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-              {formatCurrency(totalPnL)}
-            </span>
+        <div className="px-6 py-4 border-b border-[#30363d]">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-white">Equity Curve</p>
+              <p className="text-xs text-[#8b949e]">Net Liquidating Value &mdash; {PERIOD_LABELS[period]}</p>
+            </div>
+            <div className="flex items-center gap-4">
+              {/* Starting Balance */}
+              <div className="flex items-center gap-2">
+                {editingBalance ? (
+                  <div className="flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5 text-[#8b949e]" />
+                    <input
+                      type="number"
+                      value={balanceInput}
+                      onChange={(e) => setBalanceInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleBalanceSave(); }}
+                      className="w-24 bg-[#0d1117] border border-[#30363d] rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-[#F97316]"
+                      placeholder="0"
+                      autoFocus
+                    />
+                    <button onClick={handleBalanceSave} className="p-1 hover:bg-[#30363d] rounded transition-colors">
+                      <Check className="w-3.5 h-3.5 text-[#3fb950]" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setBalanceInput(startingBalance > 0 ? startingBalance.toString() : ''); setEditingBalance(true); }}
+                    className="flex items-center gap-1.5 text-xs text-[#8b949e] hover:text-white transition-colors group"
+                    title="Set starting account balance"
+                  >
+                    <span>Starting: {startingBalance > 0 ? formatNLV(startingBalance) : 'Not set'}</span>
+                    <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                )}
+              </div>
+              {/* NLV + P&L */}
+              <div className="text-right">
+                <p className="text-lg font-bold text-white">{formatNLV(currentNLV)}</p>
+                <p className={`text-xs font-medium ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                  {formatCurrency(totalPnL)}
+                  {pnlPercent !== null && ` (${isPositive ? '+' : ''}${pnlPercent}%)`}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -339,16 +457,13 @@ export default function PerformanceView() {
                   tick={{ fill: '#8b949e', fontSize: 11 }}
                   tickLine={false}
                   axisLine={{ stroke: '#30363d' }}
-                  tickFormatter={(v: number) => `$${v >= 0 ? '' : '-'}${Math.abs(v) >= 1000 ? `${(Math.abs(v) / 1000).toFixed(1)}k` : Math.abs(v).toFixed(0)}`}
+                  tickFormatter={(v: number) => formatNLV(v)}
+                  domain={['dataMin', 'dataMax']}
                 />
-                <Tooltip
-                  {...TOOLTIP_STYLE}
-                  formatter={(value) => [formatDollars(Number(value)), 'Cumulative P&L']}
-                  labelFormatter={(label) => String(label)}
-                />
+                <Tooltip content={<EquityTooltip />} cursor={{ stroke: '#30363d', strokeDasharray: '4 4' }} />
                 <Area
                   type="monotone"
-                  dataKey="cumPnL"
+                  dataKey="nlv"
                   stroke={isPositive ? '#3fb950' : '#f85149'}
                   strokeWidth={2.5}
                   fill="url(#equityGradient)"
@@ -447,33 +562,28 @@ export default function PerformanceView() {
             </div>
             <div className="p-4">
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={dayOfWeekData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+                <BarChart data={dayOfWeekData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }} barCategoryGap="25%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" vertical={false} />
                   <XAxis
                     dataKey="name"
-                    tick={{ fill: '#8b949e', fontSize: 11 }}
+                    tick={{ fill: '#8b949e', fontSize: 12, fontWeight: 500 }}
                     tickLine={false}
-                    axisLine={{ stroke: '#30363d' }}
+                    axisLine={false}
                   />
                   <YAxis
                     tick={{ fill: '#8b949e', fontSize: 11 }}
                     tickLine={false}
-                    axisLine={{ stroke: '#30363d' }}
-                    tickFormatter={(v: number) => `$${v}`}
+                    axisLine={false}
+                    tickFormatter={(v: number) => formatNLV(v)}
                   />
-                  <Tooltip
-                    {...TOOLTIP_STYLE}
-                    formatter={(value, _name, props) => {
-                      const p = props?.payload as { trades?: number; winRate?: number } | undefined;
-                      return [
-                        `${formatDollars(Number(value))} (${p?.trades ?? 0} trades, ${p?.winRate ?? 0}% WR)`,
-                        'P&L',
-                      ];
-                    }}
-                  />
-                  <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
+                  <Tooltip content={<DayOfWeekTooltip />} cursor={{ fill: '#21262d', radius: 4 }} />
+                  <Bar dataKey="pnl" radius={[6, 6, 0, 0]} maxBarSize={48}>
                     {dayOfWeekData.map((entry, idx) => (
-                      <Cell key={idx} fill={entry.pnl >= 0 ? '#3fb950' : '#f85149'} />
+                      <Cell
+                        key={idx}
+                        fill={entry.pnl >= 0 ? '#3fb950' : '#f85149'}
+                        fillOpacity={0.85}
+                      />
                     ))}
                   </Bar>
                 </BarChart>
