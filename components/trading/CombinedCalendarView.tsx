@@ -71,7 +71,7 @@ interface Trade {
   exitNotes?: string;
 }
 
-type SortField = 'date' | 'symbol' | 'side' | 'entryPrice' | 'shares';
+type SortField = 'date' | 'symbol' | 'side' | 'entryPrice' | 'shares' | 'pnl';
 type SortDirection = 'asc' | 'desc';
 
 const DEFAULT_PROMPTS = [
@@ -347,6 +347,9 @@ export default function CombinedCalendarView() {
         break;
       case 'shares':
         comparison = a.shares - b.shares;
+        break;
+      case 'pnl':
+        comparison = (a.netPnL || 0) - (b.netPnL || 0);
         break;
     }
     return sortDirection === 'asc' ? comparison : -comparison;
@@ -860,27 +863,7 @@ export default function CombinedCalendarView() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-[#30363d] bg-[#0d1117]">
-                    <th className="py-3 px-2 text-center w-10">
-                      <button
-                        onClick={toggleSelectAll}
-                        className="text-[#8b949e] hover:text-white transition-colors"
-                        title={selectedTrades.size === sortedTrades.length ? "Deselect all" : "Select all"}
-                      >
-                        {selectedTrades.size === sortedTrades.length ? (
-                          <CheckSquare className="w-5 h-5" />
-                        ) : selectedTrades.size > 0 ? (
-                          <div className="relative">
-                            <Square className="w-5 h-5" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-2 h-2 bg-[#F97316] rounded-sm" />
-                            </div>
-                          </div>
-                        ) : (
-                          <Square className="w-5 h-5" />
-                        )}
-                      </button>
-                    </th>
-                    <th 
+                    <th
                       className="text-left py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
                       onClick={() => handleSort('date')}
                     >
@@ -891,7 +874,7 @@ export default function CombinedCalendarView() {
                         )}
                       </div>
                     </th>
-                    <th 
+                    <th
                       className="text-left py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
                       onClick={() => handleSort('symbol')}
                     >
@@ -902,121 +885,53 @@ export default function CombinedCalendarView() {
                         )}
                       </div>
                     </th>
-                    <th 
-                      className="text-left py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
-                      onClick={() => handleSort('side')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Side
-                        {sortField === 'side' && (
-                          <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                        )}
-                      </div>
-                    </th>
-                    <th 
+                    <th
                       className="text-right py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
-                      onClick={() => handleSort('shares')}
+                      onClick={() => handleSort('pnl')}
                     >
                       <div className="flex items-center justify-end gap-1">
-                        Shares
-                        {sortField === 'shares' && (
+                        PnL
+                        {sortField === 'pnl' && (
                           <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                         )}
                       </div>
                     </th>
-                    <th 
-                      className="text-right py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
-                      onClick={() => handleSort('entryPrice')}
-                    >
-                      <div className="flex items-center justify-end gap-1">
-                        Entry
-                        {sortField === 'entryPrice' && (
-                          <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                        )}
-                      </div>
-                    </th>
-                    <th className="text-right py-3 px-4 text-[#8b949e] font-medium">PnL</th>
-                    <th className="text-left py-3 px-4 text-[#8b949e] font-medium">Notes</th>
                     <th className="text-left py-3 px-4 text-[#8b949e] font-medium">Status</th>
-                    <th className="text-center py-3 px-4 text-[#8b949e] font-medium">Actions</th>
+                    <th className="text-center py-3 px-4 text-[#8b949e] font-medium">
+                      <button
+                        onClick={toggleSelectAll}
+                        className="text-[#8b949e] hover:text-white transition-colors"
+                        title={selectedTrades.size === sortedTrades.length ? "Deselect all" : "Select all"}
+                      >
+                        {selectedTrades.size === sortedTrades.length && sortedTrades.length > 0 ? (
+                          <CheckSquare className="w-4 h-4" />
+                        ) : selectedTrades.size > 0 ? (
+                          <div className="relative">
+                            <Square className="w-4 h-4" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-1.5 h-1.5 bg-[#F97316] rounded-sm" />
+                            </div>
+                          </div>
+                        ) : (
+                          <Square className="w-4 h-4" />
+                        )}
+                      </button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedTrades.map((trade) => (
-                    <tr 
-                      key={trade.id} 
+                    <tr
+                      key={trade.id}
                       className={`border-b border-[#21262d] hover:bg-[#21262d]/50 ${selectedTrades.has(trade.id) ? 'bg-[#F97316]/10' : ''}`}
                     >
-                      <td className="py-3 px-2 text-center">
-                        <button
-                          onClick={() => toggleSelection(trade.id)}
-                          className="text-[#8b949e] hover:text-[#F97316] transition-colors"
-                        >
-                          {selectedTrades.has(trade.id) ? (
-                            <CheckSquare className="w-5 h-5 text-[#F97316]" />
-                          ) : (
-                            <Square className="w-5 h-5" />
-                          )}
-                        </button>
-                      </td>
                       <td className="py-3 px-4 text-white">
                         <div className="text-xs text-[#8b949e]">{trade.entryDate?.split('T')[0]}</div>
                         <div>{trade.entryDate?.split('T')[1]?.substring(0, 5)}</div>
                       </td>
                       <td className="py-3 px-4 font-medium text-white">{trade.symbol}</td>
-                      <td className="py-3 px-4">
-                        <span className={`flex items-center gap-1 ${trade.side === 'LONG' ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-                          {trade.side === 'LONG' ? (
-                            <>
-                              <TrendingUp className="w-3 h-3" />
-                              LONG
-                            </>
-                          ) : (
-                            <>
-                              <TrendingDown className="w-3 h-3" />
-                              SHORT
-                            </>
-                          )}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right text-white">{trade.shares}</td>
-                      <td className="py-3 px-4 text-right text-white">${trade.entryPrice?.toFixed(2)}</td>
                       <td className={`py-3 px-4 text-right ${trade.netPnL && trade.netPnL >= 0 ? 'text-[#3fb950]' : trade.netPnL && trade.netPnL < 0 ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
                         {trade.netPnL ? `${trade.netPnL >= 0 ? '+' : ''}$${trade.netPnL.toFixed(2)}` : '-'}
-                      </td>
-                      <td className="py-3 px-4">
-                        {(() => {
-                          const notesText = trade.entryNotes || trade.exitNotes || '';
-                          // Clean up transfer/import prefixes for display
-                          const cleanNotes = notesText
-                            .replace(/^Transferred from Closed Positions\.\s*/, '')
-                            .replace(/^Imported from TOS Position Statement\s*-\s*CLOSED\.?\s*/, '')
-                            .replace(/^Closed position transferred from watchlist\.\s*/, '')
-                            .trim();
-                          return cleanNotes ? (
-                            <button
-                              onClick={() => setViewingNotesTrade(trade)}
-                              className="flex items-center gap-1.5 text-left text-xs text-[#8b949e] hover:text-[#F97316] transition-colors cursor-pointer group"
-                              title="Click to view/edit notes"
-                            >
-                              <FileText className="w-3.5 h-3.5 text-[#58a6ff] group-hover:text-[#F97316]" />
-                              <span className="truncate max-w-[100px]">{cleanNotes}</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setEditingNotesTrade(trade);
-                                setEditNotesEntry(trade.entryNotes || '');
-                                setEditNotesExit(trade.exitNotes || '');
-                              }}
-                              className="flex items-center gap-1.5 text-xs text-[#6e7681] hover:text-[#8b949e] transition-colors cursor-pointer group"
-                              title="Add notes"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              <span>Add</span>
-                            </button>
-                          );
-                        })()}
                       </td>
                       <td className="py-3 px-4">
                         <span className={`text-xs px-2 py-1 rounded-full ${trade.status === 'CLOSED' ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#d29922]/20 text-[#d29922]'}`}>
@@ -1024,16 +939,28 @@ export default function CombinedCalendarView() {
                         </span>
                       </td>
                       <td className="py-3 px-2 text-center">
-                        <button
-                          onClick={() => {
-                            setEditingTrade(trade);
-                            setShowEditModal(true);
-                          }}
-                          className="p-1.5 text-[#8b949e] hover:text-blue-400 hover:bg-blue-400/10 rounded transition-colors"
-                          title="Edit trade"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => {
+                              setEditingTrade(trade);
+                              setShowEditModal(true);
+                            }}
+                            className="p-1.5 text-[#8b949e] hover:text-blue-400 hover:bg-blue-400/10 rounded transition-colors"
+                            title="Edit trade"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedTrades(new Set([trade.id]));
+                              setShowDeleteModal(true);
+                            }}
+                            className="p-1.5 text-[#8b949e] hover:text-[#f85149] hover:bg-[#f85149]/10 rounded transition-colors"
+                            title="Delete trade"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1420,6 +1347,9 @@ function TradeModal({ date, trades, onClose }: { date: string; trades: Trade[]; 
         break;
       case 'shares':
         comparison = a.shares - b.shares;
+        break;
+      case 'pnl':
+        comparison = (a.netPnL || 0) - (b.netPnL || 0);
         break;
     }
     return sortDirection === 'asc' ? comparison : -comparison;
