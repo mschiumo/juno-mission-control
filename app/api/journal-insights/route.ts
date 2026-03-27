@@ -32,6 +32,18 @@ interface Trade {
   strategy?: string;
 }
 
+interface SavedReport {
+  analysis: string;
+  period: string;
+  periodKey: string;
+  periodLabel: string;
+  periodStart: string;
+  periodEnd: string;
+  entriesCount: number;
+  tradesCount: number;
+  generatedAt: string;
+}
+
 function getDateRange(period: string): { start: Date; end: Date } {
   const now = new Date();
   const end = new Date(now);
@@ -50,6 +62,31 @@ function getDateRange(period: string): { start: Date; end: Date } {
   end.setHours(23, 59, 59, 999);
 
   return { start, end };
+}
+
+function getPeriodKey(period: string): string {
+  const now = new Date();
+  if (period === 'week') {
+    const day = now.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diff);
+    const jan1 = new Date(monday.getFullYear(), 0, 1);
+    const days = Math.floor((monday.getTime() - jan1.getTime()) / 86400000);
+    const week = Math.ceil((days + jan1.getDay() + 1) / 7);
+    return `${monday.getFullYear()}-W${String(week).padStart(2, '0')}`;
+  }
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function getPeriodLabel(period: string, periodKey: string): string {
+  if (period === 'week') {
+    const [year, weekPart] = periodKey.split('-W');
+    return `Week ${parseInt(weekPart)}, ${year}`;
+  }
+  const [year, month] = periodKey.split('-');
+  const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleString('en-US', { month: 'long' });
+  return `${monthName} ${year}`;
 }
 
 function buildStructuredSummary(
@@ -125,6 +162,47 @@ function buildStructuredSummary(
   return lines.join('\n');
 }
 
+function redisKey(userId: string, period: string, periodKey: string): string {
+  return `journal-insights:${userId}:${period}:${periodKey}`;
+}
+
+function indexKey(userId: string): string {
+  return `journal-insights:${userId}:index`;
+}
+
+// GET — fetch saved report for current period + archived reports
+export async function GET(request: NextRequest) {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
+  const period = request.nextUrl.searchParams.get('period') || 'week';
+  const redis = await getRedisClient();
+  const currentPeriodKey = getPeriodKey(period);
+
+  // Fetch current report
+  const currentKey = redisKey(userId, period, currentPeriodKey);
+  const currentData = await redis.get(currentKey);
+  const currentReport: SavedReport | null = currentData ? JSON.parse(currentData) : null;
+
+  // Fetch archive index
+  const rawIndex = await redis.get(indexKey(userId));
+  const allReports: { period: string; periodKey: string; periodLabel: string; generatedAt: string }[] = rawIndex
+    ? JSON.parse(rawIndex)
+    : [];
+
+  // Archived = past reports for this period type that aren't the current one
+  const archived = allReports.filter(
+    (r) => r.period === period && r.periodKey !== currentPeriodKey,
+  );
+
+  return NextResponse.json({
+    success: true,
+    report: currentReport,
+    archived,
+  });
+}
+
+// POST — generate new report, save to Redis
 export async function POST(request: NextRequest) {
   const { userId, error: authError } = await requireUserId();
   if (authError) return authError;
@@ -140,8 +218,21 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const period: string = body.period || 'week';
-    const { start, end } = getDateRange(period);
 
+    // If requesting an archived report, fetch it directly
+    if (body.archivePeriodKey) {
+      const redis = await getRedisClient();
+      const data = await redis.get(redisKey(userId, period, body.archivePeriodKey));
+      if (!data) {
+        return NextResponse.json(
+          { success: false, error: 'Archived report not found' },
+          { status: 404 },
+        );
+      }
+      return NextResponse.json({ success: true, report: JSON.parse(data) });
+    }
+
+    const { start, end } = getDateRange(period);
     const redis = await getRedisClient();
 
     // Fetch all journal entries
@@ -182,11 +273,8 @@ export async function POST(request: NextRequest) {
     if (entries.length === 0 && periodTrades.length === 0) {
       return NextResponse.json({
         success: true,
-        analysis: null,
+        report: null,
         message: `No journal entries or trades found for this ${period}.`,
-        period,
-        entriesCount: 0,
-        tradesCount: 0,
       });
     }
 
@@ -197,23 +285,25 @@ export async function POST(request: NextRequest) {
     const client = new Anthropic({ apiKey });
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-5-20250514',
-      max_tokens: 1500,
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
       messages: [
         {
           role: 'user',
-          content: `You are a trading performance coach analyzing a trader's journal entries and trade data from ${periodLabel}.
+          content: `You are a trading performance coach. Analyze this trader's journal entries and trade data from ${periodLabel}.
 
-Analyze the following data and provide actionable insights. Focus on:
-1. **Recurring Patterns** — emotions, behaviors, or mistakes that appear repeatedly
-2. **What's Working** — positive patterns and strengths to maintain
-3. **Areas for Improvement** — specific, actionable suggestions
-4. **Emotion-Performance Link** — how emotional states correlate with trading outcomes
-5. **Key Takeaway** — one sentence the trader should remember going into next ${period}
+Return your analysis as a JSON object with this exact structure:
+{
+  "keyTakeaway": "One sentence — the single most important thing to remember going into next ${period}.",
+  "strengths": ["2-3 bullet strings of what's working well"],
+  "improvements": ["2-3 bullet strings of specific areas to improve"],
+  "patterns": ["1-2 bullet strings of recurring emotional or behavioral patterns you notice"]
+}
 
-Keep your response concise and direct. Use short paragraphs. Do not use bullet point headers like "Recurring Patterns:" — weave the insights naturally. Avoid generic advice — be specific to what you see in the data.
-
-If there's limited data, acknowledge it and work with what's available.
+Rules:
+- Each bullet should be one concise, specific sentence grounded in the data — not generic advice.
+- Return ONLY valid JSON, no markdown, no preamble, no closing remarks.
+- If data is limited, work with what's available and note it in the takeaway.
 
 ---
 
@@ -225,12 +315,48 @@ ${context}`,
     const analysisText =
       message.content[0].type === 'text' ? message.content[0].text : '';
 
-    return NextResponse.json({
-      success: true,
+    const currentPeriodKey = getPeriodKey(period);
+    const report: SavedReport = {
       analysis: analysisText,
       period,
+      periodKey: currentPeriodKey,
+      periodLabel: getPeriodLabel(period, currentPeriodKey),
+      periodStart: start.toISOString(),
+      periodEnd: end.toISOString(),
       entriesCount: entries.length,
       tradesCount: periodTrades.filter((t) => t.status === 'CLOSED').length,
+      generatedAt: new Date().toISOString(),
+    };
+
+    // Save report to Redis
+    await redis.set(redisKey(userId, period, currentPeriodKey), JSON.stringify(report));
+
+    // Update the index
+    const rawIndex = await redis.get(indexKey(userId));
+    const allReports: { period: string; periodKey: string; periodLabel: string; generatedAt: string }[] = rawIndex
+      ? JSON.parse(rawIndex)
+      : [];
+
+    // Upsert entry in index
+    const existingIdx = allReports.findIndex(
+      (r) => r.period === period && r.periodKey === currentPeriodKey,
+    );
+    const indexEntry = {
+      period,
+      periodKey: currentPeriodKey,
+      periodLabel: report.periodLabel,
+      generatedAt: report.generatedAt,
+    };
+    if (existingIdx >= 0) {
+      allReports[existingIdx] = indexEntry;
+    } else {
+      allReports.push(indexEntry);
+    }
+    await redis.set(indexKey(userId), JSON.stringify(allReports));
+
+    return NextResponse.json({
+      success: true,
+      report,
     });
   } catch (error) {
     console.error('Error generating journal insights:', error);
