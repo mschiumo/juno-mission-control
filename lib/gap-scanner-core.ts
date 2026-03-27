@@ -280,7 +280,7 @@ export async function runGapScan(options: {
 
   const result: ScanResult = {
     success: true,
-    data: { gainers: gainers.slice(0, 15), losers: losers.slice(0, 15) },
+    data: { gainers, losers },
     timestamp: new Date().toISOString(),
     source: 'live',
     scanned,
