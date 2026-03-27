@@ -5,6 +5,7 @@ import {
   TrendingUp, BarChart2, BookOpen, Target, Zap,
   Calendar, ArrowRight, CheckCircle, LineChart,
   Activity, Shield, ChevronRight, LogIn,
+  Sparkles, Brain, Lightbulb, TrendingDown, Download,
 } from 'lucide-react';
 
 /* ─── Candlestick data (pre-calculated, trending upward) ─── */
@@ -85,6 +86,14 @@ const FEATURES = [
     tags: ['Earnings', 'FOMC', 'Catalysts'],
     bg: 'bg-[#79c0ff]/10',
     color: 'text-[#79c0ff]',
+  },
+  {
+    icon: Sparkles,
+    title: 'AI Insights',
+    desc: 'Get personalized, AI-generated reports that analyze your habits, consistency, and emotional patterns to improve your trading.',
+    tags: ['AI-Powered', 'Patterns', 'Reports'],
+    bg: 'bg-[#8957e5]/10',
+    color: 'text-[#8957e5]',
   },
 ];
 
@@ -516,6 +525,137 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ═══ AI INSIGHTS SHOWCASE ═══ */}
+      <section className="py-24 px-6 bg-[#161b22]/20">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 items-center">
+
+            {/* Text */}
+            <div className="lg:col-span-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#8957e5]/25 bg-[#8957e5]/10 text-xs text-[#8957e5] font-semibold mb-4">
+                <Sparkles className="w-3.5 h-3.5" />
+                AI-Powered
+              </div>
+              <h2 className="text-4xl font-bold text-white mb-4">Your Personal Trading Coach</h2>
+              <p className="text-[#8b949e] leading-relaxed mb-8">
+                AI analyzes your journal entries, trade data, and behavioral patterns to deliver
+                personalized weekly and monthly reports — surfacing what&apos;s working, what needs
+                fixing, and the habits holding you back.
+              </p>
+              <div className="space-y-3">
+                {[
+                  'Identifies recurring emotional patterns',
+                  'Spots strengths you should double down on',
+                  'Pinpoints specific areas to improve',
+                  'Tracks consistency and habit formation',
+                  'Downloadable PDF infographic reports',
+                ].map(item => (
+                  <div key={item} className="flex items-center gap-2.5 text-sm text-[#8b949e]">
+                    <CheckCircle className="w-4 h-4 text-[#8957e5] flex-shrink-0" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Mock report card */}
+            <div className="lg:col-span-3">
+              <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-hidden shadow-2xl">
+                {/* Report header */}
+                <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#8957e5]" />
+                    <p className="text-sm font-semibold text-white">Week 13, 2026 Report</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="flex items-center gap-1.5 px-2.5 py-1 bg-[#21262d] border border-[#30363d] text-[#8b949e] text-xs rounded-md">
+                      <Download className="w-3 h-3" />
+                      PDF
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  {/* Key Takeaway */}
+                  <div className="p-4 bg-[#F97316]/10 border border-[#F97316]/20 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Lightbulb className="w-4 h-4 text-[#F97316]" />
+                      <span className="text-[10px] font-semibold text-[#F97316] uppercase tracking-wide">Key Takeaway</span>
+                    </div>
+                    <p className="text-sm text-[#c9d1d9] leading-relaxed">
+                      Your win rate jumps 23% on trades where you journal beforehand — make pre-trade journaling non-negotiable.
+                    </p>
+                  </div>
+
+                  {/* Two-column grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Strengths */}
+                    <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4 border-l-[3px] border-l-[#3fb950]">
+                      <div className="flex items-center gap-1.5 mb-3">
+                        <TrendingUp className="w-3.5 h-3.5 text-[#3fb950]" />
+                        <span className="text-[10px] font-semibold text-[#3fb950] uppercase tracking-wide">What&apos;s Working</span>
+                      </div>
+                      <ul className="space-y-2">
+                        {[
+                          'Disciplined stop-loss execution on all 8 trades',
+                          'Momentum setups producing 3.2R average',
+                        ].map((s, i) => (
+                          <li key={i} className="flex items-start gap-2 text-xs text-[#8b949e]">
+                            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-[#3fb950] flex-shrink-0" />
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Improvements */}
+                    <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4 border-l-[3px] border-l-[#f85149]">
+                      <div className="flex items-center gap-1.5 mb-3">
+                        <TrendingDown className="w-3.5 h-3.5 text-[#f85149]" />
+                        <span className="text-[10px] font-semibold text-[#f85149] uppercase tracking-wide">Areas to Improve</span>
+                      </div>
+                      <ul className="space-y-2">
+                        {[
+                          'Overtrading on Fridays — 3 of 4 losses came EOW',
+                          'Revenge trades after morning losses cost $420',
+                        ].map((s, i) => (
+                          <li key={i} className="flex items-start gap-2 text-xs text-[#8b949e]">
+                            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-[#f85149] flex-shrink-0" />
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Patterns */}
+                  <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4 border-l-[3px] border-l-[#8957e5]">
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <Brain className="w-3.5 h-3.5 text-[#8957e5]" />
+                      <span className="text-[10px] font-semibold text-[#8957e5] uppercase tracking-wide">Behavioral Patterns</span>
+                    </div>
+                    <ul className="space-y-2">
+                      <li className="flex items-start gap-2 text-xs text-[#8b949e]">
+                        <span className="mt-1 w-1.5 h-1.5 rounded-full bg-[#8957e5] flex-shrink-0" />
+                        Anxiety-tagged entries correlate with 60% smaller position sizes — confidence building needed
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-3 border-t border-[#30363d]">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 text-[#8957e5]" />
+                    <span className="text-[10px] text-[#484f58]">AI-generated analysis based on your journal & trade data</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ═══ HOW IT WORKS ═══ */}
       <section id="how-it-works" className="py-24 px-6 bg-[#161b22]/20">
         <div className="max-w-7xl mx-auto">
@@ -641,6 +781,7 @@ export default function LandingPage() {
                   'Position sizing & risk calculator',
                   'Watchlist with live market data',
                   'Emotional analysis & performance tracking',
+                  'AI-powered weekly & monthly insight reports',
                   'Market events calendar',
                   'Goal tracking & habit streaks',
                   'Priority support',

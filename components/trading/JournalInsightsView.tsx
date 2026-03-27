@@ -174,7 +174,8 @@ async function downloadPdf(report: SavedReport, structured: StructuredAnalysis |
 
 // Helper: draw a filled rounded rectangle
 function drawRoundedRect(
-  doc: InstanceType<Awaited<ReturnType<typeof import('jspdf')>>['jsPDF']>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  doc: any,
   x: number, y: number, w: number, h: number, r: number,
   fillRgb: number[],
 ) {
@@ -184,7 +185,8 @@ function drawRoundedRect(
 
 // Helper: draw a stroked rounded rectangle
 function drawRoundedRectStroke(
-  doc: InstanceType<Awaited<ReturnType<typeof import('jspdf')>>['jsPDF']>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  doc: any,
   x: number, y: number, w: number, h: number, r: number,
 ) {
   doc.roundedRect(x, y, w, h, r, r, 'S');
@@ -192,7 +194,8 @@ function drawRoundedRectStroke(
 
 // Helper: draw a section with header + bullet list, returns total height
 function drawSection(
-  doc: InstanceType<Awaited<ReturnType<typeof import('jspdf')>>['jsPDF']>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  doc: any,
   x: number, y: number, w: number,
   title: string, colorRgb: number[], items: string[],
 ): number {
