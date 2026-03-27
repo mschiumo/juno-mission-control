@@ -25,6 +25,7 @@ import {
   Check,
   Pencil,
 } from 'lucide-react';
+import JournalInsightsView from '@/components/trading/JournalInsightsView';
 
 type Period = 'week' | 'month' | 'year' | 'all';
 
@@ -671,6 +672,9 @@ export default function PerformanceView() {
           </div>
         </div>
       </div>
+
+      {/* Journal Insights */}
+      <JournalInsightsView />
     </div>
   );
 }
