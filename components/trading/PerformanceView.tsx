@@ -97,6 +97,27 @@ const PERIOD_LABELS: Record<Period, string> = {
   all: 'All Time',
 };
 
+const PLACEHOLDER_CURVE = [
+  { label: 'Week 1', nlv: 10000 },
+  { label: 'Week 2', nlv: 10200 },
+  { label: 'Week 3', nlv: 10150 },
+  { label: 'Week 4', nlv: 10400 },
+  { label: 'Week 5', nlv: 10350 },
+  { label: 'Week 6', nlv: 10550 },
+  { label: 'Week 7', nlv: 10700 },
+  { label: 'Week 8', nlv: 10650 },
+  { label: 'Week 9', nlv: 10900 },
+  { label: 'Week 10', nlv: 11100 },
+];
+
+const PLACEHOLDER_DOW = [
+  { name: 'Mon', pnl: 120 },
+  { name: 'Tue', pnl: -40 },
+  { name: 'Wed', pnl: 80 },
+  { name: 'Thu', pnl: 60 },
+  { name: 'Fri', pnl: -20 },
+];
+
 function filterByPeriod(trades: Trade[], period: Period): Trade[] {
   if (period === 'all') return trades;
   const now = new Date();
@@ -335,6 +356,7 @@ export default function PerformanceView() {
       });
   }, [closedTrades]);
 
+  const hasData = allTrades.length > 0;
   const currentNLV = equityCurve.length > 0 ? equityCurve[equityCurve.length - 1].nlv : startingBalance;
   const totalPnL = equityCurve.length > 0 ? equityCurve[equityCurve.length - 1].cumPnL : 0;
   const pnlPercent = startingBalance > 0 ? ((totalPnL / startingBalance) * 100).toFixed(2) : null;
@@ -344,18 +366,6 @@ export default function PerformanceView() {
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 className="w-8 h-8 text-[#F97316] animate-spin" />
-      </div>
-    );
-  }
-
-  if (allTrades.length === 0) {
-    return (
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-12 text-center">
-        <BarChart3 className="w-12 h-12 text-[#F97316] mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-white mb-2">No Trade Data Yet</h3>
-        <p className="text-[#8b949e]">
-          Import trades on the Overview tab to see your equity curve and performance analytics.
-        </p>
       </div>
     );
   }
@@ -386,152 +396,192 @@ export default function PerformanceView() {
       </div>
 
       {/* Equity Curve Card */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#30363d]">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-white">Equity Curve</p>
-              <p className="text-xs text-[#8b949e]">Net Liquidating Value &mdash; {PERIOD_LABELS[period]}</p>
+      <div className={`bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden${!hasData ? ' relative' : ''}`}>
+        {!hasData && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0d1117]/60 backdrop-blur-[2px] rounded-xl">
+            <div className="text-center px-6">
+              <BarChart3 className="w-10 h-10 text-[#F97316] mx-auto mb-3" />
+              <h3 className="text-base font-semibold text-white mb-1">No Trade Data Yet</h3>
+              <p className="text-sm text-[#8b949e]">Import trades on the Overview tab to populate your equity curve.</p>
             </div>
-            <div className="flex items-center gap-4">
-              {/* Starting Balance */}
-              <div className="flex items-center gap-2">
-                {editingBalance ? (
-                  <div className="flex items-center gap-1.5">
-                    <DollarSign className="w-3.5 h-3.5 text-[#8b949e]" />
-                    <input
-                      type="number"
-                      value={balanceInput}
-                      onChange={(e) => setBalanceInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleBalanceSave(); }}
-                      className="w-32 bg-[#0d1117] border border-[#30363d] rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-[#F97316]"
-                      placeholder="e.g. 100000"
-                      autoFocus
-                    />
-                    <button onClick={handleBalanceSave} className="p-1 hover:bg-[#30363d] rounded transition-colors">
-                      <Check className="w-3.5 h-3.5 text-[#3fb950]" />
-                    </button>
-                  </div>
-                ) : startingBalance > 0 ? (
-                  <button
-                    onClick={() => { setBalanceInput(startingBalance.toString()); setEditingBalance(true); }}
-                    className="flex items-center gap-1.5 text-xs text-[#8b949e] hover:text-white transition-colors group"
-                    title="Edit starting account balance"
-                  >
-                    <span>Starting: {formatNLV(startingBalance)}</span>
-                    <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => { setBalanceInput(''); setEditingBalance(true); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F97316]/10 border border-[#F97316]/30 rounded-lg text-xs text-[#F97316] hover:bg-[#F97316]/20 transition-colors"
-                  >
-                    <DollarSign className="w-3.5 h-3.5" />
-                    <span>Set Starting Balance</span>
-                  </button>
-                )}
+          </div>
+        )}
+        <div className={!hasData ? 'opacity-30 pointer-events-none select-none' : ''}>
+          <div className="px-6 py-4 border-b border-[#30363d]">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-white">Equity Curve</p>
+                <p className="text-xs text-[#8b949e]">Net Liquidating Value &mdash; {PERIOD_LABELS[period]}</p>
               </div>
-              {/* NLV + P&L */}
-              <div className="text-right">
-                <p className="text-lg font-bold text-white">{formatNLV(currentNLV)}</p>
-                <p className={`text-xs font-medium ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-                  {formatCurrency(totalPnL)}
-                  {pnlPercent !== null && ` (${isPositive ? '+' : ''}${pnlPercent}%)`}
-                </p>
+              <div className="flex items-center gap-4">
+                {/* Starting Balance */}
+                <div className="flex items-center gap-2">
+                  {editingBalance ? (
+                    <div className="flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5 text-[#8b949e]" />
+                      <input
+                        type="number"
+                        value={balanceInput}
+                        onChange={(e) => setBalanceInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleBalanceSave(); }}
+                        className="w-32 bg-[#0d1117] border border-[#30363d] rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-[#F97316]"
+                        placeholder="e.g. 100000"
+                        autoFocus
+                      />
+                      <button onClick={handleBalanceSave} className="p-1 hover:bg-[#30363d] rounded transition-colors">
+                        <Check className="w-3.5 h-3.5 text-[#3fb950]" />
+                      </button>
+                    </div>
+                  ) : startingBalance > 0 ? (
+                    <button
+                      onClick={() => { setBalanceInput(startingBalance.toString()); setEditingBalance(true); }}
+                      className="flex items-center gap-1.5 text-xs text-[#8b949e] hover:text-white transition-colors group"
+                      title="Edit starting account balance"
+                    >
+                      <span>Starting: {formatNLV(startingBalance)}</span>
+                      <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setBalanceInput(''); setEditingBalance(true); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F97316]/10 border border-[#F97316]/30 rounded-lg text-xs text-[#F97316] hover:bg-[#F97316]/20 transition-colors"
+                    >
+                      <DollarSign className="w-3.5 h-3.5" />
+                      <span>Set Starting Balance</span>
+                    </button>
+                  )}
+                </div>
+                {/* NLV + P&L */}
+                <div className="text-right">
+                  <p className="text-lg font-bold text-white">{hasData ? formatNLV(currentNLV) : '$0'}</p>
+                  <p className={`text-xs font-medium ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                    {hasData ? formatCurrency(totalPnL) : '+$0'}
+                    {hasData && pnlPercent !== null && ` (${isPositive ? '+' : ''}${pnlPercent}%)`}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="p-4 sm:p-6">
-          {equityCurve.length > 1 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={equityCurve} margin={{ top: 10, right: 16, left: 10, bottom: 20 }}>
-                <defs>
-                  <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3fb950" stopOpacity={0.25} />
-                    <stop offset="100%" stopColor="#3fb950" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fill: '#8b949e', fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={{ stroke: '#30363d' }}
-                  interval="preserveStartEnd"
-                  dy={8}
-                />
-                <YAxis
-                  tick={{ fill: '#8b949e', fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={{ stroke: '#30363d' }}
-                  tickFormatter={(v: number) => formatNLV(v)}
-                  domain={['dataMin', 'dataMax']}
-                  width={70}
-                />
-                <Tooltip content={<EquityTooltip />} cursor={{ stroke: '#30363d', strokeDasharray: '4 4' }} />
-                <Area
-                  type="monotone"
-                  dataKey="nlv"
-                  stroke="#3fb950"
-                  strokeWidth={2.5}
-                  fill="url(#equityGradient)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[280px] flex items-center justify-center text-[#8b949e] text-sm">
-              Not enough data to display the equity curve for this period.
-            </div>
-          )}
-        </div>
+          <div className="p-4 sm:p-6">
+            {equityCurve.length > 1 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={equityCurve} margin={{ top: 10, right: 16, left: 10, bottom: 20 }}>
+                  <defs>
+                    <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3fb950" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#3fb950" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fill: '#8b949e', fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#30363d' }}
+                    interval="preserveStartEnd"
+                    dy={8}
+                  />
+                  <YAxis
+                    tick={{ fill: '#8b949e', fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#30363d' }}
+                    tickFormatter={(v: number) => formatNLV(v)}
+                    domain={['dataMin', 'dataMax']}
+                    width={70}
+                  />
+                  <Tooltip content={<EquityTooltip />} cursor={{ stroke: '#30363d', strokeDasharray: '4 4' }} />
+                  <Area
+                    type="monotone"
+                    dataKey="nlv"
+                    stroke="#3fb950"
+                    strokeWidth={2.5}
+                    fill="url(#equityGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={PLACEHOLDER_CURVE} margin={{ top: 10, right: 16, left: 10, bottom: 20 }}>
+                  <defs>
+                    <linearGradient id="equityGradientPlaceholder" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3fb950" stopOpacity={0.15} />
+                      <stop offset="100%" stopColor="#3fb950" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fill: '#8b949e', fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#30363d' }}
+                    dy={8}
+                  />
+                  <YAxis
+                    tick={{ fill: '#8b949e', fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#30363d' }}
+                    tickFormatter={(v: number) => formatNLV(v)}
+                    width={70}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="nlv"
+                    stroke="#30363d"
+                    strokeWidth={2}
+                    fill="url(#equityGradientPlaceholder)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
 
-        {/* Bottom stats bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-[#30363d] border-t border-[#30363d]">
-          {[
-            { label: 'Total Trades', value: String(metrics.totalTrades) },
-            { label: 'Win Rate', value: `${metrics.winRate}%` },
-            { label: 'Avg Win', value: `+$${metrics.averageWin.toFixed(0)}` },
-            { label: 'Avg Loss', value: `-$${metrics.averageLoss.toFixed(0)}` },
-          ].map((s) => (
-            <div key={s.label} className="px-3 py-3 text-center">
-              <p className="text-[10px] text-[#8b949e] mb-0.5">{s.label}</p>
-              <p className="text-sm font-bold text-white">{s.value}</p>
-            </div>
-          ))}
+          {/* Bottom stats bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-[#30363d] border-t border-[#30363d]">
+            {[
+              { label: 'Total Trades', value: hasData ? String(metrics.totalTrades) : '--' },
+              { label: 'Win Rate', value: hasData ? `${metrics.winRate}%` : '--' },
+              { label: 'Avg Win', value: hasData ? `+$${metrics.averageWin.toFixed(0)}` : '--' },
+              { label: 'Avg Loss', value: hasData ? `-$${metrics.averageLoss.toFixed(0)}` : '--' },
+            ].map((s) => (
+              <div key={s.label} className="px-3 py-3 text-center">
+                <p className="text-[10px] text-[#8b949e] mb-0.5">{s.label}</p>
+                <p className="text-sm font-bold text-white">{s.value}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Metrics cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-2 md:grid-cols-4 gap-4${!hasData ? ' opacity-30' : ''}`}>
         <MetricCard
           icon={<TrendingUp className="w-5 h-5 text-[#3fb950]" />}
           label="Net Profit"
-          value={formatDollars(metrics.netProfit)}
+          value={hasData ? formatDollars(metrics.netProfit) : '--'}
           valueColor={metrics.netProfit >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}
         />
         <MetricCard
           icon={<Target className="w-5 h-5 text-[#F97316]" />}
           label="Profit Factor"
-          value={metrics.profitFactor === Infinity ? '--' : metrics.profitFactor.toFixed(2)}
+          value={hasData ? (metrics.profitFactor === Infinity ? '--' : metrics.profitFactor.toFixed(2)) : '--'}
         />
         <MetricCard
           icon={<TrendingDown className="w-5 h-5 text-[#f85149]" />}
           label="Max Drawdown"
-          value={formatDollars(metrics.maxDrawdown)}
-          sub={metrics.maxDrawdownPercent > 0 ? `${metrics.maxDrawdownPercent.toFixed(1)}%` : undefined}
+          value={hasData ? formatDollars(metrics.maxDrawdown) : '--'}
+          sub={hasData && metrics.maxDrawdownPercent > 0 ? `${metrics.maxDrawdownPercent.toFixed(1)}%` : undefined}
         />
         <MetricCard
           icon={<Trophy className="w-5 h-5 text-[#d2a8ff]" />}
           label="Best Streak"
-          value={`${metrics.maxWinStreak} wins`}
-          sub={metrics.currentWinStreak > 0 ? `Current: ${metrics.currentWinStreak}` : undefined}
+          value={hasData ? `${metrics.maxWinStreak} wins` : '--'}
+          sub={hasData && metrics.currentWinStreak > 0 ? `Current: ${metrics.currentWinStreak}` : undefined}
         />
       </div>
 
       {/* Detailed Statistics + Day of Week side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6${!hasData ? ' opacity-30' : ''}`}>
         {/* Detailed stats table */}
         <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-[#30363d]">
@@ -539,18 +589,18 @@ export default function PerformanceView() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-[#30363d]">
             {[
-              { label: 'Total Trades', value: String(metrics.totalTrades) },
-              { label: 'Winning Trades', value: String(metrics.winningTrades) },
-              { label: 'Losing Trades', value: String(metrics.losingTrades) },
-              { label: 'Breakeven', value: String(metrics.breakevenTrades) },
-              { label: 'Gross Profit', value: formatDollars(metrics.grossProfit), color: 'text-[#3fb950]' },
-              { label: 'Gross Loss', value: formatDollars(metrics.grossLoss), color: 'text-[#f85149]' },
-              { label: 'Largest Win', value: formatDollars(metrics.largestWin), color: 'text-[#3fb950]' },
-              { label: 'Largest Loss', value: formatDollars(metrics.largestLoss), color: 'text-[#f85149]' },
-              { label: 'Avg Trade', value: formatDollars(metrics.averageTrade), color: metrics.averageTrade >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]' },
-              { label: 'Max Win Streak', value: String(metrics.maxWinStreak) },
-              { label: 'Max Loss Streak', value: String(metrics.maxLossStreak) },
-              { label: 'Current Streak', value: metrics.currentWinStreak > 0 ? `${metrics.currentWinStreak}W` : metrics.currentLossStreak > 0 ? `${metrics.currentLossStreak}L` : '--' },
+              { label: 'Total Trades', value: hasData ? String(metrics.totalTrades) : '--' },
+              { label: 'Winning Trades', value: hasData ? String(metrics.winningTrades) : '--' },
+              { label: 'Losing Trades', value: hasData ? String(metrics.losingTrades) : '--' },
+              { label: 'Breakeven', value: hasData ? String(metrics.breakevenTrades) : '--' },
+              { label: 'Gross Profit', value: hasData ? formatDollars(metrics.grossProfit) : '--', color: hasData ? 'text-[#3fb950]' : undefined },
+              { label: 'Gross Loss', value: hasData ? formatDollars(metrics.grossLoss) : '--', color: hasData ? 'text-[#f85149]' : undefined },
+              { label: 'Largest Win', value: hasData ? formatDollars(metrics.largestWin) : '--', color: hasData ? 'text-[#3fb950]' : undefined },
+              { label: 'Largest Loss', value: hasData ? formatDollars(metrics.largestLoss) : '--', color: hasData ? 'text-[#f85149]' : undefined },
+              { label: 'Avg Trade', value: hasData ? formatDollars(metrics.averageTrade) : '--', color: hasData ? (metrics.averageTrade >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]') : undefined },
+              { label: 'Max Win Streak', value: hasData ? String(metrics.maxWinStreak) : '--' },
+              { label: 'Max Loss Streak', value: hasData ? String(metrics.maxLossStreak) : '--' },
+              { label: 'Current Streak', value: hasData ? (metrics.currentWinStreak > 0 ? `${metrics.currentWinStreak}W` : metrics.currentLossStreak > 0 ? `${metrics.currentLossStreak}L` : '--') : '--' },
             ].map((s) => (
               <div key={s.label} className="bg-[#161b22] px-6 py-3 flex items-center justify-between">
                 <span className="text-xs text-[#8b949e]">{s.label}</span>
@@ -561,16 +611,16 @@ export default function PerformanceView() {
         </div>
 
         {/* Day of Week Performance */}
-        {dayOfWeekData.length > 0 && (
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#30363d]">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#F97316]" />
-                <p className="text-sm font-semibold text-white">Day of Week</p>
-              </div>
-              <p className="text-xs text-[#8b949e]">Performance by weekday</p>
+        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-[#30363d]">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-[#F97316]" />
+              <p className="text-sm font-semibold text-white">Day of Week</p>
             </div>
-            <div className="p-4">
+            <p className="text-xs text-[#8b949e]">Performance by weekday</p>
+          </div>
+          <div className="p-4">
+            {dayOfWeekData.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={dayOfWeekData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }} barCategoryGap="25%">
                   <CartesianGrid strokeDasharray="3 3" stroke="#21262d" vertical={false} />
@@ -598,9 +648,28 @@ export default function PerformanceView() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={PLACEHOLDER_DOW} margin={{ top: 5, right: 20, left: 0, bottom: 5 }} barCategoryGap="25%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fill: '#8b949e', fontSize: 12, fontWeight: 500 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: '#8b949e', fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v: number) => formatNLV(v)}
+                  />
+                  <Bar dataKey="pnl" radius={[6, 6, 0, 0]} maxBarSize={48} fill="#30363d" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
