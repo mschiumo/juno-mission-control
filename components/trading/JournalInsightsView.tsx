@@ -59,206 +59,212 @@ async function downloadPdf(report: SavedReport, structured: StructuredAnalysis |
   const H = doc.internal.pageSize.getHeight();
   const margin = 48;
   const contentW = W - margin * 2;
+  const footerZone = 52; // reserve space at bottom for footer
+  const maxY = H - footerZone;
 
-  // --- Background ---
-  doc.setFillColor(13, 17, 23); // #0d1117
-  doc.rect(0, 0, W, H, 'F');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function paintPageBg(d: any) {
+    d.setFillColor(13, 17, 23);
+    d.rect(0, 0, W, H, 'F');
+    d.setFillColor(249, 115, 22);
+    d.rect(0, 0, W, 6, 'F');
+  }
 
-  // --- Top accent bar ---
-  doc.setFillColor(249, 115, 22); // #F97316
-  doc.rect(0, 0, W, 6, 'F');
+  function ensureSpace(needed: number, currentY: number): number {
+    if (currentY + needed > maxY) {
+      doc.addPage();
+      paintPageBg(doc);
+      return 32;
+    }
+    return currentY;
+  }
 
-  // --- Header area ---
+  // --- Page 1 background ---
+  paintPageBg(doc);
+
+  // --- Header ---
   let y = 44;
-
-  // "JUNO MISSION CONTROL" branding
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(137, 87, 229); // #8957e5
-  doc.text('JUNO MISSION CONTROL', margin, y);
+  doc.setTextColor(137, 87, 229);
+  doc.text('CONFLUENCE TRADING', margin, y);
 
-  // Title
   y += 28;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(26);
   doc.setTextColor(255, 255, 255);
   doc.text(`${report.periodLabel} Report`, margin, y);
 
-  // Subtitle / meta
   y += 22;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.setTextColor(139, 148, 158); // #8b949e
+  doc.setTextColor(139, 148, 158);
   const meta = `${report.entriesCount} journal ${report.entriesCount === 1 ? 'entry' : 'entries'}  |  ${report.tradesCount} closed ${report.tradesCount === 1 ? 'trade' : 'trades'}  |  Generated ${new Date(report.generatedAt).toLocaleDateString()}`;
   doc.text(meta, margin, y);
 
-  // Divider
   y += 18;
-  doc.setDrawColor(48, 54, 61); // #30363d
+  doc.setDrawColor(48, 54, 61);
   doc.setLineWidth(0.5);
   doc.line(margin, y, W - margin, y);
   y += 24;
 
   if (structured) {
-    // --- Key Takeaway card ---
-    const takeawayLines = doc.splitTextToSize(structured.keyTakeaway, contentW - 32);
-    const takeawayH = takeawayLines.length * 16 + 44;
+    // --- Key Takeaway ---
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
+    const takeawayLines: string[] = doc.splitTextToSize(structured.keyTakeaway, contentW - 40);
+    const takeawayH = takeawayLines.length * 14.5 + 48;
+    y = ensureSpace(takeawayH, y);
 
-    // Card background
-    doc.setFillColor(249, 115, 22, 0.12);
-    drawRoundedRect(doc, margin, y, contentW, takeawayH, 8, [30, 20, 4]); // dark orange-ish fill
-    // Border
+    doc.setFillColor(30, 20, 4);
+    doc.roundedRect(margin, y, contentW, takeawayH, 8, 8, 'F');
     doc.setDrawColor(249, 115, 22);
     doc.setLineWidth(0.75);
-    drawRoundedRectStroke(doc, margin, y, contentW, takeawayH, 8);
+    doc.roundedRect(margin, y, contentW, takeawayH, 8, 8, 'S');
 
-    // Label
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(249, 115, 22);
-    doc.text('KEY TAKEAWAY', margin + 16, y + 22);
+    doc.text('KEY TAKEAWAY', margin + 20, y + 22);
 
-    // Text
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(201, 209, 217); // #c9d1d9
-    doc.text(takeawayLines, margin + 16, y + 40);
+    doc.setFontSize(10.5);
+    doc.setTextColor(201, 209, 217);
+    doc.text(takeawayLines, margin + 20, y + 40);
 
-    y += takeawayH + 24;
+    y += takeawayH + 28;
 
-    // --- Sections in two-column layout ---
+    // --- Two-column: Strengths + Improvements ---
+    const gap = 20;
+    const colW = (contentW - gap) / 2;
     const leftX = margin;
-    const colW = (contentW - 24) / 2;
-    const rightX = margin + colW + 24;
+    const rightX = margin + colW + gap;
+    const textInset = 20; // space after accent bar + padding
+    const bulletTextW = colW - textInset - 18; // text width after bullet dot
 
-    // Draw strengths (left) and improvements (right) side by side
-    const leftH = drawSection(doc, leftX, y, colW,
-      'WHAT\'S WORKING', [63, 185, 80], structured.strengths);
-    const rightH = drawSection(doc, rightX, y, colW,
-      'AREAS TO IMPROVE', [248, 81, 73], structured.improvements);
+    // Pre-measure both columns
+    const leftMeasure = measureSection(doc, structured.strengths, bulletTextW);
+    const rightMeasure = measureSection(doc, structured.improvements, bulletTextW);
+    const colH = Math.max(leftMeasure.height, rightMeasure.height);
+    y = ensureSpace(colH, y);
 
-    y += Math.max(leftH, rightH) + 24;
+    drawSectionCard(doc, leftX, y, colW, colH,
+      'WHAT\'S WORKING', [63, 185, 80], structured.strengths, bulletTextW, textInset);
+    drawSectionCard(doc, rightX, y, colW, colH,
+      'AREAS TO IMPROVE', [248, 81, 73], structured.improvements, bulletTextW, textInset);
+
+    y += colH + 28;
 
     // --- Patterns (full width) ---
     if (structured.patterns && structured.patterns.length > 0) {
-      const patH = drawSection(doc, margin, y, contentW,
-        'BEHAVIORAL PATTERNS', [137, 87, 229], structured.patterns);
-      y += patH + 24;
+      const patTextW = contentW - textInset - 18;
+      const patMeasure = measureSection(doc, structured.patterns, patTextW);
+      y = ensureSpace(patMeasure.height, y);
+      drawSectionCard(doc, margin, y, contentW, patMeasure.height,
+        'BEHAVIORAL PATTERNS', [137, 87, 229], structured.patterns, patTextW, textInset);
+      y += patMeasure.height + 28;
     }
   } else {
-    // Fallback plain text
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
+    doc.setFontSize(10.5);
     doc.setTextColor(201, 209, 217);
-    const lines = doc.splitTextToSize(report.analysis, contentW);
+    const lines: string[] = doc.splitTextToSize(report.analysis, contentW);
     doc.text(lines, margin, y);
-    y += lines.length * 14 + 24;
   }
 
-  // --- Footer ---
-  const footerY = H - 36;
-  doc.setDrawColor(48, 54, 61);
-  doc.setLineWidth(0.5);
-  doc.line(margin, footerY - 12, W - margin, footerY - 12);
-
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(8);
-  doc.setTextColor(72, 79, 88); // #484f58
-  doc.text('AI-generated analysis — intended as a reflective tool, not financial advice.', margin, footerY);
-  doc.text('Powered by Juno Mission Control', W - margin, footerY, { align: 'right' });
+  // --- Footer on every page ---
+  const pageCount = doc.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    const fy = H - 36;
+    doc.setDrawColor(48, 54, 61);
+    doc.setLineWidth(0.5);
+    doc.line(margin, fy - 12, W - margin, fy - 12);
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(72, 79, 88);
+    doc.text('AI-generated analysis — intended as a reflective tool, not financial advice.', margin, fy);
+    doc.text('Powered by Confluence Trading', W - margin, fy, { align: 'right' });
+  }
 
   // Save
-  const filename = `juno-insights-${report.periodKey}.pdf`;
+  const periodType = report.period === 'week' ? 'weekly' : 'monthly';
+  const filename = `confluence-${periodType}-report-${report.periodKey}.pdf`;
   doc.save(filename);
 }
 
-// Helper: draw a filled rounded rectangle
-function drawRoundedRect(
+// Measure a section's total height without drawing
+function measureSection(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   doc: any,
-  x: number, y: number, w: number, h: number, r: number,
-  fillRgb: number[],
-) {
-  doc.setFillColor(fillRgb[0], fillRgb[1], fillRgb[2]);
-  doc.roundedRect(x, y, w, h, r, r, 'F');
-}
+  items: string[],
+  textW: number,
+): { height: number; wrappedItems: string[][] } {
+  const lineH = 14;
+  const itemGap = 10;
+  const headerH = 38; // label + gap
+  const pad = 16;
 
-// Helper: draw a stroked rounded rectangle
-function drawRoundedRectStroke(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  doc: any,
-  x: number, y: number, w: number, h: number, r: number,
-) {
-  doc.roundedRect(x, y, w, h, r, r, 'S');
-}
-
-// Helper: draw a section with header + bullet list, returns total height
-function drawSection(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  doc: any,
-  x: number, y: number, w: number,
-  title: string, colorRgb: number[], items: string[],
-): number {
-  const innerPad = 16;
-  const bulletR = 3;
-  const lineH = 15;
-  let innerY = 0;
-
-  // Measure total height first
-  let totalTextLines = 0;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
   const wrappedItems: string[][] = [];
-  for (const item of items) {
-    const lines = doc.splitTextToSize(item, w - innerPad * 2 - 16);
+  let textH = 0;
+  for (let i = 0; i < items.length; i++) {
+    const lines: string[] = doc.splitTextToSize(items[i], textW);
     wrappedItems.push(lines);
-    totalTextLines += lines.length;
+    textH += lines.length * lineH;
+    if (i < items.length - 1) textH += itemGap;
   }
-  const sectionH = 36 + totalTextLines * lineH + (items.length - 1) * 6 + innerPad;
+  return { height: headerH + textH + pad, wrappedItems };
+}
 
-  // Card bg
-  doc.setFillColor(22, 27, 34); // #161b22
-  doc.roundedRect(x, y, w, sectionH, 8, 8, 'F');
+// Draw a section card with accent bar, title, and bullets
+function drawSectionCard(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  doc: any,
+  x: number, y: number, w: number, h: number,
+  title: string, rgb: number[], items: string[],
+  textW: number, textInset: number,
+) {
+  const lineH = 14;
+  const itemGap = 10;
 
-  // Card border
+  // Card bg + border
+  doc.setFillColor(22, 27, 34);
+  doc.roundedRect(x, y, w, h, 6, 6, 'F');
   doc.setDrawColor(48, 54, 61);
   doc.setLineWidth(0.5);
-  doc.roundedRect(x, y, w, sectionH, 8, 8, 'S');
+  doc.roundedRect(x, y, w, h, 6, 6, 'S');
 
-  // Section colored accent line
-  doc.setFillColor(colorRgb[0], colorRgb[1], colorRgb[2]);
-  doc.rect(x, y, 4, sectionH, 'F');
-  // Clip corners manually with small fill
-  doc.setFillColor(22, 27, 34);
-  doc.rect(x, y, 4, 8, 'F');
-  doc.rect(x, y + sectionH - 8, 4, 8, 'F');
-  doc.setFillColor(colorRgb[0], colorRgb[1], colorRgb[2]);
-  doc.rect(x + 1, y + 4, 3, sectionH - 8, 'F');
+  // Accent bar (left edge)
+  doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+  doc.rect(x + 1, y + 6, 3, h - 12, 'F');
 
   // Title
-  innerY = y + 24;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.setTextColor(colorRgb[0], colorRgb[1], colorRgb[2]);
-  doc.text(title, x + innerPad + 8, innerY);
-  innerY += 18;
+  doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+  doc.text(title, x + textInset, y + 22);
 
   // Bullets
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setTextColor(201, 209, 217);
 
-  for (let i = 0; i < wrappedItems.length; i++) {
-    const lines = wrappedItems[i];
+  let bY = y + 38;
+  for (let i = 0; i < items.length; i++) {
+    const lines: string[] = doc.splitTextToSize(items[i], textW);
+
     // Bullet dot
-    doc.setFillColor(colorRgb[0], colorRgb[1], colorRgb[2]);
-    doc.circle(x + innerPad + 8 + bulletR, innerY - 3, bulletR, 'F');
+    doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+    doc.circle(x + textInset + 3, bY + 3.5, 2.5, 'F');
 
     // Text
-    doc.text(lines, x + innerPad + 20, innerY);
-    innerY += lines.length * lineH;
-    if (i < wrappedItems.length - 1) innerY += 6;
+    doc.setTextColor(201, 209, 217);
+    doc.text(lines, x + textInset + 12, bY + 7);
+    bY += lines.length * lineH;
+    if (i < items.length - 1) bY += itemGap;
   }
-
-  return sectionH;
 }
 
 export default function JournalInsightsView() {
