@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Newspaper, ExternalLink, RefreshCw, Bell } from 'lucide-react';
+import { Newspaper, ExternalLink, RefreshCw, Bell, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface NewsItem {
   id: string;
@@ -16,6 +16,7 @@ interface NewsItem {
   related: string[];
   timestamp: number;
   timeAgo: string;
+  sentiment?: 'bullish' | 'bearish' | 'neutral';
 }
 
 interface NewsData {
@@ -46,6 +47,12 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
   ai:       { label: 'AI',      color: '#22c55e' },
   crypto:   { label: 'Crypto',  color: '#f59e0b' },
 };
+
+const SENTIMENT_CONFIG = {
+  bullish: { label: 'Bullish', color: '#22c55e', Icon: TrendingUp },
+  bearish: { label: 'Bearish', color: '#ef4444', Icon: TrendingDown },
+  neutral: { label: 'Neutral', color: '#8b949e', Icon: Minus },
+} as const;
 
 export default function NewsScreenerCard() {
   const [data, setData] = useState<NewsData | null>(null);
@@ -205,6 +212,15 @@ export default function NewsScreenerCard() {
                       HIGH
                     </span>
                   )}
+                  {item.sentiment && (() => {
+                    const s = SENTIMENT_CONFIG[item.sentiment];
+                    return (
+                      <span className="flex items-center gap-0.5 text-[9px] font-medium flex-shrink-0" style={{ color: s.color }}>
+                        <s.Icon className="w-2.5 h-2.5" />
+                        {s.label}
+                      </span>
+                    );
+                  })()}
                   <span className="text-[9px] text-[#8b949e] truncate">{item.source}</span>
                 </div>
                 <span className="text-[9px] text-[#8b949e] whitespace-nowrap flex-shrink-0">{item.timeAgo}</span>

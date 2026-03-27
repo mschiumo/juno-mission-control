@@ -64,10 +64,40 @@ interface CategorizedNews {
   related: string[];
   timestamp: number;
   timeAgo: string;
+  sentiment?: 'bullish' | 'bearish' | 'neutral';
+}
+
+const BULLISH_KEYWORDS = ['rally', 'surge', 'soar', 'jump', 'pump', 'breakout', 'all-time high', 'ath', 'bull', 'bullish', 'moon', 'adoption', 'approval', 'approved', 'etf approved', 'upgrade', 'partnership', 'institutional', 'accumulate', 'buy signal', 'recovery', 'rebound', 'inflow', 'inflows'];
+const BEARISH_KEYWORDS = ['crash', 'plunge', 'dump', 'drop', 'collapse', 'bear', 'bearish', 'sell-off', 'selloff', 'hack', 'hacked', 'exploit', 'rug pull', 'scam', 'fraud', 'ban', 'banned', 'crackdown', 'liquidat', 'outflow', 'outflows', 'sec sues', 'lawsuit', 'ponzi', 'warning', 'fear'];
+
+function analyzeSentiment(headline: string, summary: string): 'bullish' | 'bearish' | 'neutral' {
+  const text = `${headline} ${summary}`.toLowerCase();
+  let bullScore = 0;
+  let bearScore = 0;
+  for (const kw of BULLISH_KEYWORDS) {
+    if (text.includes(kw)) bullScore++;
+  }
+  for (const kw of BEARISH_KEYWORDS) {
+    if (text.includes(kw)) bearScore++;
+  }
+  if (bullScore > bearScore) return 'bullish';
+  if (bearScore > bullScore) return 'bearish';
+  return 'neutral';
+}
+
+interface CryptoPanicPost {
+  id: number;
+  title: string;
+  url: string;
+  source: { title: string };
+  published_at: string;
+  currencies?: Array<{ code: string }>;
+  votes: { positive: number; negative: number; important: number };
 }
 
 // Finnhub free tier: 60 calls/minute
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
+const CRYPTOPANIC_API_KEY = process.env.CRYPTOPANIC_API_KEY;
 
 /**
  * Categorize news based on headline and summary content
@@ -79,7 +109,7 @@ function categorizeNews(item: NewsItem): CategorizedNews | null {
     const matches = config.keywords.some(keyword => text.includes(keyword.toLowerCase()));
     
     if (matches) {
-      return {
+      const result: CategorizedNews = {
         id: `${item.datetime}-${item.headline.slice(0, 30).replace(/\s+/g, '-')}`,
         category: key as keyof typeof NEWS_CATEGORIES,
         categoryName: config.name,
@@ -93,6 +123,10 @@ function categorizeNews(item: NewsItem): CategorizedNews | null {
         timestamp: item.datetime,
         timeAgo: getTimeAgo(item.datetime)
       };
+      if (key === 'crypto') {
+        result.sentiment = analyzeSentiment(item.headline, item.summary);
+      }
+      return result;
     }
   }
   
@@ -167,6 +201,45 @@ async function fetchEconomicCalendarNews(): Promise<NewsItem[]> {
   }
 }
 
+async function fetchCryptoPanicNews(): Promise<NewsItem[]> {
+  if (!CRYPTOPANIC_API_KEY) return [];
+
+  try {
+    const response = await fetch(
+      `https://cryptopanic.com/api/v1/posts/?auth_token=${CRYPTOPANIC_API_KEY}&filter=hot&kind=news`,
+      { next: { revalidate: 900 } }
+    );
+
+    if (!response.ok) {
+      console.warn(`CryptoPanic API error: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    const posts: CryptoPanicPost[] = data?.results ?? [];
+
+    return posts.map((post) => {
+      const tickers = post.currencies?.map(c => c.code).join(',') ?? '';
+      const sentimentHint = post.votes.positive > post.votes.negative ? 'bullish' :
+        post.votes.negative > post.votes.positive ? 'bearish' : '';
+
+      return {
+        category: 'crypto',
+        datetime: Math.floor(new Date(post.published_at).getTime() / 1000),
+        headline: post.title,
+        image: '',
+        related: tickers,
+        source: post.source.title,
+        summary: sentimentHint ? `Community sentiment: ${sentimentHint}` : '',
+        url: post.url,
+      };
+    });
+  } catch (error) {
+    console.warn('CryptoPanic fetch error:', error);
+    return [];
+  }
+}
+
 async function fetchFinnhubNews(): Promise<NewsItem[]> {
   if (!FINNHUB_API_KEY) {
     console.warn('FINNHUB_API_KEY not set, using mock data');
@@ -174,7 +247,7 @@ async function fetchFinnhubNews(): Promise<NewsItem[]> {
   }
 
   try {
-    const [newsResponse, cryptoResponse, calendarNews] = await Promise.all([
+    const [newsResponse, cryptoResponse, calendarNews, cryptoPanicNews] = await Promise.all([
       fetch(
         `https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_API_KEY}`,
         { next: { revalidate: 900 } },
@@ -184,6 +257,7 @@ async function fetchFinnhubNews(): Promise<NewsItem[]> {
         { next: { revalidate: 900 } },
       ),
       fetchEconomicCalendarNews(),
+      fetchCryptoPanicNews(),
     ]);
 
     let generalNews: NewsItem[] = [];
@@ -204,7 +278,7 @@ async function fetchFinnhubNews(): Promise<NewsItem[]> {
       console.warn(`Finnhub crypto news error: ${cryptoResponse.status}`);
     }
 
-    const combined = [...generalNews, ...cryptoNews, ...calendarNews];
+    const combined = [...generalNews, ...cryptoNews, ...calendarNews, ...cryptoPanicNews];
     if (combined.length === 0) return getMockNews();
 
     return combined;
@@ -279,6 +353,36 @@ function getMockNews(): NewsItem[] {
       source: 'Reuters',
       summary: 'Social media platform Reddit priced its initial public offering at the top end of expectations, marking a major tech IPO.',
       url: 'https://example.com/ipo-news'
+    },
+    {
+      category: 'crypto',
+      datetime: now - 1800,
+      headline: 'Bitcoin Surges Past $100K as Institutional Inflows Hit Record',
+      image: '',
+      related: 'BTC',
+      source: 'CoinDesk',
+      summary: 'Bitcoin rally continues as ETF inflows reach all-time highs, signaling strong institutional adoption.',
+      url: 'https://example.com/btc-surge'
+    },
+    {
+      category: 'crypto',
+      datetime: now - 5400,
+      headline: 'Ethereum Layer 2 Ecosystem Sees Major Partnership Announcement',
+      image: '',
+      related: 'ETH',
+      source: 'The Block',
+      summary: 'Leading Ethereum L2 network announces partnership with major financial institution for tokenized assets.',
+      url: 'https://example.com/eth-l2'
+    },
+    {
+      category: 'crypto',
+      datetime: now - 9000,
+      headline: 'SEC Crackdown on DeFi Protocols Sparks Market Fear',
+      image: '',
+      related: 'ETH,SOL',
+      source: 'Bloomberg',
+      summary: 'Regulatory crackdown concerns lead to sell-off across decentralized finance tokens.',
+      url: 'https://example.com/sec-defi'
     }
   ];
 }
