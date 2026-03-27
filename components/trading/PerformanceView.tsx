@@ -449,8 +449,8 @@ export default function PerformanceView() {
               <AreaChart data={equityCurve} margin={{ top: 10, right: 16, left: 10, bottom: 20 }}>
                 <defs>
                   <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={isPositive ? '#3fb950' : '#f85149'} stopOpacity={0.25} />
-                    <stop offset="100%" stopColor={isPositive ? '#3fb950' : '#f85149'} stopOpacity={0} />
+                    <stop offset="0%" stopColor="#3fb950" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="#3fb950" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
@@ -474,7 +474,7 @@ export default function PerformanceView() {
                 <Area
                   type="monotone"
                   dataKey="nlv"
-                  stroke={isPositive ? '#3fb950' : '#f85149'}
+                  stroke="#3fb950"
                   strokeWidth={2.5}
                   fill="url(#equityGradient)"
                 />
