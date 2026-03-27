@@ -26,6 +26,7 @@ import { saveTradesReplacingByDate } from '@/lib/db/trades-v2';
 import { parseFlexibleCSV, detectCSVFormat, validateCSVFormat, CSVFormat, getFormatSample } from '@/lib/parsers/flexible-csv-parser';
 import { getNowInEST } from '@/lib/date-utils';
 import { requireUserId } from '@/lib/auth-session';
+import { getRedisClient } from '@/lib/redis';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const { userId, error: authError } = await requireUserId();
@@ -97,6 +98,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await saveTradesReplacingByDate(result.trades, userId);
     }
 
+    // Persist starting balance from account statement if available
+    if (result.startingBalance && result.startingBalance > 0) {
+      try {
+        const redis = await getRedisClient();
+        const prefsKey = `user:prefs:${userId}`;
+        const raw = await redis.get(prefsKey);
+        const prefs = raw ? JSON.parse(raw as string) : {};
+        prefs.startingBalance = result.startingBalance;
+        await redis.set(prefsKey, JSON.stringify(prefs));
+      } catch (e) {
+        console.error('Failed to save starting balance from import:', e);
+      }
+    }
+
     return NextResponse.json({
       success: result.success,
       data: {
@@ -105,6 +120,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         errors: result.errors,
         trades: result.trades,
         detectedFormat,
+        startingBalance: result.startingBalance,
       },
       count: result.imported
     });

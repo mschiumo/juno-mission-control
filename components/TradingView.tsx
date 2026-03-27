@@ -7,6 +7,7 @@ import {
   TrendingUp,
   Calculator,
   Settings,
+  BarChart3,
   Menu,
   X,
 } from 'lucide-react';
@@ -17,9 +18,10 @@ import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
+import PerformanceView from '@/components/trading/PerformanceView';
 import TradingTour from '@/components/trading/TradingTour';
 
-type TradingSubTab = 'overview' | 'market' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'market' | 'performance' | 'projection' | 'trade-management';
 
 export default function TradingView() {
   const router = useRouter();
@@ -29,7 +31,7 @@ export default function TradingView() {
   // Get subtab from URL or default to 'overview'
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
     const subtab = searchParams.get('subtab');
-    if (subtab === 'market' || subtab === 'projection' || subtab === 'trade-management') {
+    if (subtab === 'market' || subtab === 'performance' || subtab === 'projection' || subtab === 'trade-management') {
       return subtab;
     }
     return 'overview';
@@ -80,6 +82,7 @@ export default function TradingView() {
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
     { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
+    { id: 'performance' as const, label: 'Performance', icon: BarChart3 },
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
   ];
 
@@ -175,6 +178,8 @@ export default function TradingView() {
           </div>
         </div>
       )}
+
+      {activeSubTab === 'performance' && <PerformanceView />}
 
       {activeSubTab === 'projection' && (
         <div data-tour="profit-projection">

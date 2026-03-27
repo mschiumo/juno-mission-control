@@ -284,6 +284,7 @@ export interface CSVImportResult {
   failed: number;
   errors: CSVImportError[];
   trades: Trade[];
+  startingBalance?: number;
 }
 
 export interface CSVImportError {

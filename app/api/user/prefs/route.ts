@@ -5,6 +5,7 @@ import { getRedisClient } from '@/lib/redis';
 interface UserPrefs {
   calendarUrl: string | null;
   tradingTourCompleted?: boolean;
+  startingBalance?: number;
 }
 
 async function getPrefs(userId: string): Promise<UserPrefs> {
@@ -80,6 +81,10 @@ export async function PATCH(request: Request) {
 
   if (typeof body.tradingTourCompleted === 'boolean') {
     updated.tradingTourCompleted = body.tradingTourCompleted;
+  }
+
+  if (typeof body.startingBalance === 'number' && body.startingBalance >= 0) {
+    updated.startingBalance = body.startingBalance;
   }
 
   await savePrefs(userId, updated);
