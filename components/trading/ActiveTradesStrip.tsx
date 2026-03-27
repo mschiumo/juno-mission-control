@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { RefreshCw, Activity, CheckCircle, Clock, X, TrendingUp, TrendingDown } from 'lucide-react';
 import type { ActiveTradeWithPnL } from '@/types/active-trade';
 
@@ -202,6 +202,21 @@ export default function ActiveTradesStrip() {
   };
   const onDragEnd = () => { setDraggingId(null); setDragOverId(null); };
 
+  const totalPnL = useMemo(() => {
+    let sum = 0;
+    let hasAny = false;
+    for (const trade of trades) {
+      const currentPrice = prices[trade.ticker];
+      if (currentPrice === undefined) continue;
+      const isLong = trade.plannedTarget > trade.plannedEntry;
+      sum += isLong
+        ? (currentPrice - trade.actualEntry) * trade.actualShares
+        : (trade.actualEntry - currentPrice) * trade.actualShares;
+      hasAny = true;
+    }
+    return hasAny ? sum : null;
+  }, [trades, prices]);
+
   return (
     <>
       <style>{`
@@ -222,6 +237,14 @@ export default function ActiveTradesStrip() {
             <Activity className="w-4 h-4 text-[#238636]" />
             <span className="text-sm font-semibold text-[#238636]">Active Trades</span>
             {!loading && <span className="text-xs text-[#8b949e]">({trades.length})</span>}
+            {totalPnL !== null && (
+              <div className="flex items-center gap-1.5 ml-3 px-2.5 py-1 rounded-md bg-[#0d1117] border border-[#30363d]">
+                {totalPnL >= 0 ? <TrendingUp className="w-3.5 h-3.5 text-[#3fb950]" /> : <TrendingDown className="w-3.5 h-3.5 text-[#f85149]" />}
+                <span className={`text-xs font-bold tabular-nums ${totalPnL >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                  Total: {formatCurrency(totalPnL)}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="text-[10px] text-[#484f58] italic">prices may be a few seconds delayed</span>
