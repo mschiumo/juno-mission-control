@@ -199,13 +199,12 @@ const GAP_SCAN_CACHE_KEY = 'gap_scan_latest';
 
 export async function cacheGapScanResults(
   data: unknown,
-  ttlSeconds: number = 1800
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const redis = await getRedisClient();
     if (!redis) return { success: false, error: 'Redis unavailable' };
 
-    await redis.set(GAP_SCAN_CACHE_KEY, JSON.stringify(data), { EX: ttlSeconds });
+    await redis.set(GAP_SCAN_CACHE_KEY, JSON.stringify(data));
     console.log('[CronHelper] Cached gap scan results');
     return { success: true };
   } catch (error) {
