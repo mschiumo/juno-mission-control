@@ -37,6 +37,8 @@ interface SavedReport {
   period: string;
   periodKey: string;
   periodLabel: string;
+  periodStart: string;
+  periodEnd: string;
   entriesCount: number;
   tradesCount: number;
   generatedAt: string;
@@ -319,6 +321,8 @@ ${context}`,
       period,
       periodKey: currentPeriodKey,
       periodLabel: getPeriodLabel(period, currentPeriodKey),
+      periodStart: start.toISOString(),
+      periodEnd: end.toISOString(),
       entriesCount: entries.length,
       tradesCount: periodTrades.filter((t) => t.status === 'CLOSED').length,
       generatedAt: new Date().toISOString(),

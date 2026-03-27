@@ -14,6 +14,8 @@ interface SavedReport {
   period: string;
   periodKey: string;
   periodLabel: string;
+  periodStart?: string;
+  periodEnd?: string;
   entriesCount: number;
   tradesCount: number;
   generatedAt: string;
@@ -93,7 +95,16 @@ async function downloadPdf(report: SavedReport, structured: StructuredAnalysis |
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(26);
   doc.setTextColor(255, 255, 255);
-  doc.text(`${report.periodLabel} Report`, margin, y);
+  // Title with date range for weekly reports
+  let title = `${report.periodLabel} Report`;
+  if (report.periodStart && report.periodEnd) {
+    const fmt = (iso: string) => {
+      const d = new Date(iso);
+      return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+    };
+    title += `  (${fmt(report.periodStart)} - ${fmt(report.periodEnd)})`;
+  }
+  doc.text(title, margin, y);
 
   y += 22;
   doc.setFont('helvetica', 'normal');
