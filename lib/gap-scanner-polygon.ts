@@ -156,8 +156,7 @@ export async function fetchAllSnapshots(
   const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=${POLYGON_API_KEY}`;
   console.log('[GapScanner-Polygon] Fetching all stock snapshots...');
 
-  const revalidate = session === 'market-open' ? 15 : session === 'pre-market' ? 60 : 300;
-  const response = await fetch(url, { next: { revalidate } });
+  const response = await fetch(url, { cache: 'no-store' });
 
   if (!response.ok) {
     const errorText = await response.text();
