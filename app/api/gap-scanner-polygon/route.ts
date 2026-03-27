@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     console.log(`[GapScanner-Polygon] Filters: minGap=${minGapPercent}%, minVolume=${minVolume}, minPrice=${minPrice}, maxPrice=${maxPrice}`);
 
     // Fetch all snapshots in ONE API call
-    const snapshots = await fetchAllSnapshots(marketInfo.session);
+    const snapshots = await fetchAllSnapshots();
 
     // Process gaps
     const { gainers, losers, skipped } = processGaps(snapshots, {

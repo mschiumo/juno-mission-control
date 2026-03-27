@@ -146,9 +146,7 @@ function isLikelyADRBySymbol(symbol: string): boolean {
 
 // ── Core scanning ───────────────────────────────────────────────────────────
 
-export async function fetchAllSnapshots(
-  session: 'pre-market' | 'market-open' | 'post-market' | 'closed'
-): Promise<PolygonSnapshot[]> {
+export async function fetchAllSnapshots(): Promise<PolygonSnapshot[]> {
   if (!POLYGON_API_KEY) {
     throw new Error('POLYGON_API_KEY environment variable is required');
   }
@@ -156,8 +154,7 @@ export async function fetchAllSnapshots(
   const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=${POLYGON_API_KEY}`;
   console.log('[GapScanner-Polygon] Fetching all stock snapshots...');
 
-  const revalidate = session === 'market-open' ? 15 : session === 'pre-market' ? 60 : 300;
-  const response = await fetch(url, { next: { revalidate } });
+  const response = await fetch(url, { cache: 'no-store' });
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -246,7 +243,7 @@ export async function runPolygonGapScan(options: {
   } = options;
 
   const marketInfo = getMarketSession();
-  const snapshots = await fetchAllSnapshots(marketInfo.session);
+  const snapshots = await fetchAllSnapshots();
 
   const { gainers, losers, skipped } = processGaps(snapshots, {
     minGapPercent,
