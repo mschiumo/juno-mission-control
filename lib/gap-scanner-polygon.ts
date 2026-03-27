@@ -224,8 +224,8 @@ export function processGaps(
   losers.sort((a, b) => a.gapPercent - b.gapPercent);
 
   return {
-    gainers: gainers.slice(0, 20),
-    losers: losers.slice(0, 20),
+    gainers,
+    losers,
     skipped: { gap: skippedGap, volume: skippedVolume, price: skippedPrice },
   };
 }
