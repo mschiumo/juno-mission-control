@@ -15,6 +15,7 @@ import {
   cacheGapScanResults
 } from '@/lib/cron-helpers';
 import { runPolygonGapScan } from '@/lib/gap-scanner-polygon';
+import { runYahooGapScan } from '@/lib/gap-scanner-yahoo';
 
 function formatVolume(volume: number): string {
   if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`;
@@ -48,19 +49,34 @@ export async function POST() {
 
     await logToActivityLog('Gap Scanner', 'Starting pre-market gap scan...', 'cron');
 
-    const result = await runPolygonGapScan({ minGapPercent: 5 });
+    let gainers: { symbol: string; price: number; gapPercent: number; volume: number; marketCap: number }[];
+    let losers: typeof gainers;
+    let scanned: number | undefined;
+    let source: string;
 
-    if (!result.success || !result.data) {
-      throw new Error('Gap scanner returned no data');
+    try {
+      const result = await runPolygonGapScan({ minGapPercent: 5 });
+      if (!result.success || !result.data) throw new Error('Polygon returned no data');
+      gainers = result.data.gainers;
+      losers = result.data.losers;
+      scanned = result.scanned;
+      source = 'polygon';
+      await cacheGapScanResults(result);
+    } catch (polygonError) {
+      console.warn('[GapScannerTrigger] Polygon failed, falling back to Yahoo:', polygonError);
+      await logToActivityLog('Gap Scanner', 'Polygon unavailable, using Yahoo fallback', 'cron');
+      const result = await runYahooGapScan({ minGapPercent: 5 });
+      if (!result.success || !result.data) throw new Error('Yahoo fallback also returned no data');
+      gainers = result.data.gainers;
+      losers = result.data.losers;
+      scanned = result.scanned;
+      source = 'yahoo';
+      await cacheGapScanResults(result);
     }
-
-    const { gainers, losers } = result.data;
 
     const reportLines = [`📊 **Gap Scanner Pre-Market** — ${formatDate()}`, ''];
 
-    if (result.marketSession) {
-      reportLines.push(`Market Session: ${result.marketSession}`, '');
-    }
+    reportLines.push(`Source: ${source}`, '');
 
     if (gainers.length > 0) {
       reportLines.push(`**🚀 Top Gainers (${gainers.length} found)**`);
@@ -90,22 +106,21 @@ export async function POST() {
 
     reportLines.push(
       `**Summary**: ${gainers.length} gainers, ${losers.length} losers ` +
-      `from ${result.scanned || '?'} stocks scanned`
+      `from ${scanned || '?'} stocks scanned`
     );
 
     const reportContent = reportLines.join('\n');
 
     await postToCronResults('Gap Scanner', reportContent, 'market');
-    await cacheGapScanResults(result);
-    await logToActivityLog('Gap Scanner', `Completed: ${gainers.length} gainers, ${losers.length} losers`, 'cron');
+    await logToActivityLog('Gap Scanner', `Completed (${source}): ${gainers.length} gainers, ${losers.length} losers`, 'cron');
     await sendTelegramIfNeeded(reportContent);
 
     const duration = Date.now() - startTime;
-    console.log(`[GapScannerTrigger] Completed in ${duration}ms`);
+    console.log(`[GapScannerTrigger] Completed in ${duration}ms via ${source}`);
 
     return NextResponse.json({
       success: true,
-      data: { gainers: gainers.length, losers: losers.length, scanned: result.scanned, durationMs: duration }
+      data: { gainers: gainers.length, losers: losers.length, scanned, source, durationMs: duration }
     });
 
   } catch (error) {
