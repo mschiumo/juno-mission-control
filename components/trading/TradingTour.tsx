@@ -109,7 +109,7 @@ const STEPS: TourStep[] = [
     icon: <TrendingUp className="w-9 h-9 text-[#F97316]" />,
     title: 'Live Gap Scanner',
     description:
-      'Stocks gapping ≥ 2% with significant volume refresh every 15 seconds. Star any ticker to pin it to your watchlist. Review this list pre-market to build your trade plan for the day.',
+      'Stocks gapping ≥ 2% with significant volume refresh every 15 seconds. The scanner is fully customizable — adjust gap %, volume, and price filters to match your strategy. Star any ticker to pin it to your watchlist.',
     tip: 'Sort by gap % or volume to find the highest-conviction setups quickly.',
   },
   {
