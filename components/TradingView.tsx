@@ -14,6 +14,7 @@ import {
 import MarketEventsCard from '@/components/MarketEventsCard';
 import GapScannerCard from '@/components/GapScannerCard';
 import MarketCard from '@/components/MarketCard';
+import MarketBriefingModal from '@/components/MarketBriefingModal';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
@@ -39,6 +40,7 @@ export default function TradingView() {
 
   const [activeSubTab, setActiveSubTabState] = useState<TradingSubTab>(getSubTabFromUrl);
   const [showTradeModal, setShowTradeModal] = useState(false);
+  const [showBriefingModal, setShowBriefingModal] = useState(false);
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
@@ -167,7 +169,7 @@ export default function TradingView() {
 
       {activeSubTab === 'market' && (
         <div className="space-y-6">
-          <MarketEventsCard />
+          <MarketEventsCard onOpenBriefing={() => setShowBriefingModal(true)} />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:h-[640px]">
             <div data-tour="gap-scanner" className="h-[640px] lg:h-full overflow-hidden">
               <GapScannerCard />
@@ -189,6 +191,9 @@ export default function TradingView() {
 
       {/* Trade Entry Modal */}
       <TradeEntryModal isOpen={showTradeModal} onClose={() => setShowTradeModal(false)} />
+
+      {/* Market Briefing Modal */}
+      <MarketBriefingModal isOpen={showBriefingModal} onClose={() => setShowBriefingModal(false)} />
 
       {/* First-time onboarding tour */}
       {showTour && (
