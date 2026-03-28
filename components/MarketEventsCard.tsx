@@ -114,14 +114,6 @@ export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardPro
               )}
             </button>
           )}
-          <button
-            onClick={fetchEvents}
-            disabled={loading}
-            className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
-            title="Refresh events"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       </div>
 
