@@ -84,7 +84,7 @@ export default function ActiveTradesStrip() {
     };
   }, []);
 
-  // Live price feed via SSE → Finnhub WebSocket. Falls back to REST polling if unavailable.
+  // Live price feed via SSE → Polygon WebSocket. Falls back to REST polling if unavailable.
   useEffect(() => {
     // Tear down previous connection
     if (esRef.current) { esRef.current.close(); esRef.current = null; }
@@ -247,7 +247,7 @@ export default function ActiveTradesStrip() {
             )}
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[10px] text-[#484f58] italic">prices may be a few seconds delayed</span>
+            <span className="text-[10px] text-[#484f58] italic">real-time prices via Polygon</span>
             <button onClick={fetchTrades} className="p-1 text-[#8b949e] hover:text-white transition-colors rounded" title="Refresh">
               <RefreshCw className="w-3.5 h-3.5" />
             </button>

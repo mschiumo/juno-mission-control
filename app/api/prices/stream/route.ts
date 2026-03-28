@@ -8,8 +8,8 @@ export async function GET(req: NextRequest) {
   const symbolsParam = req.nextUrl.searchParams.get('symbols') ?? '';
   const symbols = symbolsParam.split(',').map((s) => s.trim()).filter(Boolean);
 
-  if (!process.env.FINNHUB_API_KEY) {
-    return new Response('FINNHUB_API_KEY not configured', { status: 503 });
+  if (!process.env.POLYGON_API_KEY) {
+    return new Response('POLYGON_API_KEY not configured', { status: 503 });
   }
 
   if (symbols.length === 0) {
