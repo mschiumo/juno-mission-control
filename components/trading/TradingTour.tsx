@@ -114,8 +114,6 @@ const STEPS: TourStep[] = [
   },
   {
     subtab: 'performance',
-    targetDataTour: 'journal-insights',
-    tooltipSide: 'top',
     icon: <Brain className="w-9 h-9 text-[#F97316]" />,
     title: 'AI Journal Insights',
     description:
