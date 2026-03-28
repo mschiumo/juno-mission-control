@@ -202,37 +202,81 @@ async function logActivity(action: string, details: string, type: 'cron' | 'api'
 }
 
 /**
- * GET handler - Returns today's quote without sending
+ * GET handler - Vercel cron triggers this to send the daily motivational message.
+ * Pass ?preview=true to return the quote without sending.
  */
 export async function GET(request: Request) {
+  const startTime = Date.now();
+
   try {
     const { searchParams } = new URL(request.url);
+    const preview = searchParams.get('preview') === 'true';
     const dateParam = searchParams.get('date');
-    
+
     const date = dateParam ? new Date(dateParam) : new Date();
     const quote = getQuoteForDate(date);
-    
+
     const message = `Good morning! ☀️
 
 "${quote.text}" — ${quote.author}
 
 Make today count! 💪`;
-    
+
+    if (preview) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          quote,
+          message,
+          date: date.toISOString(),
+          quoteIndex: quote.index,
+          totalQuotes: QUOTES.length
+        }
+      });
+    }
+
+    // Send via Telegram
+    const telegramSuccess = await sendTelegramMessage(message);
+
+    // Store result
+    const resultContent = telegramSuccess
+      ? `✅ Daily Motivational Message sent successfully\n\nQuote #${quote.index + 1}: "${quote.text.substring(0, 50)}..." — ${quote.author}`
+      : `❌ Failed to send Daily Motivational Message\n\nQuote #${quote.index + 1}: "${quote.text.substring(0, 50)}..." — ${quote.author}`;
+
+    await postCronResult(resultContent, telegramSuccess ? 'motivational' : 'error');
+
+    // Log activity
+    await logActivity(
+      telegramSuccess ? 'Daily Motivational Sent' : 'Daily Motivational Failed',
+      `Quote #${quote.index + 1} by ${quote.author}. Telegram: ${telegramSuccess ? 'success' : 'failed'}`,
+      'cron'
+    );
+
+    const duration = Date.now() - startTime;
+
     return NextResponse.json({
-      success: true,
+      success: telegramSuccess,
       data: {
         quote,
         message,
-        date: date.toISOString(),
-        quoteIndex: quote.index,
-        totalQuotes: QUOTES.length
+        telegramSent: telegramSuccess,
+        durationMs: duration,
+        timestamp: new Date().toISOString()
       }
     });
   } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
     console.error('Daily motivational GET error:', error);
+
+    await postCronResult(`❌ Daily Motivational Message failed: ${errorMessage}`, 'error');
+    await logActivity('Daily Motivational Error', errorMessage, 'cron');
+
     return NextResponse.json({
       success: false,
-      error: 'Failed to get daily quote'
+      error: errorMessage,
+      durationMs: duration
     }, { status: 500 });
   }
 }
