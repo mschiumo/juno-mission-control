@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CalendarDays, RefreshCw, TrendingUp, Landmark, Scale } from 'lucide-react';
+import { CalendarDays, RefreshCw, TrendingUp, Landmark, Scale, Newspaper } from 'lucide-react';
 import type { MarketEvent } from '@/app/api/market-events/route';
 
 const TYPE_CONFIG = {
@@ -28,7 +28,11 @@ const TYPE_CONFIG = {
   },
 };
 
-export default function MarketEventsCard() {
+interface MarketEventsCardProps {
+  onOpenBriefing?: () => void;
+}
+
+export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardProps) {
   const [events, setEvents] = useState<MarketEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,14 +64,26 @@ export default function MarketEventsCard() {
           <span className="text-sm font-semibold text-white">Today's Events</span>
           <span className="text-[10px] text-[#8b949e]">FOMC · Earnings · Gov</span>
         </div>
-        <button
-          onClick={fetchEvents}
-          disabled={loading}
-          className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
-          title="Refresh events"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-1">
+          {onOpenBriefing && (
+            <button
+              onClick={onOpenBriefing}
+              className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-[#30363d] rounded-lg transition-colors"
+              title="Morning Market Briefing"
+            >
+              <Newspaper className="w-3.5 h-3.5 text-[#F97316]" />
+              <span className="text-[10px] font-medium text-[#8b949e] hover:text-white hidden sm:inline">Briefing</span>
+            </button>
+          )}
+          <button
+            onClick={fetchEvents}
+            disabled={loading}
+            className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+            title="Refresh events"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Events - horizontal scrollable strip */}

@@ -164,7 +164,6 @@ async function downloadBriefingPdf(briefing: BriefingData) {
   const gap = 20;
   const colW = (contentW - gap) / 2;
 
-  // Measure heights
   const indicesRows = briefing.indices.length;
   const cryptoRows = briefing.crypto.length;
   const rowH = 18;
@@ -287,7 +286,7 @@ async function downloadBriefingPdf(briefing: BriefingData) {
   if (briefing.aiSummary.upcomingEvents.length > 0) {
     let totalEventsH = headerH;
     for (const ev of briefing.aiSummary.upcomingEvents) {
-      const wrapped: string[] = doc.splitTextToSize(`⚡ ${ev}`, contentW - 28);
+      const wrapped: string[] = doc.splitTextToSize(`• ${ev}`, contentW - 28);
       totalEventsH += wrapped.length * 14 + 4;
     }
     totalEventsH += 8;
