@@ -44,6 +44,7 @@ export default function TradeManagementView() {
         <MarketTickerBar />
         <div className="flex justify-end">
           <button
+            data-tour="trading-mode"
             onClick={enterTradingMode}
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-all"
           >

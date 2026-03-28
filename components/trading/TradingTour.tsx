@@ -10,6 +10,11 @@ import {
   Calculator,
   TrendingUp,
   BarChart2,
+  Maximize2,
+  Brain,
+  LineChart,
+  Lightbulb,
+  TrendingDown,
 } from 'lucide-react';
 
 type TradingSubTab = 'overview' | 'market' | 'performance' | 'projection' | 'trade-management';
@@ -41,6 +46,58 @@ function CalcPreview() {
   );
 }
 
+/** Mini visual mockup of the AI Journal Insights report */
+function JournalInsightsPreview() {
+  return (
+    <div className="shrink-0 w-48 bg-[#0d1117] border border-[#30363d] rounded-xl p-3 space-y-2 text-left">
+      <div className="flex items-center gap-1.5 pb-1 border-b border-[#30363d]">
+        <div className="w-2 h-2 rounded-full bg-[#F97316]" />
+        <span className="text-[10px] font-semibold text-[#8b949e] uppercase tracking-wider">AI Report</span>
+      </div>
+
+      {/* Key Takeaway */}
+      <div className="bg-[#F97316]/5 border border-[#F97316]/20 rounded-lg px-2 py-1.5">
+        <div className="flex items-center gap-1 mb-0.5">
+          <Lightbulb className="w-2.5 h-2.5 text-[#F97316]" />
+          <span className="text-[8px] font-bold text-[#F97316] uppercase">Key Takeaway</span>
+        </div>
+        <p className="text-[9px] text-[#c9d1d9] leading-tight">
+          Best wins come from patience at key levels
+        </p>
+      </div>
+
+      {/* Strengths */}
+      <div className="space-y-0.5">
+        <div className="flex items-center gap-1">
+          <TrendingUp className="w-2.5 h-2.5 text-[#3fb950]" />
+          <span className="text-[8px] font-bold text-[#3fb950] uppercase">Strengths</span>
+        </div>
+        <p className="text-[9px] text-[#8b949e] leading-tight truncate">Strong risk management</p>
+        <p className="text-[9px] text-[#8b949e] leading-tight truncate">Consistent entry timing</p>
+      </div>
+
+      {/* Improve */}
+      <div className="space-y-0.5">
+        <div className="flex items-center gap-1">
+          <TrendingDown className="w-2.5 h-2.5 text-[#f85149]" />
+          <span className="text-[8px] font-bold text-[#f85149] uppercase">Improve</span>
+        </div>
+        <p className="text-[9px] text-[#8b949e] leading-tight truncate">Holding losers too long</p>
+        <p className="text-[9px] text-[#8b949e] leading-tight truncate">Over-trading on Fridays</p>
+      </div>
+
+      {/* Patterns */}
+      <div className="pt-1 border-t border-[#30363d]">
+        <div className="flex items-center gap-1 mb-0.5">
+          <Brain className="w-2.5 h-2.5 text-[#8b5cf6]" />
+          <span className="text-[8px] font-bold text-[#8b5cf6] uppercase">Patterns</span>
+        </div>
+        <p className="text-[9px] text-[#8b949e] leading-tight truncate">Revenge trading after losses</p>
+      </div>
+    </div>
+  );
+}
+
 interface TourStep {
   subtab: TradingSubTab;
   targetDataTour?: string;
@@ -66,9 +123,9 @@ const STEPS: TourStep[] = [
     targetDataTour: 'trading-nav',
     tooltipSide: 'bottom',
     icon: <LayoutDashboard className="w-9 h-9 text-[#F97316]" />,
-    title: 'Four Sections, One Tab',
+    title: 'Five Sections, One Tab',
     description:
-      'Overview shows your P&L calendar and trade journal. Market gives you a live gap scanner. Trade Management has the position calculator and watchlist. Profit Projection lets you model your strategy.',
+      'Overview shows your P&L calendar and trade journal. Market gives you a live gap scanner. Trade Management has the position calculator and watchlist. Performance tracks your stats and AI journal insights. Profit Projection lets you model your strategy.',
     tip: "Click any tab to jump to that section — we'll show you each one.",
   },
   {
@@ -91,14 +148,41 @@ const STEPS: TourStep[] = [
     preview: <CalcPreview />,
   },
   {
+    subtab: 'trade-management',
+    targetDataTour: 'trading-mode',
+    tooltipSide: 'bottom',
+    icon: <Maximize2 className="w-9 h-9 text-[#F97316]" />,
+    title: 'Trading Mode',
+    description:
+      'Enter a distraction-free fullscreen workspace designed for the live session. Trading Mode shows your active trades strip and watchlist side-by-side — no tabs, no clutter.',
+    tip: 'Press Esc at any time to exit Trading Mode and return to the full dashboard.',
+  },
+  {
     subtab: 'market',
     targetDataTour: 'gap-scanner',
     tooltipSide: 'right',
     icon: <TrendingUp className="w-9 h-9 text-[#F97316]" />,
     title: 'Live Gap Scanner',
     description:
-      'Stocks gapping ≥ 2% with significant volume refresh every 15 seconds. Star any ticker to pin it to your watchlist. Review this list pre-market to build your trade plan for the day.',
+      'Stocks gapping ≥ 2% with significant volume refresh every 15 seconds. The scanner is fully customizable — adjust gap %, volume, and price filters to match your strategy. Star any ticker to pin it to your watchlist.',
     tip: 'Sort by gap % or volume to find the highest-conviction setups quickly.',
+  },
+  {
+    subtab: 'performance',
+    icon: <LineChart className="w-9 h-9 text-[#F97316]" />,
+    title: 'Equity Curve',
+    description:
+      'Track your account growth over time with an interactive equity curve. See your net liquidating value, total P&L, win rate, and average win/loss at a glance — all updated automatically as you import trades.',
+    tip: 'Set your starting balance to see accurate percentage returns from day one.',
+  },
+  {
+    subtab: 'performance',
+    icon: <Brain className="w-9 h-9 text-[#F97316]" />,
+    title: 'AI Journal Insights',
+    description:
+      'Generate an AI-powered analysis of your trade journal. The report surfaces what\'s working, areas to improve, and behavioral patterns across your entries — so you can spot recurring mistakes and double down on winning habits.',
+    tip: 'Generate a report weekly to track how your patterns evolve over time.',
+    preview: <JournalInsightsPreview />,
   },
   {
     subtab: 'projection',
@@ -282,7 +366,6 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
     if (isWide) {
       const sBottom = top + height + PAD;
       if (!isTall) {
-        // Wide but short (e.g. nav bar) — place the card below it, centered
         return {
           position: 'fixed',
           top: sBottom + GAP,
@@ -292,7 +375,6 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
           zIndex: 10004,
         };
       } else {
-        // Wide and tall (e.g. calendar grid) — place above, or pin to top
         return {
           position: 'fixed',
           top: Math.max(80, top - CARD_H - GAP),
@@ -345,7 +427,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
         {/* Top */}
         <div
           onClick={dismiss}
-          style={{ position: 'fixed', inset: `0 0 auto 0`, height: sTop, background: OVERLAY, zIndex: 10001, pointerEvents: 'auto', cursor: 'default' }}
+          style={{ position: 'fixed', inset: '0 0 auto 0', height: sTop, background: OVERLAY, zIndex: 10001, pointerEvents: 'auto', cursor: 'default' }}
         />
         {/* Bottom */}
         <div

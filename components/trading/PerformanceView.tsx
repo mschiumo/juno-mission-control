@@ -555,7 +555,9 @@ export default function PerformanceView() {
       </div>
 
       {/* Journal Insights */}
-      <JournalInsightsView />
+      <div data-tour="journal-insights">
+        <JournalInsightsView />
+      </div>
 
       {/* Metrics cards */}
       <div className={`grid grid-cols-2 md:grid-cols-4 gap-4${!hasData ? ' opacity-30' : ''}`}>
