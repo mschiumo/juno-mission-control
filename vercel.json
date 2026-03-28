@@ -7,12 +7,19 @@
     },
     "app/api/cron-jobs/gap-scanner-trigger/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/cron-jobs/market-briefing/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
     {
       "path": "/api/cron-jobs/gap-scanner-trigger",
       "schedule": "0 12 * * 1-5"
+    },
+    {
+      "path": "/api/cron-jobs/market-briefing",
+      "schedule": "0 13 * * 1-5"
     }
   ]
 }

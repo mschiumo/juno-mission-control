@@ -10,10 +10,12 @@ import {
   BarChart3,
   Menu,
   X,
+  Newspaper,
 } from 'lucide-react';
 import MarketEventsCard from '@/components/MarketEventsCard';
 import GapScannerCard from '@/components/GapScannerCard';
 import MarketCard from '@/components/MarketCard';
+import MarketBriefingModal from '@/components/MarketBriefingModal';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
@@ -39,6 +41,7 @@ export default function TradingView() {
 
   const [activeSubTab, setActiveSubTabState] = useState<TradingSubTab>(getSubTabFromUrl);
   const [showTradeModal, setShowTradeModal] = useState(false);
+  const [showBriefingModal, setShowBriefingModal] = useState(false);
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
@@ -167,7 +170,23 @@ export default function TradingView() {
 
       {activeSubTab === 'market' && (
         <div className="space-y-6">
-          <MarketEventsCard />
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <MarketEventsCard />
+            </div>
+            <button
+              onClick={() => setShowBriefingModal(true)}
+              className="flex-shrink-0 ml-3 flex items-center gap-2 px-3 py-2 bg-[#161b22] border border-[#30363d] hover:border-[#F97316]/50 rounded-xl transition-all group"
+              title="Morning Market Briefing"
+            >
+              <div className="p-1.5 bg-[#F97316]/10 rounded-lg group-hover:bg-[#F97316]/20 transition-colors">
+                <Newspaper className="w-4 h-4 text-[#F97316]" />
+              </div>
+              <span className="text-xs font-medium text-[#8b949e] group-hover:text-white transition-colors hidden sm:inline">
+                Briefing
+              </span>
+            </button>
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:h-[640px]">
             <div data-tour="gap-scanner" className="h-[640px] lg:h-full overflow-hidden">
               <GapScannerCard />
@@ -189,6 +208,9 @@ export default function TradingView() {
 
       {/* Trade Entry Modal */}
       <TradeEntryModal isOpen={showTradeModal} onClose={() => setShowTradeModal(false)} />
+
+      {/* Market Briefing Modal */}
+      <MarketBriefingModal isOpen={showBriefingModal} onClose={() => setShowBriefingModal(false)} />
 
       {/* First-time onboarding tour */}
       {showTour && (
