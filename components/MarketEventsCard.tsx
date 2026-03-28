@@ -28,6 +28,8 @@ const TYPE_CONFIG = {
   },
 };
 
+const BRIEFING_READ_KEY = 'market_briefing_last_read';
+
 interface MarketEventsCardProps {
   onOpenBriefing?: () => void;
 }
@@ -35,10 +37,27 @@ interface MarketEventsCardProps {
 export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardProps) {
   const [events, setEvents] = useState<MarketEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasUnreadBriefing, setHasUnreadBriefing] = useState(false);
 
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  // Check for unread briefing on mount
+  useEffect(() => {
+    if (!onOpenBriefing) return;
+    fetch('/api/market-briefing')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.briefing?.generatedAt) {
+          const lastRead = localStorage.getItem(BRIEFING_READ_KEY);
+          if (!lastRead || lastRead !== data.briefing.generatedAt) {
+            setHasUnreadBriefing(true);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [onOpenBriefing]);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -55,24 +74,44 @@ export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardPro
     }
   };
 
+  const handleOpenBriefing = () => {
+    // Mark as read
+    fetch('/api/market-briefing')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.briefing?.generatedAt) {
+          localStorage.setItem(BRIEFING_READ_KEY, data.briefing.generatedAt);
+        }
+      })
+      .catch(() => {});
+    setHasUnreadBriefing(false);
+    onOpenBriefing?.();
+  };
+
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50">
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-[#F97316]" />
-          <span className="text-sm font-semibold text-white">Today's Events</span>
+          <span className="text-sm font-semibold text-white">Today&apos;s Events</span>
           <span className="text-[10px] text-[#8b949e]">FOMC · Earnings · Gov</span>
         </div>
         <div className="flex items-center gap-1">
           {onOpenBriefing && (
             <button
-              onClick={onOpenBriefing}
-              className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-[#30363d] rounded-lg transition-colors"
+              onClick={handleOpenBriefing}
+              className="relative flex items-center gap-1.5 px-2 py-1.5 hover:bg-[#30363d] rounded-lg transition-colors"
               title="Morning Market Briefing"
             >
               <Newspaper className="w-3.5 h-3.5 text-[#F97316]" />
-              <span className="text-[10px] font-medium text-[#8b949e] hover:text-white hidden sm:inline">Briefing</span>
+              <span className="text-[10px] font-medium text-[#8b949e] hidden sm:inline">Briefing</span>
+              {hasUnreadBriefing && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F97316] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#F97316]" />
+                </span>
+              )}
             </button>
           )}
           <button
