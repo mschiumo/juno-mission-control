@@ -10,6 +10,8 @@ import {
   Calculator,
   TrendingUp,
   BarChart2,
+  Maximize2,
+  Brain,
 } from 'lucide-react';
 
 type TradingSubTab = 'overview' | 'market' | 'performance' | 'projection' | 'trade-management';
@@ -66,9 +68,9 @@ const STEPS: TourStep[] = [
     targetDataTour: 'trading-nav',
     tooltipSide: 'bottom',
     icon: <LayoutDashboard className="w-9 h-9 text-[#F97316]" />,
-    title: 'Four Sections, One Tab',
+    title: 'Five Sections, One Tab',
     description:
-      'Overview shows your P&L calendar and trade journal. Market gives you a live gap scanner. Trade Management has the position calculator and watchlist. Profit Projection lets you model your strategy.',
+      'Overview shows your P&L calendar and trade journal. Market gives you a live gap scanner. Trade Management has the position calculator and watchlist. Performance tracks your stats and AI journal insights. Profit Projection lets you model your strategy.',
     tip: "Click any tab to jump to that section — we'll show you each one.",
   },
   {
@@ -91,6 +93,16 @@ const STEPS: TourStep[] = [
     preview: <CalcPreview />,
   },
   {
+    subtab: 'trade-management',
+    targetDataTour: 'trading-mode',
+    tooltipSide: 'bottom',
+    icon: <Maximize2 className="w-9 h-9 text-[#F97316]" />,
+    title: 'Trading Mode',
+    description:
+      'Enter a distraction-free fullscreen workspace designed for the live session. Trading Mode shows your active trades strip and watchlist side-by-side — no tabs, no clutter.',
+    tip: 'Press Esc at any time to exit Trading Mode and return to the full dashboard.',
+  },
+  {
     subtab: 'market',
     targetDataTour: 'gap-scanner',
     tooltipSide: 'right',
@@ -99,6 +111,16 @@ const STEPS: TourStep[] = [
     description:
       'Stocks gapping ≥ 2% with significant volume refresh every 15 seconds. Star any ticker to pin it to your watchlist. Review this list pre-market to build your trade plan for the day.',
     tip: 'Sort by gap % or volume to find the highest-conviction setups quickly.',
+  },
+  {
+    subtab: 'performance',
+    targetDataTour: 'journal-insights',
+    tooltipSide: 'top',
+    icon: <Brain className="w-9 h-9 text-[#F97316]" />,
+    title: 'AI Journal Insights',
+    description:
+      'Generate an AI-powered analysis of your trade journal. The report surfaces what\'s working, areas to improve, and behavioral patterns across your entries — so you can spot recurring mistakes and double down on winning habits.',
+    tip: 'Generate a report weekly to track how your patterns evolve over time.',
   },
   {
     subtab: 'projection',
