@@ -6,6 +6,20 @@ export const dynamic = 'force-dynamic';
 const priceCache = new Map<string, { price: number; expiresAt: number }>();
 const CACHE_TTL_MS = 2000;
 
+async function fetchPolygonPrice(symbol: string, apiKey: string): Promise<number | null> {
+  try {
+    const res = await fetch(
+      `https://api.polygon.io/v2/last/trade/${encodeURIComponent(symbol)}?apiKey=${apiKey}`,
+      { cache: 'no-store' }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.results?.p ? Number(data.results.p.toFixed(4)) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchYahooPrice(symbol: string): Promise<number | null> {
   try {
     const res = await fetch(
@@ -27,20 +41,6 @@ async function fetchYahooPrice(symbol: string): Promise<number | null> {
   }
 }
 
-async function fetchFinnhubPrice(symbol: string, apiKey: string): Promise<number | null> {
-  try {
-    const res = await fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`,
-      { cache: 'no-store' }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.c > 0 ? Number(data.c.toFixed(4)) : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function GET(req: NextRequest) {
   const symbolsParam = req.nextUrl.searchParams.get('symbols') ?? '';
   const symbols = symbolsParam.split(',').map((s) => s.trim()).filter(Boolean);
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ prices: {} }, { headers: { 'Cache-Control': 'no-store' } });
   }
 
-  const apiKey = process.env.FINNHUB_API_KEY;
+  const apiKey = process.env.POLYGON_API_KEY;
 
   const entries = await Promise.all(
     symbols.map(async (symbol) => {
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
         return [symbol, cached.price] as const;
       }
       const price = apiKey
-        ? await fetchFinnhubPrice(symbol, apiKey)
+        ? await fetchPolygonPrice(symbol, apiKey)
         : await fetchYahooPrice(symbol);
       if (price !== null) {
         priceCache.set(symbol, { price, expiresAt: Date.now() + CACHE_TTL_MS });
