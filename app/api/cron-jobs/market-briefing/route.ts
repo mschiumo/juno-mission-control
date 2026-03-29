@@ -160,7 +160,16 @@ async function fetchMarketNews(): Promise<FinnhubNewsItem[]> {
     );
     if (!res.ok) return [];
     const articles: FinnhubNewsItem[] = await res.json();
-    return articles.slice(0, 20);
+    // Prefer financial/market sources over general news
+    const financialSources = new Set([
+      'Reuters', 'Bloomberg', 'CNBC', 'MarketWatch', 'Yahoo Finance',
+      'Barron\'s', 'Financial Times', 'The Wall Street Journal', 'Seeking Alpha',
+      'Investor\'s Business Daily', 'Benzinga', 'Zacks', 'TheStreet',
+    ]);
+    const financial = articles.filter((a) => financialSources.has(a.source));
+    // Use financial-source articles when available, fall back to all articles
+    const pool = financial.length >= 10 ? financial : articles;
+    return pool.slice(0, 20);
   } catch {
     return [];
   }
@@ -343,7 +352,7 @@ Return ONLY valid JSON with this exact structure:
 
 Rules:
 - bigMovers: 3-5 stocks/assets with the most notable moves. Include the percentage move and a short reason.
-- newsHighlights: Top 3-5 most market-relevant headlines, rewritten concisely. For each, include the "url" field copied exactly from the corresponding source article above.
+- newsHighlights: Top 3-5 headlines that DIRECTLY affect financial markets, stock prices, or the economy (e.g. earnings, Fed policy, trade/tariffs, sector moves, M&A, economic data). Exclude general news, politics, sports, entertainment, or human-interest stories unless they have a clear market impact. Rewrite each headline concisely and include the "url" field copied exactly from the corresponding source article above.
 - upcomingEvents: ONLY include events from the Economic Calendar and Upcoming Earnings sections provided above. Do NOT invent or guess at events, speaker schedules, or data releases that are not explicitly listed. If no events are provided, return an empty array.
 - Be specific with numbers. No generic filler.
 - Return ONLY valid JSON, no markdown, no preamble.`,
@@ -351,7 +360,10 @@ Rules:
     ],
   });
 
-  const text = message.content[0].type === 'text' ? message.content[0].text : '';
+  const rawText = message.content[0].type === 'text' ? message.content[0].text : '';
+
+  // Strip markdown code fences (```json ... ```) that the model sometimes adds
+  const text = rawText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
 
   try {
     return JSON.parse(text);
