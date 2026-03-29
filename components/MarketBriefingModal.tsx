@@ -370,6 +370,11 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
       const res = await fetch('/api/market-briefing');
       const data = await res.json();
       if (data.success && data.briefing) {
+        // Normalize newsHighlights — Redis may have old string[] or new {headline,url}[]
+        if (data.briefing.aiSummary?.newsHighlights) {
+          data.briefing.aiSummary.newsHighlights =
+            data.briefing.aiSummary.newsHighlights.map(normalizeNewsHighlight);
+        }
         setBriefing(data.briefing);
       } else {
         setBriefing(null);
