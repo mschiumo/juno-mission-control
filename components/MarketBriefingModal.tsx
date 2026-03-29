@@ -112,7 +112,7 @@ async function downloadBriefingPdf(briefing: BriefingData) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(249, 115, 22);
-  doc.text('JUNO MISSION CONTROL', margin, y);
+  doc.text('CONFLUENCE TRADING', margin, y);
 
   y += 28;
   doc.setFont('helvetica', 'bold');
@@ -139,7 +139,7 @@ async function downloadBriefingPdf(briefing: BriefingData) {
 
   // Market Overview box
   const sentimentLabel = SENTIMENT_CONFIG[briefing.aiSummary.sentiment]?.label || 'Neutral';
-  const overviewLines: string[] = doc.splitTextToSize(briefing.aiSummary.marketOverview, contentW - 40);
+  const overviewLines: string[] = doc.splitTextToSize(briefing.aiSummary.marketOverview, contentW - 48);
   const overviewH = overviewLines.length * 14.5 + 56;
   y = ensureSpace(overviewH, y);
 
@@ -226,7 +226,7 @@ async function downloadBriefingPdf(briefing: BriefingData) {
       .map((m) => `${m.symbol} ${m.move} — ${m.reason}`);
     let totalMoverH = headerH;
     for (const line of moverLines) {
-      const wrapped: string[] = doc.splitTextToSize(`• ${line}`, contentW - 28);
+      const wrapped: string[] = doc.splitTextToSize(`• ${line}`, contentW - 40);
       totalMoverH += wrapped.length * 14 + 4;
     }
     totalMoverH += 8;
@@ -242,7 +242,7 @@ async function downloadBriefingPdf(briefing: BriefingData) {
     doc.text('BIG MOVERS', margin + 14, y + 22);
     let my = y + headerH;
     for (const line of moverLines) {
-      const wrapped: string[] = doc.splitTextToSize(`• ${line}`, contentW - 28);
+      const wrapped: string[] = doc.splitTextToSize(`• ${line}`, contentW - 40);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9.5);
       doc.setTextColor(201, 209, 217);
@@ -256,7 +256,7 @@ async function downloadBriefingPdf(briefing: BriefingData) {
   if (briefing.aiSummary.newsHighlights.length > 0) {
     let totalNewsH = headerH;
     for (const hl of briefing.aiSummary.newsHighlights) {
-      const wrapped: string[] = doc.splitTextToSize(`• ${hl}`, contentW - 28);
+      const wrapped: string[] = doc.splitTextToSize(`• ${hl}`, contentW - 40);
       totalNewsH += wrapped.length * 14 + 4;
     }
     totalNewsH += 8;
@@ -272,7 +272,7 @@ async function downloadBriefingPdf(briefing: BriefingData) {
     doc.text('NEWS HIGHLIGHTS', margin + 14, y + 22);
     let ny = y + headerH;
     for (const hl of briefing.aiSummary.newsHighlights) {
-      const wrapped: string[] = doc.splitTextToSize(`• ${hl}`, contentW - 28);
+      const wrapped: string[] = doc.splitTextToSize(`• ${hl}`, contentW - 40);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9.5);
       doc.setTextColor(201, 209, 217);
@@ -286,7 +286,7 @@ async function downloadBriefingPdf(briefing: BriefingData) {
   if (briefing.aiSummary.upcomingEvents.length > 0) {
     let totalEventsH = headerH;
     for (const ev of briefing.aiSummary.upcomingEvents) {
-      const wrapped: string[] = doc.splitTextToSize(`• ${ev}`, contentW - 28);
+      const wrapped: string[] = doc.splitTextToSize(`• ${ev}`, contentW - 40);
       totalEventsH += wrapped.length * 14 + 4;
     }
     totalEventsH += 8;
@@ -303,7 +303,7 @@ async function downloadBriefingPdf(briefing: BriefingData) {
     doc.text('WATCH TODAY', margin + 14, y + 22);
     let ey = y + headerH;
     for (const ev of briefing.aiSummary.upcomingEvents) {
-      const wrapped: string[] = doc.splitTextToSize(`• ${ev}`, contentW - 28);
+      const wrapped: string[] = doc.splitTextToSize(`• ${ev}`, contentW - 40);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9.5);
       doc.setTextColor(201, 209, 217);
@@ -324,7 +324,7 @@ async function downloadBriefingPdf(briefing: BriefingData) {
     doc.setFontSize(8);
     doc.setTextColor(72, 79, 88);
     doc.text('AI-generated briefing — not financial advice.', margin, fy);
-    doc.text('Juno Mission Control', W - margin, fy, { align: 'right' });
+    doc.text('Confluence Trading', W - margin, fy, { align: 'right' });
   }
 
   const dateStr = briefing.date.replace(/\//g, '-');
