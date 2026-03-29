@@ -12,6 +12,7 @@ import {
   Zap,
   BarChart3,
   Bitcoin,
+  ExternalLink,
 } from 'lucide-react';
 
 interface MarketItem {
@@ -23,10 +24,15 @@ interface MarketItem {
   status: 'up' | 'down' | 'flat';
 }
 
+interface NewsHighlight {
+  headline: string;
+  url: string;
+}
+
 interface AiSummary {
   marketOverview: string;
   bigMovers: { symbol: string; move: string; reason: string }[];
-  newsHighlights: string[];
+  newsHighlights: (NewsHighlight | string)[];
   upcomingEvents: string[];
   sentiment: 'bullish' | 'bearish' | 'neutral' | 'mixed';
 }
@@ -52,6 +58,20 @@ const SENTIMENT_CONFIG = {
   mixed: { label: 'Mixed', color: 'text-[#d29922]', bg: 'bg-[#d29922]/10', border: 'border-[#d29922]/30' },
 };
 
+function getTickerUrl(symbol: string): string {
+  if (symbol === 'BTC' || symbol === 'ETH') {
+    return `https://www.tradingview.com/chart/?symbol=BINANCE:${symbol}USDT`;
+  }
+  if (symbol === 'VIX') {
+    return `https://www.tradingview.com/chart/?symbol=TVC:VIX`;
+  }
+  return `https://www.tradingview.com/chart/?symbol=${symbol}`;
+}
+
+function normalizeNewsHighlight(item: NewsHighlight | string): NewsHighlight {
+  return typeof item === 'string' ? { headline: item, url: '' } : item;
+}
+
 function ChangeIndicator({ item }: { item: MarketItem }) {
   const isUp = item.change >= 0;
   const sign = isUp ? '+' : '';
@@ -59,10 +79,16 @@ function ChangeIndicator({ item }: { item: MarketItem }) {
   const Icon = item.change > 0 ? TrendingUp : item.change < 0 ? TrendingDown : Minus;
 
   return (
-    <div className="flex items-center justify-between py-2 px-3 bg-[#0d1117] rounded-lg border border-[#21262d]">
+    <a
+      href={getTickerUrl(item.symbol)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex items-center justify-between py-2 px-3 bg-[#0d1117] rounded-lg border border-[#21262d] hover:border-[#F97316]/50 transition-colors"
+    >
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-xs text-[#8b949e] font-mono w-10 flex-shrink-0">{item.symbol}</span>
         <span className="text-sm text-[#e6edf3] truncate">{item.name}</span>
+        <ExternalLink className="w-3 h-3 text-[#8b949e] opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0" />
       </div>
       <div className="flex items-center gap-3 flex-shrink-0">
         <span className="text-sm text-[#e6edf3] font-medium tabular-nums">
@@ -75,7 +101,7 @@ function ChangeIndicator({ item }: { item: MarketItem }) {
           </span>
         </div>
       </div>
-    </div>
+    </a>
   );
 }
 
@@ -254,9 +280,10 @@ async function downloadBriefingPdf(briefing: BriefingData) {
 
   // News Highlights
   if (briefing.aiSummary.newsHighlights.length > 0) {
+    const newsItems = briefing.aiSummary.newsHighlights.map(normalizeNewsHighlight);
     let totalNewsH = headerH;
-    for (const hl of briefing.aiSummary.newsHighlights) {
-      const wrapped: string[] = doc.splitTextToSize(`• ${hl}`, contentW - 40);
+    for (const hl of newsItems) {
+      const wrapped: string[] = doc.splitTextToSize(`• ${hl.headline}`, contentW - 40);
       totalNewsH += wrapped.length * 14 + 4;
     }
     totalNewsH += 8;
@@ -271,8 +298,8 @@ async function downloadBriefingPdf(briefing: BriefingData) {
     doc.setTextColor(139, 148, 158);
     doc.text('NEWS HIGHLIGHTS', margin + 14, y + 22);
     let ny = y + headerH;
-    for (const hl of briefing.aiSummary.newsHighlights) {
-      const wrapped: string[] = doc.splitTextToSize(`• ${hl}`, contentW - 40);
+    for (const hl of newsItems) {
+      const wrapped: string[] = doc.splitTextToSize(`• ${hl.headline}`, contentW - 40);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9.5);
       doc.setTextColor(201, 209, 217);
@@ -343,6 +370,11 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
       const res = await fetch('/api/market-briefing');
       const data = await res.json();
       if (data.success && data.briefing) {
+        // Normalize newsHighlights — Redis may have old string[] or new {headline,url}[]
+        if (data.briefing.aiSummary?.newsHighlights) {
+          data.briefing.aiSummary.newsHighlights =
+            data.briefing.aiSummary.newsHighlights.map(normalizeNewsHighlight);
+        }
         setBriefing(data.briefing);
       } else {
         setBriefing(null);
@@ -505,14 +537,17 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
                   </div>
                   <div className="space-y-2">
                     {briefing.aiSummary.bigMovers.map((mover, i) => (
-                      <div
+                      <a
                         key={i}
-                        className="flex items-start gap-3 p-3 bg-[#0d1117] rounded-lg border border-[#21262d]"
+                        href={getTickerUrl(mover.symbol)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-start gap-3 p-3 bg-[#0d1117] rounded-lg border border-[#21262d] hover:border-[#F97316]/50 transition-colors"
                       >
                         <span className="text-xs font-bold font-mono text-[#F97316] bg-[#F97316]/10 px-2 py-0.5 rounded flex-shrink-0">
                           {mover.symbol}
                         </span>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <span className={`text-sm font-semibold ${
                             mover.move.startsWith('+') ? 'text-[#3fb950]' : mover.move.startsWith('-') ? 'text-[#f85149]' : 'text-[#e6edf3]'
                           }`}>
@@ -520,7 +555,8 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
                           </span>
                           <span className="text-sm text-[#8b949e] ml-2">{mover.reason}</span>
                         </div>
-                      </div>
+                        <ExternalLink className="w-3 h-3 text-[#8b949e] opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0 mt-1" />
+                      </a>
                     ))}
                   </div>
                 </div>
@@ -534,12 +570,27 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
                     <h3 className="text-sm font-semibold text-white uppercase tracking-wide">News Highlights</h3>
                   </div>
                   <div className="space-y-1.5">
-                    {briefing.aiSummary.newsHighlights.map((headline, i) => (
-                      <div key={i} className="flex items-start gap-2 py-1.5">
-                        <span className="text-[#F97316] mt-1 flex-shrink-0">•</span>
-                        <span className="text-sm text-[#c9d1d9]">{headline}</span>
-                      </div>
-                    ))}
+                    {briefing.aiSummary.newsHighlights.map((item, i) => {
+                      const { headline, url } = normalizeNewsHighlight(item);
+                      return url ? (
+                        <a
+                          key={i}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group flex items-start gap-2 py-1.5 hover:bg-[#0d1117] rounded px-1 -mx-1 transition-colors"
+                        >
+                          <span className="text-[#F97316] mt-1 flex-shrink-0">•</span>
+                          <span className="text-sm text-[#c9d1d9] group-hover:text-[#58a6ff] transition-colors">{headline}</span>
+                          <ExternalLink className="w-3 h-3 text-[#8b949e] opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0 mt-1" />
+                        </a>
+                      ) : (
+                        <div key={i} className="flex items-start gap-2 py-1.5">
+                          <span className="text-[#F97316] mt-1 flex-shrink-0">•</span>
+                          <span className="text-sm text-[#c9d1d9]">{headline}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
