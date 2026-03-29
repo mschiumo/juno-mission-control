@@ -100,6 +100,7 @@ export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardPro
         <div className="flex items-center gap-1">
           {onOpenBriefing && (
             <button
+              data-tour="market-briefing"
               onClick={handleOpenBriefing}
               className="relative flex items-center gap-1.5 px-2 py-1.5 hover:bg-[#30363d] rounded-lg transition-colors"
               title="Morning Market Briefing"

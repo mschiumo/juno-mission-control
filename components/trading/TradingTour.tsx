@@ -15,6 +15,9 @@ import {
   LineChart,
   Lightbulb,
   TrendingDown,
+  Newspaper,
+  ArrowUpRight,
+  ArrowDownRight,
 } from 'lucide-react';
 
 type TradingSubTab = 'overview' | 'market' | 'performance' | 'projection' | 'trade-management';
@@ -98,6 +101,64 @@ function JournalInsightsPreview() {
   );
 }
 
+/** Mini visual mockup of the Morning Market Briefing report */
+function BriefingPreview() {
+  const item = (symbol: string, price: string, change: string, up: boolean) => (
+    <div className="flex items-center justify-between">
+      <span className="text-[9px] font-bold text-white">{symbol}</span>
+      <div className="flex items-center gap-1">
+        <span className="text-[9px] text-[#8b949e]">{price}</span>
+        <div className={`flex items-center gap-0.5 ${up ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+          {up ? <ArrowUpRight className="w-2 h-2" /> : <ArrowDownRight className="w-2 h-2" />}
+          <span className="text-[8px] font-semibold">{change}</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="shrink-0 w-48 bg-[#0d1117] border border-[#30363d] rounded-xl p-3 space-y-2 text-left">
+      {/* Header */}
+      <div className="flex items-center gap-1.5 pb-1 border-b border-[#30363d]">
+        <div className="w-2 h-2 rounded-full bg-[#F97316]" />
+        <span className="text-[10px] font-semibold text-[#8b949e] uppercase tracking-wider">Morning Briefing</span>
+      </div>
+
+      {/* Sentiment */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-[8px] font-bold text-[#8b949e] uppercase">Sentiment</span>
+        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-[#3fb950]/15 text-[#3fb950]">Bullish</span>
+      </div>
+
+      {/* Market Overview snippet */}
+      <div className="bg-[#161b22] rounded-lg px-2 py-1.5">
+        <p className="text-[8px] text-[#8b949e] leading-tight">
+          Futures point higher ahead of key inflation data. Tech leading pre-market gains&hellip;
+        </p>
+      </div>
+
+      {/* Indices */}
+      <div className="space-y-1">
+        <span className="text-[8px] font-bold text-[#8b949e] uppercase">Indices</span>
+        {item('SPY', '$542.18', '+0.73%', true)}
+        {item('QQQ', '$468.50', '+1.12%', true)}
+        {item('IWM', '$198.34', '-0.28%', false)}
+      </div>
+
+      {/* Big Mover */}
+      <div className="pt-1 border-t border-[#30363d]">
+        <div className="flex items-center gap-1 mb-0.5">
+          <span className="text-[8px] font-bold text-[#F97316] uppercase">Big Mover</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="px-1 py-0.5 rounded bg-[#3fb950]/15 text-[8px] font-bold text-[#3fb950]">NVDA +4.2%</span>
+          <span className="text-[8px] text-[#8b949e] truncate">AI demand surge</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface TourStep {
   subtab: TradingSubTab;
   targetDataTour?: string;
@@ -156,6 +217,17 @@ const STEPS: TourStep[] = [
     description:
       'Enter a distraction-free fullscreen workspace designed for the live session. Trading Mode shows your active trades strip and watchlist side-by-side — no tabs, no clutter.',
     tip: 'Press Esc at any time to exit Trading Mode and return to the full dashboard.',
+  },
+  {
+    subtab: 'market',
+    targetDataTour: 'market-briefing',
+    tooltipSide: 'bottom',
+    icon: <Newspaper className="w-9 h-9 text-[#F97316]" />,
+    title: 'Daily Market Briefing',
+    description:
+      'Every weekday morning before the bell, an AI-generated briefing lands here with overnight futures, index levels, big movers, and key news — all in one snapshot. Reviewing it takes 30 seconds and gives you context most traders skip.',
+    tip: 'Check the briefing each morning before placing your first trade. Knowing the macro backdrop helps you size positions and pick the right setups.',
+    preview: <BriefingPreview />,
   },
   {
     subtab: 'market',
