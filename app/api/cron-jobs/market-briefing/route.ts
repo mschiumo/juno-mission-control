@@ -14,9 +14,7 @@ import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   postToCronResults,
-  sendTelegramIfNeeded,
   logToActivityLog,
-  formatDate,
   isMarketOpenToday,
 } from '@/lib/cron-helpers';
 import { getRedisClient } from '@/lib/redis';
@@ -369,64 +367,6 @@ Rules:
 }
 
 // ---------------------------------------------------------------------------
-// Telegram formatting
-// ---------------------------------------------------------------------------
-
-function getEmoji(pct: number): string {
-  if (pct >= 2) return '🚀';
-  if (pct >= 1) return '🟢';
-  if (pct > 0) return '📈';
-  if (pct <= -2) return '🔴';
-  if (pct <= -1) return '🟥';
-  if (pct < 0) return '📉';
-  return '➡️';
-}
-
-function buildTelegramMessage(briefing: BriefingData): string {
-  const lines: string[] = [
-    `🪐 <b>Morning Market Briefing</b> — ${formatDate()}`,
-    '',
-    `<i>${briefing.aiSummary.marketOverview}</i>`,
-    '',
-  ];
-
-  if (briefing.indices.length > 0) {
-    lines.push('<b>MAJOR INDICES</b>');
-    for (const i of briefing.indices) {
-      const sign = i.change >= 0 ? '+' : '';
-      lines.push(`${getEmoji(i.changePercent)} ${i.name}: $${i.price.toFixed(2)} ${sign}${i.changePercent}%`);
-    }
-    lines.push('');
-  }
-
-  if (briefing.crypto.length > 0) {
-    lines.push('<b>CRYPTO</b>');
-    for (const c of briefing.crypto) {
-      const sign = c.change >= 0 ? '+' : '';
-      lines.push(`${getEmoji(c.changePercent)} ${c.name}: $${c.price.toLocaleString()} ${sign}${c.changePercent}%`);
-    }
-    lines.push('');
-  }
-
-  if (briefing.aiSummary.bigMovers.length > 0) {
-    lines.push('<b>BIG MOVERS</b>');
-    for (const m of briefing.aiSummary.bigMovers) {
-      lines.push(`• ${m.symbol} ${m.move} — ${m.reason}`);
-    }
-    lines.push('');
-  }
-
-  if (briefing.aiSummary.upcomingEvents.length > 0) {
-    lines.push('<b>WATCH TODAY</b>');
-    for (const e of briefing.aiSummary.upcomingEvents) {
-      lines.push(`⚡ ${e}`);
-    }
-  }
-
-  return lines.join('\n');
-}
-
-// ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 
@@ -436,10 +376,11 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const preview = searchParams.get('preview') === 'true';
+    const force = searchParams.get('force') === 'true';
 
     console.log('[MarketBriefing] Generating morning market briefing...');
 
-    if (!isMarketOpenToday()) {
+    if (!force && !isMarketOpenToday()) {
       const msg = '🪐 Market is closed today (weekend or holiday). No morning briefing needed.';
       await postToCronResults('Morning Market Briefing', msg, 'market');
       await logToActivityLog('Morning Market Briefing', 'Market closed', 'cron');
@@ -481,18 +422,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, data: briefing, durationMs: Date.now() - startTime });
     }
 
-    // Build Telegram message
-    const telegramMsg = buildTelegramMessage(briefing);
-
-    // Post to cron results, activity log, Telegram in parallel
+    // Post to cron results and activity log
     await Promise.all([
-      postToCronResults('Morning Market Briefing', telegramMsg, 'market'),
+      postToCronResults(
+        'Morning Market Briefing',
+        `${briefing.aiSummary.marketOverview}\n\nSentiment: ${briefing.aiSummary.sentiment}`,
+        'market',
+      ),
       logToActivityLog(
         'Morning Market Briefing',
         `Generated with ${indices.length} indices, ${stocks.length} stocks, AI summary`,
         'cron',
       ),
-      sendTelegramIfNeeded(telegramMsg),
     ]);
 
     const duration = Date.now() - startTime;
