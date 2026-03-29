@@ -351,7 +351,10 @@ Rules:
     ],
   });
 
-  const text = message.content[0].type === 'text' ? message.content[0].text : '';
+  const rawText = message.content[0].type === 'text' ? message.content[0].text : '';
+
+  // Strip markdown code fences (```json ... ```) that the model sometimes adds
+  const text = rawText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
 
   try {
     return JSON.parse(text);
