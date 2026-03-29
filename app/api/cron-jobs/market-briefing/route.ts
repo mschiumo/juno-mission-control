@@ -246,7 +246,7 @@ export interface BriefingData {
   aiSummary: {
     marketOverview: string;
     bigMovers: { symbol: string; move: string; reason: string }[];
-    newsHighlights: string[];
+    newsHighlights: { headline: string; url: string }[];
     upcomingEvents: string[];
     sentiment: 'bullish' | 'bearish' | 'neutral' | 'mixed';
   };
@@ -264,7 +264,7 @@ async function generateAIBriefing(
     return {
       marketOverview: 'AI summary unavailable — ANTHROPIC_API_KEY not configured.',
       bigMovers: [],
-      newsHighlights: news.slice(0, 5).map((n) => n.headline),
+      newsHighlights: news.slice(0, 5).map((n) => ({ headline: n.headline, url: n.url })),
       upcomingEvents: [...calendarEvents.slice(0, 3), ...earningsEvents.slice(0, 2)],
       sentiment: 'neutral',
     };
@@ -294,7 +294,7 @@ async function generateAIBriefing(
 
   const newsContext = news
     .slice(0, 15)
-    .map((n, i) => `${i + 1}. [${n.source}] ${n.headline}\n   ${n.summary.slice(0, 200)}`)
+    .map((n, i) => `${i + 1}. [${n.source}] ${n.headline}\n   URL: ${n.url}\n   ${n.summary.slice(0, 200)}`)
     .join('\n');
 
   const eventsContext = [
@@ -336,14 +336,14 @@ Return ONLY valid JSON with this exact structure:
 {
   "marketOverview": "2-3 sentence summary of overall market conditions and overnight moves",
   "bigMovers": [{"symbol": "TICKER", "move": "+X.X%", "reason": "brief reason"}],
-  "newsHighlights": ["headline 1", "headline 2", "headline 3"],
+  "newsHighlights": [{"headline": "rewritten headline", "url": "original article URL from source"}],
   "upcomingEvents": ["event that could move markets today or this week"],
   "sentiment": "bullish" | "bearish" | "neutral" | "mixed"
 }
 
 Rules:
 - bigMovers: 3-5 stocks/assets with the most notable moves. Include the percentage move and a short reason.
-- newsHighlights: Top 3-5 most market-relevant headlines, rewritten concisely.
+- newsHighlights: Top 3-5 most market-relevant headlines, rewritten concisely. For each, include the "url" field copied exactly from the corresponding source article above.
 - upcomingEvents: ONLY include events from the Economic Calendar and Upcoming Earnings sections provided above. Do NOT invent or guess at events, speaker schedules, or data releases that are not explicitly listed. If no events are provided, return an empty array.
 - Be specific with numbers. No generic filler.
 - Return ONLY valid JSON, no markdown, no preamble.`,
@@ -359,7 +359,7 @@ Rules:
     return {
       marketOverview: text || 'Failed to parse AI response.',
       bigMovers: [],
-      newsHighlights: news.slice(0, 5).map((n) => n.headline),
+      newsHighlights: news.slice(0, 5).map((n) => ({ headline: n.headline, url: n.url })),
       upcomingEvents: [],
       sentiment: 'neutral',
     };
