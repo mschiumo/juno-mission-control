@@ -370,6 +370,20 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
       const res = await fetch('/api/market-briefing');
       const data = await res.json();
       if (data.success && data.briefing) {
+        // Safety net: if aiSummary is a JSON string instead of an object, parse it
+        if (typeof data.briefing.aiSummary === 'string') {
+          try {
+            data.briefing.aiSummary = JSON.parse(data.briefing.aiSummary);
+          } catch {
+            data.briefing.aiSummary = {
+              marketOverview: 'Failed to parse briefing summary.',
+              bigMovers: [],
+              newsHighlights: [],
+              upcomingEvents: [],
+              sentiment: 'neutral',
+            };
+          }
+        }
         // Normalize newsHighlights — Redis may have old string[] or new {headline,url}[]
         if (data.briefing.aiSummary?.newsHighlights) {
           data.briefing.aiSummary.newsHighlights =
