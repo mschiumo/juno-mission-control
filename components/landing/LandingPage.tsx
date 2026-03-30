@@ -102,13 +102,13 @@ const FEATURES = [
 ══════════════════════════════════════════════════════════════════ */
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#0d1117] text-[#e6edf3] overflow-x-hidden">
+    <div className="min-h-screen bg-[#09090b] text-[#e4e4e7] overflow-x-hidden">
 
       {/* ═══ NAVBAR ═══ */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[#30363d] bg-[#0d1117]/90 backdrop-blur-sm">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-[#09090b]/90 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-[#161b22] border border-[#30363d] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-full bg-[#111318] border border-white/[0.06] flex items-center justify-center">
               <svg viewBox="0 0 48 48" fill="none" className="w-5 h-5">
                 <line x1="7" y1="13" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
                 <line x1="7" y1="35" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
@@ -120,14 +120,14 @@ export default function LandingPage() {
           </div>
 
           <div className="hidden md:flex items-center gap-8">
-            <a href="#features"    className="text-sm text-[#8b949e] hover:text-white transition-colors">Features</a>
-            <a href="#analytics"   className="text-sm text-[#8b949e] hover:text-white transition-colors">Analytics</a>
-            <a href="#how-it-works" className="text-sm text-[#8b949e] hover:text-white transition-colors">How It Works</a>
-            <a href="#pricing"     className="text-sm text-[#8b949e] hover:text-white transition-colors">Pricing</a>
+            <a href="#features"    className="text-sm text-[#71717a] hover:text-white transition-colors">Features</a>
+            <a href="#analytics"   className="text-sm text-[#71717a] hover:text-white transition-colors">Analytics</a>
+            <a href="#how-it-works" className="text-sm text-[#71717a] hover:text-white transition-colors">How It Works</a>
+            <a href="#pricing"     className="text-sm text-[#71717a] hover:text-white transition-colors">Pricing</a>
           </div>
 
           <div className="flex items-center gap-3">
-            <Link href="/login" className="hidden sm:flex items-center gap-1.5 px-4 py-2 text-sm text-[#8b949e] hover:text-white transition-colors">
+            <Link href="/login" className="hidden sm:flex items-center gap-1.5 px-4 py-2 text-sm text-[#71717a] hover:text-white transition-colors">
               <LogIn className="w-3.5 h-3.5" />
               Sign In
             </Link>
@@ -148,7 +148,7 @@ export default function LandingPage() {
 
           {/* Text */}
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#30363d] bg-[#161b22] text-xs text-[#8b949e] mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[0.06] bg-[#111318] text-xs text-[#71717a] mb-6">
               <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
               Trading Journal &amp; Analytics Platform
             </div>
@@ -161,7 +161,7 @@ export default function LandingPage() {
               <span className="text-[#F97316]">Purpose.</span>
             </h1>
 
-            <p className="text-lg text-[#8b949e] leading-relaxed mb-8 max-w-lg">
+            <p className="text-lg text-[#71717a] leading-relaxed mb-8 max-w-lg">
               A comprehensive trading command center for disciplined traders. Track every trade,
               analyze your patterns, and sharpen your edge with real-time market intelligence.
             </p>
@@ -171,12 +171,12 @@ export default function LandingPage() {
                 Start for Free
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <Link href="/login" className="px-6 py-3 border border-[#30363d] text-[#e6edf3] hover:border-[#F97316]/60 hover:text-[#F97316] font-medium rounded-xl transition-colors">
+              <Link href="/login" className="px-6 py-3 border border-white/[0.06] text-[#e4e4e7] hover:border-[#F97316]/60 hover:text-[#F97316] font-medium rounded-xl transition-colors">
                 Sign In
               </Link>
             </div>
 
-            <div className="flex flex-wrap items-center gap-5 text-sm text-[#8b949e]">
+            <div className="flex flex-wrap items-center gap-5 text-sm text-[#71717a]">
               {['No credit card required', 'Free to get started', 'Real-time market data'].map(item => (
                 <div key={item} className="flex items-center gap-1.5">
                   <CheckCircle className="w-3.5 h-3.5 text-[#3fb950]" />
@@ -188,20 +188,20 @@ export default function LandingPage() {
 
           {/* Chart mockup */}
           <div className="relative">
-            <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-hidden shadow-2xl shadow-black/50">
+            <div className="rounded-2xl border border-white/[0.06] bg-[#111318] overflow-hidden shadow-2xl shadow-black/50">
               {/* Window chrome */}
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#30363d]">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
                 <div className="flex items-center gap-3">
                   <div className="flex gap-1.5">
                     <div className="w-3 h-3 rounded-full bg-[#f85149]" />
                     <div className="w-3 h-3 rounded-full bg-[#d29922]" />
                     <div className="w-3 h-3 rounded-full bg-[#3fb950]" />
                   </div>
-                  <span className="text-xs text-[#8b949e] font-mono ml-1">SPY — Daily Chart</span>
+                  <span className="text-xs text-[#71717a] font-mono ml-1">SPY — Daily Chart</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
                   <span className="px-2 py-0.5 rounded bg-[#3fb950]/10 text-[#3fb950] font-mono">+2.48%</span>
-                  <span className="text-[#8b949e] font-mono">$512.40</span>
+                  <span className="text-[#71717a] font-mono">$512.40</span>
                 </div>
               </div>
 
@@ -252,14 +252,14 @@ export default function LandingPage() {
               </div>
 
               {/* Stats row */}
-              <div className="grid grid-cols-3 divide-x divide-[#30363d] border-t border-[#30363d]">
+              <div className="grid grid-cols-3 divide-x divide-white/[0.06] border-t border-white/[0.06]">
                 {[
                   { label: 'Win Rate',  value: '68.4%', color: 'text-[#3fb950]' },
                   { label: 'Avg R/R',   value: '2.3:1', color: 'text-[#58a6ff]' },
                   { label: 'Total P&L', value: '+$4,280', color: 'text-[#3fb950]' },
                 ].map(s => (
                   <div key={s.label} className="px-4 py-3 text-center">
-                    <p className="text-[10px] text-[#8b949e] mb-0.5">{s.label}</p>
+                    <p className="text-[10px] text-[#71717a] mb-0.5">{s.label}</p>
                     <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
                   </div>
                 ))}
@@ -267,24 +267,24 @@ export default function LandingPage() {
             </div>
 
             {/* Floating today P&L badge */}
-            <div className="hidden lg:flex absolute -left-10 top-1/3 items-center gap-2.5 bg-[#161b22] border border-[#30363d] rounded-xl p-3 shadow-xl">
+            <div className="hidden lg:flex absolute -left-10 top-1/3 items-center gap-2.5 bg-[#111318] border border-white/[0.06] rounded-xl p-3 shadow-xl shadow-black/20">
               <div className="w-9 h-9 rounded-lg bg-[#3fb950]/10 flex items-center justify-center">
                 <TrendingUp className="w-4 h-4 text-[#3fb950]" />
               </div>
               <div>
                 <p className="text-white font-bold text-sm">+$847</p>
-                <p className="text-[#8b949e] text-xs">Today's P&amp;L</p>
+                <p className="text-[#71717a] text-xs">Today's P&amp;L</p>
               </div>
             </div>
 
             {/* Floating win streak badge */}
-            <div className="hidden lg:flex absolute -right-6 bottom-28 items-center gap-2.5 bg-[#161b22] border border-[#30363d] rounded-xl p-3 shadow-xl">
+            <div className="hidden lg:flex absolute -right-6 bottom-28 items-center gap-2.5 bg-[#111318] border border-white/[0.06] rounded-xl p-3 shadow-xl shadow-black/20">
               <div className="w-9 h-9 rounded-lg bg-[#F97316]/10 flex items-center justify-center">
                 <Target className="w-4 h-4 text-[#F97316]" />
               </div>
               <div>
                 <p className="text-white font-bold text-sm">3 Wins</p>
-                <p className="text-[#8b949e] text-xs">0 Losses Today</p>
+                <p className="text-[#71717a] text-xs">0 Losses Today</p>
               </div>
             </div>
           </div>
@@ -292,7 +292,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ STATS BANNER ═══ */}
-      <section className="py-10 border-y border-[#30363d] bg-[#161b22]/40">
+      <section className="py-10 border-y border-white/[0.06] bg-[#111318]/40">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
@@ -302,12 +302,12 @@ export default function LandingPage() {
               { label: 'Risk Management',    value: 'Built-in',  icon: Shield    },
             ].map(s => (
               <div key={s.label} className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-[#0d1117] border border-[#30363d] flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 rounded-xl bg-[#09090b] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
                   <s.icon className="w-5 h-5 text-[#F97316]" />
                 </div>
                 <div>
                   <p className="text-xl font-bold text-white">{s.value}</p>
-                  <p className="text-sm text-[#8b949e]">{s.label}</p>
+                  <p className="text-sm text-[#71717a]">{s.label}</p>
                 </div>
               </div>
             ))}
@@ -321,7 +321,7 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Everything You Need</p>
             <h2 className="text-4xl font-bold text-white mb-4">Built for Disciplined Traders</h2>
-            <p className="text-[#8b949e] max-w-2xl mx-auto text-lg">
+            <p className="text-[#71717a] max-w-2xl mx-auto text-lg">
               Every feature designed to help you trade with consistency, track your performance,
               and continuously improve your edge.
             </p>
@@ -329,15 +329,15 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map(f => (
-              <div key={f.title} className="group p-6 rounded-2xl border border-[#30363d] bg-[#161b22] hover:border-[#F97316]/40 hover:bg-[#1c2128] transition-all duration-300">
+              <div key={f.title} className="group p-6 rounded-2xl border border-white/[0.06] bg-[#111318] hover:border-[#F97316]/40 hover:bg-[#1c2128] transition-all duration-300 shadow-xl shadow-black/20">
                 <div className={`w-12 h-12 rounded-xl ${f.bg} flex items-center justify-center mb-4`}>
                   <f.icon className={`w-6 h-6 ${f.color}`} />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">{f.title}</h3>
-                <p className="text-sm text-[#8b949e] leading-relaxed mb-4">{f.desc}</p>
+                <p className="text-sm text-[#71717a] leading-relaxed mb-4">{f.desc}</p>
                 <div className="flex flex-wrap gap-2">
                   {f.tags.map(tag => (
-                    <span key={tag} className="px-2 py-0.5 text-xs rounded-md bg-[#0d1117] border border-[#30363d] text-[#8b949e]">
+                    <span key={tag} className="px-2 py-0.5 text-xs rounded-md bg-[#09090b] border border-white/[0.06] text-[#71717a]">
                       {tag}
                     </span>
                   ))}
@@ -349,7 +349,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ ANALYTICS SHOWCASE ═══ */}
-      <section id="analytics" className="py-24 px-6 bg-[#161b22]/20">
+      <section id="analytics" className="py-24 px-6 bg-[#111318]/20">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 items-center">
 
@@ -357,7 +357,7 @@ export default function LandingPage() {
             <div className="lg:col-span-2">
               <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Performance Analytics</p>
               <h2 className="text-4xl font-bold text-white mb-4">See Your Edge Clearly</h2>
-              <p className="text-[#8b949e] leading-relaxed mb-8">
+              <p className="text-[#71717a] leading-relaxed mb-8">
                 Visual analytics reveal patterns in your trading behavior. Understand which setups work,
                 when you trade best, and where your edge lies.
               </p>
@@ -375,7 +375,7 @@ export default function LandingPage() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-white">{item.label}</p>
-                      <p className="text-xs text-[#8b949e]">{item.desc}</p>
+                      <p className="text-xs text-[#71717a]">{item.desc}</p>
                     </div>
                   </div>
                 ))}
@@ -384,11 +384,11 @@ export default function LandingPage() {
 
             {/* Equity curve card */}
             <div className="lg:col-span-3">
-              <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-hidden shadow-2xl">
-                <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between">
+              <div className="rounded-2xl border border-white/[0.06] bg-[#111318] overflow-hidden shadow-2xl shadow-black/20">
+                <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-white">Equity Curve</p>
-                    <p className="text-xs text-[#8b949e]">Account Growth — Year to Date</p>
+                    <p className="text-xs text-[#71717a]">Account Growth — Year to Date</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xl font-bold text-[#3fb950]">+$12,840</span>
@@ -430,7 +430,7 @@ export default function LandingPage() {
                   </svg>
                 </div>
 
-                <div className="grid grid-cols-4 divide-x divide-[#30363d] border-t border-[#30363d]">
+                <div className="grid grid-cols-4 divide-x divide-white/[0.06] border-t border-white/[0.06]">
                   {[
                     { label: 'Total Trades', value: '247' },
                     { label: 'Win Rate',     value: '68.4%' },
@@ -438,7 +438,7 @@ export default function LandingPage() {
                     { label: 'Avg Loss',     value: '-$94' },
                   ].map(s => (
                     <div key={s.label} className="px-3 py-3 text-center">
-                      <p className="text-[10px] text-[#8b949e] mb-0.5">{s.label}</p>
+                      <p className="text-[10px] text-[#71717a] mb-0.5">{s.label}</p>
                       <p className="text-sm font-bold text-white">{s.value}</p>
                     </div>
                   ))}
@@ -456,20 +456,20 @@ export default function LandingPage() {
 
             {/* Gap Scanner card */}
             <div className="lg:col-span-3 order-2 lg:order-1">
-              <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-hidden shadow-2xl">
-                <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between">
+              <div className="rounded-2xl border border-white/[0.06] bg-[#111318] overflow-hidden shadow-2xl shadow-black/20">
+                <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-[#F97316]" />
                     <p className="text-sm font-semibold text-white">Pre-Market Gap Scanner</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
-                    <span className="text-xs text-[#8b949e]">Live · 04:32 AM ET</span>
+                    <span className="text-xs text-[#71717a]">Live · 04:32 AM ET</span>
                   </div>
                 </div>
 
                 {/* Table header */}
-                <div className="grid grid-cols-5 px-5 py-2 border-b border-[#30363d] text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">
+                <div className="grid grid-cols-5 px-5 py-2 border-b border-white/[0.06] text-[10px] text-[#71717a] font-semibold uppercase tracking-wider">
                   <span>Ticker</span>
                   <span className="text-center">Gap %</span>
                   <span className="text-center">Pre-Mkt</span>
@@ -482,8 +482,8 @@ export default function LandingPage() {
                   <div key={g.ticker} className={`grid grid-cols-5 px-5 py-3 items-center text-sm ${i < GAPS.length - 1 ? 'border-b border-[#21262d]' : ''} hover:bg-[#1c2128] transition-colors`}>
                     <span className="font-mono font-bold text-white">{g.ticker}</span>
                     <span className={`text-center font-mono font-semibold ${g.pos ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>{g.gap}</span>
-                    <span className="text-center font-mono text-[#8b949e]">{g.price}</span>
-                    <span className="text-center text-[#8b949e]">{g.vol}</span>
+                    <span className="text-center font-mono text-[#71717a]">{g.price}</span>
+                    <span className="text-center text-[#71717a]">{g.vol}</span>
                     <div className="flex justify-end">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${g.pos ? 'bg-[#3fb950]/10 text-[#3fb950]' : 'bg-[#f85149]/10 text-[#f85149]'}`}>
                         {g.catalyst}
@@ -492,8 +492,8 @@ export default function LandingPage() {
                   </div>
                 ))}
 
-                <div className="px-5 py-3 border-t border-[#30363d] flex items-center justify-between">
-                  <span className="text-xs text-[#8b949e]">Showing top 5 of 34 gaps detected</span>
+                <div className="px-5 py-3 border-t border-white/[0.06] flex items-center justify-between">
+                  <span className="text-xs text-[#71717a]">Showing top 5 of 34 gaps detected</span>
                   <span className="text-xs text-[#F97316] cursor-pointer hover:underline">View all gaps →</span>
                 </div>
               </div>
@@ -503,7 +503,7 @@ export default function LandingPage() {
             <div className="lg:col-span-2 order-1 lg:order-2">
               <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Pre-Market Intelligence</p>
               <h2 className="text-4xl font-bold text-white mb-4">Never Miss an Opening Gap</h2>
-              <p className="text-[#8b949e] leading-relaxed mb-8">
+              <p className="text-[#71717a] leading-relaxed mb-8">
                 The gap scanner runs automatically before market open, surfacing high-probability setups
                 ranked by gap size, volume, and catalyst quality.
               </p>
@@ -514,7 +514,7 @@ export default function LandingPage() {
                   'Volume relative to 30-day avg',
                   'Integrated with your watchlist',
                 ].map(item => (
-                  <div key={item} className="flex items-center gap-2.5 text-sm text-[#8b949e]">
+                  <div key={item} className="flex items-center gap-2.5 text-sm text-[#71717a]">
                     <CheckCircle className="w-4 h-4 text-[#3fb950] flex-shrink-0" />
                     {item}
                   </div>
@@ -526,7 +526,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ AI INSIGHTS SHOWCASE ═══ */}
-      <section className="py-24 px-6 bg-[#161b22]/20">
+      <section className="py-24 px-6 bg-[#111318]/20">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 items-center">
 
@@ -537,7 +537,7 @@ export default function LandingPage() {
                 AI-Powered
               </div>
               <h2 className="text-4xl font-bold text-white mb-4">Your Personal Trading Coach</h2>
-              <p className="text-[#8b949e] leading-relaxed mb-8">
+              <p className="text-[#71717a] leading-relaxed mb-8">
                 AI analyzes your journal entries, trade data, and behavioral patterns to deliver
                 personalized weekly and monthly reports — surfacing what&apos;s working, what needs
                 fixing, and the habits holding you back.
@@ -550,7 +550,7 @@ export default function LandingPage() {
                   'Tracks consistency and habit formation',
                   'Downloadable PDF infographic reports',
                 ].map(item => (
-                  <div key={item} className="flex items-center gap-2.5 text-sm text-[#8b949e]">
+                  <div key={item} className="flex items-center gap-2.5 text-sm text-[#71717a]">
                     <CheckCircle className="w-4 h-4 text-[#8957e5] flex-shrink-0" />
                     {item}
                   </div>
@@ -560,15 +560,15 @@ export default function LandingPage() {
 
             {/* Mock report card */}
             <div className="lg:col-span-3">
-              <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-hidden shadow-2xl">
+              <div className="rounded-2xl border border-white/[0.06] bg-[#111318] overflow-hidden shadow-2xl shadow-black/20">
                 {/* Report header */}
-                <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between">
+                <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[#8957e5]" />
                     <p className="text-sm font-semibold text-white">Week 13, 2026 Report</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="flex items-center gap-1.5 px-2.5 py-1 bg-[#21262d] border border-[#30363d] text-[#8b949e] text-xs rounded-md">
+                    <button className="flex items-center gap-1.5 px-2.5 py-1 bg-[#21262d] border border-white/[0.06] text-[#71717a] text-xs rounded-md">
                       <Download className="w-3 h-3" />
                       PDF
                     </button>
@@ -590,7 +590,7 @@ export default function LandingPage() {
                   {/* Two-column grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Strengths */}
-                    <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4 border-l-[3px] border-l-[#3fb950]">
+                    <div className="bg-[#09090b] border border-white/[0.06] rounded-lg p-4 border-l-[3px] border-l-[#3fb950]">
                       <div className="flex items-center gap-1.5 mb-3">
                         <TrendingUp className="w-3.5 h-3.5 text-[#3fb950]" />
                         <span className="text-[10px] font-semibold text-[#3fb950] uppercase tracking-wide">What&apos;s Working</span>
@@ -600,7 +600,7 @@ export default function LandingPage() {
                           'Disciplined stop-loss execution on all 8 trades',
                           'Momentum setups producing 3.2R average',
                         ].map((s, i) => (
-                          <li key={i} className="flex items-start gap-2 text-xs text-[#8b949e]">
+                          <li key={i} className="flex items-start gap-2 text-xs text-[#71717a]">
                             <span className="mt-1 w-1.5 h-1.5 rounded-full bg-[#3fb950] flex-shrink-0" />
                             {s}
                           </li>
@@ -609,7 +609,7 @@ export default function LandingPage() {
                     </div>
 
                     {/* Improvements */}
-                    <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4 border-l-[3px] border-l-[#f85149]">
+                    <div className="bg-[#09090b] border border-white/[0.06] rounded-lg p-4 border-l-[3px] border-l-[#f85149]">
                       <div className="flex items-center gap-1.5 mb-3">
                         <TrendingDown className="w-3.5 h-3.5 text-[#f85149]" />
                         <span className="text-[10px] font-semibold text-[#f85149] uppercase tracking-wide">Areas to Improve</span>
@@ -619,7 +619,7 @@ export default function LandingPage() {
                           'Overtrading on Fridays — 3 of 4 losses came EOW',
                           'Revenge trades after morning losses cost $420',
                         ].map((s, i) => (
-                          <li key={i} className="flex items-start gap-2 text-xs text-[#8b949e]">
+                          <li key={i} className="flex items-start gap-2 text-xs text-[#71717a]">
                             <span className="mt-1 w-1.5 h-1.5 rounded-full bg-[#f85149] flex-shrink-0" />
                             {s}
                           </li>
@@ -629,13 +629,13 @@ export default function LandingPage() {
                   </div>
 
                   {/* Patterns */}
-                  <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4 border-l-[3px] border-l-[#8957e5]">
+                  <div className="bg-[#09090b] border border-white/[0.06] rounded-lg p-4 border-l-[3px] border-l-[#8957e5]">
                     <div className="flex items-center gap-1.5 mb-3">
                       <Brain className="w-3.5 h-3.5 text-[#8957e5]" />
                       <span className="text-[10px] font-semibold text-[#8957e5] uppercase tracking-wide">Behavioral Patterns</span>
                     </div>
                     <ul className="space-y-2">
-                      <li className="flex items-start gap-2 text-xs text-[#8b949e]">
+                      <li className="flex items-start gap-2 text-xs text-[#71717a]">
                         <span className="mt-1 w-1.5 h-1.5 rounded-full bg-[#8957e5] flex-shrink-0" />
                         Anxiety-tagged entries correlate with 60% smaller position sizes — confidence building needed
                       </li>
@@ -644,7 +644,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-3 border-t border-[#30363d]">
+                <div className="px-6 py-3 border-t border-white/[0.06]">
                   <div className="flex items-center gap-1.5">
                     <Sparkles className="w-3 h-3 text-[#8957e5]" />
                     <span className="text-[10px] text-[#484f58]">AI-generated analysis based on your journal & trade data</span>
@@ -657,17 +657,17 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ HOW IT WORKS ═══ */}
-      <section id="how-it-works" className="py-24 px-6 bg-[#161b22]/20">
+      <section id="how-it-works" className="py-24 px-6 bg-[#111318]/20">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Simple Process</p>
             <h2 className="text-4xl font-bold text-white mb-4">How It Works</h2>
-            <p className="text-[#8b949e] max-w-xl mx-auto">Start in minutes. Your trades, your data, your edge.</p>
+            <p className="text-[#71717a] max-w-xl mx-auto">Start in minutes. Your trades, your data, your edge.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
             {/* Connector line (desktop) */}
-            <div className="hidden md:block absolute top-14 left-[calc(33.3%+1rem)] right-[calc(33.3%+1rem)] h-px bg-gradient-to-r from-[#30363d] via-[#F97316]/30 to-[#30363d]" />
+            <div className="hidden md:block absolute top-14 left-[calc(33.3%+1rem)] right-[calc(33.3%+1rem)] h-px bg-gradient-to-r from-white/[0.06] via-[#F97316]/30 to-white/[0.06]" />
 
             {[
               {
@@ -692,21 +692,21 @@ export default function LandingPage() {
                 items: ['Pattern recognition', 'Rule adherence', 'Habit tracking', 'Daily check-ins'],
               },
             ].map((step, i) => (
-              <div key={step.step} className="relative p-6 rounded-2xl border border-[#30363d] bg-[#161b22]">
+              <div key={step.step} className="relative p-6 rounded-2xl border border-white/[0.06] bg-[#111318] shadow-xl shadow-black/20">
                 <div className="absolute -top-3 left-6 px-3 py-0.5 bg-[#F97316] text-white text-[10px] font-bold rounded-full uppercase tracking-wider">
                   Step {step.step}
                 </div>
 
-                <div className="mt-5 mb-4 w-12 h-12 rounded-xl bg-[#0d1117] border border-[#30363d] flex items-center justify-center">
+                <div className="mt-5 mb-4 w-12 h-12 rounded-xl bg-[#09090b] border border-white/[0.06] flex items-center justify-center">
                   <step.icon className="w-6 h-6 text-[#F97316]" />
                 </div>
 
                 <h3 className="text-xl font-semibold text-white mb-2">{step.title}</h3>
-                <p className="text-sm text-[#8b949e] leading-relaxed mb-5">{step.desc}</p>
+                <p className="text-sm text-[#71717a] leading-relaxed mb-5">{step.desc}</p>
 
                 <ul className="space-y-2">
                   {step.items.map(item => (
-                    <li key={item} className="flex items-center gap-2 text-sm text-[#8b949e]">
+                    <li key={item} className="flex items-center gap-2 text-sm text-[#71717a]">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#F97316] flex-shrink-0" />
                       {item}
                     </li>
@@ -728,13 +728,13 @@ export default function LandingPage() {
               Limited-time offer
             </div>
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
-            <p className="text-[#8b949e] text-lg max-w-xl mx-auto">
+            <p className="text-[#71717a] text-lg max-w-xl mx-auto">
               Everything you need to trade with discipline — no hidden fees, no tiers.
             </p>
           </div>
 
           {/* Pricing card */}
-          <div className="relative max-w-md mx-auto rounded-3xl border border-[#F97316]/40 bg-[#161b22] overflow-hidden shadow-2xl shadow-[#F97316]/10">
+          <div className="relative max-w-md mx-auto rounded-3xl border border-[#F97316]/40 bg-[#111318] overflow-hidden shadow-2xl shadow-[#F97316]/10">
             {/* Top gradient glow */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#F97316] to-transparent" />
 
@@ -745,17 +745,17 @@ export default function LandingPage() {
               </div>
 
               <h3 className="text-2xl font-bold text-white mb-2">Pro Trader</h3>
-              <p className="text-[#8b949e] text-sm mb-6">Full access to every feature, updated daily.</p>
+              <p className="text-[#71717a] text-sm mb-6">Full access to every feature, updated daily.</p>
 
               {/* Price */}
               <div className="flex items-end gap-3 mb-8">
                 <div className="flex items-start">
-                  <span className="text-[#8b949e] text-xl font-medium mt-1.5">$</span>
+                  <span className="text-[#71717a] text-xl font-medium mt-1.5">$</span>
                   <span className="text-6xl font-extrabold text-white leading-none">9.99</span>
                 </div>
                 <div className="flex flex-col pb-1">
-                  <span className="text-[#8b949e] line-through text-lg">$14.99</span>
-                  <span className="text-[#8b949e] text-sm">/ month</span>
+                  <span className="text-[#71717a] line-through text-lg">$14.99</span>
+                  <span className="text-[#71717a] text-sm">/ month</span>
                 </div>
               </div>
 
@@ -769,7 +769,7 @@ export default function LandingPage() {
               </Link>
 
               {/* Divider */}
-              <div className="border-t border-[#30363d] mb-8" />
+              <div className="border-t border-white/[0.06] mb-8" />
 
               {/* Feature list */}
               <ul className="space-y-3.5">
@@ -795,7 +795,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <p className="text-center text-[#8b949e] text-sm mt-6">
+          <p className="text-center text-[#71717a] text-sm mt-6">
             No credit card required to start · Cancel anytime
           </p>
         </div>
@@ -818,7 +818,7 @@ export default function LandingPage() {
               <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
                 Ready to Trade with Discipline?
               </h2>
-              <p className="text-lg text-[#8b949e] mb-10 max-w-2xl mx-auto">
+              <p className="text-lg text-[#71717a] mb-10 max-w-2xl mx-auto">
                 Join traders who have taken control of their performance with data-driven journaling
                 and real-time market analytics.
               </p>
@@ -828,7 +828,7 @@ export default function LandingPage() {
                   Create Free Account
                   <ArrowRight className="w-5 h-5" />
                 </Link>
-                <Link href="/login" className="px-8 py-4 border border-[#30363d] hover:border-[#F97316]/50 text-[#8b949e] hover:text-[#F97316] font-medium rounded-xl transition-colors text-lg">
+                <Link href="/login" className="px-8 py-4 border border-white/[0.06] hover:border-[#F97316]/50 text-[#71717a] hover:text-[#F97316] font-medium rounded-xl transition-colors text-lg">
                   Sign In
                 </Link>
               </div>
@@ -838,10 +838,10 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ FOOTER ═══ */}
-      <footer className="border-t border-[#30363d] bg-[#161b22]">
+      <footer className="border-t border-white/[0.06] bg-[#111318]">
         <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#0d1117] border border-[#30363d] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-[#09090b] border border-white/[0.06] flex items-center justify-center">
               <svg viewBox="0 0 48 48" fill="none" className="w-4 h-4">
                 <line x1="7" y1="13" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
                 <line x1="7" y1="35" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
@@ -850,9 +850,9 @@ export default function LandingPage() {
               </svg>
             </div>
             <span className="text-sm font-semibold text-white">Confluence Trading</span>
-            <span className="hidden sm:inline text-[#8b949e] text-sm">— Your disciplined trading command center</span>
+            <span className="hidden sm:inline text-[#71717a] text-sm">— Your disciplined trading command center</span>
           </div>
-          <p className="text-xs text-[#8b949e]">© {new Date().getFullYear()} Confluence Trading. All rights reserved.</p>
+          <p className="text-xs text-[#71717a]">© {new Date().getFullYear()} Confluence Trading. All rights reserved.</p>
         </div>
       </footer>
 

@@ -246,15 +246,15 @@ export default function DocumentationCard() {
   return (
     <div className="space-y-6">
       {/* Header Section */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+      <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-[#ff6b35] to-[#ff8c5a] rounded-xl">
+            <div className="p-3 bg-gradient-to-br from-[#F97316] to-[#ff8c5a] rounded-xl">
               <BookOpen className="w-6 h-6 text-white" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">Documentation</h1>
-              <p className="text-sm text-[#8b949e]">
+              <p className="text-sm text-[#71717a]">
                 {totalDocs} guides across {DOC_CATEGORIES.length} categories
               </p>
             </div>
@@ -262,13 +262,13 @@ export default function DocumentationCard() {
           
           {/* Search Bar */}
           <div className="relative w-full md:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b949e]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#71717a]" />
             <input
               type="text"
               placeholder="Search documentation..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-[#0d1117] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35] focus:ring-1 focus:ring-[#ff6b35]/30 transition-all"
+              className="w-full pl-10 pr-4 py-2.5 bg-[#09090b] border border-white/[0.06] rounded-lg text-sm text-white placeholder-[#71717a] focus:outline-none focus:border-[#F97316] focus:ring-1 focus:ring-[#F97316]/30 transition-all"
             />
           </div>
         </div>
@@ -278,7 +278,7 @@ export default function DocumentationCard() {
         {/* Sidebar Navigation */}
         <div className="lg:col-span-1 space-y-4">
           {/* Category Tabs */}
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-2">
+          <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 p-2">
             <div className="space-y-1">
               {DOC_CATEGORIES.map((category) => (
                 <button
@@ -289,8 +289,8 @@ export default function DocumentationCard() {
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                     activeTab === category.id && !searchQuery
-                      ? 'bg-[#ff6b35] text-white'
-                      : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]/50'
+                      ? 'bg-[#F97316] text-white'
+                      : 'text-[#71717a] hover:text-white hover:bg-white/[0.06]'
                   }`}
                 >
                   <category.icon className="w-4 h-4" />
@@ -298,7 +298,7 @@ export default function DocumentationCard() {
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
                     activeTab === category.id && !searchQuery
                       ? 'bg-white/20 text-white'
-                      : 'bg-[#30363d] text-[#8b949e]'
+                      : 'bg-white/[0.06] text-[#71717a]'
                   }`}>
                     {category.docs.length}
                   </span>
@@ -308,7 +308,7 @@ export default function DocumentationCard() {
           </div>
 
           {/* Quick Links */}
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
+          <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 p-4">
             <h3 className="text-sm font-semibold text-white mb-3">Quick Links</h3>
             <div className="space-y-2">
               {QUICK_LINKS.map((link) => (
@@ -317,33 +317,33 @@ export default function DocumentationCard() {
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[#30363d]/50 transition-colors group"
+                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/[0.06] transition-colors group"
                 >
-                  <div className="p-1.5 bg-[#0d1117] rounded-lg group-hover:bg-[#ff6b35]/10 transition-colors">
-                    <link.icon className="w-4 h-4 text-[#8b949e] group-hover:text-[#ff6b35]" />
+                  <div className="p-1.5 bg-[#09090b] rounded-lg group-hover:bg-[#F97316]/10 transition-colors">
+                    <link.icon className="w-4 h-4 text-[#71717a] group-hover:text-[#F97316]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white group-hover:text-[#ff6b35] transition-colors truncate">
+                    <p className="text-sm text-white group-hover:text-[#F97316] transition-colors truncate">
                       {link.title}
                     </p>
-                    <p className="text-xs text-[#8b949e] truncate">{link.description}</p>
+                    <p className="text-xs text-[#71717a] truncate">{link.description}</p>
                   </div>
-                  <ExternalLink className="w-3 h-3 text-[#8b949e] opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ExternalLink className="w-3 h-3 text-[#71717a] opacity-0 group-hover:opacity-100 transition-opacity" />
                 </a>
               ))}
             </div>
           </div>
 
           {/* Quick Tips */}
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
+          <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Zap className="w-4 h-4 text-[#ff6b35]" />
+              <Zap className="w-4 h-4 text-[#F97316]" />
               <h3 className="text-sm font-semibold text-white">Quick Tips</h3>
             </div>
             <ul className="space-y-2">
               {QUICK_TIPS.map((tip, index) => (
-                <li key={index} className="flex items-start gap-2 text-xs text-[#8b949e]">
-                  <span className="text-[#ff6b35] mt-0.5">•</span>
+                <li key={index} className="flex items-start gap-2 text-xs text-[#71717a]">
+                  <span className="text-[#F97316] mt-0.5">•</span>
                   <span>{tip}</span>
                 </li>
               ))}
@@ -356,28 +356,28 @@ export default function DocumentationCard() {
           <div className="space-y-4">
             {searchQuery ? (
               // Search Results
-              <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+              <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-white">
                     Search Results
                   </h2>
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="text-xs text-[#ff6b35] hover:underline"
+                    className="text-xs text-[#F97316] hover:underline"
                   >
                     Clear search
                   </button>
                 </div>
                 {filteredCategories.length === 0 ? (
                   <div className="text-center py-8">
-                    <Search className="w-12 h-12 mx-auto mb-3 text-[#8b949e] opacity-50" />
-                    <p className="text-[#8b949e]">No results found for &quot;{searchQuery}&quot;</p>
+                    <Search className="w-12 h-12 mx-auto mb-3 text-[#71717a] opacity-50" />
+                    <p className="text-[#71717a]">No results found for &quot;{searchQuery}&quot;</p>
                   </div>
                 ) : (
                   <div className="space-y-6">
                     {filteredCategories.map((category) => (
                       <div key={category.id}>
-                        <h3 className="text-sm font-medium text-[#ff6b35] mb-3 flex items-center gap-2">
+                        <h3 className="text-sm font-medium text-[#F97316] mb-3 flex items-center gap-2">
                           <category.icon className="w-4 h-4" />
                           {category.label}
                         </h3>
@@ -393,16 +393,16 @@ export default function DocumentationCard() {
               </div>
             ) : activeCategory ? (
               // Single Category View
-              <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+              <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 rounded-lg bg-[#ff6b35]/10">
-                    <activeCategory.icon className="w-6 h-6 text-[#ff6b35]" />
+                  <div className="p-2 rounded-lg bg-[#F97316]/10">
+                    <activeCategory.icon className="w-6 h-6 text-[#F97316]" />
                   </div>
                   <div>
                     <h2 className="text-xl font-semibold text-white">
                       {activeCategory.label}
                     </h2>
-                    <p className="text-sm text-[#8b949e]">
+                    <p className="text-sm text-[#71717a]">
                       {activeCategory.docs.length} document{activeCategory.docs.length !== 1 ? 's' : ''}
                     </p>
                   </div>
@@ -428,15 +428,15 @@ function DocCard({ doc }: { doc: DocItem }) {
       href={doc.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex flex-col p-4 bg-[#0d1117] border border-[#30363d] rounded-xl hover:border-[#ff6b35]/50 hover:bg-[#161b22] transition-all"
+      className="group flex flex-col p-4 bg-[#09090b] border border-white/[0.06] rounded-2xl hover:border-[#F97316]/50 hover:bg-[#111318] transition-all"
     >
       <div className="flex items-start justify-between gap-3 mb-2">
-        <h3 className="font-medium text-white group-hover:text-[#ff6b35] transition-colors line-clamp-1">
+        <h3 className="font-medium text-white group-hover:text-[#F97316] transition-colors line-clamp-1">
           {doc.title}
         </h3>
-        <ExternalLink className="w-4 h-4 text-[#8b949e] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+        <ExternalLink className="w-4 h-4 text-[#71717a] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
       </div>
-      <p className="text-sm text-[#8b949e] line-clamp-2 mb-3 flex-1">
+      <p className="text-sm text-[#71717a] line-clamp-2 mb-3 flex-1">
         {doc.description}
       </p>
       {doc.tags && doc.tags.length > 0 && (
@@ -444,7 +444,7 @@ function DocCard({ doc }: { doc: DocItem }) {
           {doc.tags.slice(0, 3).map((tag) => (
             <span 
               key={tag}
-              className="text-[10px] px-2 py-0.5 bg-[#30363d] text-[#8b949e] rounded-full"
+              className="text-[10px] px-2 py-0.5 bg-white/[0.06] text-[#71717a] rounded-full"
             >
               {tag}
             </span>

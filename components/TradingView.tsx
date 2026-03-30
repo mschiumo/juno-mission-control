@@ -94,7 +94,7 @@ export default function TradingView() {
   return (
     <div className="space-y-6">
       {/* Sub-Navigation - Desktop: Buttons, Mobile: Dropdown */}
-      <div data-tour="trading-nav" className="bg-[#161b22] border border-[#30363d] rounded-xl p-2">
+      <div data-tour="trading-nav" className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 p-2">
         {/* Desktop - Button Grid */}
         <div className="hidden md:flex flex-wrap gap-1">
           {subTabs.map((tab) => {
@@ -106,7 +106,7 @@ export default function TradingView() {
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
                   activeSubTab === tab.id
                     ? 'bg-[#F97316] text-white'
-                    : 'text-[#8b949e] hover:bg-[#262626] hover:text-white'
+                    : 'text-[#71717a] hover:bg-[#262626] hover:text-white'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -121,22 +121,22 @@ export default function TradingView() {
           {/* Hamburger Button */}
           <button
             onClick={() => setMobileDropdownOpen(!mobileDropdownOpen)}
-            className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg text-white"
+            className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-[#09090b] border border-white/[0.06] rounded-lg text-white"
           >
             <div className="flex items-center gap-2">
               <ActiveIcon className="w-5 h-5 text-[#F97316]" />
               <span className="font-medium">{activeTabLabel}</span>
             </div>
             {mobileDropdownOpen ? (
-              <X className="w-5 h-5 text-[#8b949e]" />
+              <X className="w-5 h-5 text-[#71717a]" />
             ) : (
-              <Menu className="w-5 h-5 text-[#8b949e]" />
+              <Menu className="w-5 h-5 text-[#71717a]" />
             )}
           </button>
 
           {/* Expanded Menu */}
           {mobileDropdownOpen && (
-            <div className="mt-2 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+            <div className="mt-2 bg-[#111318] border border-white/[0.06] rounded-2xl overflow-hidden">
               {subTabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -146,7 +146,7 @@ export default function TradingView() {
                     className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
                       activeSubTab === tab.id
                         ? 'bg-[#F97316]/20 text-white'
-                        : 'text-[#8b949e] hover:bg-[#262626] hover:text-white'
+                        : 'text-[#71717a] hover:bg-[#262626] hover:text-white'
                     }`}
                   >
                     <Icon className={`w-5 h-5 ${activeSubTab === tab.id ? 'text-[#F97316]' : ''}`} />

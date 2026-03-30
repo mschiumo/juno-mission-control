@@ -275,9 +275,9 @@ export default function MarketCard() {
   const downCount = currentData.filter(i => i.change < 0).length;
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden h-full flex flex-col">
+    <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 overflow-hidden h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] bg-[#09090b]/50">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-[#F97316]/10 rounded-lg">
             <DollarSign className="w-5 h-5 text-[#F97316]" />
@@ -289,17 +289,17 @@ export default function MarketCard() {
         </div>
         <div className="flex items-center gap-3">
           {lastUpdated && !loading && (
-            <span className="text-[10px] text-[#8b949e]">
+            <span className="text-[10px] text-[#71717a]">
               Updated {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
             </span>
           )}
           <button
             onClick={fetchMarketData}
             disabled={loading}
-            className="p-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+            className="p-2 hover:bg-white/[0.06] rounded-lg transition-colors disabled:opacity-50"
             title="Refresh market data"
           >
-            <RefreshCw className={`w-4 h-4 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-[#71717a] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -314,7 +314,7 @@ export default function MarketCard() {
               className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                 activeTab === tab
                   ? 'bg-[#F97316] text-white'
-                  : 'text-[#8b949e] hover:bg-[#30363d] hover:text-white'
+                  : 'text-[#71717a] hover:bg-white/[0.06] hover:text-white'
               }`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -343,13 +343,13 @@ export default function MarketCard() {
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                   onFocus={() => addingSymbol.length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
                   placeholder="Search ticker (e.g. AAPL, SPY...)"
-                  className="w-full px-3 py-2 text-sm bg-[#0d1117] border border-[#30363d] focus:border-[#F97316]/60 rounded-lg text-white placeholder-[#8b949e] focus:outline-none transition-colors"
+                  className="w-full px-3 py-2 text-sm bg-[#09090b] border border-white/[0.06] focus:border-[#F97316]/60 rounded-lg text-white placeholder-[#71717a] focus:outline-none transition-colors"
                 />
                 {isSearching && (
-                  <RefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8b949e] animate-spin" />
+                  <RefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#71717a] animate-spin" />
                 )}
                 {showSuggestions && suggestions.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-[#161b22] border border-[#30363d] rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                  <div className="absolute z-50 w-full mt-1 bg-[#111318] border border-white/[0.06] rounded-lg shadow-xl max-h-48 overflow-y-auto">
                     {suggestions.map((s, i) => (
                       <button
                         key={s.symbol}
@@ -358,7 +358,7 @@ export default function MarketCard() {
                         className={`w-full px-3 py-2 text-left text-sm transition-colors ${
                           i === selectedIndex
                             ? 'bg-[#F97316]/20 text-white'
-                            : 'text-[#8b949e] hover:bg-[#0d1117] hover:text-white'
+                            : 'text-[#71717a] hover:bg-[#09090b] hover:text-white'
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
@@ -388,21 +388,21 @@ export default function MarketCard() {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-[#238636]" />
-                <span className="text-xs text-[#8b949e]">{upCount} Up</span>
+                <span className="text-xs text-[#71717a]">{upCount} Up</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-[#da3633]" />
-                <span className="text-xs text-[#8b949e]">{downCount} Down</span>
+                <span className="text-xs text-[#71717a]">{downCount} Down</span>
               </div>
             </div>
-            <span className="text-xs text-[#8b949e]">{currentData.length} symbols</span>
+            <span className="text-xs text-[#71717a]">{currentData.length} symbols</span>
           </div>
         )}
 
         {/* Grid */}
         <div className="flex-1 overflow-y-auto pr-1">
           {loading ? (
-            <div className="text-center py-8 text-[#8b949e]">
+            <div className="text-center py-8 text-[#71717a]">
               <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#F97316]" />
               <p className="text-sm">Loading market data...</p>
             </div>
@@ -415,7 +415,7 @@ export default function MarketCard() {
                       href={`https://www.tradingview.com/chart/?symbol=${getTradingViewSymbol(item.symbol)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2.5 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#F97316]/50 transition-all block min-w-0"
+                      className="p-2.5 bg-[#09090b] rounded-2xl border border-white/[0.06] hover:border-[#F97316]/50 transition-all block min-w-0"
                     >
                       <div className="flex items-center justify-between mb-1 min-w-0">
                         <div className="flex items-center gap-1 min-w-0 flex-1">
@@ -437,7 +437,7 @@ export default function MarketCard() {
                           {item.change >= 0 ? '+' : ''}{item.changePercent.toFixed(2)}%
                         </span>
                       </div>
-                      <p className="text-[10px] text-[#8b949e] mb-1.5 truncate">{item.name}</p>
+                      <p className="text-[10px] text-[#71717a] mb-1.5 truncate">{item.name}</p>
                       <div className="flex items-baseline justify-between min-w-0">
                         <span className="text-base font-bold text-white tabular-nums truncate">{formatPrice(item.price)}</span>
                         <span className={`text-[10px] font-medium flex-shrink-0 ml-1 ${item.change >= 0 ? 'text-[#238636]' : 'text-[#da3633]'}`}>

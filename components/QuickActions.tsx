@@ -61,7 +61,7 @@ const quickActions: QuickAction[] = [
     id: '6',
     name: 'Music',
     icon: <Music className="w-5 h-5" />,
-    color: '#ff6b35',
+    color: '#F97316',
     href: 'https://music.youtube.com'
   },
   {
@@ -94,17 +94,17 @@ export default function QuickActions() {
   };
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
+    <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
-            <Zap className="w-5 h-5 text-[#ff6b35]" />
+          <div className="p-2 bg-[#F97316]/10 rounded-lg">
+            <Zap className="w-5 h-5 text-[#F97316]" />
           </div>
           <h2 className="text-lg font-semibold text-white">Quick Actions</h2>
         </div>
         <button
           onClick={() => setShowAll(!showAll)}
-          className="text-sm text-[#ff6b35] hover:text-[#ff8c5a] transition-colors"
+          className="text-sm text-[#F97316] hover:text-[#ff8c5a] transition-colors"
         >
           {showAll ? 'Show Less' : 'Show All'}
         </button>
@@ -115,7 +115,7 @@ export default function QuickActions() {
           <button
             key={action.id}
             onClick={() => handleAction(action)}
-            className="group flex flex-col items-center gap-2 p-3 rounded-lg bg-[#0d1117] border border-[#30363d] hover:border-[#ff6b35]/50 transition-all hover:-translate-y-0.5"
+            className="group flex flex-col items-center gap-2 p-3 rounded-lg bg-[#09090b] border border-white/[0.06] hover:border-[#F97316]/50 transition-all hover:-translate-y-0.5"
           >
             <div 
               className="p-2 rounded-lg transition-colors"
@@ -126,7 +126,7 @@ export default function QuickActions() {
             >
               {action.icon}
             </div>
-            <span className="text-xs text-[#8b949e] group-hover:text-white transition-colors">
+            <span className="text-xs text-[#71717a] group-hover:text-white transition-colors">
               {action.name}
             </span>
           </button>

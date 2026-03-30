@@ -31,10 +31,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1117] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#09090b] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#0d1117] border border-[#30363d] mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#09090b] border border-white/[0.06] mb-4">
             <svg viewBox="0 0 48 48" fill="none" className="w-8 h-8">
               <line x1="7" y1="13" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
               <line x1="7" y1="35" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
@@ -42,8 +42,8 @@ export default function LoginPage() {
               <circle cx="24" cy="24" r="2.5" fill="white"/>
             </svg>
           </div>
-          <h1 className="text-xl font-bold text-[#e6edf3]">Confluence Trading</h1>
-          <p className="text-sm text-[#8b949e] mt-1">Sign in to your account</p>
+          <h1 className="text-xl font-bold text-[#e4e4e7]">Confluence Trading</h1>
+          <p className="text-sm text-[#71717a] mt-1">Sign in to your account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -53,7 +53,7 @@ export default function LoginPage() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
-            className="w-full px-3 py-2.5 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#F97316] transition-colors"
+            className="w-full px-3 py-2.5 bg-[#111318] border border-white/[0.06] rounded-lg text-sm text-[#e4e4e7] placeholder-[#484f58] focus:outline-none focus:border-[#F97316] transition-colors"
           />
 
           <div className="relative">
@@ -63,12 +63,12 @@ export default function LoginPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              className="w-full px-3 py-2.5 pr-10 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#F97316] transition-colors"
+              className="w-full px-3 py-2.5 pr-10 bg-[#111318] border border-white/[0.06] rounded-lg text-sm text-[#e4e4e7] placeholder-[#484f58] focus:outline-none focus:border-[#F97316] transition-colors"
             />
             <button
               type="button"
               onClick={() => setShowPassword(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#8b949e] transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#71717a] transition-colors"
               tabIndex={-1}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -88,7 +88,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-xs text-[#8b949e] mt-5">
+        <p className="text-center text-xs text-[#71717a] mt-5">
           Don&apos;t have an account?{' '}
           <Link href="/signup" className="text-[#F97316] hover:underline">
             Sign up

@@ -10,7 +10,7 @@ function Tip({ label, children, position = 'bottom' }: { label: string; children
     <div className="relative group/tip">
       {children}
       <div className={`absolute ${position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} left-1/2 -translate-x-1/2 hidden group-hover/tip:block z-50 pointer-events-none`}>
-        <div className="bg-[#0d1117] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-[11px] text-[#c9d1d9] whitespace-nowrap shadow-xl">
+        <div className="bg-[#09090b] border border-white/[0.06] rounded-lg px-2.5 py-1.5 text-[11px] text-[#c9d1d9] whitespace-nowrap shadow-xl">
           {label}
         </div>
       </div>
@@ -27,24 +27,24 @@ function CriteriaCard({ criteria, children }: {
     <div className="relative group/criteria">
       {children}
       <div className="absolute left-0 top-full mt-2 hidden group-hover/criteria:block z-50 pointer-events-none">
-        <div className="w-72 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 bg-[#0d1117]/60 border-b border-[#30363d]">
+        <div className="w-72 bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 bg-[#09090b]/60 border-b border-white/[0.06]">
             <Activity className="w-3.5 h-3.5 text-[#F97316]" />
             <span className="text-xs font-semibold text-white">Active Scan Criteria</span>
           </div>
           <div className="px-4 py-3 space-y-3">
             {criteria.map(({ label, value, detail }) => (
               <div key={label} className="flex items-start justify-between gap-3">
-                <span className="text-[11px] font-medium text-[#8b949e] w-16 shrink-0">{label}</span>
+                <span className="text-[11px] font-medium text-[#71717a] w-16 shrink-0">{label}</span>
                 <div className="text-right">
                   <span className="text-[11px] font-semibold text-white block">{value}</span>
-                  <span className="text-[10px] text-[#8b949e]">{detail}</span>
+                  <span className="text-[10px] text-[#71717a]">{detail}</span>
                 </div>
               </div>
             ))}
           </div>
-          <div className="px-4 py-2.5 border-t border-[#30363d] bg-[#0d1117]/40">
-            <p className="text-[10px] text-[#8b949e] leading-relaxed">
+          <div className="px-4 py-2.5 border-t border-white/[0.06] bg-[#09090b]/40">
+            <p className="text-[10px] text-[#71717a] leading-relaxed">
               Results sorted by gap % by default. Star any ticker to add it to your watchlist.
             </p>
           </div>
@@ -294,8 +294,8 @@ export default function GapScannerCard() {
   const sessionInfo: Record<string, { label: string; color: string; dot: string; tooltip: string }> = {
     'pre-market': { label: 'Pre-Market', color: 'text-[#58a6ff]', dot: 'bg-[#58a6ff]', tooltip: `Overnight gaps — ${response?.previousDate} close → ${response?.tradingDate} open. Opens 9:30 AM EST.` },
     'market-open': { label: 'Market Open', color: 'text-[#238636]', dot: 'bg-[#238636]', tooltip: `Live gaps from ${response?.tradingDate}. Closes 4:00 PM EST.` },
-    'post-market': { label: 'After Hours', color: 'text-[#8b949e]', dot: 'bg-[#8b949e]', tooltip: `Post-market. Final gaps from ${response?.tradingDate}. Pre-market resumes 4:00 AM EST.` },
-    'closed': { label: 'Market Closed', color: 'text-[#8b949e]', dot: 'bg-[#8b949e]', tooltip: 'Market is closed. Showing last available scan results.' },
+    'post-market': { label: 'After Hours', color: 'text-[#71717a]', dot: 'bg-[#8b949e]', tooltip: `Post-market. Final gaps from ${response?.tradingDate}. Pre-market resumes 4:00 AM EST.` },
+    'closed': { label: 'Market Closed', color: 'text-[#71717a]', dot: 'bg-[#8b949e]', tooltip: 'Market is closed. Showing last available scan results.' },
   };
   // Determine market session — override to "closed" on weekends/holidays even if
   // the backend incorrectly reports "market-open" (the backend bug is also fixed,
@@ -322,7 +322,7 @@ export default function GapScannerCard() {
 
   const criteriaSubtitle = `${filters.minGap}%+ gap | ${fmtFilterVol(filters.minVolume)}+ vol | ${fmtFilterCap(filters.minMarketCap)}+ cap | $${filters.minPrice}–$${filters.maxPrice}`;
 
-  const numInputClass = 'bg-[#21262d] border border-[#30363d] hover:border-[#8b949e] focus:border-[#F97316] focus:outline-none rounded px-1.5 py-0.5 text-xs text-white text-center transition-colors';
+  const numInputClass = 'bg-[#21262d] border border-white/[0.06] hover:border-[#8b949e] focus:border-[#F97316] focus:outline-none rounded px-1.5 py-0.5 text-xs text-white text-center transition-colors';
 
   const StockRow = ({ stock }: { stock: GapStock }) => {
     const isGainer = stock.status === 'gainer';
@@ -332,25 +332,25 @@ export default function GapScannerCard() {
         href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
         target="_blank" rel="noopener noreferrer"
         title={stock.name}
-        className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-2 hover:bg-[#21262d] group border-b border-[#30363d] last:border-0 transition-colors"
+        className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-2 hover:bg-[#21262d] group border-b border-white/[0.06] last:border-0 transition-colors"
       >
         <div className="flex items-center gap-1.5 min-w-0">
           {isGainer
             ? <TrendingUp className="w-3 h-3 text-[#238636] flex-shrink-0" />
             : <TrendingDown className="w-3 h-3 text-[#da3633] flex-shrink-0" />
           }
-          <span className="text-xs font-semibold text-white group-hover:text-[#ff6b35] transition-colors truncate">
+          <span className="text-xs font-semibold text-white group-hover:text-[#F97316] transition-colors truncate">
             {stock.symbol}
           </span>
         </div>
-        <span className="text-xs text-[#8b949e] tabular-nums">{fmt(stock.price)}</span>
-        <span className="text-xs text-[#8b949e] tabular-nums">{fmtVol(stock.volume)}</span>
+        <span className="text-xs text-[#71717a] tabular-nums">{fmt(stock.price)}</span>
+        <span className="text-xs text-[#71717a] tabular-nums">{fmtVol(stock.volume)}</span>
         <span className={`text-xs font-semibold tabular-nums w-14 text-right ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
           {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%
         </span>
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(stock.symbol); }}
-          className={`transition-colors ${added ? 'text-[#F97316]' : 'text-transparent group-hover:text-[#8b949e] hover:!text-[#F97316]'}`}
+          className={`transition-colors ${added ? 'text-[#F97316]' : 'text-transparent group-hover:text-[#71717a] hover:!text-[#F97316]'}`}
           title={added ? 'Remove from Daily Favorites' : 'Add to Daily Favorites'}
         >
           <Star className={`w-3 h-3 ${added ? 'fill-[#F97316]' : ''}`} />
@@ -361,9 +361,9 @@ export default function GapScannerCard() {
 
   return (
     <>
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-full">
+      <div className="bg-[#111318] border border-white/[0.06] rounded-2xl overflow-hidden flex flex-col h-full shadow-xl shadow-black/20">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-[#09090b]/50 flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 bg-[#F97316]/10 rounded-lg">
               <Activity className="w-4 h-4 text-[#F97316]" />
@@ -371,9 +371,9 @@ export default function GapScannerCard() {
             <div>
               <h2 className="text-sm font-semibold text-white leading-none">Gap Scanner</h2>
               <div className="flex items-center gap-1 mt-0.5">
-                <p className="text-[10px] text-[#8b949e]">{criteriaSubtitle}</p>
+                <p className="text-[10px] text-[#71717a]">{criteriaSubtitle}</p>
                 <CriteriaCard criteria={activeCriteria}>
-                  <Info className="w-3 h-3 text-[#8b949e] hover:text-[#58a6ff] cursor-help transition-colors" />
+                  <Info className="w-3 h-3 text-[#71717a] hover:text-[#58a6ff] cursor-help transition-colors" />
                 </CriteriaCard>
               </div>
             </div>
@@ -385,7 +385,7 @@ export default function GapScannerCard() {
                   <span className={`w-1.5 h-1.5 rounded-full ${session.dot} ${sessionKey === 'market-open' ? 'animate-pulse' : ''}`} />
                   {session.label}
                 </span>
-                <div className="absolute right-0 top-full mt-1.5 hidden group-hover:block z-20 bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-[10px] text-[#8b949e] w-56 shadow-xl pointer-events-none">
+                <div className="absolute right-0 top-full mt-1.5 hidden group-hover:block z-20 bg-[#09090b] border border-white/[0.06] rounded-lg px-3 py-2 text-[10px] text-[#71717a] w-56 shadow-xl pointer-events-none">
                   {session.tooltip}
                 </div>
               </div>
@@ -396,13 +396,13 @@ export default function GapScannerCard() {
             {data && !loading && (
               <>
                 <Tip label="Export results to CSV" position="bottom">
-                  <button onClick={exportToCSV} className="p-1.5 hover:bg-[#30363d] rounded transition-colors">
-                    <Download className="w-3.5 h-3.5 text-[#8b949e]" />
+                  <button onClick={exportToCSV} className="p-1.5 hover:bg-white/[0.06] rounded transition-colors">
+                    <Download className="w-3.5 h-3.5 text-[#71717a]" />
                   </button>
                 </Tip>
                 <Tip label="View full list" position="bottom">
-                  <button onClick={() => setShowModal(true)} className="p-1.5 hover:bg-[#30363d] rounded transition-colors">
-                    <List className="w-3.5 h-3.5 text-[#8b949e]" />
+                  <button onClick={() => setShowModal(true)} className="p-1.5 hover:bg-white/[0.06] rounded transition-colors">
+                    <List className="w-3.5 h-3.5 text-[#71717a]" />
                   </button>
                 </Tip>
               </>
@@ -413,14 +413,14 @@ export default function GapScannerCard() {
             <Tip label="Configure filters" position="bottom">
               <button
                 onClick={() => { setDraft(filters); setShowFilters(true); }}
-                className="p-1.5 hover:bg-[#30363d] rounded transition-colors text-[#8b949e]"
+                className="p-1.5 hover:bg-white/[0.06] rounded transition-colors text-[#71717a]"
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
               </button>
             </Tip>
             <Tip label="Refresh now" position="bottom">
-              <button onClick={() => fetchGapData()} disabled={loading} className="p-1.5 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50">
-                <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
+              <button onClick={() => fetchGapData()} disabled={loading} className="p-1.5 hover:bg-white/[0.06] rounded transition-colors disabled:opacity-50">
+                <RefreshCw className={`w-3.5 h-3.5 text-[#71717a] ${loading ? 'animate-spin' : ''}`} />
               </button>
             </Tip>
           </div>
@@ -431,7 +431,7 @@ export default function GapScannerCard() {
           <div className="grid grid-cols-2 divide-x divide-[#30363d] flex-1 animate-pulse">
             {['Gainers', 'Losers'].map(label => (
               <div key={label} className="flex flex-col">
-                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[#30363d]">
+                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/[0.06]">
                   <div className="w-3 h-3 rounded-sm bg-[#30363d]" />
                   <div className="h-3 w-16 bg-[#30363d] rounded" />
                 </div>
@@ -441,7 +441,7 @@ export default function GapScannerCard() {
                   ))}
                 </div>
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-2.5 border-b border-[#30363d] last:border-0">
+                  <div key={i} className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-2.5 border-b border-white/[0.06] last:border-0">
                     <div className="h-3 w-12 bg-[#30363d] rounded" />
                     <div className="h-3 w-10 bg-[#30363d] rounded" />
                     <div className="h-3 w-8 bg-[#30363d] rounded" />
@@ -456,46 +456,46 @@ export default function GapScannerCard() {
           <div className="grid grid-cols-2 divide-x divide-[#30363d] flex-1 min-h-0">
             {/* Gainers column */}
             <div className="flex flex-col min-h-0">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#238636]/5 border-b border-[#30363d] flex-shrink-0">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#238636]/5 border-b border-white/[0.06] flex-shrink-0">
                 <TrendingUp className="w-3 h-3 text-[#238636]" />
                 <span className="text-[10px] font-semibold text-[#238636] uppercase tracking-widest">
-                  Gainers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.gainers.length ?? 0})</span>
+                  Gainers <span className="text-[#71717a] font-normal normal-case tracking-normal">({data?.gainers.length ?? 0})</span>
                 </span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
-                <button onClick={() => toggleGainerSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" sort={gainerSort} /></button>
-                <button onClick={() => toggleGainerSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" sort={gainerSort} /></button>
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-1.5 border-b border-[#21262d] bg-[#09090b]/30 flex-shrink-0">
+                <span className="text-[10px] text-[#71717a] uppercase tracking-wide">Symbol</span>
+                <span className="text-[10px] text-[#71717a] uppercase tracking-wide">Last</span>
+                <button onClick={() => toggleGainerSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#71717a] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" sort={gainerSort} /></button>
+                <button onClick={() => toggleGainerSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#71717a] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" sort={gainerSort} /></button>
                 <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
               </div>
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.gainers?.length
                   ? sortStocks(data.gainers, gainerSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
-                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No gainers matching criteria'}</div>
+                  : <div className="text-center py-8 text-[#71717a] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No gainers matching criteria'}</div>
                 }
               </div>
             </div>
 
             {/* Losers column */}
             <div className="flex flex-col min-h-0">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#da3633]/5 border-b border-[#30363d] flex-shrink-0">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#da3633]/5 border-b border-white/[0.06] flex-shrink-0">
                 <TrendingDown className="w-3 h-3 text-[#da3633]" />
                 <span className="text-[10px] font-semibold text-[#da3633] uppercase tracking-widest">
-                  Losers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.losers.length ?? 0})</span>
+                  Losers <span className="text-[#71717a] font-normal normal-case tracking-normal">({data?.losers.length ?? 0})</span>
                 </span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
-                <button onClick={() => toggleLoserSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" sort={loserSort} /></button>
-                <button onClick={() => toggleLoserSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" sort={loserSort} /></button>
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-1.5 border-b border-[#21262d] bg-[#09090b]/30 flex-shrink-0">
+                <span className="text-[10px] text-[#71717a] uppercase tracking-wide">Symbol</span>
+                <span className="text-[10px] text-[#71717a] uppercase tracking-wide">Last</span>
+                <button onClick={() => toggleLoserSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#71717a] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" sort={loserSort} /></button>
+                <button onClick={() => toggleLoserSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#71717a] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" sort={loserSort} /></button>
                 <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
               </div>
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.losers?.length
                   ? sortStocks(data.losers, loserSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
-                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No losers matching criteria'}</div>
+                  : <div className="text-center py-8 text-[#71717a] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No losers matching criteria'}</div>
                 }
               </div>
             </div>
@@ -506,47 +506,47 @@ export default function GapScannerCard() {
       {/* View All Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)}>
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#30363d] flex-shrink-0">
+          <div className="bg-[#111318] border border-white/[0.06] rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-xl shadow-black/20" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-[#F97316]" />
                 <span className="font-semibold text-white">All Gap Stocks</span>
-                <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-0.5 rounded">{allStocks.length} tickers</span>
+                <span className="text-xs text-[#71717a] bg-[#09090b] px-2 py-0.5 rounded">{allStocks.length} tickers</span>
               </div>
-              <button onClick={() => setShowModal(false)} className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e] hover:text-white">
+              <button onClick={() => setShowModal(false)} className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors text-[#71717a] hover:text-white">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="overflow-y-auto flex-1">
               <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-[#0d1117] border-b border-[#30363d]">
+                <thead className="sticky top-0 bg-[#09090b] border-b border-white/[0.06]">
                   <tr>
-                    <th className="text-left px-4 py-2.5 text-xs text-[#8b949e] font-medium">#</th>
-                    <th className="text-left px-4 py-2.5 text-xs text-[#8b949e] font-medium">Ticker</th>
-                    <th className="text-right px-4 py-2.5 text-xs text-[#8b949e] font-medium cursor-pointer hover:text-white select-none" onClick={() => toggleModalSort('gap')}>
+                    <th className="text-left px-4 py-2.5 text-xs text-[#71717a] font-medium">#</th>
+                    <th className="text-left px-4 py-2.5 text-xs text-[#71717a] font-medium">Ticker</th>
+                    <th className="text-right px-4 py-2.5 text-xs text-[#71717a] font-medium cursor-pointer hover:text-white select-none" onClick={() => toggleModalSort('gap')}>
                       <span className="flex items-center justify-end gap-1">Gap% <SortIcon col="gap" sort={modalSort} /></span>
                     </th>
-                    <th className="text-right px-4 py-2.5 text-xs text-[#8b949e] font-medium cursor-pointer hover:text-white select-none" onClick={() => toggleModalSort('price')}>
+                    <th className="text-right px-4 py-2.5 text-xs text-[#71717a] font-medium cursor-pointer hover:text-white select-none" onClick={() => toggleModalSort('price')}>
                       <span className="flex items-center justify-end gap-1">Price <SortIcon col="price" sort={modalSort} /></span>
                     </th>
-                    <th className="text-right px-4 py-2.5 text-xs text-[#8b949e] font-medium cursor-pointer hover:text-white select-none hidden sm:table-cell" onClick={() => toggleModalSort('volume')}>
+                    <th className="text-right px-4 py-2.5 text-xs text-[#71717a] font-medium cursor-pointer hover:text-white select-none hidden sm:table-cell" onClick={() => toggleModalSort('volume')}>
                       <span className="flex items-center justify-end gap-1">Vol <SortIcon col="volume" sort={modalSort} /></span>
                     </th>
-                    <th className="text-right px-4 py-2.5 text-xs text-[#8b949e] font-medium cursor-pointer hover:text-white select-none hidden sm:table-cell" onClick={() => toggleModalSort('cap')}>
+                    <th className="text-right px-4 py-2.5 text-xs text-[#71717a] font-medium cursor-pointer hover:text-white select-none hidden sm:table-cell" onClick={() => toggleModalSort('cap')}>
                       <span className="flex items-center justify-end gap-1">Mkt Cap <SortIcon col="cap" sort={modalSort} /></span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {allStocks.map((stock, i) => (
-                    <tr key={stock.symbol} className="border-b border-[#30363d]/50 hover:bg-[#0d1117]/60 transition-colors">
-                      <td className="px-4 py-2.5 text-xs text-[#8b949e]">{i + 1}</td>
+                    <tr key={stock.symbol} className="border-b border-white/[0.06]/50 hover:bg-[#09090b]/60 transition-colors">
+                      <td className="px-4 py-2.5 text-xs text-[#71717a]">{i + 1}</td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
                           {stock.status === 'gainer' ? <TrendingUp className="w-3.5 h-3.5 text-[#238636] flex-shrink-0" /> : <TrendingDown className="w-3.5 h-3.5 text-[#da3633] flex-shrink-0" />}
                           <div>
                             <span className="font-semibold text-white text-xs">{stock.symbol}</span>
-                            {stock.name !== stock.symbol && <p className="text-[10px] text-[#8b949e] truncate max-w-[140px]">{stock.name}</p>}
+                            {stock.name !== stock.symbol && <p className="text-[10px] text-[#71717a] truncate max-w-[140px]">{stock.name}</p>}
                           </div>
                         </div>
                       </td>
@@ -554,8 +554,8 @@ export default function GapScannerCard() {
                         {stock.status === 'gainer' ? '+' : ''}{stock.gapPercent.toFixed(2)}%
                       </td>
                       <td className="px-4 py-2.5 text-right text-xs text-white">{fmt(stock.price)}</td>
-                      <td className="px-4 py-2.5 text-right text-xs text-[#8b949e] hidden sm:table-cell">{fmtVol(stock.volume)}</td>
-                      <td className="px-4 py-2.5 text-right text-xs text-[#8b949e] hidden sm:table-cell">{stock.marketCap > 0 ? fmtCap(stock.marketCap) : '—'}</td>
+                      <td className="px-4 py-2.5 text-right text-xs text-[#71717a] hidden sm:table-cell">{fmtVol(stock.volume)}</td>
+                      <td className="px-4 py-2.5 text-right text-xs text-[#71717a] hidden sm:table-cell">{stock.marketCap > 0 ? fmtCap(stock.marketCap) : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -568,14 +568,14 @@ export default function GapScannerCard() {
       {/* Filter Settings Modal */}
       {showFilters && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowFilters(false)}>
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-sm flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#111318] border border-white/[0.06] rounded-2xl w-full max-w-sm flex flex-col shadow-xl shadow-black/20" onClick={e => e.stopPropagation()}>
             {/* Modal header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#30363d]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4 text-[#F97316]" />
                 <span className="font-semibold text-white text-sm">Scan Filters</span>
               </div>
-              <button onClick={() => setShowFilters(false)} className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e] hover:text-white">
+              <button onClick={() => setShowFilters(false)} className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors text-[#71717a] hover:text-white">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -586,7 +586,7 @@ export default function GapScannerCard() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-white">Min Gap %</p>
-                  <p className="text-[11px] text-[#8b949e]">vs previous close</p>
+                  <p className="text-[11px] text-[#71717a]">vs previous close</p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <input
@@ -595,7 +595,7 @@ export default function GapScannerCard() {
                     onChange={e => setDraft(d => ({ ...d, minGap: parseFloat(e.target.value) || 0 }))}
                     className={`${numInputClass} w-20`}
                   />
-                  <span className="text-sm text-[#8b949e]">%</span>
+                  <span className="text-sm text-[#71717a]">%</span>
                 </div>
               </div>
 
@@ -603,7 +603,7 @@ export default function GapScannerCard() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-white">Min Volume</p>
-                  <p className="text-[11px] text-[#8b949e]">pre/intraday shares</p>
+                  <p className="text-[11px] text-[#71717a]">pre/intraday shares</p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <input
@@ -612,7 +612,7 @@ export default function GapScannerCard() {
                     onChange={e => setDraft(d => ({ ...d, minVolume: (parseFloat(e.target.value) || 0) * 1e6 }))}
                     className={`${numInputClass} w-20`}
                   />
-                  <span className="text-sm text-[#8b949e]">M</span>
+                  <span className="text-sm text-[#71717a]">M</span>
                 </div>
               </div>
 
@@ -620,17 +620,17 @@ export default function GapScannerCard() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-white">Min Market Cap</p>
-                  <p className="text-[11px] text-[#8b949e]">Yahoo source only</p>
+                  <p className="text-[11px] text-[#71717a]">Yahoo source only</p>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm text-[#8b949e]">$</span>
+                  <span className="text-sm text-[#71717a]">$</span>
                   <input
                     type="number" min={0} step={10}
                     value={draft.minMarketCap / 1e6}
                     onChange={e => setDraft(d => ({ ...d, minMarketCap: (parseFloat(e.target.value) || 0) * 1e6 }))}
                     className={`${numInputClass} w-20`}
                   />
-                  <span className="text-sm text-[#8b949e]">M</span>
+                  <span className="text-sm text-[#71717a]">M</span>
                 </div>
               </div>
 
@@ -638,18 +638,18 @@ export default function GapScannerCard() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-white">Price Range</p>
-                  <p className="text-[11px] text-[#8b949e]">filters sub-penny stocks</p>
+                  <p className="text-[11px] text-[#71717a]">filters sub-penny stocks</p>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm text-[#8b949e]">$</span>
+                  <span className="text-sm text-[#71717a]">$</span>
                   <input
                     type="number" min={0} step={1}
                     value={draft.minPrice}
                     onChange={e => setDraft(d => ({ ...d, minPrice: parseFloat(e.target.value) || 0 }))}
                     className={`${numInputClass} w-16`}
                   />
-                  <span className="text-sm text-[#8b949e]">–</span>
-                  <span className="text-sm text-[#8b949e]">$</span>
+                  <span className="text-sm text-[#71717a]">–</span>
+                  <span className="text-sm text-[#71717a]">$</span>
                   <input
                     type="number" min={0} step={100}
                     value={draft.maxPrice}
@@ -661,10 +661,10 @@ export default function GapScannerCard() {
             </div>
 
             {/* Modal footer */}
-            <div className="flex items-center justify-between px-5 py-3 border-t border-[#30363d]">
+            <div className="flex items-center justify-between px-5 py-3 border-t border-white/[0.06]">
               <button
                 onClick={() => setDraft(DEFAULT_FILTERS)}
-                className="text-xs text-[#8b949e] hover:text-white transition-colors"
+                className="text-xs text-[#71717a] hover:text-white transition-colors"
               >
                 Reset to defaults
               </button>
@@ -683,7 +683,7 @@ export default function GapScannerCard() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed top-6 left-6 z-[100] bg-[#161b22] border border-[#F97316]/50 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm">
+        <div className="fixed top-6 left-6 z-[100] bg-[#111318] border border-[#F97316]/50 text-white px-5 py-3 rounded-2xl shadow-xl shadow-black/20 flex items-center gap-2 text-sm">
           <Star className="w-4 h-4 text-[#F97316] fill-[#F97316]" />
           {toast}
         </div>

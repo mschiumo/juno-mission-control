@@ -78,11 +78,11 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1117] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#09090b] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#0d1117] border border-[#30363d] mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#09090b] border border-white/[0.06] mb-4">
             <svg viewBox="0 0 48 48" fill="none" className="w-8 h-8">
               <line x1="7" y1="13" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
               <line x1="7" y1="35" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
@@ -90,8 +90,8 @@ export default function SignupPage() {
               <circle cx="24" cy="24" r="2.5" fill="white"/>
             </svg>
           </div>
-          <h1 className="text-xl font-bold text-[#e6edf3]">Create your account</h1>
-          <p className="text-sm text-[#8b949e] mt-1">Join Confluence Trading</p>
+          <h1 className="text-xl font-bold text-[#e4e4e7]">Create your account</h1>
+          <p className="text-sm text-[#71717a] mt-1">Join Confluence Trading</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -101,7 +101,7 @@ export default function SignupPage() {
             value={name}
             onChange={e => setName(e.target.value)}
             required
-            className="w-full px-3 py-2.5 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#F97316] transition-colors"
+            className="w-full px-3 py-2.5 bg-[#111318] border border-white/[0.06] rounded-lg text-sm text-[#e4e4e7] placeholder-[#484f58] focus:outline-none focus:border-[#F97316] transition-colors"
           />
           <input
             type="email"
@@ -109,7 +109,7 @@ export default function SignupPage() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
-            className="w-full px-3 py-2.5 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#F97316] transition-colors"
+            className="w-full px-3 py-2.5 bg-[#111318] border border-white/[0.06] rounded-lg text-sm text-[#e4e4e7] placeholder-[#484f58] focus:outline-none focus:border-[#F97316] transition-colors"
           />
 
           {/* Password with eye toggle */}
@@ -122,12 +122,12 @@ export default function SignupPage() {
                 onChange={e => setPassword(e.target.value)}
                 onFocus={() => setPasswordFocused(true)}
                 required
-                className="w-full px-3 py-2.5 pr-10 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#F97316] transition-colors"
+                className="w-full px-3 py-2.5 pr-10 bg-[#111318] border border-white/[0.06] rounded-lg text-sm text-[#e4e4e7] placeholder-[#484f58] focus:outline-none focus:border-[#F97316] transition-colors"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#8b949e] transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#71717a] transition-colors"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -142,7 +142,7 @@ export default function SignupPage() {
                     <div
                       key={i}
                       className="h-1 flex-1 rounded-full transition-all duration-300"
-                      style={{ backgroundColor: i < score ? strengthColors[score] : '#30363d' }}
+                      style={{ backgroundColor: i < score ? strengthColors[score] : 'rgba(255,255,255,0.06)' }}
                     />
                   ))}
                 </div>
@@ -181,12 +181,12 @@ export default function SignupPage() {
               value={confirm}
               onChange={e => setConfirm(e.target.value)}
               required
-              className="w-full px-3 py-2.5 pr-10 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#F97316] transition-colors"
+              className="w-full px-3 py-2.5 pr-10 bg-[#111318] border border-white/[0.06] rounded-lg text-sm text-[#e4e4e7] placeholder-[#484f58] focus:outline-none focus:border-[#F97316] transition-colors"
             />
             <button
               type="button"
               onClick={() => setShowConfirm(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#8b949e] transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#71717a] transition-colors"
               tabIndex={-1}
             >
               {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -206,7 +206,7 @@ export default function SignupPage() {
           </button>
         </form>
 
-        <p className="text-center text-xs text-[#8b949e] mt-5">
+        <p className="text-center text-xs text-[#71717a] mt-5">
           Already have an account?{' '}
           <Link href="/login" className="text-[#F97316] hover:underline">
             Sign in

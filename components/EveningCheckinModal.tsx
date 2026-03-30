@@ -91,23 +91,23 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'fitness': return 'text-[#ff6b35]';
+      case 'fitness': return 'text-[#F97316]';
       case 'learning': return 'text-[#58a6ff]';
       case 'mindfulness': return 'text-[#a371f7]';
       case 'trading': return 'text-[#3fb950]';
       case 'discipline': return 'text-[#d29922]';
       case 'health': return 'text-[#f85149]';
-      default: return 'text-[#8b949e]';
+      default: return 'text-[#71717a]';
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 w-full max-w-2xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#1a1f2e] to-[#161b22] border-b border-[#30363d] p-6">
+        <div className="bg-gradient-to-r from-[#1a1f2e] to-[#111318] border-b border-white/[0.06] p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-[#a371f7]/10 rounded-xl">
@@ -115,7 +115,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white">Daily Habit Report</h2>
-                <p className="text-sm text-[#8b949e]">{new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).toLocaleDateString('en-US', { 
+                <p className="text-sm text-[#71717a]">{new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).toLocaleDateString('en-US', { 
                   weekday: 'long', 
                   month: 'short', 
                   day: 'numeric',
@@ -126,9 +126,9 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
             
             <button
               onClick={onClose}
-              className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              className="p-2 hover:bg-white/[0.06] rounded-lg transition-colors"
             >
-              <X className="w-5 h-5 text-[#8b949e]" />
+              <X className="w-5 h-5 text-[#71717a]" />
             </button>
           </div>
         </div>
@@ -138,35 +138,35 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
           {loading ? (
             <div className="text-center py-12">
               <div className="animate-spin w-8 h-8 border-2 border-[#a371f7] border-t-transparent rounded-full mx-auto mb-4" />
-              <p className="text-[#8b949e]">Loading...</p>
+              <p className="text-[#71717a]">Loading...</p>
             </div>
           ) : (
             <div className="space-y-6">
               {/* Summary Cards */}
               <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                <div className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] text-center">
+                <div className="p-3 sm:p-4 bg-[#09090b] rounded-2xl border border-white/[0.06] text-center">
                   <div className="text-2xl sm:text-3xl font-bold text-[#a371f7]">{data?.stats.totalCheckins || 0}</div>
-                  <div className="text-[9px] sm:text-xs text-[#8b949e] uppercase mt-1 leading-tight">Total</div>
+                  <div className="text-[9px] sm:text-xs text-[#71717a] uppercase mt-1 leading-tight">Total</div>
                 </div>
-                <div className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] text-center">
-                  <div className="text-2xl sm:text-3xl font-bold text-[#ff6b35]">{data?.stats.averageCompletion || 0}%</div>
-                  <div className="text-[9px] sm:text-xs text-[#8b949e] uppercase mt-1 leading-tight">Avg</div>
+                <div className="p-3 sm:p-4 bg-[#09090b] rounded-2xl border border-white/[0.06] text-center">
+                  <div className="text-2xl sm:text-3xl font-bold text-[#F97316]">{data?.stats.averageCompletion || 0}%</div>
+                  <div className="text-[9px] sm:text-xs text-[#71717a] uppercase mt-1 leading-tight">Avg</div>
                 </div>
-                <div className="p-3 sm:p-4 bg-[#0d1117] rounded-xl border border-[#30363d] text-center">
+                <div className="p-3 sm:p-4 bg-[#09090b] rounded-2xl border border-white/[0.06] text-center">
                   <div className="text-2xl sm:text-3xl font-bold text-[#238636]">{data?.stats.streak || 0}</div>
-                  <div className="text-[9px] sm:text-xs text-[#8b949e] uppercase mt-1 leading-tight">Streak</div>
+                  <div className="text-[9px] sm:text-xs text-[#71717a] uppercase mt-1 leading-tight">Streak</div>
                 </div>
               </div>
 
               {/* By Question Stats */}
-              <div className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d]">
+              <div className="p-4 bg-[#09090b] rounded-2xl border border-white/[0.06]">
                 <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#8b949e]" />
+                  <Calendar className="w-4 h-4 text-[#71717a]" />
                   7-Day Performance
                 </h3>
                 
                 {!data?.questions?.length || Object.keys(data?.stats?.byQuestion || {}).length === 0 ? (
-                  <div className="text-center py-8 text-[#8b949e]">
+                  <div className="text-center py-8 text-[#71717a]">
                     <p className="text-sm">Start logging habits to see your performance!</p>
                   </div>
                 ) : (
@@ -187,7 +187,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                                 style={{ width: `${stat.rate}%` }}
                               />
                             </div>
-                            <span className="text-xs text-[#8b949e] w-12 sm:w-16 text-right">
+                            <span className="text-xs text-[#71717a] w-12 sm:w-16 text-right">
                               {stat.yes}/{stat.yes + stat.no}
                             </span>
                           </div>
@@ -200,16 +200,16 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
 
               {/* Recent History */}
               {data?.history && data.history.length > 0 && (
-                <div className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d]">
+                <div className="p-4 bg-[#09090b] rounded-2xl border border-white/[0.06]">
                   <h3 className="text-sm font-medium text-white mb-4">Recent Check-ins</h3>
                   
                   <div className="space-y-2">
                     {data.history.slice(0, 7).map((checkin) => (
                       <div 
                         key={checkin.date}
-                        className="flex items-center justify-between p-3 bg-[#161b22] rounded-lg"
+                        className="flex items-center justify-between p-3 bg-[#111318] rounded-lg"
                       >
-                        <span className="text-sm text-[#8b949e]">
+                        <span className="text-sm text-[#71717a]">
                           {new Date(checkin.date + 'T12:00:00').toLocaleDateString('en-US', {
                             weekday: 'short',
                             month: 'short',
@@ -233,11 +233,11 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
 
               {/* Reset Section - only show if there's data */}
               {(data?.history?.length || 0) > 0 && (
-                <div className="pt-6 mt-6 border-t border-[#30363d]">
+                <div className="pt-6 mt-6 border-t border-white/[0.06]">
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-medium text-white">Reset Data</h4>
-                      <p className="text-xs text-[#8b949e]">Clear all habit check-in history</p>
+                      <p className="text-xs text-[#71717a]">Clear all habit check-in history</p>
                     </div>
                     <button
                       onClick={() => setShowResetConfirm(true)}
@@ -252,8 +252,8 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
               )}
               {/* Reset Confirmation Modal */}
               {showResetConfirm && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
-                  <div className="bg-[#161b22] border border-[#f85149]/50 rounded-xl w-full max-w-md p-6 shadow-2xl">
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                  <div className="bg-[#111318] border border-[#f85149]/50 rounded-2xl w-full max-w-md p-6 shadow-2xl">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="p-2 bg-[#f85149]/10 rounded-xl">
                         <Trash2 className="w-6 h-6 text-[#f85149]" />
@@ -261,7 +261,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                       <h3 className="text-lg font-bold text-white">Reset All Data?</h3>
                     </div>
                     
-                    <p className="text-[#8b949e] mb-6">
+                    <p className="text-[#71717a] mb-6">
                       This will permanently delete all your habit check-in history. This action cannot be undone.
                     </p>
                     
@@ -269,7 +269,7 @@ export default function EveningCheckinModal({ isOpen, onClose, onSuccess }: Even
                       <button
                         onClick={() => setShowResetConfirm(false)}
                         disabled={isResetting}
-                        className="flex-1 px-4 py-2 bg-[#30363d] hover:bg-[#484f58] text-white rounded-lg transition-colors disabled:opacity-50"
+                        className="flex-1 px-4 py-2 bg-white/[0.06] hover:bg-[#484f58] text-white rounded-lg transition-colors disabled:opacity-50"
                       >
                         Cancel
                       </button>

@@ -40,13 +40,13 @@ export default function LiveClock() {
   return (
     <div className="text-right">
       <div className="flex items-baseline justify-end">
-        <span className="text-base font-mono tabular-nums text-[#e6edf3]">
+        <span className="text-base font-mono tabular-nums text-[#e4e4e7]">
           {hhmm || '--:--'}
         </span>
-        <span className="text-sm font-mono tabular-nums text-[#ff6b35]">
+        <span className="text-sm font-mono tabular-nums text-[#F97316]">
           :{seconds || '--'}
         </span>
-        <span className="text-xs text-[#8b949e] ml-1">
+        <span className="text-xs text-[#71717a] ml-1">
           {ampm || 'AM'}
         </span>
       </div>

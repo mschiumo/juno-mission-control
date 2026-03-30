@@ -89,24 +89,24 @@ export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardPro
   };
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+    <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-[#09090b]/50">
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-[#F97316]" />
           <span className="text-sm font-semibold text-white">Today&apos;s Events</span>
-          <span className="text-[10px] text-[#8b949e]">FOMC · Earnings · Gov</span>
+          <span className="text-[10px] text-[#71717a]">FOMC · Earnings · Gov</span>
         </div>
         <div className="flex items-center gap-1">
           {onOpenBriefing && (
             <button
               data-tour="market-briefing"
               onClick={handleOpenBriefing}
-              className="relative flex items-center gap-1.5 px-2 py-1.5 hover:bg-[#30363d] rounded-lg transition-colors"
+              className="relative flex items-center gap-1.5 px-2 py-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
               title="Morning Market Briefing"
             >
               <Newspaper className="w-3.5 h-3.5 text-[#F97316]" />
-              <span className="text-[10px] font-medium text-[#8b949e] hidden sm:inline">Briefing</span>
+              <span className="text-[10px] font-medium text-[#71717a] hidden sm:inline">Briefing</span>
               {hasUnreadBriefing && (
                 <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F97316] opacity-75" />
@@ -121,14 +121,14 @@ export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardPro
       {/* Events - horizontal scrollable strip */}
       <div className="px-4 py-3 overflow-x-auto scrollbar-hide">
         {loading ? (
-          <div className="flex items-center gap-2 text-[#8b949e] py-1">
+          <div className="flex items-center gap-2 text-[#71717a] py-1">
             <RefreshCw className="w-4 h-4 animate-spin text-[#F97316]" />
             <span className="text-xs">Loading events...</span>
           </div>
         ) : events.length === 0 ? (
           <div className="flex items-center gap-2 py-1">
-            <CalendarDays className="w-3.5 h-3.5 text-[#8b949e] opacity-50" />
-            <p className="text-xs text-[#8b949e]">No market-moving events today</p>
+            <CalendarDays className="w-3.5 h-3.5 text-[#71717a] opacity-50" />
+            <p className="text-xs text-[#71717a]">No market-moving events today</p>
           </div>
         ) : (
           <div className="flex gap-2 min-w-0">
@@ -156,7 +156,7 @@ export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardPro
                   </span>
 
                   {/* Sublabel or time */}
-                  <span className="text-[9px] text-[#8b949e] truncate">
+                  <span className="text-[9px] text-[#71717a] truncate">
                     {event.sublabel ?? event.time ?? ''}
                   </span>
                 </div>

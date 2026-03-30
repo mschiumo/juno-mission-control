@@ -45,9 +45,9 @@ export default function SectorPerformanceCard() {
   };
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+    <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#30363d] bg-[#0d1117]/50">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-[#09090b]/50">
         <div className="flex items-center gap-2">
           <BarChart2 className="w-4 h-4 text-[#F97316]" />
           <h2 className="text-sm font-semibold text-white">Sectors</h2>
@@ -64,9 +64,9 @@ export default function SectorPerformanceCard() {
         <button
           onClick={fetchSectors}
           disabled={loading}
-          className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+          className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 text-[#71717a] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -74,7 +74,7 @@ export default function SectorPerformanceCard() {
       <div className="flex gap-2 overflow-x-auto px-4 py-3 scrollbar-hide">
         {loading && sectors.length === 0
           ? Array.from({ length: 11 }).map((_, i) => (
-              <div key={i} className="flex-shrink-0 w-24 h-12 bg-[#0d1117] rounded-lg border border-[#30363d] animate-pulse" />
+              <div key={i} className="flex-shrink-0 w-24 h-12 bg-[#09090b] rounded-lg border border-white/[0.06] animate-pulse" />
             ))
           : sectors.map((sector) => {
               const isUp = sector.changePercent >= 0;
@@ -85,7 +85,7 @@ export default function SectorPerformanceCard() {
                   href={`https://www.tradingview.com/chart/?symbol=AMEX:${sector.symbol}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-shrink-0 flex flex-col justify-between px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg hover:border-[#F97316]/50 transition-all min-w-[88px]"
+                  className="flex-shrink-0 flex flex-col justify-between px-3 py-2 bg-[#09090b] border border-white/[0.06] rounded-lg hover:border-[#F97316]/50 transition-all min-w-[88px]"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-white font-mono">{sector.symbol}</span>
@@ -93,7 +93,7 @@ export default function SectorPerformanceCard() {
                       {isUp ? '+' : ''}{sector.changePercent.toFixed(2)}%
                     </span>
                   </div>
-                  <span className="text-[10px] text-[#8b949e] mt-1 truncate">{sector.name}</span>
+                  <span className="text-[10px] text-[#71717a] mt-1 truncate">{sector.name}</span>
                 </a>
               );
             })}

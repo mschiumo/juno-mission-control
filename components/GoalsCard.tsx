@@ -264,7 +264,7 @@ function SortableGoalCard({
         {phase !== 'not-started' && (
           <button
             onClick={(e) => { e.stopPropagation(); moveGoal(goal, phase === 'achieved' ? 'in-progress' : 'not-started'); }}
-            className="p-1 rounded hover:bg-[#333] text-[#555] hover:text-[#737373] transition-colors"
+            className="p-1 rounded hover:bg-[#333] text-[#555] hover:text-[#52525b] transition-colors"
             title="Move back"
           >
             <RotateCcw className="w-3 h-3" />

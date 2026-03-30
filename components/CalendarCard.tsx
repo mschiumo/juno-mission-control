@@ -73,7 +73,7 @@ const SETUP_STEPS = [
       <>
         Go to{' '}
         <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer"
-          className="text-[#F97316] hover:underline">calendar.google.com
+          className="text-[#ff6b35] hover:underline">calendar.google.com
         </a>{' '}
         and click the <span className="text-white font-medium">gear icon ⚙</span> in the top-right corner, then select{' '}
         <span className="text-white font-medium">Settings</span>.
@@ -110,7 +110,7 @@ const SETUP_STEPS = [
         Scroll down to <span className="text-white font-medium">&ldquo;Integrate calendar&rdquo;</span> and copy the{' '}
         <span className="text-white font-medium">&ldquo;Public address in iCal format&rdquo;</span> URL.{' '}
         It looks like:{' '}
-        <span className="text-[#F97316] font-mono text-[10px] break-all">
+        <span className="text-[#ff6b35] font-mono text-[10px] break-all">
           calendar.google.com/calendar/ical/.../.../basic.ics
         </span>
         <br /><br />
@@ -248,46 +248,46 @@ export default function CalendarCard() {
   const totalSteps = SETUP_STEPS.length + 1; // +1 for the connect step
 
   return (
-    <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 flex flex-col h-full relative overflow-hidden">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl flex flex-col h-full relative overflow-hidden">
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-white/[0.02] flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] flex-shrink-0">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-[#F97316]/10 rounded-lg flex-shrink-0">
-            <Calendar className="w-4 h-4 text-[#F97316]" />
+          <div className="p-1.5 bg-[#ff6b35]/10 rounded-lg flex-shrink-0">
+            <Calendar className="w-4 h-4 text-[#ff6b35]" />
           </div>
           <div>
             <div className="flex items-center gap-0.5">
               <button
                 onClick={() => setDayOffset(o => o - 1)}
-                className="p-0.5 hover:bg-white/[0.06] rounded transition-colors text-[#71717a] hover:text-white"
+                className="p-0.5 hover:bg-[#30363d] rounded transition-colors text-[#8b949e] hover:text-white"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <h2 className="text-sm font-semibold text-white leading-tight px-0.5">{getDayLabel(dayOffset)}</h2>
               <button
                 onClick={() => setDayOffset(o => o + 1)}
-                className="p-0.5 hover:bg-white/[0.06] rounded transition-colors text-[#71717a] hover:text-white"
+                className="p-0.5 hover:bg-[#30363d] rounded transition-colors text-[#8b949e] hover:text-white"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
-            <p className="text-[10px] text-[#71717a]">{getDateSubtitle(dayOffset)}</p>
+            <p className="text-[10px] text-[#8b949e]">{getDateSubtitle(dayOffset)}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
           {!noCalendar && !loading && (
-            <span className="text-[10px] text-[#71717a]">{events.length} event{events.length !== 1 ? 's' : ''}</span>
+            <span className="text-[10px] text-[#8b949e]">{events.length} event{events.length !== 1 ? 's' : ''}</span>
           )}
-          <button onClick={fetchEvents} disabled={loading} className="p-1 hover:bg-white/[0.06] rounded transition-colors disabled:opacity-50">
-            <RefreshCw className={`w-3.5 h-3.5 text-[#71717a] ${loading ? 'animate-spin' : ''}`} />
+          <button onClick={fetchEvents} disabled={loading} className="p-1 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50">
+            <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
           </button>
           {!noCalendar && (
             <button
               onClick={handleRemove}
               disabled={removing}
               title="Remove calendar"
-              className="p-1 hover:bg-white/[0.06] rounded transition-colors disabled:opacity-50 text-[#71717a] hover:text-[#ef4444]"
+              className="p-1 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50 text-[#8b949e] hover:text-[#ef4444]"
             >
               <Trash2 className={`w-3.5 h-3.5 ${removing ? 'animate-pulse' : ''}`} />
             </button>
@@ -297,10 +297,10 @@ export default function CalendarCard() {
 
       {/* "Just connected" banner */}
       {justConnected && !noCalendar && (
-        <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-[#F97316]/10 border-b border-[#F97316]/20">
-          <RefreshCw className="w-3 h-3 text-[#F97316] flex-shrink-0" />
-          <p className="text-[10px] text-[#F97316]">Calendar connected — it may take a moment to display your events.</p>
-          <button onClick={() => setJustConnected(false)} className="ml-auto text-[#F97316]/60 hover:text-[#F97316] transition-colors">
+        <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-[#ff6b35]/10 border-b border-[#ff6b35]/20">
+          <RefreshCw className="w-3 h-3 text-[#ff6b35] flex-shrink-0" />
+          <p className="text-[10px] text-[#ff6b35]">Calendar connected — it may take a moment to display your events.</p>
+          <button onClick={() => setJustConnected(false)} className="ml-auto text-[#ff6b35]/60 hover:text-[#ff6b35] transition-colors">
             <X className="w-3 h-3" />
           </button>
         </div>
@@ -309,18 +309,18 @@ export default function CalendarCard() {
       {/* No-calendar empty state */}
       {!loading && noCalendar ? (
         <div className="flex-1 flex flex-col items-center justify-center px-5 py-6 text-center gap-4">
-          <div className="p-3 bg-[#F97316]/10 rounded-full">
-            <Calendar className="w-6 h-6 text-[#F97316]" />
+          <div className="p-3 bg-[#ff6b35]/10 rounded-full">
+            <Calendar className="w-6 h-6 text-[#ff6b35]" />
           </div>
           <div className="space-y-1">
             <h3 className="text-sm font-semibold text-white">No Calendar Connected</h3>
-            <p className="text-[10px] text-[#71717a] leading-relaxed max-w-[220px]">
+            <p className="text-[10px] text-[#8b949e] leading-relaxed max-w-[220px]">
               Connect your Google Calendar to see today&apos;s events here.
             </p>
           </div>
           <button
             onClick={() => { setSetupStep(0); setShowSetupModal(true); }}
-            className="flex items-center gap-1.5 bg-[#F97316] hover:bg-[#F97316]/90 text-white text-xs font-medium rounded-lg px-4 py-2 transition-colors"
+            className="flex items-center gap-1.5 bg-[#ff6b35] hover:bg-[#ff6b35]/90 text-white text-xs font-medium rounded-lg px-4 py-2 transition-colors"
           >
             <Link className="w-3.5 h-3.5" />
             Connect Calendar
@@ -330,7 +330,7 @@ export default function CalendarCard() {
         <>
           {/* All-day events strip */}
           {allDay.length > 0 && (
-            <div className="flex-shrink-0 border-b border-white/[0.06] px-3 py-1.5 flex flex-col gap-1">
+            <div className="flex-shrink-0 border-b border-[#30363d] px-3 py-1.5 flex flex-col gap-1">
               {allDay.map(e => (
                 <button
                   key={e.id}
@@ -339,7 +339,7 @@ export default function CalendarCard() {
                 >
                   <div className="w-1.5 h-3.5 rounded-sm flex-shrink-0" style={{ backgroundColor: e.color }} />
                   <span className="text-[10px] text-white font-medium truncate">{e.title}</span>
-                  <span className="text-[10px] text-[#71717a] ml-auto flex-shrink-0">All day</span>
+                  <span className="text-[10px] text-[#8b949e] ml-auto flex-shrink-0">All day</span>
                 </button>
               ))}
             </div>
@@ -348,15 +348,15 @@ export default function CalendarCard() {
           {/* Timeline */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto">
             {loading && events.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-32 text-[#71717a] gap-2">
+              <div className="flex flex-col items-center justify-center h-32 text-[#8b949e] gap-2">
                 <div className="flex items-center gap-2 text-xs">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#F97316]" /> Loading...
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#ff6b35]" /> Loading...
                 </div>
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center h-32 text-center gap-1">
-                <p className="text-xs text-[#71717a]">{error}</p>
-                <button onClick={fetchEvents} className="text-[10px] text-[#F97316] hover:underline">Retry</button>
+                <p className="text-xs text-[#8b949e]">{error}</p>
+                <button onClick={fetchEvents} className="text-[10px] text-[#ff6b35] hover:underline">Retry</button>
               </div>
             ) : (
               <div className="relative select-none" style={{ height: 24 * PX_PER_HOUR }}>
@@ -364,10 +364,10 @@ export default function CalendarCard() {
                 {/* Hour rows */}
                 {Array.from({ length: 24 }, (_, i) => (
                   <div key={i} className="absolute w-full flex items-start" style={{ top: i * PX_PER_HOUR, height: PX_PER_HOUR }}>
-                    <span className="w-12 text-[9px] text-[#71717a] text-right pr-2 flex-shrink-0 -mt-[7px] leading-none">
+                    <span className="w-12 text-[9px] text-[#8b949e] text-right pr-2 flex-shrink-0 -mt-[7px] leading-none">
                       {hourLabel(i)}
                     </span>
-                    <div className="flex-1 border-t border-white/[0.06]/60" />
+                    <div className="flex-1 border-t border-[#30363d]/60" />
                   </div>
                 ))}
 
@@ -376,7 +376,7 @@ export default function CalendarCard() {
                   <div key={`h${i}`} className="absolute w-full flex items-start pointer-events-none"
                     style={{ top: i * PX_PER_HOUR + PX_PER_HOUR / 2 }}>
                     <div className="w-12 flex-shrink-0" />
-                    <div className="flex-1 border-t border-white/[0.06]/25" />
+                    <div className="flex-1 border-t border-[#30363d]/25" />
                   </div>
                 ))}
 
@@ -417,7 +417,7 @@ export default function CalendarCard() {
                     >
                       <p className="text-[10px] font-semibold text-white leading-tight truncate">{event.title}</p>
                       {!isShort && (
-                        <p className="text-[9px] text-[#71717a] leading-tight truncate">
+                        <p className="text-[9px] text-[#8b949e] leading-tight truncate">
                           {fmtTime(event.start)} – {fmtTime(event.end)}
                         </p>
                       )}
@@ -429,7 +429,7 @@ export default function CalendarCard() {
                 {events.length === 0 && !loading && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none">
                     <Calendar className="w-5 h-5 text-[#238636] opacity-50" />
-                    <p className="text-xs text-[#71717a]">Nothing scheduled {dayOffset === 0 ? 'today' : 'this day'}</p>
+                    <p className="text-xs text-[#8b949e]">Nothing scheduled {dayOffset === 0 ? 'today' : 'this day'}</p>
                   </div>
                 )}
               </div>
@@ -437,9 +437,9 @@ export default function CalendarCard() {
           </div>
 
           {/* Footer */}
-          <div className="flex-shrink-0 px-4 py-2 border-t border-white/[0.06]">
+          <div className="flex-shrink-0 px-4 py-2 border-t border-[#30363d]">
             <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1 text-[10px] text-[#71717a] hover:text-[#F97316] transition-colors">
+              className="flex items-center justify-center gap-1 text-[10px] text-[#8b949e] hover:text-[#ff6b35] transition-colors">
               <ExternalLink className="w-2.5 h-2.5" />
               Open Google Calendar
             </a>
@@ -450,11 +450,11 @@ export default function CalendarCard() {
       {/* Event detail overlay */}
       {selected && (
         <div
-          className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-2xl p-4"
+          className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 rounded-xl p-4"
           onClick={() => setSelected(null)}
         >
           <div
-            className="bg-[#111318] border border-white/[0.06] rounded-2xl p-4 w-full max-h-full overflow-y-auto shadow-xl"
+            className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 w-full max-h-full overflow-y-auto shadow-xl"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-2 mb-3">
@@ -462,23 +462,23 @@ export default function CalendarCard() {
                 <div className="w-3 h-3 rounded-sm flex-shrink-0 mt-0.5" style={{ backgroundColor: selected.color }} />
                 <h3 className="text-sm font-semibold text-white leading-snug">{selected.title}</h3>
               </div>
-              <button onClick={() => setSelected(null)} className="p-1 hover:bg-white/[0.06] rounded transition-colors flex-shrink-0">
-                <X className="w-3.5 h-3.5 text-[#71717a]" />
+              <button onClick={() => setSelected(null)} className="p-1 hover:bg-[#30363d] rounded transition-colors flex-shrink-0">
+                <X className="w-3.5 h-3.5 text-[#8b949e]" />
               </button>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs text-[#71717a]">
+              <div className="flex items-center gap-2 text-xs text-[#8b949e]">
                 <Clock className="w-3.5 h-3.5 flex-shrink-0" />
                 <span>{selected.allDay ? 'All day' : `${fmtTime(selected.start)} – ${fmtTime(selected.end)}`}</span>
               </div>
               {selected.location && (
-                <div className="flex items-start gap-2 text-xs text-[#71717a]">
+                <div className="flex items-start gap-2 text-xs text-[#8b949e]">
                   <MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                   <span>{selected.location}</span>
                 </div>
               )}
               {selected.description && (
-                <div className="flex items-start gap-2 text-xs text-[#71717a]">
+                <div className="flex items-start gap-2 text-xs text-[#8b949e]">
                   <AlignLeft className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                   <span className="whitespace-pre-wrap break-words">{selected.description}</span>
                 </div>
@@ -491,24 +491,24 @@ export default function CalendarCard() {
       {/* Setup modal (carousel) */}
       {showSetupModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
           onClick={() => setShowSetupModal(false)}
         >
           <div
-            className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-2xl w-full max-w-xl flex flex-col"
+            className="bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl w-full max-w-xl flex flex-col"
             style={{ maxHeight: '90vh' }}
             onClick={e => e.stopPropagation()}
           >
             {/* Modal header */}
-            <div className="flex items-center justify-between px-6 pt-6 pb-5 border-b border-white/[0.06]">
+            <div className="flex items-center justify-between px-6 pt-6 pb-5 border-b border-[#30363d]">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-[#F97316]/10 rounded-lg">
-                  <Calendar className="w-5 h-5 text-[#F97316]" />
+                <div className="p-2 bg-[#ff6b35]/10 rounded-lg">
+                  <Calendar className="w-5 h-5 text-[#ff6b35]" />
                 </div>
                 <span className="text-base font-semibold text-white">Connect Google Calendar</span>
               </div>
-              <button onClick={() => setShowSetupModal(false)} className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors">
-                <X className="w-5 h-5 text-[#71717a]" />
+              <button onClick={() => setShowSetupModal(false)} className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors">
+                <X className="w-5 h-5 text-[#8b949e]" />
               </button>
             </div>
 
@@ -520,17 +520,17 @@ export default function CalendarCard() {
                   {(() => {
                     const StepIcon = SETUP_STEPS[setupStep].icon;
                     return (
-                      <div className="p-5 bg-[#F97316]/10 rounded-full">
-                        <StepIcon className="w-10 h-10 text-[#F97316]" />
+                      <div className="p-5 bg-[#ff6b35]/10 rounded-full">
+                        <StepIcon className="w-10 h-10 text-[#ff6b35]" />
                       </div>
                     );
                   })()}
                   <div className="space-y-3 max-w-md">
-                    <p className="text-xs font-semibold text-[#F97316] uppercase tracking-wider">
+                    <p className="text-xs font-semibold text-[#ff6b35] uppercase tracking-wider">
                       Step {setupStep + 1} of {totalSteps}
                     </p>
                     <h3 className="text-lg font-semibold text-white">{SETUP_STEPS[setupStep].title}</h3>
-                    <p className="text-sm text-[#71717a] leading-relaxed">
+                    <p className="text-sm text-[#8b949e] leading-relaxed">
                       {SETUP_STEPS[setupStep].description}
                     </p>
                   </div>
@@ -539,14 +539,14 @@ export default function CalendarCard() {
                 // Connect step
                 <div className="flex flex-col gap-4 max-w-md mx-auto w-full">
                   <div className="flex flex-col items-center text-center gap-3 mb-2">
-                    <div className="p-5 bg-[#F97316]/10 rounded-full">
-                      <Link className="w-10 h-10 text-[#F97316]" />
+                    <div className="p-5 bg-[#ff6b35]/10 rounded-full">
+                      <Link className="w-10 h-10 text-[#ff6b35]" />
                     </div>
-                    <p className="text-xs font-semibold text-[#F97316] uppercase tracking-wider">
+                    <p className="text-xs font-semibold text-[#ff6b35] uppercase tracking-wider">
                       Step {totalSteps} of {totalSteps}
                     </p>
                     <h3 className="text-lg font-semibold text-white">Paste Your iCal URL</h3>
-                    <p className="text-sm text-[#71717a]">
+                    <p className="text-sm text-[#8b949e]">
                       The URL must end in <span className="text-white font-mono">.ics</span> — not a sharing link.
                     </p>
                   </div>
@@ -555,7 +555,7 @@ export default function CalendarCard() {
                     value={icalInput}
                     onChange={e => setIcalInput(e.target.value)}
                     placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
-                    className="w-full bg-[#0c0c10] border border-white/[0.06] rounded-lg px-4 py-3 text-sm text-white placeholder-[#71717a] focus:outline-none focus:border-[#F97316] transition-colors"
+                    className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-3 text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#ff6b35] transition-colors"
                     onKeyDown={e => { if (e.key === 'Enter') handleConnect(); }}
                     autoFocus
                   />
@@ -563,19 +563,19 @@ export default function CalendarCard() {
                   <button
                     onClick={handleConnect}
                     disabled={saving || !icalInput.trim()}
-                    className="w-full flex items-center justify-center gap-2 bg-[#F97316] hover:bg-[#F97316]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg px-4 py-3 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 bg-[#ff6b35] hover:bg-[#ff6b35]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg px-4 py-3 transition-colors"
                   >
                     {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />}
                     {saving ? 'Connecting...' : 'Connect Calendar'}
                   </button>
-                  <p className="text-xs text-[#71717a] text-center">
+                  <p className="text-xs text-[#8b949e] text-center">
                     Calendar may take a moment to display after connecting.
                   </p>
                   <a
                     href="https://support.google.com/calendar/answer/37648"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-[#71717a] hover:text-[#F97316] transition-colors text-center underline underline-offset-2"
+                    className="text-xs text-[#8b949e] hover:text-[#ff6b35] transition-colors text-center underline underline-offset-2"
                   >
                     Need help? View Google&apos;s iCal setup guide
                   </a>
@@ -584,11 +584,11 @@ export default function CalendarCard() {
             </div>
 
             {/* Step dots + navigation */}
-            <div className="px-6 pb-6 pt-4 border-t border-white/[0.06] flex items-center justify-between gap-3">
+            <div className="px-6 pb-6 pt-4 border-t border-[#30363d] flex items-center justify-between gap-3">
               <button
                 onClick={() => setSetupStep(s => Math.max(0, s - 1))}
                 disabled={setupStep === 0}
-                className="flex items-center gap-1.5 px-3 py-2 hover:bg-white/[0.06] rounded-lg transition-colors disabled:opacity-30 text-[#71717a] text-sm"
+                className="flex items-center gap-1.5 px-3 py-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-30 text-[#8b949e] text-sm"
               >
                 <ChevronLeft className="w-4 h-4" /> Back
               </button>
@@ -601,8 +601,8 @@ export default function CalendarCard() {
                     onClick={() => setSetupStep(i)}
                     className={`rounded-full transition-all ${
                       i === setupStep
-                        ? 'w-6 h-2 bg-[#F97316]'
-                        : 'w-2 h-2 bg-white/[0.06] hover:bg-[#71717a]'
+                        ? 'w-6 h-2 bg-[#ff6b35]'
+                        : 'w-2 h-2 bg-[#30363d] hover:bg-[#8b949e]'
                     }`}
                   />
                 ))}
@@ -611,7 +611,7 @@ export default function CalendarCard() {
               <button
                 onClick={() => setSetupStep(s => Math.min(totalSteps - 1, s + 1))}
                 disabled={setupStep === totalSteps - 1}
-                className="flex items-center gap-1.5 px-3 py-2 hover:bg-white/[0.06] rounded-lg transition-colors disabled:opacity-30 text-[#71717a] text-sm"
+                className="flex items-center gap-1.5 px-3 py-2 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-30 text-[#8b949e] text-sm"
               >
                 Next <ChevronRight className="w-4 h-4" />
               </button>

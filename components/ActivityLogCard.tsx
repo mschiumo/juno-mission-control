@@ -118,9 +118,9 @@ export default function ActivityLogCard() {
       case 'api':
         return <span className="text-[#58a6ff]">🔌</span>;
       case 'user':
-        return <span className="text-[#ff6b35]">👤</span>;
+        return <span className="text-[#F97316]">👤</span>;
       case 'system':
-        return <span className="text-[#8b949e]">⚙️</span>;
+        return <span className="text-[#71717a]">⚙️</span>;
       default:
         return <span>📝</span>;
     }
@@ -141,17 +141,17 @@ export default function ActivityLogCard() {
       switch (type) {
         case 'cron': return 'bg-[#238636] text-white ring-2 ring-[#238636]/50';
         case 'api': return 'bg-[#58a6ff] text-white ring-2 ring-[#58a6ff]/50';
-        case 'user': return 'bg-[#ff6b35] text-white ring-2 ring-[#ff6b35]/50';
-        case 'system': return 'bg-[#8b949e] text-white ring-2 ring-[#8b949e]/50';
-        default: return 'bg-[#ff6b35] text-white ring-2 ring-[#ff6b35]/50';
+        case 'user': return 'bg-[#F97316] text-white ring-2 ring-[#F97316]/50';
+        case 'system': return 'bg-[#71717a] text-white ring-2 ring-[#71717a]/50';
+        default: return 'bg-[#F97316] text-white ring-2 ring-[#F97316]/50';
       }
     }
     switch (type) {
       case 'cron': return 'bg-[#238636]/20 text-[#238636]';
       case 'api': return 'bg-[#58a6ff]/20 text-[#58a6ff]';
-      case 'user': return 'bg-[#ff6b35]/20 text-[#ff6b35]';
-      case 'system': return 'bg-[#8b949e]/20 text-[#8b949e]';
-      default: return 'bg-[#30363d] text-[#8b949e]';
+      case 'user': return 'bg-[#F97316]/20 text-[#F97316]';
+      case 'system': return 'bg-[#71717a]/20 text-[#71717a]';
+      default: return 'bg-white/[0.06] text-[#71717a]';
     }
   };
 
@@ -249,19 +249,19 @@ export default function ActivityLogCard() {
     <div className="card">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#ff6b35]/10 rounded-xl">
-            <Activity className="w-5 h-5 text-[#ff6b35]" />
+          <div className="p-2 bg-[#F97316]/10 rounded-xl">
+            <Activity className="w-5 h-5 text-[#F97316]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">Activity Log</h2>
             <div className="flex items-center gap-2">
-              <p className="text-xs text-[#8b949e]">
+              <p className="text-xs text-[#71717a]">
                 {activeFilter === 'all' 
                   ? `${totalCount} activit${totalCount === 1 ? 'y' : 'ies'}`
                   : `${filteredCount} of ${totalCount} activit${totalCount === 1 ? 'y' : 'ies'}`
                 }
                 {activeFilter !== 'all' && (
-                  <span className="ml-1 text-[#ff6b35]">({getTypeLabel(activeFilter)})</span>
+                  <span className="ml-1 text-[#F97316]">({getTypeLabel(activeFilter)})</span>
                 )}
               </p>
               {lastUpdated && !loading && (
@@ -285,7 +285,7 @@ export default function ActivityLogCard() {
 
       {/* Activity Type Summary - Clickable Filters */}
       {Object.keys(typeCounts).length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-5 p-3 bg-[#0d1117] rounded-xl">
+        <div className="flex flex-wrap items-center gap-2 mb-5 p-3 bg-[#09090b] rounded-xl">
           {Object.entries(typeCounts).map(([type, count]) => (
             <button
               key={type}
@@ -299,7 +299,7 @@ export default function ActivityLogCard() {
           {activeFilter !== 'all' && (
             <button
               onClick={clearFilter}
-              className="text-[10px] px-2.5 py-1 rounded-full font-medium bg-[#30363d] text-[#8b949e] hover:bg-[#484f58] hover:text-white cursor-pointer transition-all flex items-center gap-1"
+              className="text-[10px] px-2.5 py-1 rounded-full font-medium bg-white/[0.06] text-[#71717a] hover:bg-[#484f58] hover:text-white cursor-pointer transition-all flex items-center gap-1"
               title="Show all activities"
             >
               <X className="w-3 h-3" />
@@ -311,20 +311,20 @@ export default function ActivityLogCard() {
 
       <div className="space-y-3 max-h-[500px] overflow-y-auto">
         {loading && activities.length === 0 ? (
-          <div className="text-center py-8 text-[#8b949e]">
-            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#ff6b35]" />
+          <div className="text-center py-8 text-[#71717a]">
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#F97316]" />
             <p className="text-sm">Loading activities...</p>
           </div>
         ) : sortedActivities.length === 0 ? (
           <div className="text-center py-10">
-            <Activity className="w-12 h-12 mx-auto mb-3 text-[#8b949e] opacity-50" />
-            <p className="text-[#8b949e] mb-1">
+            <Activity className="w-12 h-12 mx-auto mb-3 text-[#71717a] opacity-50" />
+            <p className="text-[#71717a] mb-1">
               {activeFilter !== 'all' 
                 ? `No ${getTypeLabel(activeFilter).toLowerCase()} activities found`
                 : 'No activities today'
               }
             </p>
-            <p className="text-xs text-[#8b949e]/70">
+            <p className="text-xs text-[#71717a]/70">
               {activeFilter !== 'all' 
                 ? 'Try clearing the filter to see all activities'
                 : 'Activities will appear here when cron jobs run or actions are logged'
@@ -333,7 +333,7 @@ export default function ActivityLogCard() {
             {activeFilter !== 'all' && (
               <button
                 onClick={clearFilter}
-                className="mt-4 text-xs px-3 py-1.5 bg-[#ff6b35]/20 text-[#ff6b35] hover:bg-[#ff6b35]/30 rounded-lg transition-colors"
+                className="mt-4 text-xs px-3 py-1.5 bg-[#F97316]/20 text-[#F97316] hover:bg-[#F97316]/30 rounded-lg transition-colors"
               >
                 Show All Activities
               </button>
@@ -343,7 +343,7 @@ export default function ActivityLogCard() {
           sortedActivities.map((activity) => (
             <div
               key={activity.id}
-              className="p-4 bg-[#0d1117] rounded-xl border border-[#30363d] hover:border-[#30363d]/80 transition-all"
+              className="p-4 bg-[#09090b] rounded-xl border border-white/[0.06] hover:border-white/10 transition-all"
             >
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5 w-8 h-8 flex items-center justify-center bg-[#21262d] rounded-lg">
@@ -367,8 +367,8 @@ export default function ActivityLogCard() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-[#8b949e] mt-2 leading-relaxed">{renderWithPRLinks(safeString(activity.details))}</p>
-                  <div className="flex items-center gap-1 text-[10px] text-[#8b949e]/70 mt-3">
+                  <p className="text-xs text-[#71717a] mt-2 leading-relaxed">{renderWithPRLinks(safeString(activity.details))}</p>
+                  <div className="flex items-center gap-1 text-[10px] text-[#71717a]/70 mt-3">
                     <Clock className="w-3 h-3" />
                     {formatTime(activity.timestamp)} EST
                   </div>

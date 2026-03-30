@@ -55,7 +55,7 @@ interface MarketBriefingModalProps {
 const SENTIMENT_CONFIG = {
   bullish: { label: 'Bullish', color: 'text-[#3fb950]', bg: 'bg-[#3fb950]/10', border: 'border-[#3fb950]/30' },
   bearish: { label: 'Bearish', color: 'text-[#f85149]', bg: 'bg-[#f85149]/10', border: 'border-[#f85149]/30' },
-  neutral: { label: 'Neutral', color: 'text-[#8b949e]', bg: 'bg-[#8b949e]/10', border: 'border-[#8b949e]/30' },
+  neutral: { label: 'Neutral', color: 'text-[#71717a]', bg: 'bg-[#8b949e]/10', border: 'border-[#8b949e]/30' },
   mixed: { label: 'Mixed', color: 'text-[#d29922]', bg: 'bg-[#d29922]/10', border: 'border-[#d29922]/30' },
 };
 
@@ -84,15 +84,15 @@ function ChangeIndicator({ item }: { item: MarketItem }) {
       href={getTickerUrl(item.symbol)}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex items-center justify-between py-2 px-3 bg-[#0d1117] rounded-lg border border-[#21262d] hover:border-[#F97316]/50 transition-colors"
+      className="group flex items-center justify-between py-2 px-3 bg-[#09090b] rounded-lg border border-[#21262d] hover:border-[#F97316]/50 transition-colors"
     >
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-xs text-[#8b949e] font-mono w-10 flex-shrink-0">{item.symbol}</span>
-        <span className="text-sm text-[#e6edf3] truncate">{item.name}</span>
-        <ExternalLink className="w-3 h-3 text-[#8b949e] opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0" />
+        <span className="text-xs text-[#71717a] font-mono w-10 flex-shrink-0">{item.symbol}</span>
+        <span className="text-sm text-[#e4e4e7] truncate">{item.name}</span>
+        <ExternalLink className="w-3 h-3 text-[#71717a] opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0" />
       </div>
       <div className="flex items-center gap-3 flex-shrink-0">
-        <span className="text-sm text-[#e6edf3] font-medium tabular-nums">
+        <span className="text-sm text-[#e4e4e7] font-medium tabular-nums">
           ${item.symbol === 'BTC' || item.symbol === 'ETH' ? item.price.toLocaleString() : item.price.toFixed(2)}
         </span>
         <div className={`flex items-center gap-1 ${color}`}>
@@ -414,10 +414,10 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
   const sentimentCfg = SENTIMENT_CONFIG[sentiment];
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-[#111318] border border-white/[0.06] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-xl shadow-black/20">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#1a1f2e] to-[#161b22] border-b border-[#30363d] p-6">
+        <div className="bg-gradient-to-r from-[#1a1f2e] to-[#111318] border-b border-white/[0.06] p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-[#F97316]/10 rounded-xl">
@@ -426,7 +426,7 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
               <div>
                 <h2 className="text-xl font-bold text-white">Morning Market Briefing</h2>
                 {briefing && (
-                  <p className="text-sm text-[#8b949e]">
+                  <p className="text-sm text-[#71717a]">
                     {briefing.date} &middot;{' '}
                     {new Date(briefing.generatedAt).toLocaleTimeString('en-US', {
                       hour: '2-digit',
@@ -442,17 +442,17 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
               {briefing && (
                 <button
                   onClick={() => downloadBriefingPdf(briefing)}
-                  className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+                  className="p-2 hover:bg-white/[0.06] rounded-lg transition-colors"
                   title="Download PDF"
                 >
-                  <Download className="w-5 h-5 text-[#8b949e] hover:text-[#F97316]" />
+                  <Download className="w-5 h-5 text-[#71717a] hover:text-[#F97316]" />
                 </button>
               )}
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+                className="p-2 hover:bg-white/[0.06] rounded-lg transition-colors"
               >
-                <X className="w-5 h-5 text-[#8b949e]" />
+                <X className="w-5 h-5 text-[#71717a]" />
               </button>
             </div>
           </div>
@@ -463,14 +463,14 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
           {loading ? (
             <div className="text-center py-12">
               <div className="animate-spin w-8 h-8 border-2 border-[#F97316] border-t-transparent rounded-full mx-auto mb-4" />
-              <p className="text-[#8b949e]">Loading briefing...</p>
+              <p className="text-[#71717a]">Loading briefing...</p>
             </div>
           ) : error ? (
             <div className="text-center py-12">
               <p className="text-[#f85149] mb-4">{error}</p>
               <button
                 onClick={fetchBriefing}
-                className="flex items-center gap-2 mx-auto px-4 py-2 bg-[#21262d] border border-[#30363d] text-white rounded-lg hover:border-[#8b949e] transition-colors"
+                className="flex items-center gap-2 mx-auto px-4 py-2 bg-[#21262d] border border-white/[0.06] text-white rounded-lg hover:border-[#8b949e] transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
                 Retry
@@ -478,8 +478,8 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
             </div>
           ) : !briefing ? (
             <div className="text-center py-12">
-              <Newspaper className="w-12 h-12 text-[#30363d] mx-auto mb-4" />
-              <p className="text-[#8b949e] text-lg font-medium mb-2">No briefing available yet</p>
+              <Newspaper className="w-12 h-12 text-white/[0.12] mx-auto mb-4" />
+              <p className="text-[#71717a] text-lg font-medium mb-2">No briefing available yet</p>
               <p className="text-[#484f58] text-sm">
                 The morning briefing is generated Mon-Fri at 8:00 AM EST.
               </p>
@@ -496,7 +496,7 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
                     {sentimentCfg.label}
                   </span>
                 </div>
-                <p className="text-sm text-[#e6edf3] leading-relaxed">
+                <p className="text-sm text-[#e4e4e7] leading-relaxed">
                   {briefing.aiSummary.marketOverview}
                 </p>
               </div>
@@ -560,20 +560,20 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
                         href={getTickerUrl(mover.symbol)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group flex items-start gap-3 p-3 bg-[#0d1117] rounded-lg border border-[#21262d] hover:border-[#F97316]/50 transition-colors"
+                        className="group flex items-start gap-3 p-3 bg-[#09090b] rounded-lg border border-[#21262d] hover:border-[#F97316]/50 transition-colors"
                       >
                         <span className="text-xs font-bold font-mono text-[#F97316] bg-[#F97316]/10 px-2 py-0.5 rounded flex-shrink-0">
                           {mover.symbol}
                         </span>
                         <div className="min-w-0 flex-1">
                           <span className={`text-sm font-semibold ${
-                            mover.move.startsWith('+') ? 'text-[#3fb950]' : mover.move.startsWith('-') ? 'text-[#f85149]' : 'text-[#e6edf3]'
+                            mover.move.startsWith('+') ? 'text-[#3fb950]' : mover.move.startsWith('-') ? 'text-[#f85149]' : 'text-[#e4e4e7]'
                           }`}>
                             {mover.move}
                           </span>
-                          <span className="text-sm text-[#8b949e] ml-2">{mover.reason}</span>
+                          <span className="text-sm text-[#71717a] ml-2">{mover.reason}</span>
                         </div>
-                        <ExternalLink className="w-3 h-3 text-[#8b949e] opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0 mt-1" />
+                        <ExternalLink className="w-3 h-3 text-[#71717a] opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0 mt-1" />
                       </a>
                     ))}
                   </div>
@@ -596,11 +596,11 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="group flex items-start gap-2 py-1.5 hover:bg-[#0d1117] rounded px-1 -mx-1 transition-colors"
+                          className="group flex items-start gap-2 py-1.5 hover:bg-[#09090b] rounded px-1 -mx-1 transition-colors"
                         >
                           <span className="text-[#F97316] mt-1 flex-shrink-0">•</span>
                           <span className="text-sm text-[#c9d1d9] group-hover:text-[#58a6ff] transition-colors">{headline}</span>
-                          <ExternalLink className="w-3 h-3 text-[#8b949e] opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0 mt-1" />
+                          <ExternalLink className="w-3 h-3 text-[#71717a] opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0 mt-1" />
                         </a>
                       ) : (
                         <div key={i} className="flex items-start gap-2 py-1.5">
