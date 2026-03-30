@@ -76,8 +76,6 @@ export default function EmailCTA({ type, variant = 'banner' }: EmailCTAProps) {
       >
         {saving ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        ) : enabled ? (
-          <Check className="w-3.5 h-3.5" />
         ) : (
           <Mail className="w-3.5 h-3.5" />
         )}
