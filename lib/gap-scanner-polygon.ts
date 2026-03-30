@@ -193,9 +193,12 @@ export function processGaps(
   for (const snap of snapshots) {
     if (isETFOrDerivative(snap.ticker)) continue;
     if (isLikelyADRBySymbol(snap.ticker)) continue;
-    if (!snap.day?.c || !snap.prevDay?.c) continue;
+    if (!snap.prevDay?.c) continue;
 
-    const currentPrice = snap.lastTrade?.p || snap.day.c;
+    // During premarket, day.c is often 0 (no regular-session trades yet).
+    // Prefer lastTrade.p which reflects the most recent premarket/after-hours trade.
+    const currentPrice = snap.lastTrade?.p || snap.day?.c;
+    if (!currentPrice) continue;
     const previousClose = snap.prevDay.c;
     const volume = snap.day.v || 0;
     const volumeForFilter = isPreMarket && volume < 1000 ? (snap.prevDay?.v || 0) : volume;
