@@ -39,6 +39,8 @@ import EditWatchlistItemModal from './EditWatchlistItemModal';
 import EnterPositionModal from './EnterPositionModal';
 import EditActiveTradeModal from './EditActiveTradeModal';
 import EditClosedPositionModal from './EditClosedPositionModal';
+import useSmaTracking from '@/hooks/useSmaTracking';
+import SmaIndicator from './SmaIndicator';
 
 // API response types
 interface ApiResponse<T> {
@@ -74,6 +76,7 @@ const CARD_GRID: Record<number, string> = {
 export default function WatchlistView({ hideActiveTrades = false, hideClosedPositions = false, cardColumns = 3, emptyMessage }: { hideActiveTrades?: boolean; hideClosedPositions?: boolean; cardColumns?: number; emptyMessage?: string }) {
   const cardGridClass = CARD_GRID[cardColumns] ?? 'grid-cols-3';
   const { isOpen: isMarketOpen } = useMarketStatus();
+  const { smaData, toggleTracking, isTracked } = useSmaTracking(isMarketOpen);
 
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -1525,7 +1528,27 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                         </span>
                       )}
                     </label>
-                    
+
+                    {/* Track MA Toggle */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleTracking(trade.ticker); }}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-medium transition-colors select-none ${
+                        isTracked(trade.ticker)
+                          ? 'bg-purple-500/15 border-purple-500/40 text-purple-400 hover:bg-purple-500/25'
+                          : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:border-purple-500/50 hover:text-purple-400'
+                      }`}
+                      title={isTracked(trade.ticker) ? 'Stop tracking MAs' : 'Track 20/200 MA on 1m, 5m, 15m'}
+                    >
+                      <Activity className="w-3.5 h-3.5" />
+                      {isTracked(trade.ticker) ? 'MA On' : 'Track MA'}
+                      {isTracked(trade.ticker) && smaData[trade.ticker.toUpperCase()]?.signals.length > 0 && (
+                        <span className="relative flex h-2 w-2 ml-0.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                        </span>
+                      )}
+                    </button>
+
                     {/* Long/Short Indicator */}
                     {(() => {
                       const isLong = trade.plannedTarget > trade.plannedEntry;
@@ -1704,6 +1727,11 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                       </>
                     )}
                   </div>
+
+                  {/* SMA Indicator */}
+                  {isTracked(trade.ticker) && smaData[trade.ticker.toUpperCase()] && (
+                    <SmaIndicator data={smaData[trade.ticker.toUpperCase()]} />
+                  )}
                 </div>
               </div>
               ));
@@ -1941,6 +1969,25 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
+                          {/* Track MA Toggle */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleTracking(item.ticker); }}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium transition-colors select-none ${
+                              isTracked(item.ticker)
+                                ? 'bg-purple-500/15 border-purple-500/40 text-purple-400 hover:bg-purple-500/25'
+                                : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:border-purple-500/50 hover:text-purple-400'
+                            }`}
+                            title={isTracked(item.ticker) ? 'Stop tracking MAs' : 'Track 20/200 MA'}
+                          >
+                            <Activity className="w-3 h-3" />
+                            MA
+                            {isTracked(item.ticker) && smaData[item.ticker.toUpperCase()]?.signals.length > 0 && (
+                              <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-purple-500"></span>
+                              </span>
+                            )}
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2019,6 +2066,11 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                             <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
                           </div>
                         </div>
+
+                        {/* SMA Indicator */}
+                        {isTracked(item.ticker) && smaData[item.ticker.toUpperCase()] && (
+                          <SmaIndicator data={smaData[item.ticker.toUpperCase()]} />
+                        )}
                       </div>
                     </div>
                   ))}
@@ -2090,6 +2142,25 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
+                          {/* Track MA Toggle */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleTracking(item.ticker); }}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium transition-colors select-none ${
+                              isTracked(item.ticker)
+                                ? 'bg-purple-500/15 border-purple-500/40 text-purple-400 hover:bg-purple-500/25'
+                                : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:border-purple-500/50 hover:text-purple-400'
+                            }`}
+                            title={isTracked(item.ticker) ? 'Stop tracking MAs' : 'Track 20/200 MA'}
+                          >
+                            <Activity className="w-3 h-3" />
+                            MA
+                            {isTracked(item.ticker) && smaData[item.ticker.toUpperCase()]?.signals.length > 0 && (
+                              <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-purple-500"></span>
+                              </span>
+                            )}
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2168,6 +2239,11 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                             <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
                           </div>
                         </div>
+
+                        {/* SMA Indicator */}
+                        {isTracked(item.ticker) && smaData[item.ticker.toUpperCase()] && (
+                          <SmaIndicator data={smaData[item.ticker.toUpperCase()]} />
+                        )}
                       </div>
                     </div>
                   ))}
