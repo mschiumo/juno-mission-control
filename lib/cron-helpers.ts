@@ -317,6 +317,20 @@ export function isWeekday(): boolean {
   return day >= 1 && day <= 5;
 }
 
+// US Market Holidays 2026
+export const US_MARKET_HOLIDAYS = [
+  '2026-01-01', // New Year's Day
+  '2026-01-19', // Martin Luther King Jr. Day
+  '2026-02-16', // Presidents' Day
+  '2026-04-03', // Good Friday
+  '2026-05-25', // Memorial Day
+  '2026-06-19', // Juneteenth
+  '2026-07-03', // Independence Day (observed)
+  '2026-09-07', // Labor Day
+  '2026-11-26', // Thanksgiving
+  '2026-12-25', // Christmas Day
+];
+
 /**
  * Check if US stock market is open today
  * (Not a weekend and not a holiday)
@@ -324,20 +338,6 @@ export function isWeekday(): boolean {
 export function isMarketOpenToday(): boolean {
   if (!isWeekday()) return false;
   
-  // US Market Holidays 2026
   const today = new Date().toISOString().split('T')[0];
-  const holidays = [
-    '2026-01-01', // New Year's Day
-    '2026-01-19', // Martin Luther King Jr. Day
-    '2026-02-16', // Presidents' Day
-    '2026-04-03', // Good Friday
-    '2026-05-25', // Memorial Day
-    '2026-06-19', // Juneteenth
-    '2026-07-03', // Independence Day (observed)
-    '2026-09-07', // Labor Day
-    '2026-11-26', // Thanksgiving
-    '2026-12-25', // Christmas Day
-  ];
-  
-  return !holidays.includes(today);
+  return !US_MARKET_HOLIDAYS.includes(today);
 }
