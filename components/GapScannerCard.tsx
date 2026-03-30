@@ -290,12 +290,24 @@ export default function GapScannerCard() {
     return sort.dir === 'desc' ? <ChevronDown className="w-3 h-3 text-[#F97316]" /> : <ChevronUp className="w-3 h-3 text-[#F97316]" />;
   };
 
-  const sessionInfo: Record<string, { label: string; color: string; tooltip: string }> = {
-    'pre-market': { label: 'Pre-Market', color: 'text-[#58a6ff]', tooltip: `Overnight gaps — ${response?.previousDate} close → ${response?.tradingDate} open. Opens 9:30 AM EST.` },
-    'market-open': { label: 'Market Open', color: 'text-[#238636]', tooltip: `Live gaps from ${response?.tradingDate}. Closes 4:00 PM EST.` },
-    'post-market': { label: 'After Hours', color: 'text-[#8b949e]', tooltip: `Post-market. Final gaps from ${response?.tradingDate}. Pre-market resumes 4:00 AM EST.` },
+  const sessionInfo: Record<string, { label: string; color: string; dot: string; tooltip: string }> = {
+    'pre-market': { label: 'Pre-Market', color: 'text-[#58a6ff]', dot: 'bg-[#58a6ff]', tooltip: `Overnight gaps — ${response?.previousDate} close → ${response?.tradingDate} open. Opens 9:30 AM EST.` },
+    'market-open': { label: 'Market Open', color: 'text-[#238636]', dot: 'bg-[#238636]', tooltip: `Live gaps from ${response?.tradingDate}. Closes 4:00 PM EST.` },
+    'post-market': { label: 'After Hours', color: 'text-[#8b949e]', dot: 'bg-[#8b949e]', tooltip: `Post-market. Final gaps from ${response?.tradingDate}. Pre-market resumes 4:00 AM EST.` },
+    'closed': { label: 'Market Closed', color: 'text-[#8b949e]', dot: 'bg-[#8b949e]', tooltip: 'Market is closed. Showing last available scan results.' },
   };
-  const session = response?.marketSession ? sessionInfo[response.marketSession] : null;
+  // Determine market session — override to "closed" on weekends/holidays even if
+  // the backend incorrectly reports "market-open" (the backend bug is also fixed,
+  // but this guards against stale API responses).
+  const isMarketClosed = (() => {
+    const now = new Date();
+    const est = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const day = est.getDay();
+    return day === 0 || day === 6; // Sunday or Saturday
+  })();
+  const rawSession = response?.marketSession ?? null;
+  const sessionKey = isMarketClosed ? 'closed' : rawSession ?? (isWeekend || response?.marketStatus === 'closed' ? 'closed' : null);
+  const session = sessionKey ? sessionInfo[sessionKey] : null;
 
   // Dynamic criteria for the info hover card
   const activeCriteria = [
@@ -365,21 +377,20 @@ export default function GapScannerCard() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             {session && (
               <div className="relative group">
-                <span className={`text-[10px] font-medium ${session.color} cursor-help`}>{session.label}</span>
+                <span className={`flex items-center gap-1.5 text-[10px] font-medium ${session.color} cursor-help`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${session.dot} ${sessionKey === 'market-open' ? 'animate-pulse' : ''}`} />
+                  {session.label}
+                </span>
                 <div className="absolute right-0 top-full mt-1.5 hidden group-hover:block z-20 bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-[10px] text-[#8b949e] w-56 shadow-xl pointer-events-none">
                   {session.tooltip}
                 </div>
               </div>
             )}
-            {isWeekend && <span className="text-[10px] text-[#d29922]">Weekend</span>}
-            {!loading && dataSource === 'polygon' && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#58a6ff]/20 text-[#58a6ff]">POLYGON</span>
-            )}
             {lastUpdated && !loading && (
-              <span className="text-[10px] text-[#238636]">{fmtTime()}</span>
+              <span className="text-[10px] text-[#484f58]">{fmtTime()}</span>
             )}
             {data && !loading && (
               <>
