@@ -468,7 +468,7 @@ export default function GapScannerCard() {
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.gainers?.length
                   ? sortStocks(data.gainers, gainerSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
-                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isWeekend ? 'Market closed' : 'No gainers matching criteria'}</div>
+                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No gainers matching criteria'}</div>
                 }
               </div>
             </div>
@@ -491,7 +491,7 @@ export default function GapScannerCard() {
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.losers?.length
                   ? sortStocks(data.losers, loserSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
-                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isWeekend ? 'Market closed' : 'No losers matching criteria'}</div>
+                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No losers matching criteria'}</div>
                 }
               </div>
             </div>
