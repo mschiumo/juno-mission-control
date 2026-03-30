@@ -56,26 +56,40 @@ function formatPrice(price: number, symbol: string): string {
   return `$${price.toFixed(2)}`;
 }
 
-function PriceRow({ item }: { item: MarketItem }) {
+function PriceCell({ item }: { item: MarketItem }) {
   const isUp = item.change >= 0;
   const color = isUp ? '#3fb950' : '#f85149';
   const sign = isUp ? '+' : '';
   return (
-    <Row style={tableRow}>
-      <Column style={{ width: '35%', paddingRight: '4px' }}>
-        <Link href={getTickerUrl(item.symbol)} style={symbolLink}>
-          {item.symbol}
-        </Link>
-      </Column>
-      <Column style={{ width: '35%', textAlign: 'right' as const, paddingRight: '8px' }}>
-        <Text style={priceText}>{formatPrice(item.price, item.symbol)}</Text>
-      </Column>
-      <Column style={{ width: '30%', textAlign: 'right' as const }}>
-        <Text style={{ ...changeText, color }}>
-          {sign}{item.changePercent.toFixed(2)}%
-        </Text>
-      </Column>
-    </Row>
+    <Column style={gridCell}>
+      <Link href={getTickerUrl(item.symbol)} style={cellSymbol}>{item.symbol}</Link>
+      <Text style={cellPrice}>{formatPrice(item.price, item.symbol)}</Text>
+      <Text style={{ ...cellChange, color }}>{sign}{item.changePercent.toFixed(2)}%</Text>
+    </Column>
+  );
+}
+
+/** Render items in a 2-column grid */
+function PriceGrid({ items, label }: { items: MarketItem[]; label: string }) {
+  if (items.length === 0) return null;
+  const rows: MarketItem[][] = [];
+  for (let i = 0; i < items.length; i += 2) {
+    rows.push(items.slice(i, i + 2));
+  }
+  return (
+    <>
+      <Text style={groupLabel}>{label}</Text>
+      {rows.map((pair, i) => (
+        <Row key={i}>
+          <PriceCell item={pair[0]} />
+          {pair[1] ? (
+            <PriceCell item={pair[1]} />
+          ) : (
+            <Column style={gridCell} />
+          )}
+        </Row>
+      ))}
+    </>
   );
 }
 
@@ -110,38 +124,12 @@ export function MarketBriefingEmail({
         <Text style={bodyText}>{aiSummary.marketOverview}</Text>
       </Section>
 
-      {/* All prices in a single card */}
+      {/* All prices in a compact grid */}
       <Section style={card}>
-        {/* Column headers */}
-        <Row style={{ paddingBottom: '6px', borderBottom: '1px solid #30363d', marginBottom: '4px' }}>
-          <Column style={{ width: '35%' }}><Text style={colHeader}>Symbol</Text></Column>
-          <Column style={{ width: '35%', textAlign: 'right' as const, paddingRight: '8px' }}><Text style={colHeader}>Price</Text></Column>
-          <Column style={{ width: '30%', textAlign: 'right' as const }}><Text style={colHeader}>Change</Text></Column>
-        </Row>
-
-        {/* Indices */}
-        {indices.length > 0 && (
-          <>
-            <Text style={groupLabel}>Indices</Text>
-            {indices.map((item) => <PriceRow key={item.symbol} item={item} />)}
-          </>
-        )}
-
-        {/* Stocks */}
-        {stocks.length > 0 && (
-          <>
-            <Text style={groupLabel}>Stocks</Text>
-            {stocks.map((item) => <PriceRow key={item.symbol} item={item} />)}
-          </>
-        )}
-
-        {/* Crypto */}
-        {crypto.length > 0 && (
-          <>
-            <Text style={groupLabel}>Crypto</Text>
-            {crypto.map((item) => <PriceRow key={item.symbol} item={item} />)}
-          </>
-        )}
+        <Text style={sectionTitle}>Markets</Text>
+        <PriceGrid items={indices} label="Indices" />
+        <PriceGrid items={stocks} label="Stocks" />
+        <PriceGrid items={crypto} label="Crypto" />
       </Section>
 
       {/* Big Movers */}
@@ -243,14 +231,6 @@ const bodyText: React.CSSProperties = {
   margin: 0,
 };
 
-const colHeader: React.CSSProperties = {
-  color: '#8b949e',
-  fontSize: '11px',
-  fontWeight: 600,
-  textTransform: 'uppercase' as const,
-  margin: 0,
-};
-
 const groupLabel: React.CSSProperties = {
   color: '#8b949e',
   fontSize: '10px',
@@ -258,11 +238,33 @@ const groupLabel: React.CSSProperties = {
   textTransform: 'uppercase' as const,
   letterSpacing: '0.08em',
   margin: '10px 0 4px',
+  borderBottom: '1px solid #21262d',
+  paddingBottom: '4px',
 };
 
-const tableRow: React.CSSProperties = {
-  borderBottom: '1px solid #21262d',
-  padding: '5px 0',
+const gridCell: React.CSSProperties = {
+  width: '50%',
+  padding: '6px 8px 6px 0',
+  verticalAlign: 'top' as const,
+};
+
+const cellSymbol: React.CSSProperties = {
+  color: '#58a6ff',
+  fontSize: '13px',
+  fontWeight: 700,
+  textDecoration: 'none',
+};
+
+const cellPrice: React.CSSProperties = {
+  color: '#e6edf3',
+  fontSize: '12px',
+  margin: '1px 0 0',
+};
+
+const cellChange: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 600,
+  margin: '0',
 };
 
 const symbolLink: React.CSSProperties = {
@@ -270,19 +272,6 @@ const symbolLink: React.CSSProperties = {
   fontSize: '13px',
   fontWeight: 600,
   textDecoration: 'none',
-};
-
-const priceText: React.CSSProperties = {
-  color: '#e6edf3',
-  fontSize: '13px',
-  fontWeight: 500,
-  margin: 0,
-};
-
-const changeText: React.CSSProperties = {
-  fontSize: '13px',
-  fontWeight: 600,
-  margin: 0,
 };
 
 const moverRow: React.CSSProperties = {
