@@ -201,7 +201,9 @@ export function processGaps(
     if (!currentPrice) continue;
     const previousClose = snap.prevDay.c;
     const volume = snap.day.v || 0;
-    const volumeForFilter = isPreMarket && volume < 1000 ? (snap.prevDay?.v || 0) : volume;
+    // During premarket, today's volume is always a fraction of regular session.
+    // Use previous day's volume to check if the stock is normally liquid.
+    const volumeForFilter = isPreMarket ? (snap.prevDay?.v || 0) : volume;
 
     if (currentPrice < minPrice || currentPrice > maxPrice) { skippedPrice++; continue; }
     if (volumeForFilter < minVolume) { skippedVolume++; continue; }
