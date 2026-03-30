@@ -2,7 +2,7 @@
  * Average Volume Backfill
  *
  * Manually triggered to populate the initial 90-day window.
- * Fetches up to 15 dates per invocation (rate-limited at ~5 calls/min).
+ * Fetches up to 4 dates per invocation (kept small to avoid browser/function timeouts).
  * Call repeatedly until response shows complete: true.
  */
 
@@ -16,7 +16,7 @@ import {
   recomputeAverages,
 } from '@/lib/avg-volume';
 
-const BATCH_SIZE = 15;
+const BATCH_SIZE = 4;
 
 export async function GET() {
   const startTime = Date.now();
