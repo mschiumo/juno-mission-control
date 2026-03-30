@@ -12,9 +12,9 @@ import MotivationalBanner from "@/components/MotivationalBanner";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
 import LandingPage from "@/components/landing/LandingPage";
+import Link from 'next/link';
 import { LayoutDashboard, Target, TrendingUp, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
-import Link from 'next/link';
 
 type TabId = 'dashboard' | 'trading' | 'goals';
 
@@ -82,14 +82,14 @@ function DashboardContent() {
     : [];
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
+    <div className="min-h-screen bg-[#09090b] text-[#e4e4e7]">
       {/* Header */}
-      <header className="border-b border-[#30363d] bg-[#161b22]">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
+      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#09090b]/80 backdrop-blur-xl">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-[#0d1117] border border-[#30363d] flex items-center justify-center shadow-lg">
-                <svg viewBox="0 0 48 48" fill="none" className="w-6 h-6 md:w-7 md:h-7">
+              <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-[#F97316] to-[#ea580c] flex items-center justify-center shadow-lg shadow-[#F97316]/20">
+                <svg viewBox="0 0 48 48" fill="none" className="w-5 h-5 md:w-6 md:h-6">
                   <line x1="7" y1="13" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
                   <line x1="7" y1="35" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
                   <line x1="24" y1="24" x2="41" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
@@ -97,22 +97,22 @@ function DashboardContent() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-lg md:text-2xl font-bold text-white">Confluence Trading</h1>
-                <p className="hidden sm:block text-xs md:text-sm text-[#8b949e]">Your disciplined trading command center</p>
+                <h1 className="text-base md:text-xl font-semibold tracking-tight text-white">Confluence</h1>
+                <p className="hidden sm:block text-[11px] text-[#71717a]">Trading Command Center</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 md:gap-4">
+            <div className="flex items-center gap-2 md:gap-3">
               {/* Desktop Tab Navigation */}
-              {tabs.length > 0 && <div className="hidden md:flex items-center gap-1 bg-[#0d1117] rounded-lg p-1 border border-[#30363d]">
+              {tabs.length > 0 && <div className="hidden md:flex items-center gap-0.5 bg-white/[0.03] rounded-xl p-1 border border-white/[0.06]">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
                       activeTab === tab.id
-                        ? 'bg-[#ff6b35] text-white'
-                        : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
+                        ? 'bg-[#F97316] text-white shadow-md shadow-[#F97316]/25'
+                        : 'text-[#71717a] hover:text-white hover:bg-white/[0.05]'
                     }`}
                   >
                     <tab.icon className="w-4 h-4" />
@@ -122,20 +122,20 @@ function DashboardContent() {
               </div>}
 
               {/* Desktop Widgets */}
-              <div className="hidden md:flex items-center gap-4">
+              <div className="hidden md:flex items-center gap-3">
                 <LiveClock />
-                <div className="flex items-center gap-2 border-l border-[#30363d] pl-4">
+                <div className="flex items-center gap-2 border-l border-white/[0.06] pl-3">
                   <Link
                     href="/profile"
                     title="Profile & Settings"
-                    className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center text-white text-sm font-semibold hover:bg-[#ea6c10] transition-colors"
+                    className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#F97316] to-[#ea580c] flex items-center justify-center text-white text-sm font-semibold hover:shadow-md hover:shadow-[#F97316]/25 transition-all duration-200"
                   >
                     {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
                   </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
                     title="Sign out"
-                    className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e] hover:text-white"
+                    className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all duration-200 text-[#71717a] hover:text-white"
                   >
                     <LogOut className="w-4 h-4" />
                   </button>
@@ -145,7 +145,7 @@ function DashboardContent() {
               {/* Mobile Menu Button */}
               {isOwner && <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 hover:bg-[#30363d] rounded-lg"
+                className="md:hidden p-2 hover:bg-white/[0.06] rounded-lg transition-colors"
               >
                 {mobileMenuOpen ? (
                   <X className="w-5 h-5 text-white" />
@@ -158,8 +158,8 @@ function DashboardContent() {
 
           {/* Mobile Menu */}
           {mobileMenuOpen && (
-            <div className="md:hidden mt-4 pt-4 border-t border-[#30363d]">
-              <div className="flex flex-col gap-2">
+            <div className="md:hidden mt-3 pt-3 border-t border-white/[0.06]">
+              <div className="flex flex-col gap-1">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
@@ -167,10 +167,10 @@ function DashboardContent() {
                       setActiveTab(tab.id);
                       setMobileMenuOpen(false);
                     }}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                       activeTab === tab.id
-                        ? 'bg-[#ff6b35] text-white'
-                        : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
+                        ? 'bg-[#F97316] text-white shadow-lg shadow-[#F97316]/20'
+                        : 'text-[#71717a] hover:text-white hover:bg-white/[0.05]'
                     }`}
                   >
                     <tab.icon className="w-5 h-5" />
@@ -178,20 +178,20 @@ function DashboardContent() {
                   </button>
                 ))}
               </div>
-              <div className="mt-4 pt-4 border-t border-[#30363d] flex items-center justify-between">
+              <div className="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between">
                 <LiveClock />
                 <div className="flex items-center gap-2">
                   <Link
                     href="/profile"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center text-white text-sm font-semibold hover:bg-[#ea6c10] transition-colors"
+                    className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#F97316] to-[#ea580c] flex items-center justify-center text-white text-sm font-semibold hover:shadow-md hover:shadow-[#F97316]/25 transition-all duration-200"
                   >
                     {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
                   </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
                     title="Sign out"
-                    className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e] hover:text-white"
+                    className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all duration-200 text-[#71717a] hover:text-white"
                   >
                     <LogOut className="w-4 h-4" />
                   </button>
@@ -203,31 +203,31 @@ function DashboardContent() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-8">
         {activeTab === 'dashboard' ? (
-          /* Dashboard Grid - Single column for better spacing */
-          <div className="space-y-4">
+          /* Dashboard Grid */
+          <div className="space-y-5 animate-fade-up">
             <MotivationalBanner compact variant="orange" />
             <EveningCheckinReminder />
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 xl:items-start">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 md:gap-6 xl:items-start">
               <div ref={habitsRef}>
                 <HabitCard />
               </div>
-              <div className="grid gap-4 overflow-hidden" style={{ gridTemplateRows: '360px 1fr', height: habitsHeight }}>
+              <div className="grid gap-5 overflow-hidden" style={{ gridTemplateRows: '360px 1fr', height: habitsHeight }}>
                 <CalendarCard />
                 <NewsScreenerCard />
               </div>
             </div>
           </div>
         ) : activeTab === 'trading' ? (
-          /* Trading View - New Trading Journal */
+          /* Trading View */
           <div className="max-w-[1600px] mx-auto">
             <TradingView />
           </div>
         ) : activeTab === 'goals' ? (
           /* Goals View */
           <div className="max-w-[1600px] mx-auto">
-            <Suspense fallback={<div className="p-8 text-center text-[#8b949e]">Loading goals...</div>}>
+            <Suspense fallback={<div className="p-8 text-center text-[#71717a]">Loading goals...</div>}>
               <GoalsCard />
             </Suspense>
           </div>
@@ -235,10 +235,10 @@ function DashboardContent() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#30363d] bg-[#161b22] mt-8 md:mt-12">
+      <footer className="border-t border-white/[0.04] mt-8 md:mt-12">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-2">
-            <p className="text-center md:text-left text-xs md:text-sm text-[#8b949e]">
+            <p className="text-center md:text-left text-xs text-[#52525b]">
               Confluence Trading © {new Date().getFullYear()}
             </p>
             <div className="flex items-center gap-4">
@@ -246,7 +246,7 @@ function DashboardContent() {
                 href="https://github.com/mschiumo/juno-mission-control"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-[#8b949e] hover:text-[#ff6b35] transition-colors"
+                className="text-xs text-[#52525b] hover:text-[#F97316] transition-colors"
               >
                 GitHub
               </a>
@@ -264,8 +264,8 @@ function HomeRouter() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
-        <div className="text-[#8b949e]">Loading…</div>
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+        <div className="text-[#71717a]">Loading…</div>
       </div>
     );
   }
@@ -280,7 +280,7 @@ function HomeRouter() {
 // Main component with Suspense boundary (required for useSearchParams inside DashboardContent)
 export default function Home() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0d1117] flex items-center justify-center"><div className="text-[#8b949e]">Loading…</div></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#09090b] flex items-center justify-center"><div className="text-[#71717a]">Loading…</div></div>}>
       <HomeRouter />
     </Suspense>
   );

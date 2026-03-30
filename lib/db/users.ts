@@ -9,10 +9,10 @@ export interface AppUser {
   createdAt: string;
 }
 
+const USER_INDEX_KEY = 'user:index';
+
 function userKey(id: string) { return `user:${id}`; }
 function emailIndexKey(email: string) { return `user:email:${email.toLowerCase()}`; }
-
-const USER_INDEX_KEY = 'user:index';
 
 export async function createUser(email: string, name: string, password: string): Promise<AppUser> {
   const redis = await getRedisClient();
@@ -38,6 +38,19 @@ export async function createUser(email: string, name: string, password: string):
   return user;
 }
 
+export async function getUserByEmail(email: string): Promise<AppUser | null> {
+  const redis = await getRedisClient();
+  const id = await redis.get(emailIndexKey(email));
+  if (!id) return null;
+  const data = await redis.get(userKey(id));
+  if (!data) return null;
+  return JSON.parse(data) as AppUser;
+}
+
+export async function verifyPassword(user: AppUser, password: string): Promise<boolean> {
+  return bcrypt.compare(password, user.passwordHash);
+}
+
 export async function getUserById(id: string): Promise<AppUser | null> {
   const redis = await getRedisClient();
   const data = await redis.get(userKey(id));
@@ -50,10 +63,30 @@ export async function getAllUserIds(): Promise<string[]> {
   return redis.sMembers(USER_INDEX_KEY);
 }
 
-/**
- * Backfill the user:index set for users created before the index existed.
- * Scans user:email:* keys to discover all user IDs.
- */
+export async function updateUser(id: string, updates: { name?: string; email?: string }): Promise<AppUser | null> {
+  const redis = await getRedisClient();
+  const data = await redis.get(userKey(id));
+  if (!data) return null;
+
+  const user = JSON.parse(data) as AppUser;
+
+  if (updates.email && updates.email.toLowerCase() !== user.email) {
+    const newEmail = updates.email.toLowerCase();
+    const existing = await redis.get(emailIndexKey(newEmail));
+    if (existing && existing !== id) throw new Error('Email already registered');
+    await redis.del(emailIndexKey(user.email));
+    await redis.set(emailIndexKey(newEmail), id);
+    user.email = newEmail;
+  }
+
+  if (updates.name !== undefined) {
+    user.name = updates.name;
+  }
+
+  await redis.set(userKey(id), JSON.stringify(user));
+  return user;
+}
+
 export async function backfillUserIndex(): Promise<number> {
   const redis = await getRedisClient();
   let cursor = 0;
@@ -72,42 +105,4 @@ export async function backfillUserIndex(): Promise<number> {
   } while (cursor !== 0);
 
   return added;
-}
-
-export async function updateUser(id: string, updates: { name?: string; email?: string }): Promise<AppUser | null> {
-  const redis = await getRedisClient();
-  const data = await redis.get(userKey(id));
-  if (!data) return null;
-
-  const user = JSON.parse(data) as AppUser;
-
-  if (updates.email && updates.email.toLowerCase() !== user.email) {
-    const newEmail = updates.email.toLowerCase();
-    const existing = await redis.get(emailIndexKey(newEmail));
-    if (existing && existing !== id) throw new Error('Email already registered');
-    // Remove old email index, set new one
-    await redis.del(emailIndexKey(user.email));
-    await redis.set(emailIndexKey(newEmail), id);
-    user.email = newEmail;
-  }
-
-  if (updates.name !== undefined) {
-    user.name = updates.name;
-  }
-
-  await redis.set(userKey(id), JSON.stringify(user));
-  return user;
-}
-
-export async function getUserByEmail(email: string): Promise<AppUser | null> {
-  const redis = await getRedisClient();
-  const id = await redis.get(emailIndexKey(email));
-  if (!id) return null;
-  const data = await redis.get(userKey(id));
-  if (!data) return null;
-  return JSON.parse(data) as AppUser;
-}
-
-export async function verifyPassword(user: AppUser, password: string): Promise<boolean> {
-  return bcrypt.compare(password, user.passwordHash);
 }

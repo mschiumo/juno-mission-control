@@ -486,6 +486,9 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
             </div>
           ) : (
             <div className="space-y-5">
+              {/* Email CTA */}
+              <EmailCTA type="marketBriefing" variant="banner" />
+
               {/* Sentiment Badge + Market Overview */}
               <div className={`p-4 rounded-xl border ${sentimentCfg.bg} ${sentimentCfg.border}`}>
                 <div className="flex items-center gap-2 mb-2">
@@ -628,8 +631,6 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
                 </div>
               )}
 
-              {/* Email CTA */}
-              <EmailCTA type="marketBriefing" variant="banner" />
             </div>
           )}
         </div>
