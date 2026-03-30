@@ -16,6 +16,8 @@ import {
   postToCronResults,
   logToActivityLog,
   isMarketOpenToday,
+  sendEmailsToSubscribers,
+  getCachedGapScanResults,
 } from '@/lib/cron-helpers';
 import { getRedisClient } from '@/lib/redis';
 
@@ -482,8 +484,23 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, data: briefing, durationMs: Date.now() - startTime });
     }
 
-    // Post to cron results and activity log
-    await Promise.all([
+    // Read cached gap scan data (from the earlier pre-market cron run)
+    let gapData: { gainers: { symbol: string; gapPercent: number }[]; losers: { symbol: string; gapPercent: number }[] } | undefined;
+    try {
+      const cached = await getCachedGapScanResults() as { data?: { gainers?: unknown[]; losers?: unknown[] } } | null;
+      if (cached?.data?.gainers || cached?.data?.losers) {
+        gapData = {
+          gainers: (cached.data.gainers || []).slice(0, 10).map((g: any) => ({ symbol: g.symbol, gapPercent: g.gapPercent })), // eslint-disable-line @typescript-eslint/no-explicit-any
+          losers: (cached.data.losers || []).slice(0, 10).map((l: any) => ({ symbol: l.symbol, gapPercent: l.gapPercent })), // eslint-disable-line @typescript-eslint/no-explicit-any
+        };
+      }
+    } catch (err) {
+      console.warn('[MarketBriefing] Could not read cached gap data:', err);
+    }
+
+    // Post to cron results, activity log, and send combined email
+    // Send to users who have EITHER marketBriefing or gapScanner enabled
+    const [,, emailResult] = await Promise.all([
       postToCronResults(
         'Morning Market Briefing',
         `${briefing.aiSummary.marketOverview}\n\nSentiment: ${briefing.aiSummary.sentiment}`,
@@ -491,10 +508,29 @@ export async function GET(request: Request) {
       ),
       logToActivityLog(
         'Morning Market Briefing',
-        `Generated with ${indices.length} indices, ${stocks.length} stocks, AI summary`,
+        `Generated with ${indices.length} indices, ${stocks.length} stocks, AI summary${gapData ? `, ${gapData.gainers.length + gapData.losers.length} gaps` : ''}`,
         'cron',
       ),
+      sendEmailsToSubscribers(
+        ['marketBriefing', 'gapScanner'],
+        () => `Morning Brief — ${briefing.date}`,
+        () => {
+          const { MarketBriefingEmail } = require('@/lib/emails/MarketBriefingEmail');
+          return MarketBriefingEmail({
+            date: briefing.date,
+            indices: briefing.indices,
+            stocks: briefing.stocks,
+            crypto: briefing.crypto,
+            aiSummary: briefing.aiSummary,
+            gapData,
+          });
+        },
+      ),
     ]);
+
+    if (emailResult.sent > 0) {
+      console.log(`[MarketBriefing] Sent ${emailResult.sent} briefing emails`);
+    }
 
     const duration = Date.now() - startTime;
     console.log(`[MarketBriefing] Briefing generated in ${duration}ms`);

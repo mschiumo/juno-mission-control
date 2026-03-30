@@ -1,10 +1,11 @@
 /**
  * Cron Helper Utilities
- * 
+ *
  * Common utilities for API-based cron jobs
  * Removes AI dependency for simple data retrieval and formatting tasks
  */
 
+import React from 'react';
 import { createClient } from 'redis';
 
 // Redis client - lazy initialization
@@ -224,6 +225,65 @@ export async function getCachedGapScanResults(): Promise<unknown | null> {
     console.error('[CronHelper] Failed to read cached gap scan results:', error);
     return null;
   }
+}
+
+/**
+ * Send emails to all users who have opted in for a specific alert type.
+ * Accepts a single alert type or an array (user is included if ANY match).
+ * Returns the count of emails sent and any errors.
+ */
+export async function sendEmailsToSubscribers(
+  alertType: 'marketBriefing' | 'gapScanner' | ('marketBriefing' | 'gapScanner')[],
+  subjectFn: () => string,
+  reactFn: () => React.ReactElement,
+): Promise<{ sent: number; errors: number }> {
+  let sent = 0;
+  let errors = 0;
+  const types = Array.isArray(alertType) ? alertType : [alertType];
+
+  try {
+    const { getAllUserIds, getUserById } = await import('@/lib/db/users');
+    const { sendEmail } = await import('@/lib/email');
+
+    const redis = await getRedisClient();
+    if (!redis) return { sent: 0, errors: 0 };
+
+    const userIds = await getAllUserIds();
+
+    for (const userId of userIds) {
+      try {
+        const prefsRaw = await redis.get(`user:prefs:${userId}`);
+        const prefs = prefsRaw ? JSON.parse(prefsRaw) : {};
+        const hasAny = types.some(t => prefs.emailAlerts?.[t]);
+        if (!hasAny) continue;
+
+        const user = await getUserById(userId);
+        if (!user?.email) continue;
+
+        const result = await sendEmail({
+          to: user.email,
+          subject: subjectFn(),
+          react: reactFn(),
+        });
+
+        if (result.success) {
+          sent++;
+        } else {
+          errors++;
+          console.error(`[Email] Failed for ${user.email}:`, result.error);
+        }
+      } catch (err) {
+        errors++;
+        console.error(`[Email] Error for user ${userId}:`, err);
+      }
+    }
+
+    console.log(`[Email] ${alertType}: sent=${sent}, errors=${errors}`);
+  } catch (err) {
+    console.error(`[Email] sendEmailsToSubscribers error:`, err);
+  }
+
+  return { sent, errors };
 }
 
 /**

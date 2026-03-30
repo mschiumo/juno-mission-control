@@ -2,10 +2,16 @@ import { NextResponse } from 'next/server';
 import { requireUserId } from '@/lib/auth-session';
 import { getRedisClient } from '@/lib/redis';
 
+interface EmailAlertPrefs {
+  marketBriefing: boolean;
+  gapScanner: boolean;
+}
+
 interface UserPrefs {
   calendarUrl: string | null;
   tradingTourCompleted?: boolean;
   startingBalance?: number;
+  emailAlerts?: EmailAlertPrefs;
 }
 
 async function getPrefs(userId: string): Promise<UserPrefs> {
@@ -85,6 +91,13 @@ export async function PATCH(request: Request) {
 
   if (typeof body.startingBalance === 'number' && body.startingBalance >= 0) {
     updated.startingBalance = body.startingBalance;
+  }
+
+  if (body.emailAlerts && typeof body.emailAlerts === 'object') {
+    updated.emailAlerts = {
+      marketBriefing: !!body.emailAlerts.marketBriefing,
+      gapScanner: !!body.emailAlerts.gapScanner,
+    };
   }
 
   await savePrefs(userId, updated);
