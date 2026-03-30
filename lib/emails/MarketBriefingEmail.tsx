@@ -56,45 +56,48 @@ function formatPrice(price: number, symbol: string): string {
   return `$${price.toFixed(2)}`;
 }
 
-const COLS = 3;
+/* ------------------------------------------------------------------ */
+/*  Market snapshot — one row per ticker, like the reference email     */
+/* ------------------------------------------------------------------ */
 
-function PriceCell({ item }: { item: MarketItem }) {
+function TickerRow({ item }: { item: MarketItem }) {
   const isUp = item.change >= 0;
-  const color = isUp ? '#3fb950' : '#f85149';
   const sign = isUp ? '+' : '';
+  const pillBg = isUp ? '#163b28' : '#3b1c1c';
+  const pillColor = isUp ? '#3fb950' : '#f85149';
+
   return (
-    <Column style={gridCell}>
-      <Link href={getTickerUrl(item.symbol)} style={cellSymbol}>{item.symbol}</Link>
-      <Text style={cellPriceLine}>
-        {formatPrice(item.price, item.symbol)}{' '}
-        <span style={{ color, fontWeight: 600 }}>{sign}{item.changePercent.toFixed(2)}%</span>
-      </Text>
-    </Column>
+    <Row style={tickerRow}>
+      <Column style={{ width: '45%', verticalAlign: 'middle' as const }}>
+        <Link href={getTickerUrl(item.symbol)} style={tickerName}>
+          {item.name}
+        </Link>
+      </Column>
+      <Column style={{ width: '30%', textAlign: 'right' as const, verticalAlign: 'middle' as const, paddingRight: '12px' }}>
+        <Text style={tickerPrice}>{formatPrice(item.price, item.symbol)}</Text>
+      </Column>
+      <Column style={{ width: '25%', textAlign: 'right' as const, verticalAlign: 'middle' as const }}>
+        <Text style={{ ...changePill, backgroundColor: pillBg, color: pillColor }}>
+          {sign}{item.changePercent.toFixed(2)}%
+        </Text>
+      </Column>
+    </Row>
   );
 }
 
-function EmptyCell() {
-  return <Column style={gridCell} />;
-}
-
-function PriceGrid({ items, label }: { items: MarketItem[]; label: string }) {
+function TickerGroup({ items, label }: { items: MarketItem[]; label: string }) {
   if (items.length === 0) return null;
-  const rows: MarketItem[][] = [];
-  for (let i = 0; i < items.length; i += COLS) {
-    rows.push(items.slice(i, i + COLS));
-  }
   return (
     <>
       <Text style={groupLabel}>{label}</Text>
-      {rows.map((chunk, i) => (
-        <Row key={i}>
-          {chunk.map((item) => <PriceCell key={item.symbol} item={item} />)}
-          {Array.from({ length: COLS - chunk.length }).map((_, j) => <EmptyCell key={`e${j}`} />)}
-        </Row>
-      ))}
+      {items.map((item) => <TickerRow key={item.symbol} item={item} />)}
     </>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Main component                                                     */
+/* ------------------------------------------------------------------ */
 
 export function MarketBriefingEmail({
   date,
@@ -107,7 +110,7 @@ export function MarketBriefingEmail({
 
   return (
     <EmailLayout previewText={`Market Briefing ${date} — ${aiSummary.sentiment}`}>
-      {/* Date + Sentiment */}
+      {/* Header */}
       <Section style={card}>
         <Text style={dateText}>Market Briefing — {date}</Text>
         <Text
@@ -123,16 +126,16 @@ export function MarketBriefingEmail({
 
       {/* Market Overview */}
       <Section style={card}>
-        <Text style={sectionTitle}>Market Overview</Text>
+        <Text style={overviewLabel}>Market:</Text>
         <Text style={bodyText}>{aiSummary.marketOverview}</Text>
       </Section>
 
-      {/* All prices in a compact grid */}
+      {/* Market Snapshot */}
       <Section style={card}>
-        <Text style={sectionTitle}>Markets</Text>
-        <PriceGrid items={indices} label="Indices" />
-        <PriceGrid items={stocks} label="Stocks" />
-        <PriceGrid items={crypto} label="Crypto" />
+        <Text style={sectionTitle}>Market Snapshot</Text>
+        <TickerGroup items={indices} label="Indices" />
+        <TickerGroup items={stocks} label="Stocks" />
+        <TickerGroup items={crypto} label="Crypto" />
       </Section>
 
       {/* Big Movers */}
@@ -141,25 +144,31 @@ export function MarketBriefingEmail({
           <Text style={sectionTitle}>Big Movers</Text>
           {aiSummary.bigMovers.map((mover, i) => (
             <Section key={i} style={moverRow}>
-              <Text style={moverSymbol}>
-                <Link href={getTickerUrl(mover.symbol)} style={symbolLink}>
-                  {mover.symbol}
-                </Link>
-                {' '}
-                <span style={{ color: mover.move.startsWith('-') ? '#f85149' : '#3fb950' }}>
-                  {mover.move}
-                </span>
-              </Text>
-              <Text style={moverReason}>{mover.reason}</Text>
+              <Row>
+                <Column style={{ width: '70%', verticalAlign: 'top' as const }}>
+                  <Link href={getTickerUrl(mover.symbol)} style={moverLink}>{mover.symbol}</Link>
+                  <Text style={moverReason}>{mover.reason}</Text>
+                </Column>
+                <Column style={{ width: '30%', textAlign: 'right' as const, verticalAlign: 'top' as const }}>
+                  <Text style={{
+                    ...changePill,
+                    backgroundColor: mover.move.startsWith('-') ? '#3b1c1c' : '#163b28',
+                    color: mover.move.startsWith('-') ? '#f85149' : '#3fb950',
+                    fontSize: '13px',
+                  }}>
+                    {mover.move}
+                  </Text>
+                </Column>
+              </Row>
             </Section>
           ))}
         </Section>
       )}
 
-      {/* News Highlights */}
+      {/* News */}
       {aiSummary.newsHighlights.length > 0 && (
         <Section style={card}>
-          <Text style={sectionTitle}>News Highlights</Text>
+          <Text style={sectionTitle}>News</Text>
           {aiSummary.newsHighlights.map((item, i) => {
             const news = typeof item === 'string' ? { headline: item, url: '' } : item;
             return (
@@ -192,7 +201,9 @@ export function MarketBriefingEmail({
 
 export default MarketBriefingEmail;
 
-// -- Styles --
+/* ------------------------------------------------------------------ */
+/*  Styles                                                             */
+/* ------------------------------------------------------------------ */
 
 const card: React.CSSProperties = {
   backgroundColor: '#161b22',
@@ -221,10 +232,17 @@ const sentimentBadge: React.CSSProperties = {
 const sectionTitle: React.CSSProperties = {
   color: '#F97316',
   fontSize: '13px',
-  fontWeight: 600,
+  fontWeight: 700,
   textTransform: 'uppercase' as const,
   letterSpacing: '0.05em',
-  margin: '0 0 12px',
+  margin: '0 0 8px',
+};
+
+const overviewLabel: React.CSSProperties = {
+  color: '#e6edf3',
+  fontSize: '14px',
+  fontWeight: 700,
+  margin: '0 0 4px',
 };
 
 const bodyText: React.CSSProperties = {
@@ -234,59 +252,69 @@ const bodyText: React.CSSProperties = {
   margin: 0,
 };
 
+// --- Market Snapshot ---
+
 const groupLabel: React.CSSProperties = {
-  color: '#8b949e',
-  fontSize: '10px',
-  fontWeight: 600,
-  textTransform: 'uppercase' as const,
-  letterSpacing: '0.08em',
-  margin: '8px 0 2px',
-};
-
-const gridCell: React.CSSProperties = {
-  width: `${100 / COLS}%`,
-  padding: '4px 4px 8px 0',
-  verticalAlign: 'top' as const,
-};
-
-const cellSymbol: React.CSSProperties = {
   color: '#58a6ff',
-  fontSize: '13px',
-  fontWeight: 700,
-  textDecoration: 'none',
-};
-
-const cellPriceLine: React.CSSProperties = {
-  color: '#c9d1d9',
   fontSize: '11px',
-  margin: '1px 0 0',
-  lineHeight: '16px',
+  fontWeight: 700,
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.06em',
+  margin: '12px 0 4px',
+  paddingBottom: '4px',
+  borderBottom: '1px solid #30363d',
 };
 
-const symbolLink: React.CSSProperties = {
-  color: '#58a6ff',
-  fontSize: '13px',
+const tickerRow: React.CSSProperties = {
+  borderBottom: '1px solid #21262d',
+  padding: '8px 0',
+};
+
+const tickerName: React.CSSProperties = {
+  color: '#e6edf3',
+  fontSize: '14px',
   fontWeight: 600,
   textDecoration: 'none',
 };
+
+const tickerPrice: React.CSSProperties = {
+  color: '#c9d1d9',
+  fontSize: '14px',
+  margin: 0,
+};
+
+const changePill: React.CSSProperties = {
+  display: 'inline-block',
+  fontSize: '12px',
+  fontWeight: 700,
+  padding: '3px 10px',
+  borderRadius: '6px',
+  margin: 0,
+  textAlign: 'center' as const,
+};
+
+// --- Big Movers ---
 
 const moverRow: React.CSSProperties = {
   padding: '8px 0',
   borderBottom: '1px solid #21262d',
 };
 
-const moverSymbol: React.CSSProperties = {
-  color: '#e6edf3',
+const moverLink: React.CSSProperties = {
+  color: '#58a6ff',
   fontSize: '14px',
-  fontWeight: 600,
-  margin: '0 0 2px',
+  fontWeight: 700,
+  textDecoration: 'none',
 };
 
 const moverReason: React.CSSProperties = {
   color: '#8b949e',
   fontSize: '13px',
-  margin: 0,
+  margin: '2px 0 0',
+  lineHeight: '18px',
 };
+
+// --- News & Events ---
 
 const newsItem: React.CSSProperties = {
   color: '#c9d1d9',
