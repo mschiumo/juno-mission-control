@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Star, Download, List, ChevronUp, ChevronDown, Info, SlidersHorizontal } from 'lucide-react';
-import EmailCTA from './EmailCTA';
 
 /** Simple hover tooltip — small single-line label */
 function Tip({ label, children, position = 'bottom' }: { label: string; children: React.ReactNode; position?: 'top' | 'bottom' }) {
@@ -407,9 +406,6 @@ export default function GapScannerCard() {
                 </Tip>
               </>
             )}
-            <Tip label="Email alerts" position="bottom">
-              <EmailCTA type="gapScanner" variant="inline" />
-            </Tip>
             <Tip label="Configure filters" position="bottom">
               <button
                 onClick={() => { setDraft(filters); setShowFilters(true); }}
