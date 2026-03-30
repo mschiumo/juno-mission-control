@@ -225,11 +225,11 @@ export default function ProfilePage() {
                   {editError && <p className="text-xs text-[#f85149]">{editError}</p>}
                 </div>
               ) : (
-                <div className="flex items-center gap-2 group">
+                <div className="flex items-center gap-2">
                   <p className="text-sm font-medium text-white">{profile?.name || session?.user?.name}</p>
                   <button
                     onClick={() => startEditing('name')}
-                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#30363d] text-[#8b949e] hover:text-white transition-all"
+                    className="p-1 rounded hover:bg-[#30363d] text-[#8b949e] hover:text-white transition-colors"
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -268,11 +268,11 @@ export default function ProfilePage() {
                   {editError && <p className="text-xs text-[#f85149]">{editError}</p>}
                 </div>
               ) : (
-                <div className="flex items-center gap-2 group">
+                <div className="flex items-center gap-2">
                   <p className="text-sm text-[#c9d1d9]">{profile?.email || session?.user?.email}</p>
                   <button
                     onClick={() => startEditing('email')}
-                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#30363d] text-[#8b949e] hover:text-white transition-all"
+                    className="p-1 rounded hover:bg-[#30363d] text-[#8b949e] hover:text-white transition-colors"
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
