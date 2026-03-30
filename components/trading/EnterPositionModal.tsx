@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Play, DollarSign, Layers, Calendar, FileText, ArrowRight, AlertTriangle } from 'lucide-react';
+import { X, Play, DollarSign, Layers, Calendar, FileText, ArrowRight } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTrade } from '@/types/active-trade';
-import useMarketStatus from '@/hooks/useMarketStatus';
 
 interface EnterPositionModalProps {
   item: WatchlistItem | null;
@@ -24,7 +23,6 @@ export default function EnterPositionModal({
   onClose,
   onConfirm,
 }: EnterPositionModalProps) {
-  const { isOpen: isMarketOpen, label: marketLabel } = useMarketStatus();
   const [formData, setFormData] = useState({
     actualEntry: '',
     actualShares: '',
@@ -205,17 +203,6 @@ export default function EnterPositionModal({
             </div>
           </div>
 
-          {/* Market Closed Warning */}
-          {!isMarketOpen && (
-            <div className="flex items-center gap-3 bg-[#d29922]/10 border border-[#d29922]/30 rounded-xl p-4 mb-6">
-              <AlertTriangle className="w-5 h-5 text-[#d29922] shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-[#d29922]">Market is closed</p>
-                <p className="text-xs text-[#8b949e] mt-0.5">{marketLabel} — new trades cannot be initiated right now.</p>
-              </div>
-            </div>
-          )}
-
           {/* Form */}
           <div className="space-y-4">
             {/* Actual Entry Price */}
@@ -307,15 +294,10 @@ export default function EnterPositionModal({
           </button>
           <button
             onClick={handleConfirm}
-            disabled={!isMarketOpen}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
-              isMarketOpen
-                ? 'bg-green-500 hover:bg-green-600 text-white'
-                : 'bg-[#262626] text-[#8b949e] cursor-not-allowed'
-            }`}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors text-sm font-medium"
           >
             <Play className="w-4 h-4" />
-            {isMarketOpen ? 'Start Trade' : 'Market Closed'}
+            Start Trade
           </button>
         </div>
       </div>

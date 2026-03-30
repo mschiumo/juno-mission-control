@@ -10,6 +10,12 @@
     },
     "app/api/cron-jobs/market-briefing/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/cron-jobs/avg-volume-daily/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron-jobs/avg-volume-backfill/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -24,6 +30,10 @@
     {
       "path": "/api/cron-jobs/market-briefing",
       "schedule": "0 12 * * 1-5"
+    },
+    {
+      "path": "/api/cron-jobs/avg-volume-daily",
+      "schedule": "0 23 * * 1-5"
     }
   ]
 }

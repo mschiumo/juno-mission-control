@@ -34,7 +34,6 @@ import type { CreateTradeRequest } from '@/types/trading';
 import { TradeSide, Strategy } from '@/types/trading';
 import type { ClosedPosition } from '@/lib/db/closed-positions';
 import { getNowInEST } from '@/lib/date-utils';
-import useMarketStatus from '@/hooks/useMarketStatus';
 import EditWatchlistItemModal from './EditWatchlistItemModal';
 import EnterPositionModal from './EnterPositionModal';
 import EditActiveTradeModal from './EditActiveTradeModal';
@@ -77,6 +76,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   const cardGridClass = CARD_GRID[cardColumns] ?? 'grid-cols-3';
   const { isOpen: isMarketOpen } = useMarketStatus();
   const { smaData, toggleTracking, isTracked } = useSmaTracking(isMarketOpen);
+
 
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -2001,18 +2001,13 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (isMarketOpen) handleStartTrade(item);
+                              handleStartTrade(item);
                             }}
-                            disabled={!isMarketOpen}
-                            className={`flex items-center gap-1 px-2 py-1.5 text-sm rounded-lg transition-colors ${
-                              isMarketOpen
-                                ? 'text-green-400 hover:text-white hover:bg-green-500'
-                                : 'text-[#8b949e]/50 cursor-not-allowed'
-                            }`}
-                            title={isMarketOpen ? 'Enter position - Move to Active Trades' : 'Market is closed — trading disabled'}
+                            className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                            title="Enter position - Move to Active Trades"
                           >
                             <Play className="w-3.5 h-3.5" />
-                            {isMarketOpen ? 'Start Trade' : 'Market Closed'}
+                            Start Trade
                           </button>
                           <button
                             onClick={(e) => {
@@ -2174,18 +2169,13 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (isMarketOpen) handleStartTrade(item);
+                              handleStartTrade(item);
                             }}
-                            disabled={!isMarketOpen}
-                            className={`flex items-center gap-1 px-2 py-1.5 text-sm rounded-lg transition-colors ${
-                              isMarketOpen
-                                ? 'text-green-400 hover:text-white hover:bg-green-500'
-                                : 'text-[#8b949e]/50 cursor-not-allowed'
-                            }`}
-                            title={isMarketOpen ? 'Enter position - Move to Active Trades' : 'Market is closed — trading disabled'}
+                            className="flex items-center gap-1 px-2 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                            title="Enter position - Move to Active Trades"
                           >
                             <Play className="w-3.5 h-3.5" />
-                            {isMarketOpen ? 'Start Trade' : 'Market Closed'}
+                            Start Trade
                           </button>
                           <button
                             onClick={(e) => {
