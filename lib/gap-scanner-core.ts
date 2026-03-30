@@ -96,6 +96,13 @@ export function getMarketSession(): {
 } {
   const now = new Date();
   const estTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+
+  // Weekends and holidays are always closed
+  const day = estTime.getDay();
+  if (day === 0 || day === 6 || isMarketHoliday(estTime.toISOString().split('T')[0])) {
+    return { session: 'closed', isPreMarket: false, marketStatus: 'closed' };
+  }
+
   const timeInMinutes = estTime.getHours() * 60 + estTime.getMinutes();
 
   if (timeInMinutes >= 240 && timeInMinutes < 570)
