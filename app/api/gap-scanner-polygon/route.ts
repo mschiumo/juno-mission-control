@@ -7,7 +7,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getCachedGapScanResults } from '@/lib/cron-helpers';
+import { getCachedGapScanResults, cacheGapScanResults } from '@/lib/cron-helpers';
 import {
   getMarketSession,
   fetchAllSnapshots,
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   const marketInfo = getMarketSession();
 
   try {
-    // Before hitting Polygon, check for fresh cron-cached results (pre-market)
+    // When market is closed or pre-market, serve cached results from last cron run
     if (marketInfo.session === 'pre-market' || marketInfo.session === 'closed') {
       const cached = await getCachedGapScanResults() as PolygonScanResult | null;
       if (cached?.success && cached?.data) {
@@ -38,7 +38,29 @@ export async function GET(request: Request) {
         return NextResponse.json({
           ...cached,
           source: 'polygon-cached',
+          marketSession: marketInfo.session,
+          marketStatus: marketInfo.marketStatus,
           durationMs: Date.now() - startTime,
+        });
+      }
+      // If market is closed and no cache, return empty with a clear message
+      // (live Polygon data has 0 volume on weekends, so scanning would return nothing)
+      if (marketInfo.session === 'closed') {
+        return NextResponse.json({
+          success: true,
+          data: { gainers: [], losers: [] },
+          timestamp: new Date().toISOString(),
+          source: 'none',
+          scanned: 0,
+          found: 0,
+          durationMs: Date.now() - startTime,
+          isWeekend: marketInfo.isWeekend,
+          tradingDate: marketInfo.tradingDate,
+          previousDate: marketInfo.previousDate,
+          marketSession: 'closed',
+          marketStatus: 'closed',
+          isPreMarket: false,
+          message: 'Market is closed. Results will appear after the next trading session.',
         });
       }
     }
@@ -102,6 +124,11 @@ export async function GET(request: Request) {
 
     console.log(`[GapScanner-Polygon] Completed in ${durationMs}ms`);
     console.log(`[GapScanner-Polygon] Results: ${gainers.length} gainers, ${losers.length} losers from ${snapshots.length} stocks`);
+
+    // Cache results so they're available when market is closed
+    if (result.data.gainers.length > 0 || result.data.losers.length > 0) {
+      await cacheGapScanResults(result).catch(() => {});
+    }
 
     return NextResponse.json(result);
 
