@@ -14,6 +14,7 @@ import {
   processGaps,
   type PolygonScanResult,
 } from '@/lib/gap-scanner-polygon';
+import { getAvgVolumeMap } from '@/lib/avg-volume';
 
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
 
@@ -80,8 +81,11 @@ export async function GET(request: Request) {
     console.log(`[GapScanner-Polygon] Starting scan at ${new Date().toISOString()}`);
     console.log(`[GapScanner-Polygon] Filters: minGap=${minGapPercent}%, minVolume=${minVolume}, minPrice=${minPrice}, maxPrice=${maxPrice}`);
 
-    // Fetch all snapshots in ONE API call
-    const snapshots = await fetchAllSnapshots(marketInfo.session);
+    // Fetch snapshots and avg volume map in parallel
+    const [snapshots, avgVolumeMap] = await Promise.all([
+      fetchAllSnapshots(marketInfo.session),
+      getAvgVolumeMap().catch(() => null),
+    ]);
 
     // Process gaps
     const { gainers, losers, skipped } = processGaps(snapshots, {
@@ -90,6 +94,7 @@ export async function GET(request: Request) {
       minPrice,
       maxPrice,
       isPreMarket: marketInfo.isPreMarket,
+      avgVolumeMap: avgVolumeMap ?? undefined,
     });
 
     const durationMs = Date.now() - startTime;

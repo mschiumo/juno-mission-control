@@ -6,6 +6,8 @@
  * Fetches ALL stock snapshots in a single API call.
  */
 
+import { getAvgVolumeMap } from '@/lib/avg-volume';
+
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -180,9 +182,10 @@ export function processGaps(
     minPrice: number;
     maxPrice: number;
     isPreMarket: boolean;
+    avgVolumeMap?: Record<string, number>;
   }
 ): { gainers: GapStock[]; losers: GapStock[]; skipped: { gap: number; volume: number; price: number } } {
-  const { minGapPercent, minVolume, minPrice, maxPrice, isPreMarket } = options;
+  const { minGapPercent, minVolume, minPrice, maxPrice, isPreMarket, avgVolumeMap } = options;
 
   const gainers: GapStock[] = [];
   const losers: GapStock[] = [];
@@ -201,9 +204,11 @@ export function processGaps(
     if (!currentPrice) continue;
     const previousClose = snap.prevDay.c;
     const volume = snap.day.v || 0;
-    // During premarket, today's volume is always a fraction of regular session.
-    // Use previous day's volume to check if the stock is normally liquid.
-    const volumeForFilter = isPreMarket ? (snap.prevDay?.v || 0) : volume;
+    // Use 90-day avg volume when available; fall back to prevDay volume during premarket
+    const avgVol = avgVolumeMap?.[snap.ticker] ?? 0;
+    const volumeForFilter = avgVol > 0
+      ? avgVol
+      : (isPreMarket ? (snap.prevDay?.v || 0) : volume);
 
     if (currentPrice < minPrice || currentPrice > maxPrice) { skippedPrice++; continue; }
     if (volumeForFilter < minVolume) { skippedVolume++; continue; }
@@ -250,7 +255,10 @@ export async function runPolygonGapScan(options: {
   } = options;
 
   const marketInfo = getMarketSession();
-  const snapshots = await fetchAllSnapshots(marketInfo.session);
+  const [snapshots, avgVolumeMap] = await Promise.all([
+    fetchAllSnapshots(marketInfo.session),
+    getAvgVolumeMap().catch(() => null),
+  ]);
 
   const { gainers, losers, skipped } = processGaps(snapshots, {
     minGapPercent,
@@ -258,6 +266,7 @@ export async function runPolygonGapScan(options: {
     minPrice,
     maxPrice,
     isPreMarket: marketInfo.isPreMarket,
+    avgVolumeMap: avgVolumeMap ?? undefined,
   });
 
   return {
