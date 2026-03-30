@@ -12,7 +12,6 @@ import { requireUserId } from '@/lib/auth-session';
 import { getUserById } from '@/lib/db/users';
 import { sendEmail } from '@/lib/email';
 import { MarketBriefingEmail } from '@/lib/emails/MarketBriefingEmail';
-import { GapScannerEmail } from '@/lib/emails/GapScannerEmail';
 
 const SAMPLE_BRIEFING = {
   date: new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' }),
@@ -49,19 +48,31 @@ const SAMPLE_BRIEFING = {
   },
 };
 
-const SAMPLE_GAP_SCAN = {
-  date: new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' }),
+const SAMPLE_GAP_DATA = {
   gainers: [
-    { symbol: 'SMCI', price: 42.80, gapPercent: 18.5, volume: 12500000, marketCap: 25000000000 },
-    { symbol: 'MARA', price: 28.15, gapPercent: 12.3, volume: 8200000, marketCap: 8500000000 },
-    { symbol: 'RIVN', price: 14.92, gapPercent: 8.7, volume: 6100000, marketCap: 15200000000 },
+    { symbol: 'SMCI', gapPercent: 18.5 },
+    { symbol: 'MARA', gapPercent: 12.3 },
+    { symbol: 'RIVN', gapPercent: 8.7 },
+    { symbol: 'IONQ', gapPercent: 7.2 },
+    { symbol: 'PLTR', gapPercent: 5.8 },
+    { symbol: 'ARM', gapPercent: 5.4 },
+    { symbol: 'SOFI', gapPercent: 4.9 },
+    { symbol: 'RKLB', gapPercent: 4.3 },
+    { symbol: 'HOOD', gapPercent: 3.8 },
+    { symbol: 'COIN', gapPercent: 3.2 },
   ],
   losers: [
-    { symbol: 'SNAP', price: 11.20, gapPercent: -14.2, volume: 15000000, marketCap: 18000000000 },
-    { symbol: 'ROKU', price: 62.45, gapPercent: -9.8, volume: 4500000, marketCap: 8900000000 },
+    { symbol: 'SNAP', gapPercent: -14.2 },
+    { symbol: 'ROKU', gapPercent: -9.8 },
+    { symbol: 'BYND', gapPercent: -7.5 },
+    { symbol: 'LCID', gapPercent: -6.1 },
+    { symbol: 'PINS', gapPercent: -5.3 },
+    { symbol: 'DASH', gapPercent: -4.7 },
+    { symbol: 'DKNG', gapPercent: -4.2 },
+    { symbol: 'LYFT', gapPercent: -3.8 },
+    { symbol: 'UPST', gapPercent: -3.4 },
+    { symbol: 'OPEN', gapPercent: -2.9 },
   ],
-  scanned: 4850,
-  marketSession: 'pre-market',
 };
 
 export async function GET(request: Request) {
@@ -74,27 +85,21 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const type = searchParams.get('type') || 'briefing';
+  const includeGaps = searchParams.get('gaps') !== 'false';
 
-  let result;
-  if (type === 'gapScanner') {
-    result = await sendEmail({
-      to: user.email,
-      subject: `[TEST] Gap Scan — ${SAMPLE_GAP_SCAN.date}`,
-      react: GapScannerEmail(SAMPLE_GAP_SCAN),
-    });
-  } else {
-    result = await sendEmail({
-      to: user.email,
-      subject: `[TEST] Market Briefing — ${SAMPLE_BRIEFING.date}`,
-      react: MarketBriefingEmail(SAMPLE_BRIEFING),
-    });
-  }
+  const result = await sendEmail({
+    to: user.email,
+    subject: `[TEST] Morning Brief — ${SAMPLE_BRIEFING.date}`,
+    react: MarketBriefingEmail({
+      ...SAMPLE_BRIEFING,
+      gapData: includeGaps ? SAMPLE_GAP_DATA : undefined,
+    }),
+  });
 
   return NextResponse.json({
     success: result.success,
     sentTo: user.email,
-    type,
+    includeGaps,
     emailId: result.id,
     error: result.error,
   });

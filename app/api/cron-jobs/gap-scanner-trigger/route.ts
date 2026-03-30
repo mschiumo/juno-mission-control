@@ -13,7 +13,6 @@ import {
   formatDate,
   isMarketOpenToday,
   cacheGapScanResults,
-  sendEmailsToSubscribers,
 } from '@/lib/cron-helpers';
 import { runPolygonGapScan } from '@/lib/gap-scanner-polygon';
 import { runYahooGapScan } from '@/lib/gap-scanner-yahoo';
@@ -116,25 +115,8 @@ export async function POST() {
     await logToActivityLog('Gap Scanner', `Completed (${source}): ${gainers.length} gainers, ${losers.length} losers`, 'cron');
     await sendTelegramIfNeeded(reportContent);
 
-    // Send email alerts to subscribers
-    const emailResult = await sendEmailsToSubscribers(
-      'gapScanner',
-      () => `Gap Scan — ${formatDate()}`,
-      () => {
-        const { GapScannerEmail } = require('@/lib/emails/GapScannerEmail');
-        return GapScannerEmail({
-          date: formatDate(),
-          gainers,
-          losers,
-          scanned: scanned ?? 0,
-          marketSession: 'pre-market',
-        });
-      },
-    );
-
-    if (emailResult.sent > 0) {
-      console.log(`[GapScannerTrigger] Sent ${emailResult.sent} gap scanner emails`);
-    }
+    // Email alerts are sent via the combined Morning Brief (market-briefing cron)
+    // which reads cached gap data and includes it in the briefing email.
 
     const duration = Date.now() - startTime;
     console.log(`[GapScannerTrigger] Completed in ${duration}ms via ${source}`);

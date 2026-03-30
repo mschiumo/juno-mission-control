@@ -229,15 +229,17 @@ export async function getCachedGapScanResults(): Promise<unknown | null> {
 
 /**
  * Send emails to all users who have opted in for a specific alert type.
+ * Accepts a single alert type or an array (user is included if ANY match).
  * Returns the count of emails sent and any errors.
  */
 export async function sendEmailsToSubscribers(
-  alertType: 'marketBriefing' | 'gapScanner',
+  alertType: 'marketBriefing' | 'gapScanner' | ('marketBriefing' | 'gapScanner')[],
   subjectFn: () => string,
   reactFn: () => React.ReactElement,
 ): Promise<{ sent: number; errors: number }> {
   let sent = 0;
   let errors = 0;
+  const types = Array.isArray(alertType) ? alertType : [alertType];
 
   try {
     const { getAllUserIds, getUserById } = await import('@/lib/db/users');
@@ -252,7 +254,8 @@ export async function sendEmailsToSubscribers(
       try {
         const prefsRaw = await redis.get(`user:prefs:${userId}`);
         const prefs = prefsRaw ? JSON.parse(prefsRaw) : {};
-        if (!prefs.emailAlerts?.[alertType]) continue;
+        const hasAny = types.some(t => prefs.emailAlerts?.[t]);
+        if (!hasAny) continue;
 
         const user = await getUserById(userId);
         if (!user?.email) continue;

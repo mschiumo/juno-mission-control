@@ -17,6 +17,11 @@ interface MarketItem {
   status: 'up' | 'down' | 'flat';
 }
 
+interface GapStock {
+  symbol: string;
+  gapPercent: number;
+}
+
 interface BriefingEmailProps {
   date: string;
   indices: MarketItem[];
@@ -29,6 +34,10 @@ interface BriefingEmailProps {
     upcomingEvents: string[];
     sentiment: 'bullish' | 'bearish' | 'neutral' | 'mixed';
   };
+  gapData?: {
+    gainers: GapStock[];
+    losers: GapStock[];
+  };
 }
 
 const SENTIMENT_CONFIG: Record<string, { color: string; bg: string; icon: string; label: string }> = {
@@ -40,6 +49,7 @@ const SENTIMENT_CONFIG: Record<string, { color: string; bg: string; icon: string
 
 const SECTION_ICONS: Record<string, string> = {
   snapshot: '📊',
+  gaps: '🔍',
   movers: '⚡',
   news: '📰',
   events: '📅',
@@ -112,6 +122,41 @@ function TickerGroup({ items, label, icon }: { items: MarketItem[]; label: strin
 }
 
 /* ------------------------------------------------------------------ */
+/*  Copyable ticker list for gap scan data                             */
+/* ------------------------------------------------------------------ */
+
+function TickerCopyBox({ stocks, label, color, icon }: {
+  stocks: GapStock[];
+  label: string;
+  color: string;
+  icon: string;
+}) {
+  if (stocks.length === 0) return null;
+  const top10 = stocks.slice(0, 10);
+  const tickerString = top10.map(s => s.symbol).join(', ');
+  const summary = top10.map(s => {
+    const sign = s.gapPercent >= 0 ? '+' : '';
+    return `${s.symbol} (${sign}${s.gapPercent.toFixed(1)}%)`;
+  }).join('  ·  ');
+
+  return (
+    <Section style={{ padding: '8px 0' }}>
+      <Text style={{ ...gapListLabel, color }}>
+        <span style={{ marginRight: '6px' }}>{icon}</span>
+        {label}
+      </Text>
+      {/* Copyable ticker box */}
+      <div style={tickerBox}>
+        <Text style={tickerBoxText}>{tickerString}</Text>
+      </div>
+      <Text style={tickerBoxHint}>Select and copy tickers to your watchlist</Text>
+      {/* Gap percentages for context */}
+      <Text style={gapDetails}>{summary}</Text>
+    </Section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Section header with icon                                           */
 /* ------------------------------------------------------------------ */
 
@@ -138,6 +183,7 @@ export function MarketBriefingEmail({
   stocks,
   crypto,
   aiSummary,
+  gapData,
 }: BriefingEmailProps) {
   const sentiment = SENTIMENT_CONFIG[aiSummary.sentiment] || SENTIMENT_CONFIG.neutral;
 
@@ -198,6 +244,15 @@ export function MarketBriefingEmail({
         <TickerGroup items={stocks} label="Stocks" icon="🏢" />
         <TickerGroup items={crypto} label="Crypto" icon="₿" />
       </Section>
+
+      {/* Pre-Market Gaps */}
+      {gapData && (gapData.gainers.length > 0 || gapData.losers.length > 0) && (
+        <Section style={card}>
+          <SectionHeader icon={SECTION_ICONS.gaps} title="Pre-Market Gaps" />
+          <TickerCopyBox stocks={gapData.gainers} label="Gapping Up" color="#3fb950" icon="🟢" />
+          <TickerCopyBox stocks={gapData.losers} label="Gapping Down" color="#f85149" icon="🔴" />
+        </Section>
+      )}
 
       {/* Big Movers */}
       {aiSummary.bigMovers.length > 0 && (
@@ -401,6 +456,48 @@ const changePill: React.CSSProperties = {
   borderRadius: '6px',
   margin: 0,
   textAlign: 'center' as const,
+};
+
+// --- Gap Scanner ---
+
+const gapListLabel: React.CSSProperties = {
+  fontSize: '11px',
+  fontWeight: 700,
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.06em',
+  margin: '0 0 6px',
+};
+
+const tickerBox: React.CSSProperties = {
+  backgroundColor: '#0d1117',
+  border: '1px solid #30363d',
+  borderRadius: '8px',
+  padding: '12px 16px',
+};
+
+const tickerBoxText: React.CSSProperties = {
+  color: '#e6edf3',
+  fontSize: '14px',
+  fontWeight: 600,
+  fontFamily: 'monospace, Courier New, monospace',
+  letterSpacing: '0.04em',
+  lineHeight: '22px',
+  margin: 0,
+  wordBreak: 'break-word' as const,
+};
+
+const tickerBoxHint: React.CSSProperties = {
+  color: '#484f58',
+  fontSize: '10px',
+  margin: '4px 0 0',
+  fontStyle: 'italic' as const,
+};
+
+const gapDetails: React.CSSProperties = {
+  color: '#8b949e',
+  fontSize: '11px',
+  lineHeight: '18px',
+  margin: '6px 0 0',
 };
 
 // --- Big Movers ---

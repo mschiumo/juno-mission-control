@@ -17,6 +17,7 @@ import {
   logToActivityLog,
   isMarketOpenToday,
   sendEmailsToSubscribers,
+  getCachedGapScanResults,
 } from '@/lib/cron-helpers';
 import { getRedisClient } from '@/lib/redis';
 
@@ -483,7 +484,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, data: briefing, durationMs: Date.now() - startTime });
     }
 
-    // Post to cron results, activity log, and send subscriber emails
+    // Read cached gap scan data (from the earlier pre-market cron run)
+    let gapData: { gainers: { symbol: string; gapPercent: number }[]; losers: { symbol: string; gapPercent: number }[] } | undefined;
+    try {
+      const cached = await getCachedGapScanResults() as { data?: { gainers?: unknown[]; losers?: unknown[] } } | null;
+      if (cached?.data?.gainers || cached?.data?.losers) {
+        gapData = {
+          gainers: (cached.data.gainers || []).slice(0, 10).map((g: any) => ({ symbol: g.symbol, gapPercent: g.gapPercent })), // eslint-disable-line @typescript-eslint/no-explicit-any
+          losers: (cached.data.losers || []).slice(0, 10).map((l: any) => ({ symbol: l.symbol, gapPercent: l.gapPercent })), // eslint-disable-line @typescript-eslint/no-explicit-any
+        };
+      }
+    } catch (err) {
+      console.warn('[MarketBriefing] Could not read cached gap data:', err);
+    }
+
+    // Post to cron results, activity log, and send combined email
+    // Send to users who have EITHER marketBriefing or gapScanner enabled
     const [,, emailResult] = await Promise.all([
       postToCronResults(
         'Morning Market Briefing',
@@ -492,12 +508,12 @@ export async function GET(request: Request) {
       ),
       logToActivityLog(
         'Morning Market Briefing',
-        `Generated with ${indices.length} indices, ${stocks.length} stocks, AI summary`,
+        `Generated with ${indices.length} indices, ${stocks.length} stocks, AI summary${gapData ? `, ${gapData.gainers.length + gapData.losers.length} gaps` : ''}`,
         'cron',
       ),
       sendEmailsToSubscribers(
-        'marketBriefing',
-        () => `Market Briefing — ${briefing.date}`,
+        ['marketBriefing', 'gapScanner'],
+        () => `Morning Brief — ${briefing.date}`,
         () => {
           const { MarketBriefingEmail } = require('@/lib/emails/MarketBriefingEmail');
           return MarketBriefingEmail({
@@ -506,6 +522,7 @@ export async function GET(request: Request) {
             stocks: briefing.stocks,
             crypto: briefing.crypto,
             aiSummary: briefing.aiSummary,
+            gapData,
           });
         },
       ),
