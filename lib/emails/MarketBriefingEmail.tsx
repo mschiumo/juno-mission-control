@@ -51,40 +51,31 @@ function getTickerUrl(symbol: string): string {
 
 function formatPrice(price: number, symbol: string): string {
   if (symbol === 'BTC' || symbol === 'ETH') {
-    return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `$${price.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   }
   return `$${price.toFixed(2)}`;
 }
 
-function PriceTable({ items, title }: { items: MarketItem[]; title: string }) {
-  if (items.length === 0) return null;
+function PriceRow({ item }: { item: MarketItem }) {
+  const isUp = item.change >= 0;
+  const color = isUp ? '#3fb950' : '#f85149';
+  const sign = isUp ? '+' : '';
   return (
-    <Section style={card}>
-      <Text style={sectionTitle}>{title}</Text>
-      {items.map((item) => {
-        const isUp = item.change >= 0;
-        const color = isUp ? '#3fb950' : '#f85149';
-        const sign = isUp ? '+' : '';
-        return (
-          <Row key={item.symbol} style={tableRow}>
-            <Column style={{ width: '40%' }}>
-              <Link href={getTickerUrl(item.symbol)} style={symbolLink}>
-                {item.symbol}
-              </Link>
-              <Text style={nameText}>{item.name}</Text>
-            </Column>
-            <Column style={{ width: '30%', textAlign: 'right' as const }}>
-              <Text style={priceText}>{formatPrice(item.price, item.symbol)}</Text>
-            </Column>
-            <Column style={{ width: '30%', textAlign: 'right' as const }}>
-              <Text style={{ ...changeText, color }}>
-                {sign}{item.changePercent.toFixed(2)}%
-              </Text>
-            </Column>
-          </Row>
-        );
-      })}
-    </Section>
+    <Row style={tableRow}>
+      <Column style={{ width: '35%', paddingRight: '4px' }}>
+        <Link href={getTickerUrl(item.symbol)} style={symbolLink}>
+          {item.symbol}
+        </Link>
+      </Column>
+      <Column style={{ width: '35%', textAlign: 'right' as const, paddingRight: '8px' }}>
+        <Text style={priceText}>{formatPrice(item.price, item.symbol)}</Text>
+      </Column>
+      <Column style={{ width: '30%', textAlign: 'right' as const }}>
+        <Text style={{ ...changeText, color }}>
+          {sign}{item.changePercent.toFixed(2)}%
+        </Text>
+      </Column>
+    </Row>
   );
 }
 
@@ -119,10 +110,39 @@ export function MarketBriefingEmail({
         <Text style={bodyText}>{aiSummary.marketOverview}</Text>
       </Section>
 
-      {/* Price Tables */}
-      <PriceTable items={indices} title="Indices" />
-      <PriceTable items={stocks} title="Key Stocks" />
-      <PriceTable items={crypto} title="Crypto" />
+      {/* All prices in a single card */}
+      <Section style={card}>
+        {/* Column headers */}
+        <Row style={{ paddingBottom: '6px', borderBottom: '1px solid #30363d', marginBottom: '4px' }}>
+          <Column style={{ width: '35%' }}><Text style={colHeader}>Symbol</Text></Column>
+          <Column style={{ width: '35%', textAlign: 'right' as const, paddingRight: '8px' }}><Text style={colHeader}>Price</Text></Column>
+          <Column style={{ width: '30%', textAlign: 'right' as const }}><Text style={colHeader}>Change</Text></Column>
+        </Row>
+
+        {/* Indices */}
+        {indices.length > 0 && (
+          <>
+            <Text style={groupLabel}>Indices</Text>
+            {indices.map((item) => <PriceRow key={item.symbol} item={item} />)}
+          </>
+        )}
+
+        {/* Stocks */}
+        {stocks.length > 0 && (
+          <>
+            <Text style={groupLabel}>Stocks</Text>
+            {stocks.map((item) => <PriceRow key={item.symbol} item={item} />)}
+          </>
+        )}
+
+        {/* Crypto */}
+        {crypto.length > 0 && (
+          <>
+            <Text style={groupLabel}>Crypto</Text>
+            {crypto.map((item) => <PriceRow key={item.symbol} item={item} />)}
+          </>
+        )}
+      </Section>
 
       {/* Big Movers */}
       {aiSummary.bigMovers.length > 0 && (
@@ -223,33 +243,44 @@ const bodyText: React.CSSProperties = {
   margin: 0,
 };
 
+const colHeader: React.CSSProperties = {
+  color: '#8b949e',
+  fontSize: '11px',
+  fontWeight: 600,
+  textTransform: 'uppercase' as const,
+  margin: 0,
+};
+
+const groupLabel: React.CSSProperties = {
+  color: '#8b949e',
+  fontSize: '10px',
+  fontWeight: 600,
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.08em',
+  margin: '10px 0 4px',
+};
+
 const tableRow: React.CSSProperties = {
   borderBottom: '1px solid #21262d',
-  padding: '8px 0',
+  padding: '5px 0',
 };
 
 const symbolLink: React.CSSProperties = {
   color: '#58a6ff',
-  fontSize: '14px',
+  fontSize: '13px',
   fontWeight: 600,
   textDecoration: 'none',
 };
 
-const nameText: React.CSSProperties = {
-  color: '#8b949e',
-  fontSize: '11px',
-  margin: '2px 0 0',
-};
-
 const priceText: React.CSSProperties = {
   color: '#e6edf3',
-  fontSize: '14px',
+  fontSize: '13px',
   fontWeight: 500,
   margin: 0,
 };
 
 const changeText: React.CSSProperties = {
-  fontSize: '14px',
+  fontSize: '13px',
   fontWeight: 600,
   margin: 0,
 };
