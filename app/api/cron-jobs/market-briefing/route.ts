@@ -362,20 +362,35 @@ Rules:
 
   const rawText = message.content[0].type === 'text' ? message.content[0].text : '';
 
-  // Strip markdown code fences (```json ... ```) that the model sometimes adds
-  const text = rawText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
+  // Try multiple strategies to extract valid JSON from the AI response
+  function tryParseJSON(input: string): Record<string, unknown> | null {
+    // 1. Strip markdown code fences
+    const stripped = input.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
+    try { return JSON.parse(stripped); } catch { /* continue */ }
 
-  try {
-    return JSON.parse(text);
-  } catch {
-    return {
-      marketOverview: text || 'Failed to parse AI response.',
-      bigMovers: [],
-      newsHighlights: news.slice(0, 5).map((n) => ({ headline: n.headline, url: n.url })),
-      upcomingEvents: [],
-      sentiment: 'neutral',
-    };
+    // 2. Extract the outermost { ... } in case of preamble/trailing text
+    const first = stripped.indexOf('{');
+    const last = stripped.lastIndexOf('}');
+    if (first !== -1 && last > first) {
+      try { return JSON.parse(stripped.slice(first, last + 1)); } catch { /* continue */ }
+    }
+
+    return null;
   }
+
+  const parsed = tryParseJSON(rawText);
+  if (parsed && typeof parsed.marketOverview === 'string') {
+    return parsed as BriefingData['aiSummary'];
+  }
+
+  console.warn('[MarketBriefing] Failed to parse AI JSON. Raw:', rawText.slice(0, 300));
+  return {
+    marketOverview: 'AI summary could not be parsed. Please regenerate.',
+    bigMovers: [],
+    newsHighlights: news.slice(0, 5).map((n) => ({ headline: n.headline, url: n.url })),
+    upcomingEvents: [],
+    sentiment: 'neutral',
+  };
 }
 
 // ---------------------------------------------------------------------------
