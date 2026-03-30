@@ -296,7 +296,17 @@ export default function GapScannerCard() {
     'post-market': { label: 'After Hours', color: 'text-[#8b949e]', dot: 'bg-[#8b949e]', tooltip: `Post-market. Final gaps from ${response?.tradingDate}. Pre-market resumes 4:00 AM EST.` },
     'closed': { label: 'Market Closed', color: 'text-[#8b949e]', dot: 'bg-[#8b949e]', tooltip: 'Market is closed. Showing last available scan results.' },
   };
-  const sessionKey = response?.marketSession ?? (isWeekend || response?.marketStatus === 'closed' ? 'closed' : null);
+  // Determine market session — override to "closed" on weekends/holidays even if
+  // the backend incorrectly reports "market-open" (the backend bug is also fixed,
+  // but this guards against stale API responses).
+  const isMarketClosed = (() => {
+    const now = new Date();
+    const est = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const day = est.getDay();
+    return day === 0 || day === 6; // Sunday or Saturday
+  })();
+  const rawSession = response?.marketSession ?? null;
+  const sessionKey = isMarketClosed ? 'closed' : rawSession ?? (isWeekend || response?.marketStatus === 'closed' ? 'closed' : null);
   const session = sessionKey ? sessionInfo[sessionKey] : null;
 
   // Dynamic criteria for the info hover card
