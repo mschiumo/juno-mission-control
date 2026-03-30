@@ -56,6 +56,8 @@ function formatPrice(price: number, symbol: string): string {
   return `$${price.toFixed(2)}`;
 }
 
+const COLS = 3;
+
 function PriceCell({ item }: { item: MarketItem }) {
   const isUp = item.change >= 0;
   const color = isUp ? '#3fb950' : '#f85149';
@@ -63,30 +65,31 @@ function PriceCell({ item }: { item: MarketItem }) {
   return (
     <Column style={gridCell}>
       <Link href={getTickerUrl(item.symbol)} style={cellSymbol}>{item.symbol}</Link>
-      <Text style={cellPrice}>{formatPrice(item.price, item.symbol)}</Text>
-      <Text style={{ ...cellChange, color }}>{sign}{item.changePercent.toFixed(2)}%</Text>
+      <Text style={cellPriceLine}>
+        {formatPrice(item.price, item.symbol)}{' '}
+        <span style={{ color, fontWeight: 600 }}>{sign}{item.changePercent.toFixed(2)}%</span>
+      </Text>
     </Column>
   );
 }
 
-/** Render items in a 2-column grid */
+function EmptyCell() {
+  return <Column style={gridCell} />;
+}
+
 function PriceGrid({ items, label }: { items: MarketItem[]; label: string }) {
   if (items.length === 0) return null;
   const rows: MarketItem[][] = [];
-  for (let i = 0; i < items.length; i += 2) {
-    rows.push(items.slice(i, i + 2));
+  for (let i = 0; i < items.length; i += COLS) {
+    rows.push(items.slice(i, i + COLS));
   }
   return (
     <>
       <Text style={groupLabel}>{label}</Text>
-      {rows.map((pair, i) => (
+      {rows.map((chunk, i) => (
         <Row key={i}>
-          <PriceCell item={pair[0]} />
-          {pair[1] ? (
-            <PriceCell item={pair[1]} />
-          ) : (
-            <Column style={gridCell} />
-          )}
+          {chunk.map((item) => <PriceCell key={item.symbol} item={item} />)}
+          {Array.from({ length: COLS - chunk.length }).map((_, j) => <EmptyCell key={`e${j}`} />)}
         </Row>
       ))}
     </>
@@ -237,14 +240,12 @@ const groupLabel: React.CSSProperties = {
   fontWeight: 600,
   textTransform: 'uppercase' as const,
   letterSpacing: '0.08em',
-  margin: '10px 0 4px',
-  borderBottom: '1px solid #21262d',
-  paddingBottom: '4px',
+  margin: '8px 0 2px',
 };
 
 const gridCell: React.CSSProperties = {
-  width: '50%',
-  padding: '6px 8px 6px 0',
+  width: `${100 / COLS}%`,
+  padding: '4px 4px 8px 0',
   verticalAlign: 'top' as const,
 };
 
@@ -255,16 +256,11 @@ const cellSymbol: React.CSSProperties = {
   textDecoration: 'none',
 };
 
-const cellPrice: React.CSSProperties = {
-  color: '#e6edf3',
-  fontSize: '12px',
+const cellPriceLine: React.CSSProperties = {
+  color: '#c9d1d9',
+  fontSize: '11px',
   margin: '1px 0 0',
-};
-
-const cellChange: React.CSSProperties = {
-  fontSize: '12px',
-  fontWeight: 600,
-  margin: '0',
+  lineHeight: '16px',
 };
 
 const symbolLink: React.CSSProperties = {
