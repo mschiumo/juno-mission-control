@@ -74,6 +74,31 @@ export async function backfillUserIndex(): Promise<number> {
   return added;
 }
 
+export async function updateUser(id: string, updates: { name?: string; email?: string }): Promise<AppUser | null> {
+  const redis = await getRedisClient();
+  const data = await redis.get(userKey(id));
+  if (!data) return null;
+
+  const user = JSON.parse(data) as AppUser;
+
+  if (updates.email && updates.email.toLowerCase() !== user.email) {
+    const newEmail = updates.email.toLowerCase();
+    const existing = await redis.get(emailIndexKey(newEmail));
+    if (existing && existing !== id) throw new Error('Email already registered');
+    // Remove old email index, set new one
+    await redis.del(emailIndexKey(user.email));
+    await redis.set(emailIndexKey(newEmail), id);
+    user.email = newEmail;
+  }
+
+  if (updates.name !== undefined) {
+    user.name = updates.name;
+  }
+
+  await redis.set(userKey(id), JSON.stringify(user));
+  return user;
+}
+
 export async function getUserByEmail(email: string): Promise<AppUser | null> {
   const redis = await getRedisClient();
   const id = await redis.get(emailIndexKey(email));

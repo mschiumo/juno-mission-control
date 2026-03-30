@@ -13,6 +13,8 @@ import {
   LogOut,
   Loader2,
   Check,
+  Pencil,
+  X,
 } from 'lucide-react';
 
 interface UserProfile {
@@ -33,11 +35,14 @@ interface UserPrefs {
 }
 
 export default function ProfilePage() {
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [prefs, setPrefs] = useState<UserPrefs | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [editing, setEditing] = useState<'name' | 'email' | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -89,6 +94,51 @@ export default function ProfilePage() {
     }
   };
 
+  const startEditing = (field: 'name' | 'email') => {
+    setEditing(field);
+    setEditValue(field === 'name' ? (profile?.name || '') : (profile?.email || ''));
+    setEditError(null);
+  };
+
+  const cancelEditing = () => {
+    setEditing(null);
+    setEditValue('');
+    setEditError(null);
+  };
+
+  const saveField = async () => {
+    if (!editing) return;
+    const trimmed = editValue.trim();
+    if (!trimmed) {
+      setEditError(`${editing === 'name' ? 'Name' : 'Email'} cannot be empty`);
+      return;
+    }
+    setSaving(editing);
+    setEditError(null);
+
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [editing]: trimmed }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setProfile(data.profile);
+        setEditing(null);
+        setEditValue('');
+        // Update the NextAuth session so the header avatar reflects changes
+        await updateSession({ name: data.profile.name, email: data.profile.email });
+      } else {
+        setEditError(data.error || 'Failed to save');
+      }
+    } catch {
+      setEditError('Network error');
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const emailAlerts = prefs?.emailAlerts || { marketBriefing: false, gapScanner: false };
 
   if (loading) {
@@ -123,30 +173,112 @@ export default function ProfilePage() {
             <User className="w-4 h-4 text-[#F97316]" />
             <h2 className="text-sm font-semibold text-white">Account Information</h2>
           </div>
-          <div className="p-5 space-y-4">
-            {/* Avatar + Name */}
+          <div className="p-5 space-y-5">
+            {/* Avatar */}
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-[#F97316] flex items-center justify-center text-white text-xl font-bold shrink-0">
-                {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
+                {(profile?.name || session?.user?.name || 'U').charAt(0).toUpperCase()}
               </div>
-              <div>
-                <p className="text-base font-semibold text-white">{profile?.name || session?.user?.name}</p>
-                <p className="text-sm text-[#8b949e]">{profile?.email || session?.user?.email}</p>
+              <div className="text-sm text-[#8b949e]">
+                {profile?.createdAt && (
+                  <span>
+                    Member since{' '}
+                    <span className="text-[#c9d1d9]">
+                      {new Date(profile.createdAt).toLocaleDateString('en-US', {
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Member Since */}
-            {profile?.createdAt && (
-              <div className="flex items-center gap-2 text-sm text-[#8b949e]">
-                <span>Member since</span>
-                <span className="text-[#c9d1d9]">
-                  {new Date(profile.createdAt).toLocaleDateString('en-US', {
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </span>
-              </div>
-            )}
+            {/* Name field */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-[#8b949e] uppercase tracking-wide">Name</label>
+              {editing === 'name' ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') saveField(); if (e.key === 'Escape') cancelEditing(); }}
+                      autoFocus
+                      className="flex-1 px-3 py-2 text-sm bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#F97316] focus:ring-1 focus:ring-[#F97316]"
+                    />
+                    <button
+                      onClick={saveField}
+                      disabled={saving === 'name'}
+                      className="p-2 rounded-lg bg-[#F97316] text-white hover:bg-[#ea6c10] transition-colors disabled:opacity-50"
+                    >
+                      {saving === 'name' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    </button>
+                    <button
+                      onClick={cancelEditing}
+                      className="p-2 rounded-lg hover:bg-[#30363d] text-[#8b949e] hover:text-white transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {editError && <p className="text-xs text-[#f85149]">{editError}</p>}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <p className="text-sm font-medium text-white">{profile?.name || session?.user?.name}</p>
+                  <button
+                    onClick={() => startEditing('name')}
+                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#30363d] text-[#8b949e] hover:text-white transition-all"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Email field */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-[#8b949e] uppercase tracking-wide">Email</label>
+              {editing === 'email' ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="email"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') saveField(); if (e.key === 'Escape') cancelEditing(); }}
+                      autoFocus
+                      className="flex-1 px-3 py-2 text-sm bg-[#0d1117] border border-[#30363d] rounded-lg text-white focus:outline-none focus:border-[#F97316] focus:ring-1 focus:ring-[#F97316]"
+                    />
+                    <button
+                      onClick={saveField}
+                      disabled={saving === 'email'}
+                      className="p-2 rounded-lg bg-[#F97316] text-white hover:bg-[#ea6c10] transition-colors disabled:opacity-50"
+                    >
+                      {saving === 'email' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    </button>
+                    <button
+                      onClick={cancelEditing}
+                      className="p-2 rounded-lg hover:bg-[#30363d] text-[#8b949e] hover:text-white transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {editError && <p className="text-xs text-[#f85149]">{editError}</p>}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <p className="text-sm text-[#c9d1d9]">{profile?.email || session?.user?.email}</p>
+                  <button
+                    onClick={() => startEditing('email')}
+                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#30363d] text-[#8b949e] hover:text-white transition-all"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </section>
 
