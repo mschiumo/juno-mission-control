@@ -106,20 +106,20 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disab
     <div
       ref={setNodeRef}
       style={style}
-      className={`p-3 rounded-lg border transition-all ${
+      className={`p-3 rounded-xl border transition-all ${
         habit.completedToday
-          ? 'bg-[#22c55e]/10 border-[#22c55e]/30'
-          : 'bg-[#0d1117] border-[#30363d] hover:border-[#F97316]/50'
+          ? 'bg-[#22c55e]/[0.06] border-[#22c55e]/20'
+          : 'bg-white/[0.02] border-white/[0.06] hover:border-[#F97316]/30 hover:bg-white/[0.04]'
       } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''} ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
     >
       <div className="flex items-center gap-3">
         <button
           {...attributes}
           {...listeners}
-          className="p-1.5 hover:bg-[#262626] rounded-lg cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+          className="p-1.5 hover:bg-white/[0.06] rounded-lg cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
           title="Drag to reorder"
         >
-          <GripVertical className="w-4 h-4 text-[#737373]" />
+          <GripVertical className="w-4 h-4 text-[#52525b]" />
         </button>
 
         <button
@@ -137,18 +137,18 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disab
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-lg flex-shrink-0">{habit.icon}</span>
-            <span className={`font-medium truncate ${habit.completedToday ? 'text-[#737373] line-through' : 'text-white'}`}>
+            <span className={`font-medium truncate ${habit.completedToday ? 'text-[#52525b] line-through' : 'text-white'}`}>
               {habit.name}
             </span>
           </div>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             <div className="flex items-center gap-1 flex-shrink-0">
-              <Flame className={`w-3 h-3 ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#737373]'}`} />
-              <span className={`text-xs ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#737373]'}`}>
+              <Flame className={`w-3 h-3 ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#52525b]'}`} />
+              <span className={`text-xs ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#52525b]'}`}>
                 {habit.streak} day{habit.streak !== 1 ? 's' : ''}
               </span>
             </div>
-            <span className="text-xs text-[#737373] truncate">{habit.target}</span>
+            <span className="text-xs text-[#52525b] truncate">{habit.target}</span>
           </div>
         </div>
 
@@ -157,7 +157,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disab
             {habit.history.map((completed, idx) => (
               <div
                 key={idx}
-                className={`w-2 h-2 rounded-full ${completed ? 'bg-[#22c55e]' : 'bg-[#262626]'}`}
+                className={`w-2 h-2 rounded-full ${completed ? 'bg-[#22c55e]' : 'bg-white/[0.06]'}`}
                 title={dayLabels[idx]}
               />
             ))}
@@ -165,18 +165,18 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disab
           <button
             onClick={() => onEdit(habit)}
             disabled={disabled}
-            className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+            className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors disabled:opacity-50"
             title="Edit habit"
           >
-            <Pencil className="w-3.5 h-3.5 text-[#737373] hover:text-[#F97316]" />
+            <Pencil className="w-3.5 h-3.5 text-[#52525b] hover:text-[#F97316]" />
           </button>
           <button
             onClick={() => onDelete(habit.id)}
             disabled={disabled}
-            className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors disabled:opacity-50"
+            className="p-1.5 hover:bg-[#ef4444]/20 rounded-lg transition-colors disabled:opacity-50"
             title="Delete habit"
           >
-            <Trash2 className="w-4 h-4 text-[#737373] hover:text-[#da3633]" />
+            <Trash2 className="w-4 h-4 text-[#52525b] hover:text-[#ef4444]" />
           </button>
         </div>
       </div>
@@ -551,14 +551,14 @@ export default function HabitCard() {
         );
       case 'offline':
         return (
-          <span className="flex items-center gap-1 text-[10px] text-[#737373]" title="Using cached data - will sync when online">
+          <span className="flex items-center gap-1 text-[10px] text-[#52525b]" title="Using cached data - will sync when online">
             <CloudOff className="w-3 h-3" />
             Offline
           </span>
         );
       case 'error':
         return (
-          <span className="flex items-center gap-1 text-[10px] text-[#da3633]" title="Sync failed - click refresh to retry">
+          <span className="flex items-center gap-1 text-[10px] text-[#ef4444]" title="Sync failed - click refresh to retry">
             <CloudOff className="w-3 h-3" />
             Error
           </span>
@@ -603,13 +603,13 @@ export default function HabitCard() {
   };
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-[900px]">
+    <div className="bg-[#111318] border border-white/[0.06] rounded-2xl overflow-hidden flex flex-col h-[900px] shadow-xl shadow-black/20">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-white/[0.02] flex-shrink-0">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-[#F97316]" />
           <h2 className="text-sm font-semibold text-white">Habits</h2>
-          <span className="text-[10px] text-[#8b949e]">
+          <span className="text-[10px] text-[#71717a]">
             {stats.completedToday}/{stats.totalHabits} today
           </span>
           {getSyncIndicator()}
@@ -623,27 +623,27 @@ export default function HabitCard() {
             >
               <ClipboardList className="w-3.5 h-3.5 text-[#F97316]" />
             </button>
-            <div className="absolute top-full right-0 mt-1.5 px-2 py-1 bg-[#30363d] text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            <div className="absolute top-full right-0 mt-1.5 px-2 py-1 bg-white/[0.08] text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
               Generate Report
             </div>
           </div>
           <div className="relative group">
             <button
               onClick={() => { setEditingHabit(null); setNewHabitName(''); setNewHabitIcon('⭐'); setNewHabitTarget('Daily'); setNewHabitFrequency('daily'); setShowAddModal(true); }}
-              className="p-1.5 bg-[#F97316] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors"
+              className="p-1.5 bg-[#F97316] text-white rounded-lg hover:bg-[#fb923c] transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0d1117] border border-[#30363d] rounded text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0c0c10] border border-white/[0.06] rounded text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
               Add New Habit
             </div>
           </div>
           <button
             onClick={fetchHabits}
             disabled={loading}
-            className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+            className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-[#71717a] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -657,19 +657,19 @@ export default function HabitCard() {
             { value: `${stats.weeklyCompletion}%`, label: 'This Week' },
             { value: habits.length, label: 'Total' }
           ].map((stat, i) => (
-            <div key={i} className="bg-[#0d1117] rounded-lg p-2 text-center border border-[#30363d]">
+            <div key={i} className="bg-white/[0.03] rounded-xl p-2 text-center border border-white/[0.06]">
               <div className="text-sm font-bold text-[#F97316]">{stat.value}</div>
-              <div className="text-[10px] text-[#8b949e] mt-0.5">{stat.label}</div>
+              <div className="text-[10px] text-[#71717a] mt-0.5">{stat.label}</div>
             </div>
           ))}
         </div>
 
         {habits.length > 0 && !loading && (
-          <div className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
+          <div className="p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-[#8b949e]" />
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wider font-medium">Weekly Progress</span>
+                <TrendingUp className="w-3.5 h-3.5 text-[#71717a]" />
+                <span className="text-[10px] text-[#71717a] uppercase tracking-wider font-medium">Weekly Progress</span>
               </div>
               <span className="text-[10px] text-[#22c55e] font-medium">{stats.weeklyCompletion}%</span>
             </div>
@@ -689,14 +689,14 @@ export default function HabitCard() {
         >
           <div className="space-y-2">
             {loading && habits.length === 0 ? (
-              <div className="text-center py-8 text-[#8b949e]">
+              <div className="text-center py-8 text-[#71717a]">
                 <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#F97316]" />
                 <p className="text-xs">Loading habits...</p>
               </div>
             ) : habits.length === 0 ? (
               <div className="text-center py-10">
-                <Activity className="w-10 h-10 mx-auto mb-3 text-[#8b949e] opacity-50" />
-                <p className="text-sm text-[#8b949e] mb-2">No habits configured</p>
+                <Activity className="w-10 h-10 mx-auto mb-3 text-[#71717a] opacity-50" />
+                <p className="text-sm text-[#71717a] mb-2">No habits configured</p>
                 <button
                   onClick={() => setShowAddModal(true)}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-[#F97316]/10 text-[#F97316] rounded-lg text-sm hover:bg-[#F97316]/20 transition-colors"
@@ -728,19 +728,19 @@ export default function HabitCard() {
 
         {/* Legend */}
         {habits.length > 0 && !loading && (
-          <div className="mt-3 pt-3 border-t border-[#30363d]">
+          <div className="mt-3 pt-3 border-t border-white/[0.06]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-[#8b949e]">Last 7 Days</span>
+                <span className="text-[10px] text-[#71717a]">Last 7 Days</span>
                 <div className="flex items-center gap-1">
                   {dayLabels.map((day, i) => (
-                    <span key={i} className="text-[10px] text-[#8b949e] w-2 text-center">{day}</span>
+                    <span key={i} className="text-[10px] text-[#71717a] w-2 text-center">{day}</span>
                   ))}
                 </div>
               </div>
-              <div className="flex items-center gap-3 text-[10px] text-[#8b949e]">
+              <div className="flex items-center gap-3 text-[10px] text-[#71717a]">
                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#22c55e]" /><span>Done</span></div>
-                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#30363d]" /><span>Missed</span></div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-white/[0.08]" /><span>Missed</span></div>
               </div>
             </div>
           </div>
@@ -749,37 +749,37 @@ export default function HabitCard() {
 
       {/* Add / Edit Habit Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111318] border border-white/[0.06] rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl shadow-black/40">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-white">
                 {editingHabit ? 'Edit Habit' : 'Add New Habit'}
               </h3>
-              <button onClick={closeHabitModal} className="p-1.5 hover:bg-[#30363d] rounded-lg">
-                <X className="w-4 h-4 text-[#8b949e]" />
+              <button onClick={closeHabitModal} className="p-1.5 hover:bg-white/[0.06] rounded-lg">
+                <X className="w-4 h-4 text-[#71717a]" />
               </button>
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs text-[#8b949e] mb-2">Habit Name</label>
+              <label className="block text-xs text-[#71717a] mb-2">Habit Name</label>
               <input
                 type="text"
                 value={newHabitName}
                 onChange={(e) => setNewHabitName(e.target.value)}
                 placeholder="e.g., Morning Meditation"
-                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm placeholder-[#8b949e] focus:outline-none focus:border-[#F97316]"
+                className="w-full px-3 py-2 bg-[#0c0c10] border border-white/[0.06] rounded-lg text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#F97316]"
               />
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs text-[#8b949e] mb-2">Icon</label>
+              <label className="block text-xs text-[#71717a] mb-2">Icon</label>
               <div className="flex flex-wrap gap-2">
                 {EMOJI_OPTIONS.map((emoji) => (
                   <button
                     key={emoji}
                     onClick={() => setNewHabitIcon(emoji)}
                     className={`text-xl p-1.5 rounded-lg border transition-all ${
-                      newHabitIcon === emoji ? 'border-[#F97316] bg-[#F97316]/20' : 'border-[#30363d] hover:border-[#8b949e]'
+                      newHabitIcon === emoji ? 'border-[#F97316] bg-[#F97316]/20' : 'border-white/[0.06] hover:border-white/[0.12]'
                     }`}
                   >
                     {emoji}
@@ -789,7 +789,7 @@ export default function HabitCard() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs text-[#8b949e] mb-2">Frequency</label>
+              <label className="block text-xs text-[#71717a] mb-2">Frequency</label>
               <div className="flex flex-wrap gap-2">
                 {FREQUENCY_OPTIONS.map(opt => (
                   <button
@@ -798,7 +798,7 @@ export default function HabitCard() {
                     className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
                       newHabitFrequency === opt.value
                         ? 'border-[#F97316] bg-[#F97316]/20 text-[#F97316]'
-                        : 'border-[#30363d] text-[#8b949e] hover:border-[#8b949e] hover:text-white'
+                        : 'border-white/[0.06] text-[#71717a] hover:border-white/[0.12] hover:text-white'
                     }`}
                   >
                     {opt.label}
@@ -808,24 +808,24 @@ export default function HabitCard() {
             </div>
 
             <div className="mb-5">
-              <label className="block text-xs text-[#8b949e] mb-2">Target <span className="text-[#737373]">(optional description)</span></label>
+              <label className="block text-xs text-[#71717a] mb-2">Target <span className="text-[#52525b]">(optional description)</span></label>
               <input
                 type="text"
                 value={newHabitTarget}
                 onChange={(e) => setNewHabitTarget(e.target.value)}
                 placeholder="e.g., 30 min, 2L water, before 9am"
-                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm placeholder-[#8b949e] focus:outline-none focus:border-[#F97316]"
+                className="w-full px-3 py-2 bg-[#0c0c10] border border-white/[0.06] rounded-lg text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#F97316]"
               />
             </div>
 
             <div className="flex gap-2">
-              <button onClick={closeHabitModal} className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors text-sm">
+              <button onClick={closeHabitModal} className="flex-1 px-4 py-2 bg-white/[0.08] text-white rounded-lg hover:bg-white/[0.12] transition-colors text-sm">
                 Cancel
               </button>
               <button
                 onClick={submitHabit}
                 disabled={!newHabitName.trim()}
-                className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors disabled:opacity-50 text-sm font-medium"
+                className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-lg hover:bg-[#fb923c] transition-colors disabled:opacity-50 text-sm font-medium"
               >
                 {editingHabit ? 'Save Changes' : 'Add Habit'}
               </button>
@@ -838,15 +838,15 @@ export default function HabitCard() {
       {showReportModal && (() => {
         const report = reportReady ? computeReport() : null;
         return (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#30363d] flex-shrink-0">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[#111318] border border-white/[0.06] rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl shadow-black/40">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <ClipboardList className="w-4 h-4 text-[#F97316]" />
                   <h3 className="text-sm font-semibold text-white">Habits Report</h3>
                 </div>
-                <button onClick={() => setShowReportModal(false)} className="p-1 hover:bg-[#30363d] rounded-lg transition-colors">
-                  <X className="w-4 h-4 text-[#8b949e]" />
+                <button onClick={() => setShowReportModal(false)} className="p-1 hover:bg-white/[0.06] rounded-lg transition-colors">
+                  <X className="w-4 h-4 text-[#71717a]" />
                 </button>
               </div>
 
@@ -857,25 +857,25 @@ export default function HabitCard() {
                   </div>
                   <div>
                     <p className="text-white font-medium mb-1">Generate a Habits Report?</p>
-                    <p className="text-xs text-[#8b949e] leading-relaxed">Analyzes your last 7 days to surface what&apos;s working, what needs attention, and what to focus on next.</p>
+                    <p className="text-xs text-[#71717a] leading-relaxed">Analyzes your last 7 days to surface what&apos;s working, what needs attention, and what to focus on next.</p>
                   </div>
                   <div className="flex gap-3 w-full pt-2">
-                    <button onClick={() => setShowReportModal(false)} className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors text-sm">Cancel</button>
-                    <button onClick={() => setReportReady(true)} className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors text-sm font-medium">Generate Report</button>
+                    <button onClick={() => setShowReportModal(false)} className="flex-1 px-4 py-2 bg-white/[0.08] text-white rounded-lg hover:bg-white/[0.12] transition-colors text-sm">Cancel</button>
+                    <button onClick={() => setReportReady(true)} className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-lg hover:bg-[#fb923c] transition-colors text-sm font-medium">Generate Report</button>
                   </div>
                 </div>
               ) : report && (
                 <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-                  <p className="text-[10px] text-[#8b949e]">Generated {report.generatedAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })} EST</p>
+                  <p className="text-[10px] text-[#71717a]">Generated {report.generatedAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })} EST</p>
                   <div className="grid grid-cols-3 gap-2">
                     {[
                       { label: 'This Week', value: `${stats.weeklyCompletion}%` },
                       { label: 'Today', value: `${stats.completedToday}/${stats.totalHabits}` },
                       { label: 'Best Streak', value: `${stats.longestStreak}d` },
                     ].map(s => (
-                      <div key={s.label} className="bg-[#0d1117] border border-[#30363d] rounded-lg p-2.5 text-center">
+                      <div key={s.label} className="bg-[#0c0c10] border border-white/[0.06] rounded-lg p-2.5 text-center">
                         <div className="text-base font-bold text-[#F97316]">{s.value}</div>
-                        <div className="text-[10px] text-[#8b949e] mt-0.5">{s.label}</div>
+                        <div className="text-[10px] text-[#71717a] mt-0.5">{s.label}</div>
                       </div>
                     ))}
                   </div>
@@ -883,7 +883,7 @@ export default function HabitCard() {
                     <div className="flex items-center gap-1.5 mb-2"><TrendingUp className="w-3.5 h-3.5 text-[#F97316]" /><span className="text-xs font-semibold text-[#F97316]">Recommendations</span></div>
                     <div className="space-y-2">
                       {report.recommendations.map((rec, i) => (
-                        <div key={i} className="flex gap-2 text-xs text-[#8b949e] leading-relaxed">
+                        <div key={i} className="flex gap-2 text-xs text-[#71717a] leading-relaxed">
                           <span className="text-[#F97316] flex-shrink-0 font-bold">→</span><span>{rec}</span>
                         </div>
                       ))}
@@ -891,12 +891,12 @@ export default function HabitCard() {
                   </div>
                   {report.strong.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-1.5 mb-2"><CheckCircle2 className="w-3.5 h-3.5 text-[#22c55e]" /><span className="text-xs font-semibold text-[#22c55e]">On Track</span><span className="text-[10px] text-[#8b949e]">({report.strong.length})</span></div>
+                      <div className="flex items-center gap-1.5 mb-2"><CheckCircle2 className="w-3.5 h-3.5 text-[#22c55e]" /><span className="text-xs font-semibold text-[#22c55e]">On Track</span><span className="text-[10px] text-[#71717a]">({report.strong.length})</span></div>
                       <div className="space-y-1.5">
                         {report.strong.map(h => (
                           <div key={h.id} className="flex items-center justify-between bg-[#22c55e]/5 border border-[#22c55e]/20 rounded-lg px-3 py-2">
                             <div className="flex items-center gap-2 min-w-0"><span className="text-base flex-shrink-0">{h.icon}</span><span className="text-xs text-white truncate">{h.name}</span></div>
-                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} days</span><span className="text-[10px] font-medium text-[#22c55e]">{h.weeklyRate}%</span></div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#71717a]">{h.weeklyCompletions}/{h.weeklyGoal} days</span><span className="text-[10px] font-medium text-[#22c55e]">{h.weeklyRate}%</span></div>
                           </div>
                         ))}
                       </div>
@@ -904,12 +904,12 @@ export default function HabitCard() {
                   )}
                   {report.moderate.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-1.5 mb-2"><Minus className="w-3.5 h-3.5 text-[#d29922]" /><span className="text-xs font-semibold text-[#d29922]">Moderate</span><span className="text-[10px] text-[#8b949e]">({report.moderate.length})</span></div>
+                      <div className="flex items-center gap-1.5 mb-2"><Minus className="w-3.5 h-3.5 text-[#d29922]" /><span className="text-xs font-semibold text-[#d29922]">Moderate</span><span className="text-[10px] text-[#71717a]">({report.moderate.length})</span></div>
                       <div className="space-y-1.5">
                         {report.moderate.map(h => (
                           <div key={h.id} className="flex items-center justify-between bg-[#d29922]/5 border border-[#d29922]/20 rounded-lg px-3 py-2">
                             <div className="flex items-center gap-2 min-w-0"><span className="text-base flex-shrink-0">{h.icon}</span><span className="text-xs text-white truncate">{h.name}</span></div>
-                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} days</span><span className="text-[10px] font-medium text-[#d29922]">{h.weeklyRate}%</span></div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#71717a]">{h.weeklyCompletions}/{h.weeklyGoal} days</span><span className="text-[10px] font-medium text-[#d29922]">{h.weeklyRate}%</span></div>
                           </div>
                         ))}
                       </div>
@@ -917,12 +917,12 @@ export default function HabitCard() {
                   )}
                   {report.struggling.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-1.5 mb-2"><AlertTriangle className="w-3.5 h-3.5 text-[#ef4444]" /><span className="text-xs font-semibold text-[#ef4444]">Needs Attention</span><span className="text-[10px] text-[#8b949e]">({report.struggling.length})</span></div>
+                      <div className="flex items-center gap-1.5 mb-2"><AlertTriangle className="w-3.5 h-3.5 text-[#ef4444]" /><span className="text-xs font-semibold text-[#ef4444]">Needs Attention</span><span className="text-[10px] text-[#71717a]">({report.struggling.length})</span></div>
                       <div className="space-y-1.5">
                         {report.struggling.map(h => (
                           <div key={h.id} className="flex items-center justify-between bg-[#ef4444]/5 border border-[#ef4444]/20 rounded-lg px-3 py-2">
                             <div className="flex items-center gap-2 min-w-0"><span className="text-base flex-shrink-0">{h.icon}</span><span className="text-xs text-white truncate">{h.name}</span></div>
-                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} days</span><span className="text-[10px] font-medium text-[#ef4444]">{h.weeklyRate}%</span></div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#71717a]">{h.weeklyCompletions}/{h.weeklyGoal} days</span><span className="text-[10px] font-medium text-[#ef4444]">{h.weeklyRate}%</span></div>
                           </div>
                         ))}
                       </div>

@@ -51,7 +51,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
 const SENTIMENT_CONFIG = {
   bullish: { label: 'Bullish', color: '#22c55e', Icon: TrendingUp },
   bearish: { label: 'Bearish', color: '#ef4444', Icon: TrendingDown },
-  neutral: { label: 'Neutral', color: '#8b949e', Icon: Minus },
+  neutral: { label: 'Neutral', color: '#71717a', Icon: Minus },
 } as const;
 
 export default function NewsScreenerCard() {
@@ -104,9 +104,9 @@ export default function NewsScreenerCard() {
   const dataSource = response?.source || 'mock';
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-full">
+    <div className="bg-[#111318] border border-white/[0.06] rounded-2xl shadow-xl shadow-black/20 overflow-hidden flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-white/[0.02] flex-shrink-0">
         <div className="flex items-center gap-2">
           <Newspaper className="w-4 h-4 text-[#F97316]" />
           <h2 className="text-sm font-semibold text-white">News Screener</h2>
@@ -125,10 +125,10 @@ export default function NewsScreenerCard() {
         <button
           onClick={fetchNews}
           disabled={loading}
-          className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+          className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors disabled:opacity-50"
           title="Refresh news"
         >
-          <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 text-[#71717a] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -139,10 +139,10 @@ export default function NewsScreenerCard() {
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-all ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all duration-200 ${
                 activeCategory === cat
-                  ? 'bg-[#ff6b35] text-white'
-                  : 'bg-[#0d1117] text-[#8b949e] hover:text-white hover:bg-[#30363d]'
+                  ? 'bg-[#F97316] text-white shadow-sm shadow-[#F97316]/20'
+                  : 'bg-white/[0.03] text-[#71717a] hover:text-white hover:bg-white/[0.06]'
               }`}
             >
               {cat !== 'all' && (
@@ -153,7 +153,7 @@ export default function NewsScreenerCard() {
               )}
               {CATEGORY_CONFIG[cat].label}
               <span className={`ml-0.5 px-1 rounded-full text-[9px] ${
-                activeCategory === cat ? 'bg-white/20' : 'bg-[#30363d]'
+                activeCategory === cat ? 'bg-white/20' : 'bg-white/[0.08]'
               }`}>
                 {getCategoryCount(cat)}
               </span>
@@ -162,12 +162,12 @@ export default function NewsScreenerCard() {
         </div>
 
         {data && (
-          <div className="flex items-center justify-between mt-2 text-[10px] text-[#8b949e]">
+          <div className="flex items-center justify-between mt-2 text-[10px] text-[#71717a]">
             <span><span className="text-white font-medium">{newsItems.length}</span> items</span>
             <button
               onClick={() => setHighPriorityOnly(!highPriorityOnly)}
               className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all ${
-                highPriorityOnly ? 'text-[#ef4444]' : 'text-[#8b949e] hover:text-white'
+                highPriorityOnly ? 'text-[#ef4444]' : 'text-[#71717a] hover:text-white'
               }`}
             >
               <Bell className={`w-3 h-3 ${highPriorityOnly ? 'fill-current' : ''}`} />
@@ -180,12 +180,12 @@ export default function NewsScreenerCard() {
       {/* News List */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 min-h-0">
         {loading ? (
-          <div className="text-center py-6 text-[#8b949e]">
-            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#ff6b35]" />
+          <div className="text-center py-6 text-[#71717a]">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#F97316]" />
             <p className="text-xs">Scanning for market-moving news...</p>
           </div>
         ) : newsItems.length === 0 ? (
-          <div className="text-center py-6 text-[#8b949e]">
+          <div className="text-center py-6 text-[#71717a]">
             <Newspaper className="w-6 h-6 mx-auto mb-2 opacity-50" />
             <p className="text-xs">No news items match your filters</p>
           </div>
@@ -196,7 +196,7 @@ export default function NewsScreenerCard() {
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block p-3 bg-[#0d1117] rounded-lg border border-[#30363d] hover:border-[#ff6b35]/50 transition-all group"
+              className="block p-3 bg-white/[0.03] rounded-xl border border-white/[0.06] hover:border-[#F97316]/30 hover:bg-white/[0.04] transition-all group"
             >
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-1.5 min-w-0">
@@ -221,12 +221,12 @@ export default function NewsScreenerCard() {
                       </span>
                     );
                   })()}
-                  <span className="text-[9px] text-[#8b949e] truncate">{item.source}</span>
+                  <span className="text-[9px] text-[#71717a] truncate">{item.source}</span>
                 </div>
-                <span className="text-[9px] text-[#8b949e] whitespace-nowrap flex-shrink-0">{item.timeAgo}</span>
+                <span className="text-[9px] text-[#71717a] whitespace-nowrap flex-shrink-0">{item.timeAgo}</span>
               </div>
 
-              <h3 className="text-xs font-medium text-white group-hover:text-[#ff6b35] transition-colors line-clamp-2 leading-snug">
+              <h3 className="text-xs font-medium text-white group-hover:text-[#F97316] transition-colors line-clamp-2 leading-snug">
                 {item.headline}
                 <ExternalLink className="w-3 h-3 inline ml-1 opacity-0 group-hover:opacity-50 transition-opacity" />
               </h3>
@@ -236,13 +236,13 @@ export default function NewsScreenerCard() {
                   {item.related.slice(0, 4).map((ticker) => (
                     <span
                       key={ticker}
-                      className="px-1 py-0.5 bg-[#30363d] rounded text-[9px] text-[#58a6ff] font-mono"
+                      className="px-1 py-0.5 bg-[#3b82f6]/10 rounded-md text-[9px] text-[#3b82f6] font-mono"
                     >
                       {ticker}
                     </span>
                   ))}
                   {item.related.length > 4 && (
-                    <span className="text-[9px] text-[#8b949e]">+{item.related.length - 4}</span>
+                    <span className="text-[9px] text-[#71717a]">+{item.related.length - 4}</span>
                   )}
                 </div>
               )}

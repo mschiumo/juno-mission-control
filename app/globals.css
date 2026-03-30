@@ -1,18 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0F0F0F;
-  --foreground: #e6edf3;
+  --background: #09090b;
+  --foreground: #e4e4e7;
   --tangerine: #F97316;
-  --tangerine-light: #ff8c5a;
-  --tangerine-dark: #e55a2b;
-  --card-bg: #1a1a1a;
-  --card-border: #262626;
-  --muted: #737373;
+  --tangerine-light: #fb923c;
+  --tangerine-dark: #ea580c;
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(255, 255, 255, 0.06);
+  --card-bg-solid: #111318;
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-hover: rgba(255, 255, 255, 0.07);
+  --muted: #71717a;
+  --muted-foreground: #a1a1aa;
   --success: #22c55e;
-  --warning: #d29922;
-  --error: #da3633;
-  --info: #58a6ff;
+  --warning: #eab308;
+  --error: #ef4444;
+  --info: #3b82f6;
+  --glow-orange: rgba(249, 115, 22, 0.15);
+  --glow-orange-strong: rgba(249, 115, 22, 0.25);
 }
 
 @theme inline {
@@ -43,16 +49,17 @@ body {
 
 /* Card - Clean, minimalist cards with subtle shadows */
 .card {
-  background: #1a1a1a;
-  border: 1px solid #262626;
+  background: var(--card-bg-solid);
+  border: 1px solid var(--card-border);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card:hover {
-  border-color: rgba(249, 115, 22, 0.2);
+  border-color: rgba(249, 115, 22, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
 }
 
 /* Metric Value - Bold typography for numbers */
@@ -60,17 +67,17 @@ body {
   font-size: 24px;
   font-weight: 700;
   color: white;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
 /* Metric Label - Small uppercase labels */
 .metric-label {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #737373;
+  letter-spacing: 0.06em;
+  color: var(--muted);
 }
 
 /* Segmented Control - Tab navigation */
@@ -78,8 +85,8 @@ body {
   display: flex;
   gap: 2px;
   padding: 3px;
-  background: #0F0F0F;
-  border: 1px solid #262626;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */
@@ -109,7 +116,7 @@ body {
   font-weight: 500;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   background: transparent;
   border: none;
   color: #737373;
@@ -125,10 +132,11 @@ body {
 
 .segment:hover {
   color: white;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .segment-active {
-  background: #262626;
+  background: rgba(255, 255, 255, 0.08);
   color: white;
 }
 
@@ -149,7 +157,7 @@ body {
   font-weight: 500;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   background: transparent;
   border: none;
   color: #737373;
@@ -173,28 +181,28 @@ body {
 }
 
 .segmented-btn.active {
-  background: #262626;
+  background: rgba(255, 255, 255, 0.08);
   color: white;
   font-weight: 600;
 }
 
 .segmented-btn.active:hover {
-  background: #303030;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Progress Bar */
 .progress-bar {
-  height: 8px;
-  background: #262626;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 9999px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: #F97316;
+  background: linear-gradient(90deg, #F97316, #fb923c);
   border-radius: 9999px;
-  transition: width 0.3s ease;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Pill - Pill-shaped buttons */
@@ -204,7 +212,7 @@ body {
   justify-content: center;
   gap: 6px;
   padding: 8px 16px;
-  background: rgba(48, 54, 61, 0.6);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--card-border);
   border-radius: 9999px;
   font-size: 13px;
@@ -215,20 +223,21 @@ body {
 }
 
 .pill:hover {
-  background: rgba(48, 54, 61, 0.8);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--foreground);
-  border-color: var(--muted);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .pill-primary {
   background: var(--tangerine);
-  border-color: var(--tangerine);
+  border-color: transparent;
   color: white;
+  box-shadow: 0 0 20px var(--glow-orange);
 }
 
 .pill-primary:hover {
   background: var(--tangerine-light);
-  border-color: var(--tangerine-light);
+  border-color: transparent;
   color: white;
 }
 
@@ -260,21 +269,21 @@ body {
    Custom scrollbar
    ======================================== */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--card-bg);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--card-border);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--tangerine);
+  background: rgba(249, 115, 22, 0.4);
 }
 
 /* Animation for pulse effect */
@@ -304,3 +313,15 @@ body {
 .status-pulse {
   animation: status-pulse 2s ease-in-out infinite;
 }
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(249, 115, 22, 0.15); }
+  50% { box-shadow: 0 0 20px rgba(249, 115, 22, 0.25); }
+}
+.animate-glow { animation: glow 3s ease-in-out infinite; }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fade-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }

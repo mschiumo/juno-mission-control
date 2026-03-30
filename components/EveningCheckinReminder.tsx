@@ -63,22 +63,22 @@ export default function EveningCheckinReminder() {
   if (loading || !showReminder) return null;
 
   return (
-    <div className="bg-gradient-to-r from-[#a371f7]/20 to-[#ff6b35]/20 border border-[#a371f7]/50 rounded-lg p-4 mb-4">
+    <div className="bg-gradient-to-r from-[#a855f7]/[0.08] to-[#F97316]/[0.06] border border-[#a855f7]/15 rounded-2xl p-4 mb-1">
       <div className="flex items-start gap-3">
-        <div className="p-2 bg-[#a371f7]/20 rounded-lg">
-          <Moon className="w-5 h-5 text-[#a371f7]" />
+        <div className="p-2 bg-[#a855f7]/10 rounded-xl">
+          <Moon className="w-5 h-5 text-[#a855f7]" />
         </div>
         
         <div className="flex-1">
-          <h3 className="font-semibold text-white">Evening Habit Check-in 🌙</h3>
-          <p className="text-sm text-[#8b949e] mt-1">
+          <h3 className="font-semibold text-white text-sm">Evening Habit Check-in</h3>
+          <p className="text-sm text-[#a1a1aa] mt-1">
             Don&#39;t forget to check in on today&#39;s habits! Click the notebook icon on the habits card.
           </p>
           
           <div className="flex items-center gap-3 mt-3">
             <button
               onClick={dismissReminder}
-              className="text-sm text-[#8b949e] hover:text-white transition-colors"
+              className="text-sm text-[#71717a] hover:text-white transition-colors duration-200"
             >
               Dismiss for today
             </button>
@@ -87,9 +87,9 @@ export default function EveningCheckinReminder() {
         
         <button
           onClick={dismissReminder}
-          className="p-1 hover:bg-[#30363d] rounded-lg transition-colors"
+          className="p-1 hover:bg-white/[0.06] rounded-lg transition-all duration-200"
         >
-          <X className="w-4 h-4 text-[#8b949e]" />
+          <X className="w-4 h-4 text-[#52525b]" />
         </button>
       </div>
     </div>
