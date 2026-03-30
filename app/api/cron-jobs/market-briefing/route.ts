@@ -151,25 +151,58 @@ async function fetchCoinGeckoPrices(): Promise<MarketItem[]> {
 // Finnhub — news + economic calendar + earnings
 // ---------------------------------------------------------------------------
 
+// Keywords that indicate market/financial relevance (aligned with news screener)
+const MARKET_KEYWORDS = [
+  // Fed & rates
+  'fed', 'fomc', 'federal reserve', 'interest rate', 'rate hike', 'rate cut', 'jerome powell', 'monetary policy',
+  // Macro & policy
+  'cpi', 'inflation', 'jobs report', 'unemployment', 'gdp', 'non-farm', 'nfp', 'retail sales', 'pmi',
+  'ism', 'economic growth', 'tariff', 'fiscal policy', 'regulation', 'trade war', 'sanctions',
+  // M&A
+  'merger', 'acquisition', 'buyout', 'takeover', 'ipo',
+  // Earnings & markets
+  'earnings', 'revenue', 'profit', 'quarterly results', 'guidance', 'outlook', 'beats', 'misses',
+  'stock', 'shares', 'equit', 'index', 'dow', 'nasdaq', 's&p', 'wall street', 'rally', 'sell-off',
+  'bull', 'bear', 'volatility', 'treasury', 'bond', 'yield', 'oil', 'crude', 'gold', 'commodit',
+  // AI & tech (market-relevant)
+  'nvidia', 'semiconductor', 'chips act', 'ai chip',
+  // Crypto
+  'bitcoin', 'btc', 'ethereum', 'eth', 'crypto', 'blockchain', 'defi', 'etf',
+];
+
+function isMarketRelevant(article: FinnhubNewsItem): boolean {
+  const text = `${article.headline} ${article.summary}`.toLowerCase();
+  return MARKET_KEYWORDS.some((kw) => text.includes(kw));
+}
+
 async function fetchMarketNews(): Promise<FinnhubNewsItem[]> {
   if (!FINNHUB_API_KEY) return [];
   try {
-    const res = await fetch(
-      `https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_API_KEY}`,
-      { cache: 'no-store' },
-    );
-    if (!res.ok) return [];
-    const articles: FinnhubNewsItem[] = await res.json();
-    // Prefer financial/market sources over general news
-    const financialSources = new Set([
-      'Reuters', 'Bloomberg', 'CNBC', 'MarketWatch', 'Yahoo Finance',
-      'Barron\'s', 'Financial Times', 'The Wall Street Journal', 'Seeking Alpha',
-      'Investor\'s Business Daily', 'Benzinga', 'Zacks', 'TheStreet',
+    // Fetch general + crypto news in parallel (same sources as news screener)
+    const [generalRes, cryptoRes] = await Promise.all([
+      fetch(
+        `https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_API_KEY}`,
+        { cache: 'no-store' },
+      ),
+      fetch(
+        `https://finnhub.io/api/v1/news?category=crypto&token=${FINNHUB_API_KEY}`,
+        { cache: 'no-store' },
+      ),
     ]);
-    const financial = articles.filter((a) => financialSources.has(a.source));
-    // Use financial-source articles when available, fall back to all articles
-    const pool = financial.length >= 10 ? financial : articles;
-    return pool.slice(0, 20);
+
+    let articles: FinnhubNewsItem[] = [];
+    if (generalRes.ok) {
+      const data = await generalRes.json();
+      if (Array.isArray(data)) articles.push(...data);
+    }
+    if (cryptoRes.ok) {
+      const data = await cryptoRes.json();
+      if (Array.isArray(data)) articles.push(...data);
+    }
+
+    // Filter to market-relevant articles only
+    const relevant = articles.filter(isMarketRelevant);
+    return relevant.slice(0, 25);
   } catch {
     return [];
   }
