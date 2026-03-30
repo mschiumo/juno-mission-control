@@ -14,6 +14,7 @@ import TradingView from "@/components/TradingView";
 import LandingPage from "@/components/landing/LandingPage";
 import { LayoutDashboard, Target, TrendingUp, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
+import Link from 'next/link';
 
 type TabId = 'dashboard' | 'trading' | 'goals';
 
@@ -124,9 +125,13 @@ function DashboardContent() {
               <div className="hidden md:flex items-center gap-4">
                 <LiveClock />
                 <div className="flex items-center gap-2 border-l border-[#30363d] pl-4">
-                  {session?.user?.name && (
-                    <span className="text-xs text-[#8b949e]">{session.user.name}</span>
-                  )}
+                  <Link
+                    href="/profile"
+                    title="Profile & Settings"
+                    className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center text-white text-sm font-semibold hover:bg-[#ea6c10] transition-colors"
+                  >
+                    {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
+                  </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
                     title="Sign out"
@@ -175,6 +180,22 @@ function DashboardContent() {
               </div>
               <div className="mt-4 pt-4 border-t border-[#30363d] flex items-center justify-between">
                 <LiveClock />
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center text-white text-sm font-semibold hover:bg-[#ea6c10] transition-colors"
+                  >
+                    {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
+                  </Link>
+                  <button
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    title="Sign out"
+                    className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e] hover:text-white"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           )}

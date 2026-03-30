@@ -14,6 +14,7 @@ import {
   Bitcoin,
   ExternalLink,
 } from 'lucide-react';
+import EmailCTA from './EmailCTA';
 
 interface MarketItem {
   symbol: string;
@@ -626,6 +627,9 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
                   </div>
                 </div>
               )}
+
+              {/* Email CTA */}
+              <EmailCTA type="marketBriefing" variant="banner" />
             </div>
           )}
         </div>

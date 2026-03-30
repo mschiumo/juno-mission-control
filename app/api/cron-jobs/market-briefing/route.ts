@@ -16,6 +16,7 @@ import {
   postToCronResults,
   logToActivityLog,
   isMarketOpenToday,
+  sendEmailsToSubscribers,
 } from '@/lib/cron-helpers';
 import { getRedisClient } from '@/lib/redis';
 
@@ -482,8 +483,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, data: briefing, durationMs: Date.now() - startTime });
     }
 
-    // Post to cron results and activity log
-    await Promise.all([
+    // Post to cron results, activity log, and send subscriber emails
+    const [,, emailResult] = await Promise.all([
       postToCronResults(
         'Morning Market Briefing',
         `${briefing.aiSummary.marketOverview}\n\nSentiment: ${briefing.aiSummary.sentiment}`,
@@ -494,7 +495,25 @@ export async function GET(request: Request) {
         `Generated with ${indices.length} indices, ${stocks.length} stocks, AI summary`,
         'cron',
       ),
+      sendEmailsToSubscribers(
+        'marketBriefing',
+        () => `Market Briefing — ${briefing.date}`,
+        () => {
+          const { MarketBriefingEmail } = require('@/lib/emails/MarketBriefingEmail');
+          return MarketBriefingEmail({
+            date: briefing.date,
+            indices: briefing.indices,
+            stocks: briefing.stocks,
+            crypto: briefing.crypto,
+            aiSummary: briefing.aiSummary,
+          });
+        },
+      ),
     ]);
+
+    if (emailResult.sent > 0) {
+      console.log(`[MarketBriefing] Sent ${emailResult.sent} briefing emails`);
+    }
 
     const duration = Date.now() - startTime;
     console.log(`[MarketBriefing] Briefing generated in ${duration}ms`);

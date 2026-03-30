@@ -12,6 +12,8 @@ export interface AppUser {
 function userKey(id: string) { return `user:${id}`; }
 function emailIndexKey(email: string) { return `user:email:${email.toLowerCase()}`; }
 
+const USER_INDEX_KEY = 'user:index';
+
 export async function createUser(email: string, name: string, password: string): Promise<AppUser> {
   const redis = await getRedisClient();
 
@@ -31,8 +33,45 @@ export async function createUser(email: string, name: string, password: string):
 
   await redis.set(userKey(id), JSON.stringify(user));
   await redis.set(emailIndexKey(email), id);
+  await redis.sAdd(USER_INDEX_KEY, id);
 
   return user;
+}
+
+export async function getUserById(id: string): Promise<AppUser | null> {
+  const redis = await getRedisClient();
+  const data = await redis.get(userKey(id));
+  if (!data) return null;
+  return JSON.parse(data) as AppUser;
+}
+
+export async function getAllUserIds(): Promise<string[]> {
+  const redis = await getRedisClient();
+  return redis.sMembers(USER_INDEX_KEY);
+}
+
+/**
+ * Backfill the user:index set for users created before the index existed.
+ * Scans user:email:* keys to discover all user IDs.
+ */
+export async function backfillUserIndex(): Promise<number> {
+  const redis = await getRedisClient();
+  let cursor = 0;
+  let added = 0;
+
+  do {
+    const result = await redis.scan(cursor, { MATCH: 'user:email:*', COUNT: 100 });
+    cursor = result.cursor;
+    for (const key of result.keys) {
+      const userId = await redis.get(key);
+      if (userId) {
+        const wasNew = await redis.sAdd(USER_INDEX_KEY, userId);
+        if (wasNew) added++;
+      }
+    }
+  } while (cursor !== 0);
+
+  return added;
 }
 
 export async function getUserByEmail(email: string): Promise<AppUser | null> {
