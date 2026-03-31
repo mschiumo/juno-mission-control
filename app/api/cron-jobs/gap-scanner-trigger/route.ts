@@ -14,7 +14,7 @@ import {
   isMarketOpenToday,
   cacheGapScanResults,
 } from '@/lib/cron-helpers';
-import { runPolygonGapScan } from '@/lib/gap-scanner-polygon';
+import { runPolygonGapScan, getMarketSession } from '@/lib/gap-scanner-polygon';
 import { runYahooGapScan } from '@/lib/gap-scanner-yahoo';
 import { storeScanResults, ScanResult } from '@/lib/gap-scanner-core';
 
@@ -50,6 +50,9 @@ export async function POST() {
 
     await logToActivityLog('Gap Scanner', 'Starting pre-market gap scan...', 'cron');
 
+    const { isPreMarket, session: marketSession } = getMarketSession();
+    console.log(`[GapScannerTrigger] Market session: ${marketSession}, isPreMarket: ${isPreMarket}`);
+
     let gainers: { symbol: string; price: number; gapPercent: number; volume: number; marketCap: number }[];
     let losers: typeof gainers;
     let scanned: number | undefined;
@@ -63,7 +66,6 @@ export async function POST() {
       scanned = result.scanned;
       source = 'polygon';
       console.log(`[GapScannerTrigger] Polygon result: ${gainers.length} gainers, ${losers.length} losers from ${scanned} stocks`);
-      console.log(`[GapScannerTrigger] Market session: ${result.marketSession}, isPreMarket: ${result.isPreMarket}`);
       console.log(`[GapScannerTrigger] Polygon debug:`, JSON.stringify(result.debug));
       const cacheResult = await cacheGapScanResults(result);
       console.log(`[GapScannerTrigger] cacheGapScanResults:`, JSON.stringify(cacheResult));
@@ -73,7 +75,7 @@ export async function POST() {
     } catch (polygonError) {
       console.warn('[GapScannerTrigger] Polygon failed, falling back to Yahoo:', polygonError);
       await logToActivityLog('Gap Scanner', 'Polygon unavailable, using Yahoo fallback', 'cron');
-      const result = await runYahooGapScan({ minGapPercent: 5 });
+      const result = await runYahooGapScan({ minGapPercent: 5, isPreMarket });
       if (!result.success || !result.data) throw new Error('Yahoo fallback also returned no data');
       gainers = result.data.gainers;
       losers = result.data.losers;
