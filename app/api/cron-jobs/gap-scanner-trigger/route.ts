@@ -62,9 +62,14 @@ export async function POST() {
       losers = result.data.losers;
       scanned = result.scanned;
       source = 'polygon';
-      await cacheGapScanResults(result);
+      console.log(`[GapScannerTrigger] Polygon result: ${gainers.length} gainers, ${losers.length} losers from ${scanned} stocks`);
+      console.log(`[GapScannerTrigger] Market session: ${result.marketSession}, isPreMarket: ${result.isPreMarket}`);
+      console.log(`[GapScannerTrigger] Polygon debug:`, JSON.stringify(result.debug));
+      const cacheResult = await cacheGapScanResults(result);
+      console.log(`[GapScannerTrigger] cacheGapScanResults:`, JSON.stringify(cacheResult));
       const today = new Date().toISOString().split('T')[0];
       await storeScanResults({ ...result, tradingDate: today } as unknown as ScanResult);
+      console.log(`[GapScannerTrigger] storeScanResults key: gap_scanner:${today}`);
     } catch (polygonError) {
       console.warn('[GapScannerTrigger] Polygon failed, falling back to Yahoo:', polygonError);
       await logToActivityLog('Gap Scanner', 'Polygon unavailable, using Yahoo fallback', 'cron');
@@ -74,9 +79,12 @@ export async function POST() {
       losers = result.data.losers;
       scanned = result.scanned;
       source = 'yahoo';
-      await cacheGapScanResults(result);
+      console.log(`[GapScannerTrigger] Yahoo result: ${gainers.length} gainers, ${losers.length} losers from ${scanned} stocks`);
+      const cacheResult = await cacheGapScanResults(result);
+      console.log(`[GapScannerTrigger] cacheGapScanResults (yahoo):`, JSON.stringify(cacheResult));
       const today = new Date().toISOString().split('T')[0];
       await storeScanResults({ ...result, tradingDate: today } as unknown as ScanResult);
+      console.log(`[GapScannerTrigger] storeScanResults key: gap_scanner:${today}`);
     }
 
     const reportLines = [`📊 **Gap Scanner Pre-Market** — ${formatDate()}`, ''];
