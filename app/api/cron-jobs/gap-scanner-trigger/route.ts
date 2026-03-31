@@ -16,6 +16,7 @@ import {
 } from '@/lib/cron-helpers';
 import { runPolygonGapScan } from '@/lib/gap-scanner-polygon';
 import { runYahooGapScan } from '@/lib/gap-scanner-yahoo';
+import { storeScanResults, ScanResult } from '@/lib/gap-scanner-core';
 
 function formatVolume(volume: number): string {
   if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`;
@@ -62,6 +63,8 @@ export async function POST() {
       scanned = result.scanned;
       source = 'polygon';
       await cacheGapScanResults(result);
+      const today = new Date().toISOString().split('T')[0];
+      await storeScanResults({ ...result, tradingDate: today } as unknown as ScanResult);
     } catch (polygonError) {
       console.warn('[GapScannerTrigger] Polygon failed, falling back to Yahoo:', polygonError);
       await logToActivityLog('Gap Scanner', 'Polygon unavailable, using Yahoo fallback', 'cron');
@@ -72,6 +75,8 @@ export async function POST() {
       scanned = result.scanned;
       source = 'yahoo';
       await cacheGapScanResults(result);
+      const today = new Date().toISOString().split('T')[0];
+      await storeScanResults({ ...result, tradingDate: today } as unknown as ScanResult);
     }
 
     const reportLines = [`📊 **Gap Scanner Pre-Market** — ${formatDate()}`, ''];
