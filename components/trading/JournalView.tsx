@@ -83,8 +83,25 @@ const DEFAULT_PROMPTS = [
     id: 'followed-plan',
     question: 'Did you follow your trading plan?',
     answer: ''
+  },
+  {
+    id: 'other',
+    question: 'Other',
+    answer: ''
   }
 ];
+
+/**
+ * Merge saved prompts with DEFAULT_PROMPTS so that newly added prompts
+ * (like "other") always appear even when loading older journal entries
+ * that were saved before the prompt existed.
+ */
+const mergePromptsWithDefaults = (savedPrompts: JournalPrompt[]): JournalPrompt[] => {
+  return DEFAULT_PROMPTS.map(defaultPrompt => {
+    const saved = savedPrompts.find(p => p.id === defaultPrompt.id);
+    return saved ?? { ...defaultPrompt };
+  });
+};
 
 type ModalMode = 'create' | 'edit';
 
@@ -117,7 +134,7 @@ export default function JournalView() {
           setModalMode('edit');
           setEditingEntry(entry);
           setSelectedDate(entry.date);
-          setPrompts(entry.prompts.length > 0 ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p })));
+          setPrompts(mergePromptsWithDefaults(entry.prompts.length > 0 ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p }))));
           setSaveStatus('idle');
           setValidationErrors({});
           setShowModal(true);
@@ -135,7 +152,7 @@ export default function JournalView() {
           setModalMode('edit');
           setEditingEntry(entry);
           setSelectedDate(entry.date);
-          setPrompts(entry.prompts.length > 0 ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p })));
+          setPrompts(mergePromptsWithDefaults(entry.prompts.length > 0 ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p }))));
           setSaveStatus('idle');
           setValidationErrors({});
           setShowModal(true);
@@ -218,7 +235,7 @@ export default function JournalView() {
     setModalMode('edit');
     setEditingEntry(entry);
     setSelectedDate(entry.date);
-    setPrompts(entry.prompts.length > 0 ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p })));
+    setPrompts(mergePromptsWithDefaults(entry.prompts.length > 0 ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p }))));
     setSaveStatus('idle');
     setValidationErrors({});
     setShowModal(true);
@@ -235,7 +252,7 @@ export default function JournalView() {
     }
     
     prompts.forEach((prompt) => {
-      if (!prompt.answer || prompt.answer.trim() === '') {
+      if (prompt.id !== 'other' && (!prompt.answer || prompt.answer.trim() === '')) {
         errors[prompt.id] = 'This field is required';
       }
     });
@@ -489,11 +506,14 @@ export default function JournalView() {
                   <div key={prompt.id}>
                     <label className="block text-sm font-medium text-[#F97316] mb-2">
                       {prompt.question}
+                      {prompt.id === 'other' && (
+                        <span className="text-[#8b949e] font-normal ml-1">(optional)</span>
+                      )}
                     </label>
                     <textarea
                       value={prompt.answer}
                       onChange={(e) => updatePromptAnswer(prompt.id, e.target.value)}
-                      placeholder="Type your answer here..."
+                      placeholder={prompt.id === 'other' ? 'Any other details about your trading today...' : 'Type your answer here...'}
                       className={`w-full h-20 px-3 py-2 bg-[#0d1117] border rounded-lg text-white placeholder-[#8b949e] resize-none focus:outline-none focus:border-[#F97316] ${
                         validationErrors[prompt.id] ? 'border-[#f85149]' : 'border-[#30363d]'
                       }`}
