@@ -77,8 +77,16 @@ type SortDirection = 'asc' | 'desc';
 const DEFAULT_PROMPTS = [
   { id: 'went-well', question: 'What went well today?', answer: '' },
   { id: 'improve', question: 'What could you improve?', answer: '' },
-  { id: 'followed-plan', question: 'Did you follow your trading plan?', answer: '' }
+  { id: 'followed-plan', question: 'Did you follow your trading plan?', answer: '' },
+  { id: 'other', question: 'Other', answer: '' }
 ];
+
+const mergePromptsWithDefaults = (savedPrompts: JournalPrompt[]): JournalPrompt[] => {
+  return DEFAULT_PROMPTS.map(defaultPrompt => {
+    const saved = savedPrompts.find(p => p.id === defaultPrompt.id);
+    return saved ?? { ...defaultPrompt };
+  });
+};
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -1499,7 +1507,7 @@ function JournalModal({
   onSave: () => void;
 }) {
   const [prompts, setPrompts] = useState<JournalPrompt[]>(
-    entry?.prompts?.length ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p }))
+    mergePromptsWithDefaults(entry?.prompts?.length ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p })))
   );
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -1517,7 +1525,7 @@ function JournalModal({
     // Validate
     const errors: Record<string, string> = {};
     prompts.forEach((prompt) => {
-      if (!prompt.answer || prompt.answer.trim() === '') {
+      if (prompt.id !== 'other' && (!prompt.answer || prompt.answer.trim() === '')) {
         errors[prompt.id] = 'This field is required';
       }
     });
@@ -1613,11 +1621,14 @@ function JournalModal({
             <div key={prompt.id}>
               <label className="block text-sm font-medium text-[#F97316] mb-2">
                 {prompt.question}
+                {prompt.id === 'other' && (
+                  <span className="text-[#8b949e] font-normal ml-1">(optional)</span>
+                )}
               </label>
               <textarea
                 value={prompt.answer}
                 onChange={(e) => updatePromptAnswer(prompt.id, e.target.value)}
-                placeholder="Type your answer here..."
+                placeholder={prompt.id === 'other' ? 'Any other details about your trading today...' : 'Type your answer here...'}
                 className={`w-full h-40 px-3 py-2 bg-[#0d1117] border rounded-lg text-white placeholder-[#8b949e] resize-none focus:outline-none focus:border-[#F97316] ${
                   validationErrors[prompt.id] ? 'border-[#f85149]' : 'border-[#30363d]'
                 }`}
