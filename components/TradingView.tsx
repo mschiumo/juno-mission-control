@@ -8,6 +8,7 @@ import {
   Calculator,
   Settings,
   BarChart3,
+  BookOpen,
   Menu,
   X,
 } from 'lucide-react';
@@ -81,15 +82,15 @@ export default function TradingView() {
   }
 
   const subTabs = [
-    { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
+    { id: 'overview' as const, label: 'Journal', icon: BookOpen },
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
     { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
     { id: 'performance' as const, label: 'Performance', icon: BarChart3 },
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
   ];
 
-  const activeTabLabel = subTabs.find((t) => t.id === activeSubTab)?.label || 'Overview';
-  const ActiveIcon = subTabs.find((t) => t.id === activeSubTab)?.icon || LayoutDashboard;
+  const activeTabLabel = subTabs.find((t) => t.id === activeSubTab)?.label || 'Journal';
+  const ActiveIcon = subTabs.find((t) => t.id === activeSubTab)?.icon || BookOpen;
 
   return (
     <div className="space-y-6">
