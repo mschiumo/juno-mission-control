@@ -68,6 +68,7 @@ export async function POST() {
       }
     } catch (polygonError) {
       console.warn('[GapScannerTrigger] Polygon threw an error, falling back to Yahoo:', polygonError);
+      await logToActivityLog('Gap Scanner', 'Polygon unavailable, using Yahoo fallback', 'cron');
     }
 
     if (polygonResult) {
