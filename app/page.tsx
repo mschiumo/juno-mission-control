@@ -82,62 +82,70 @@ function DashboardContent() {
     : [];
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-[#e4e4e7]">
+    <div className="min-h-screen text-[var(--text-primary)]" style={{ background: 'var(--bg-base)' }}>
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#09090b]/80 backdrop-blur-xl">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
+      <header className="sticky top-0 z-40" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(5,7,9,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-2.5 md:py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-[#F97316] to-[#ea580c] flex items-center justify-center shadow-lg shadow-[#F97316]/20">
-                <svg viewBox="0 0 48 48" fill="none" className="w-5 h-5 md:w-6 md:h-6">
-                  <line x1="7" y1="13" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
-                  <line x1="7" y1="35" x2="24" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
-                  <line x1="24" y1="24" x2="41" y2="24" stroke="white" strokeWidth="2.8" strokeLinecap="round"/>
+              {/* Logo mark */}
+              <div className="w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #FF6B00 0%, #cc4e00 100%)', boxShadow: '0 2px 12px rgba(255,107,0,0.3)' }}>
+                <svg viewBox="0 0 48 48" fill="none" className="w-4.5 h-4.5 md:w-5 md:h-5">
+                  <line x1="7" y1="13" x2="24" y2="24" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+                  <line x1="7" y1="35" x2="24" y2="24" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+                  <line x1="24" y1="24" x2="41" y2="24" stroke="white" strokeWidth="3" strokeLinecap="round"/>
                   <circle cx="24" cy="24" r="2.5" fill="white"/>
                 </svg>
               </div>
               <div>
-                <h1 className="text-base md:text-xl font-semibold tracking-tight text-white">Confluence</h1>
-                <p className="hidden sm:block text-[11px] text-[#71717a]">Trading Command Center</p>
+                <h1 className="text-sm md:text-[15px] font-semibold tracking-tight" style={{ color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>Confluence</h1>
+                <p className="hidden sm:block text-[10px] font-medium" style={{ color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Trading Terminal</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 md:gap-3">
-              {/* Desktop Tab Navigation */}
-              {tabs.length > 0 && <div className="hidden md:flex items-center gap-0.5 bg-white/[0.03] rounded-xl p-1 border border-white/[0.06]">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
-                      activeTab === tab.id
-                        ? 'bg-[#F97316] text-white shadow-md shadow-[#F97316]/25'
-                        : 'text-[#71717a] hover:text-white hover:bg-white/[0.05]'
-                    }`}
-                  >
-                    <tab.icon className="w-4 h-4" />
-                    <span className="text-sm font-medium">{tab.label}</span>
-                  </button>
-                ))}
-              </div>}
+              {/* Desktop Tab Navigation — underline style */}
+              {tabs.length > 0 && (
+                <nav className="hidden md:flex items-end gap-0 h-full" style={{ borderBottom: '1px solid var(--border-subtle)', marginBottom: '-1px' }}>
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center gap-2 px-4 py-2.5 transition-all duration-200 text-sm font-medium border-b-2 ${
+                        activeTab === tab.id
+                          ? 'border-[#FF6B00] text-[#FF8C38]'
+                          : 'border-transparent hover:border-white/20'
+                      }`}
+                      style={{ color: activeTab === tab.id ? 'var(--accent-light)' : 'var(--text-secondary)', marginBottom: '-1px' }}
+                    >
+                      <tab.icon className="w-3.5 h-3.5" />
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </nav>
+              )}
 
               {/* Desktop Widgets */}
-              <div className="hidden md:flex items-center gap-3">
+              <div className="hidden md:flex items-center gap-2">
                 <LiveClock />
-                <div className="flex items-center gap-2 border-l border-white/[0.06] pl-3">
+                <div className="flex items-center gap-1" style={{ borderLeft: '1px solid var(--border-subtle)', paddingLeft: '10px' }}>
                   <Link
                     href="/profile"
                     title="Profile & Settings"
-                    className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#F97316] to-[#ea580c] flex items-center justify-center text-white text-sm font-semibold hover:shadow-md hover:shadow-[#F97316]/25 transition-all duration-200"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold transition-all duration-200"
+                    style={{ background: 'linear-gradient(135deg, #FF6B00, #cc4e00)', boxShadow: '0 1px 6px rgba(255,107,0,0.25)' }}
                   >
                     {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
                   </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
                     title="Sign out"
-                    className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all duration-200 text-[#71717a] hover:text-white"
+                    className="p-1.5 rounded-lg transition-all duration-200"
+                    style={{ color: 'var(--text-tertiary)' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)', e.currentTarget.style.background = 'var(--border-subtle)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)', e.currentTarget.style.background = 'transparent')}
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -145,12 +153,13 @@ function DashboardContent() {
               {/* Mobile Menu Button */}
               {isOwner && <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 hover:bg-white/[0.06] rounded-lg transition-colors"
+                className="md:hidden p-2 rounded-lg transition-colors"
+                style={{ color: 'var(--text-secondary)' }}
               >
                 {mobileMenuOpen ? (
-                  <X className="w-5 h-5 text-white" />
+                  <X className="w-5 h-5" />
                 ) : (
-                  <Menu className="w-5 h-5 text-white" />
+                  <Menu className="w-5 h-5" />
                 )}
               </button>}
             </div>
@@ -158,8 +167,8 @@ function DashboardContent() {
 
           {/* Mobile Menu */}
           {mobileMenuOpen && (
-            <div className="md:hidden mt-3 pt-3 border-t border-white/[0.06]">
-              <div className="flex flex-col gap-1">
+            <div className="md:hidden mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+              <div className="flex flex-col gap-0.5 pb-2">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
@@ -167,33 +176,35 @@ function DashboardContent() {
                       setActiveTab(tab.id);
                       setMobileMenuOpen(false);
                     }}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                      activeTab === tab.id
-                        ? 'bg-[#F97316] text-white shadow-lg shadow-[#F97316]/20'
-                        : 'text-[#71717a] hover:text-white hover:bg-white/[0.05]'
-                    }`}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-left"
+                    style={{
+                      background: activeTab === tab.id ? 'var(--accent-dim)' : 'transparent',
+                      color: activeTab === tab.id ? 'var(--accent-light)' : 'var(--text-secondary)',
+                    }}
                   >
-                    <tab.icon className="w-5 h-5" />
-                    <span className="font-medium">{tab.label}</span>
+                    <tab.icon className="w-4 h-4" />
+                    <span className="text-sm font-medium">{tab.label}</span>
                   </button>
                 ))}
               </div>
-              <div className="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between">
+              <div className="pt-2 flex items-center justify-between" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                 <LiveClock />
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <Link
                     href="/profile"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#F97316] to-[#ea580c] flex items-center justify-center text-white text-sm font-semibold hover:shadow-md hover:shadow-[#F97316]/25 transition-all duration-200"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: 'linear-gradient(135deg, #FF6B00, #cc4e00)' }}
                   >
                     {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
                   </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
                     title="Sign out"
-                    className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all duration-200 text-[#71717a] hover:text-white"
+                    className="p-1.5 rounded-lg transition-all duration-200"
+                    style={{ color: 'var(--text-tertiary)' }}
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -203,7 +214,7 @@ function DashboardContent() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-8">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-7">
         {activeTab === 'dashboard' ? (
           /* Dashboard Grid */
           <div className="space-y-5 animate-fade-up">
@@ -227,7 +238,7 @@ function DashboardContent() {
         ) : activeTab === 'goals' ? (
           /* Goals View */
           <div className="max-w-[1600px] mx-auto">
-            <Suspense fallback={<div className="p-8 text-center text-[#71717a]">Loading goals...</div>}>
+            <Suspense fallback={<div className="p-8 text-center" style={{ color: 'var(--text-tertiary)' }}>Loading goals...</div>}>
               <GoalsCard />
             </Suspense>
           </div>
@@ -235,10 +246,10 @@ function DashboardContent() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/[0.04] mt-8 md:mt-12">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
+      <footer className="mt-10 md:mt-14" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex flex-col md:flex-row items-center justify-between gap-2">
-            <p className="text-center md:text-left text-xs text-[#52525b]">
+            <p className="text-center md:text-left text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
               Confluence Trading © {new Date().getFullYear()}
             </p>
             <div className="flex items-center gap-4">
@@ -246,7 +257,10 @@ function DashboardContent() {
                 href="https://github.com/mschiumo/juno-mission-control"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-[#52525b] hover:text-[#F97316] transition-colors"
+                className="text-[11px] transition-colors"
+                style={{ color: 'var(--text-tertiary)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
               >
                 GitHub
               </a>

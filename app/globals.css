@@ -1,306 +1,669 @@
 @import "tailwindcss";
 
+/* ============================================================
+   CONFLUENCE TRADING — DESIGN SYSTEM v2
+   "Dark Precision" — Premium Trading Terminal Aesthetic
+   ============================================================ */
+
 :root {
-  --background: #0F0F0F;
-  --foreground: #e6edf3;
-  --tangerine: #F97316;
-  --tangerine-light: #ff8c5a;
-  --tangerine-dark: #e55a2b;
-  --card-bg: #1a1a1a;
-  --card-border: #262626;
-  --muted: #737373;
-  --success: #22c55e;
-  --warning: #d29922;
-  --error: #da3633;
-  --info: #58a6ff;
+  /* ── Backgrounds & Surfaces ── */
+  --bg-base:       #050709;
+  --bg-base-2:     #080c11;
+  --surface-1:     #0a0e15;
+  --surface-2:     #0f1520;
+  --surface-3:     #151d2a;
+  --surface-hover: #1a2333;
+
+  /* ── Borders ── */
+  --border-subtle: rgba(255,255,255,0.04);
+  --border-default: rgba(255,255,255,0.08);
+  --border-strong:  rgba(255,255,255,0.13);
+  --border-focus:   rgba(255,107,0,0.5);
+
+  /* ── Accent — Amber/Ember (not Bootstrap-orange) ── */
+  --accent:        #FF6B00;
+  --accent-light:  #FF8C38;
+  --accent-dim:    rgba(255,107,0,0.12);
+  --accent-glow:   rgba(255,107,0,0.25);
+
+  /* ── Text ── */
+  --text-primary:   #EEF2F7;
+  --text-secondary: #7E8CA0;
+  --text-tertiary:  #4A5568;
+  --text-disabled:  #2D3748;
+
+  /* ── Semantic Colors ── */
+  --positive:       #00C896;
+  --positive-dim:   rgba(0,200,150,0.1);
+  --negative:       #FF3D57;
+  --negative-dim:   rgba(255,61,87,0.1);
+  --warning:        #F5A623;
+  --warning-dim:    rgba(245,166,35,0.1);
+  --info:           #4DA6FF;
+  --info-dim:       rgba(77,166,255,0.1);
+
+  /* ── Typography ── */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Legacy compat aliases */
+  --background: var(--bg-base);
+  --foreground: var(--text-primary);
+  --tangerine: var(--accent);
+  --tangerine-light: var(--accent-light);
+  --tangerine-dark: #cc5200;
+  --card-bg: var(--surface-1);
+  --card-border: var(--border-default);
+  --muted: var(--text-secondary);
+  --success: var(--positive);
+  --error: var(--negative);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-tangerine: var(--tangerine);
-  --color-tangerine-light: var(--tangerine-light);
-  --color-tangerine-dark: var(--tangerine-dark);
-  --color-card-bg: var(--card-bg);
-  --color-card-border: var(--card-border);
-  --color-muted: var(--muted);
-  --color-success: var(--success);
+  --color-background: var(--bg-base);
+  --color-foreground: var(--text-primary);
+  --color-tangerine: var(--accent);
+  --color-tangerine-light: var(--accent-light);
+  --color-tangerine-dark: #cc5200;
+  --color-card-bg: var(--surface-1);
+  --color-card-border: var(--border-default);
+  --color-muted: var(--text-secondary);
+  --color-success: var(--positive);
   --color-warning: var(--warning);
-  --color-error: var(--error);
+  --color-error: var(--negative);
   --color-info: var(--info);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
+/* ── Base ── */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ========================================
-   RobinHood-Inspired Design System
-   ======================================== */
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-feature-settings: "kern" 1, "liga" 1;
+}
 
-/* Card - Clean, minimalist cards with subtle shadows */
+/* ── Tabular Numbers for Financial Data ── */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   CARD SYSTEM — Layered depth, not flat
+   ============================================================ */
+
 .card {
-  background: #1a1a1a;
-  border: 1px solid #262626;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 60%),
+    var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow:
+    0 0 0 0.5px rgba(255,255,255,0.03) inset,
+    0 8px 32px rgba(0,0,0,0.4),
+    0 2px 8px rgba(0,0,0,0.3);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle top-edge highlight */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 16px; right: 16px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  pointer-events: none;
 }
 
 .card:hover {
-  border-color: rgba(249, 115, 22, 0.2);
+  border-color: rgba(255,107,0,0.18);
+  box-shadow:
+    0 0 0 0.5px rgba(255,107,0,0.06) inset,
+    0 12px 40px rgba(0,0,0,0.5),
+    0 2px 8px rgba(0,0,0,0.3);
 }
 
-/* Metric Value - Bold typography for numbers */
+/* ── Card Header (icon + title bar pattern) ── */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(255,255,255,0.01);
+}
+
+.card-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+/* ============================================================
+   METRIC SYSTEM — Professional financial data display
+   ============================================================ */
+
 .metric-value {
-  font-size: 24px;
+  font-family: var(--font-mono);
+  font-size: 26px;
   font-weight: 700;
-  color: white;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  color: var(--text-primary);
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Metric Label - Small uppercase labels */
+.metric-value-sm {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
 .metric-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #737373;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
 }
 
-/* Segmented Control - Tab navigation */
+.metric-delta-pos {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--positive);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-delta-neg {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--negative);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   NAVIGATION — Underline style, precision tabs
+   ============================================================ */
+
+/* Segmented Control — compact pill style */
 .segmented-control {
   display: flex;
-  gap: 2px;
+  gap: 1px;
   padding: 3px;
-  background: #0F0F0F;
-  border: 1px solid #262626;
-  border-radius: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
   overflow-x: auto;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   width: 100%;
   max-width: 100%;
 }
 
-.segmented-control::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
-}
-
-/* Scrollbar hide utility */
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
+.segmented-control::-webkit-scrollbar { display: none; }
 
 .segment {
   flex: 0 0 auto;
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 7px 12px;
+  font-size: 12px;
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: 7px;
   cursor: pointer;
   transition: all 0.15s ease;
   background: transparent;
   border: none;
-  color: #737373;
+  color: var(--text-secondary);
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 @media (min-width: 640px) {
   .segment {
     flex: 1;
-    padding: 8px 16px;
+    padding: 7px 14px;
   }
 }
 
 .segment:hover {
-  color: white;
+  color: var(--text-primary);
+  background: var(--border-subtle);
 }
 
 .segment-active {
-  background: #262626;
-  color: white;
+  background: var(--surface-3);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
 .segment-inactive {
-  color: #737373;
+  color: var(--text-secondary);
 }
 
-.segment-inactive:hover {
-  color: white;
-}
-
-/* Segmented Button - For MarketCard tabs */
+/* Segmented Button — for smaller controls */
 .segmented-btn {
   flex: 1 0 auto;
-  padding: 6px 8px;
+  padding: 5px 8px;
   margin: 0 1px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
   background: transparent;
   border: none;
-  color: #737373;
+  color: var(--text-secondary);
   white-space: nowrap;
-  min-width: 60px;
+  min-width: 56px;
   text-align: center;
+  letter-spacing: 0.01em;
 }
 
 @media (min-width: 640px) {
   .segmented-btn {
     flex: 1;
-    padding: 8px 16px;
-    font-size: 13px;
-    margin: 0 2px;
+    padding: 6px 14px;
+    font-size: 12px;
+    margin: 0 1px;
   }
 }
 
 .segmented-btn:hover {
-  color: white;
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  background: var(--border-subtle);
 }
 
 .segmented-btn.active {
-  background: #262626;
-  color: white;
+  background: var(--surface-3);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+/* ── Tab underline nav (e.g. TradingView sub-tabs) ── */
+.tab-underline-nav {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab-underline-nav::-webkit-scrollbar { display: none; }
+
+.tab-underline {
+  position: relative;
+  padding: 10px 16px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+  letter-spacing: 0.01em;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tab-underline:hover {
+  color: var(--text-primary);
+}
+
+.tab-underline.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
   font-weight: 600;
 }
 
-.segmented-btn.active:hover {
-  background: #303030;
+/* ============================================================
+   INPUTS & FORMS
+   ============================================================ */
+
+.input {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
 }
 
-/* Progress Bar */
-.progress-bar {
-  height: 8px;
-  background: #262626;
-  border-radius: 9999px;
-  overflow: hidden;
+.input::placeholder {
+  color: var(--text-tertiary);
 }
 
-.progress-fill {
-  height: 100%;
-  background: #F97316;
-  border-radius: 9999px;
-  transition: width 0.3s ease;
+.input:focus {
+  border-color: rgba(255,107,0,0.4);
+  box-shadow: 0 0 0 3px rgba(255,107,0,0.08);
 }
 
-/* Pill - Pill-shaped buttons */
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 18px;
+  background: var(--accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0.01em;
+  box-shadow: 0 2px 8px rgba(255,107,0,0.25);
+}
+
+.btn-primary:hover {
+  background: var(--accent-light);
+  box-shadow: 0 4px 16px rgba(255,107,0,0.35);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(255,107,0,0.2);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 14px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 7px;
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0.01em;
+}
+
+.btn-ghost:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--border-subtle);
+}
+
+/* ============================================================
+   PILLS & BADGES
+   ============================================================ */
+
 .pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: rgba(48, 54, 61, 0.6);
-  border: 1px solid var(--card-border);
-  border-radius: 9999px;
-  font-size: 13px;
+  gap: 5px;
+  padding: 6px 13px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--muted);
+  color: var(--text-secondary);
   transition: all 0.15s ease;
   cursor: pointer;
 }
 
 .pill:hover {
-  background: rgba(48, 54, 61, 0.8);
-  color: var(--foreground);
-  border-color: var(--muted);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--surface-3);
 }
 
 .pill-primary {
-  background: var(--tangerine);
-  border-color: var(--tangerine);
-  color: white;
+  background: var(--accent-dim);
+  border-color: rgba(255,107,0,0.2);
+  color: var(--accent-light);
 }
 
 .pill-primary:hover {
-  background: var(--tangerine-light);
-  border-color: var(--tangerine-light);
+  background: rgba(255,107,0,0.18);
+  border-color: rgba(255,107,0,0.35);
   color: white;
 }
 
-/* Status Dots */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.badge-positive { background: var(--positive-dim); color: var(--positive); }
+.badge-negative { background: var(--negative-dim); color: var(--negative); }
+.badge-warning  { background: var(--warning-dim); color: var(--warning); }
+.badge-info     { background: var(--info-dim); color: var(--info); }
+.badge-neutral  { background: var(--border-subtle); color: var(--text-secondary); }
+
+/* ============================================================
+   PROGRESS & STATUS
+   ============================================================ */
+
+.progress-bar {
+  height: 4px;
+  background: var(--border-subtle);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 9999px;
-  background: var(--muted);
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--text-tertiary);
 }
 
-.status-dot-green {
-  background: var(--success);
+.status-dot-green  { background: var(--positive); }
+.status-dot-red    { background: var(--negative); }
+.status-dot-blue   { background: var(--info); }
+.status-dot-yellow { background: var(--warning); }
+
+/* ============================================================
+   TABLE STYLES — Data-dense, trading-focused
+   ============================================================ */
+
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
 }
 
-.status-dot-red {
-  background: var(--error);
+.data-table th {
+  padding: 9px 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  white-space: nowrap;
 }
 
-.status-dot-blue {
-  background: var(--info);
+.data-table td {
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.status-dot-yellow {
-  background: var(--warning);
+.data-table tr:last-child td {
+  border-bottom: none;
 }
 
-/* ========================================
-   Custom scrollbar
-   ======================================== */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.data-table tbody tr {
+  transition: background 0.1s ease;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--card-bg);
+.data-table tbody tr:hover td {
+  background: rgba(255,255,255,0.02);
+  color: var(--text-primary);
 }
 
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--card-border);
-  border-radius: 4px;
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--tangerine);
+.animate-fade-up {
+  animation: fade-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
-/* Animation for pulse effect */
-@keyframes pulse-tangerine {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 0 10px rgba(249, 115, 22, 0);
-  }
+@keyframes pulse-accent {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,0,0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(255,107,0,0); }
 }
 
 .animate-pulse-tangerine {
-  animation: pulse-tangerine 2s infinite;
+  animation: pulse-accent 2s infinite;
 }
 
-/* Status indicator animations */
 @keyframes status-pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
 }
 
 .status-pulse {
   animation: status-pulse 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position: 200% center; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-1) 25%,
+    var(--surface-2) 50%,
+    var(--surface-1) 75%
+  );
+  background-size: 200% auto;
+  animation: shimmer 1.5s linear infinite;
+  border-radius: 6px;
+}
+
+/* ============================================================
+   DIVIDER & SECTION UTILITIES
+   ============================================================ */
+
+.divider {
+  height: 1px;
+  background: var(--border-subtle);
+  width: 100%;
+}
+
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+}
+
+/* ============================================================
+   CHART TOOLTIP OVERRIDES
+   ============================================================ */
+
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--surface-3) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+}
+
+/* ============================================================
+   GLOW UTILITIES
+   ============================================================ */
+
+.glow-accent {
+  box-shadow: 0 0 20px rgba(255,107,0,0.2), 0 0 40px rgba(255,107,0,0.08);
+}
+
+.glow-positive {
+  box-shadow: 0 0 20px rgba(0,200,150,0.15);
+}
+
+.glow-negative {
+  box-shadow: 0 0 20px rgba(255,61,87,0.15);
 }
