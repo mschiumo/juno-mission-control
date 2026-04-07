@@ -16,7 +16,7 @@ export interface PolygonSnapshot {
   ticker: string;
   day: { c: number; h: number; l: number; o: number; v: number; vw: number };
   prevDay: { c: number; h: number; l: number; o: number; v: number; vw: number };
-  lastTrade?: { p: number };
+  lastTrade?: { p: number; t?: number }; // t = nanosecond unix timestamp
   lastQuote?: { p: number };
   min?: { c: number };
   todaysChange?: number;
@@ -53,6 +53,7 @@ export interface PolygonScanResult {
     skippedByGap: number;
     skippedByVolume: number;
     skippedByPrice: number;
+    skippedNoPremarketTrade: number;
   };
   filters: {
     minGapPercent: number;
@@ -184,7 +185,7 @@ export function processGaps(
     isPreMarket: boolean;
     avgVolumeMap?: Record<string, number>;
   }
-): { gainers: GapStock[]; losers: GapStock[]; skipped: { gap: number; volume: number; price: number } } {
+): { gainers: GapStock[]; losers: GapStock[]; skipped: { gap: number; volume: number; price: number; noPremarketTrade: number } } {
   const { minGapPercent, minVolume, minPrice, maxPrice, isPreMarket, avgVolumeMap } = options;
 
   const gainers: GapStock[] = [];
@@ -192,16 +193,54 @@ export function processGaps(
   let skippedGap = 0;
   let skippedVolume = 0;
   let skippedPrice = 0;
+  let skippedNoPremarketTrade = 0;
+
+  // Midnight ET in ms — used to check whether lastTrade.t is from today
+  const midnightEtMs = (() => {
+    const now = new Date();
+    const etMidnight = new Date(now.toLocaleDateString('en-US', { timeZone: 'America/New_York' }));
+    return etMidnight.getTime();
+  })();
+
+  let premarketTradeCount = 0;
+  let staleTradeCount = 0;
 
   for (const snap of snapshots) {
     if (isETFOrDerivative(snap.ticker)) continue;
     if (isLikelyADRBySymbol(snap.ticker)) continue;
     if (!snap.prevDay?.c) continue;
 
-    // During premarket, day.c is often 0 (no regular-session trades yet).
-    // Prefer lastTrade.p which reflects the most recent premarket/after-hours trade.
-    const currentPrice = snap.lastTrade?.p || snap.day?.c;
+    // Price resolution order:
+    // 1. snap.min.c  — most recent 1-min bar close (reliable for both pre-market and regular session)
+    // 2. snap.lastTrade.p — most recent individual trade
+    // 3. snap.day.c  — current session close (0 before regular open)
+    //
+    // During pre-market, verify lastTrade is actually from today using its nanosecond timestamp.
+    // If it's from a prior session (stale), don't use it for gap calculation.
+    let currentPrice = snap.min?.c || snap.day?.c || 0;
+
+    if (isPreMarket) {
+      const tradeTs = snap.lastTrade?.t;
+      const tradeIsToday = tradeTs != null && tradeTs / 1_000_000 >= midnightEtMs;
+      if (tradeIsToday) {
+        premarketTradeCount++;
+        currentPrice = snap.lastTrade!.p || currentPrice;
+      } else {
+        staleTradeCount++;
+      }
+    } else {
+      currentPrice = snap.lastTrade?.p || currentPrice;
+    }
+
     if (!currentPrice) continue;
+
+    // During pre-market, if we have no better price than prevDay.c, skip —
+    // the stock hasn't traded pre-market and the gap is unknown.
+    if (isPreMarket && Math.abs(currentPrice - snap.prevDay.c) / snap.prevDay.c < 0.0005) {
+      skippedNoPremarketTrade++;
+      continue;
+    }
+
     const previousClose = snap.prevDay.c;
     const volume = snap.day.v || 0;
     // Use 90-day avg volume when available; fall back to prevDay volume during premarket
@@ -233,10 +272,14 @@ export function processGaps(
   gainers.sort((a, b) => b.gapPercent - a.gapPercent);
   losers.sort((a, b) => a.gapPercent - b.gapPercent);
 
+  if (isPreMarket) {
+    console.log(`[GapScanner-Polygon] Pre-market trade data: ${premarketTradeCount} today, ${staleTradeCount} stale (prior session), ${skippedNoPremarketTrade} skipped (no pre-market trade)`);
+  }
+
   return {
     gainers,
     losers,
-    skipped: { gap: skippedGap, volume: skippedVolume, price: skippedPrice },
+    skipped: { gap: skippedGap, volume: skippedVolume, price: skippedPrice, noPremarketTrade: skippedNoPremarketTrade },
   };
 }
 
@@ -288,6 +331,7 @@ export async function runPolygonGapScan(options: {
       skippedByGap: skipped.gap,
       skippedByVolume: skipped.volume,
       skippedByPrice: skipped.price,
+      skippedNoPremarketTrade: skipped.noPremarketTrade,
     },
     filters: { minGapPercent, minVolume, minPrice, maxPrice },
   };

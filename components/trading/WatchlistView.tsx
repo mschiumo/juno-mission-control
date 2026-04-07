@@ -26,7 +26,8 @@ import {
   Square,
   Search,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Zap
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTrade, ActiveTradeWithPnL } from '@/types/active-trade';
@@ -115,6 +116,9 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   
   // Order Placed state (persisted in localStorage)
   const [orderPlacedMap, setOrderPlacedMap] = useState<Record<string, boolean>>({});
+
+  // Trading Mode: when enabled, only show active trades with orderPlaced=true
+  const [tradingMode, setTradingMode] = useState(false);
   
   // Collapsed sections state (persisted in localStorage)
   const [collapsedSections, setCollapsedSections] = useState<{
@@ -1390,6 +1394,19 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
             </button>
           </div>
           <div className="flex items-center gap-2">
+            {/* Trading Mode Toggle */}
+            <button
+              onClick={() => setTradingMode(prev => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${
+                tradingMode
+                  ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/30'
+                  : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white hover:border-yellow-500/50'
+              }`}
+              title={tradingMode ? 'Trading Mode ON — showing only orders placed' : 'Enable Trading Mode'}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Trading Mode
+            </button>
             {/* Search Input */}
             <div className="relative">
               <input
@@ -1453,7 +1470,12 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     trade.ticker.toLowerCase().includes(activeTradesSearchQuery.toLowerCase())
                   )
                 : [...activeTrades];
-              
+
+              // Trading Mode: only show trades with orderPlaced=true
+              if (tradingMode) {
+                filteredActiveTrades = filteredActiveTrades.filter(trade => !!orderPlacedMap[trade.id]);
+              }
+
               // Sort by orderPlaced status - trades with orderPlaced=true appear first
               // Within each group, maintain existing order (by date/time - openedAt)
               filteredActiveTrades.sort((a, b) => {
@@ -1465,6 +1487,16 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 return 0; // Keep original order within same group
               });
               
+              if (filteredActiveTrades.length === 0 && tradingMode) {
+                return (
+                  <div className="text-center py-8 border border-dashed border-yellow-500/30 rounded-xl">
+                    <Zap className="w-10 h-10 text-yellow-500/40 mx-auto mb-3" />
+                    <p className="text-sm text-[#8b949e]">No orders placed yet</p>
+                    <p className="text-xs text-[#6e7681] mt-1">Check "Order Placed" on a trade to see it here</p>
+                  </div>
+                );
+              }
+
               if (filteredActiveTrades.length === 0 && activeTradesSearchQuery) {
                 return (
                   <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
