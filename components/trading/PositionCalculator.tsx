@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info, Loader2 } from 'lucide-react';
+import { Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info, Loader2, Wand2 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTradeWithPnL } from '@/types/active-trade';
 
@@ -53,6 +53,7 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
   const [addSuccess, setAddSuccess] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'duplicate' | 'success'>('idle');
   const [isLoading, setIsLoading] = useState(false);
+  const [optimizeMode, setOptimizeMode] = useState(false);
 
   // Update ticker when initialTicker prop changes
   useEffect(() => {
@@ -61,7 +62,25 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
     }
   }, [initialTicker]);
 
+  // Auto-calculate target when optimize mode is enabled
+  useEffect(() => {
+    if (!optimizeMode) return;
+    const entry = parseFloat(inputs.entryPrice);
+    const stop = parseFloat(inputs.stopPrice);
+    const ratio = parseFloat(inputs.riskRatio);
+    if (entry > 0 && stop > 0 && ratio > 0) {
+      const stopSize = Math.abs(entry - stop);
+      const isLong = entry > stop;
+      const target = isLong ? entry + stopSize * ratio : entry - stopSize * ratio;
+      setInputs(prev => ({ ...prev, targetPrice: target.toFixed(2) }));
+    } else {
+      setInputs(prev => ({ ...prev, targetPrice: '' }));
+    }
+  }, [optimizeMode, inputs.entryPrice, inputs.stopPrice, inputs.riskRatio]);
+
   const handleInputChange = (field: keyof CalculatorInputs, value: string) => {
+    // Block manual target edits when optimize mode is on
+    if (field === 'targetPrice' && optimizeMode) return;
     // Allow empty string or valid numbers for numeric fields
     if (field === 'ticker') {
       // Convert ticker to uppercase
@@ -415,17 +434,46 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
 
         {/* Target — full width */}
         <div className="col-span-2 space-y-1.5">
-          <label className="text-xs font-medium text-[#8b949e] uppercase tracking-wide">Target</label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-[#8b949e] uppercase tracking-wide">Target</label>
+            {/* Optimize toggle */}
+            <button
+              type="button"
+              onClick={() => setOptimizeMode(prev => !prev)}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                optimizeMode
+                  ? 'bg-[#F97316]/15 text-[#F97316] border border-[#F97316]/30'
+                  : 'text-[#8b949e] hover:text-white border border-transparent hover:border-[#30363d]'
+              }`}
+              title="Auto-calculate target from Entry + (Stop Size × R:R)"
+            >
+              <Wand2 className="w-3 h-3" />
+              Optimize
+            </button>
+          </div>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#8b949e]">$</span>
+            <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-xs ${optimizeMode ? 'text-[#F97316]/60' : 'text-[#8b949e]'}`}>$</span>
             <input
               type="text"
               value={inputs.targetPrice}
               onChange={(e) => handleInputChange('targetPrice', e.target.value)}
+              readOnly={optimizeMode}
               placeholder="7.00"
-              className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg pl-6 pr-3 py-2 text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] transition-colors"
+              className={`w-full rounded-lg pl-6 py-2 text-sm placeholder-[#8b949e] focus:outline-none transition-colors ${
+                optimizeMode
+                  ? 'bg-[#F97316]/5 border border-[#F97316]/30 pr-12 cursor-not-allowed text-[#F97316]'
+                  : 'bg-[#0d1117] border border-[#30363d] pr-3 text-white focus:border-[#F97316]'
+              }`}
             />
+            {optimizeMode && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#F97316] bg-[#F97316]/10 px-1 py-0.5 rounded">
+                AUTO
+              </span>
+            )}
           </div>
+          {optimizeMode && (
+            <p className="text-[10px] text-[#F97316]/60">Entry + (Stop Size × R:R)</p>
+          )}
         </div>
       </div>
 
