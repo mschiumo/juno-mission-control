@@ -53,28 +53,30 @@ export default function TradeManagementView() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:h-[900px]">
           {/* Daily Favorites + Calculator - Left */}
-          <div className="space-y-5">
-            <QuickWatchlist
-              onSelectTicker={setSelectedTicker}
-              calculatorRef={calculatorRef}
-            />
-            <div ref={calculatorRef} data-tour="position-calculator" className="rounded-xl overflow-hidden sticky top-6" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
-              <div className="flex items-center gap-2.5 px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.01)' }}>
-                <div className="flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: 'var(--accent-dim)' }}>
-                  <Calculator className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+          <div className="flex flex-col h-full overflow-hidden rounded-xl" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
+            <div className="overflow-y-auto flex-1 min-h-0 space-y-5 p-5">
+              <QuickWatchlist
+                onSelectTicker={setSelectedTicker}
+                calculatorRef={calculatorRef}
+              />
+              <div ref={calculatorRef} data-tour="position-calculator" className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)' }}>
+                <div className="flex items-center gap-2.5 px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.01)' }}>
+                  <div className="flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: 'var(--accent-dim)' }}>
+                    <Calculator className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                  </div>
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Position Calculator</h3>
                 </div>
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Position Calculator</h3>
-              </div>
-              <div className="p-5">
-                <PositionCalculator initialTicker={selectedTicker} onTickerChange={setSelectedTicker} />
+                <div className="p-5">
+                  <PositionCalculator initialTicker={selectedTicker} onTickerChange={setSelectedTicker} />
+                </div>
               </div>
             </div>
           </div>
 
           {/* Watchlist - Right */}
-          <div className="rounded-xl overflow-hidden flex flex-col" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
+          <div className="rounded-xl overflow-hidden flex flex-col h-full" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
             <div className="flex items-center gap-2.5 px-5 py-3.5 shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.01)' }}>
               <div className="flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: 'var(--accent-dim)' }}>
                 <Bookmark className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
