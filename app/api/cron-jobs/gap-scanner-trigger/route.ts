@@ -14,7 +14,7 @@ import {
   isMarketOpenToday,
   cacheGapScanResults,
 } from '@/lib/cron-helpers';
-import { runPolygonGapScan } from '@/lib/gap-scanner-polygon';
+import { runPolygonGapScan, getMarketSession } from '@/lib/gap-scanner-polygon';
 import { runYahooGapScan } from '@/lib/gap-scanner-yahoo';
 import { storeScanResults, ScanResult } from '@/lib/gap-scanner-core';
 
@@ -50,30 +50,43 @@ export async function POST() {
 
     await logToActivityLog('Gap Scanner', 'Starting pre-market gap scan...', 'cron');
 
+    const { isPreMarket, session: marketSession } = getMarketSession();
+    console.log(`[GapScannerTrigger] Market session: ${marketSession}, isPreMarket: ${isPreMarket}`);
+
     let gainers: { symbol: string; price: number; gapPercent: number; volume: number; marketCap: number }[];
     let losers: typeof gainers;
     let scanned: number | undefined;
     let source: string;
 
+    let polygonResult = null;
     try {
       const result = await runPolygonGapScan({ minGapPercent: 5 });
-      if (!result.success || !result.data) throw new Error('Polygon returned no data');
-      gainers = result.data.gainers;
-      losers = result.data.losers;
-      scanned = result.scanned;
-      source = 'polygon';
-      await cacheGapScanResults(result);
-      const today = new Date().toISOString().split('T')[0];
-      await storeScanResults({ ...result, tradingDate: today } as unknown as ScanResult);
+      if (result.success && result.data && (result.data.gainers.length > 0 || result.data.losers.length > 0)) {
+        polygonResult = result;
+      } else {
+        console.warn(`[GapScannerTrigger] Polygon returned 0 results (session: ${marketSession}) — falling back to Yahoo`);
+      }
     } catch (polygonError) {
-      console.warn('[GapScannerTrigger] Polygon failed, falling back to Yahoo:', polygonError);
-      await logToActivityLog('Gap Scanner', 'Polygon unavailable, using Yahoo fallback', 'cron');
-      const result = await runYahooGapScan({ minGapPercent: 5 });
+      console.warn('[GapScannerTrigger] Polygon threw an error, falling back to Yahoo:', polygonError);
+    }
+
+    if (polygonResult) {
+      gainers = polygonResult.data.gainers;
+      losers = polygonResult.data.losers;
+      scanned = polygonResult.scanned;
+      source = 'polygon';
+      await cacheGapScanResults(polygonResult);
+      const today = new Date().toISOString().split('T')[0];
+      await storeScanResults({ ...polygonResult, tradingDate: today } as unknown as ScanResult);
+    } else {
+      await logToActivityLog('Gap Scanner', 'Using Yahoo Finance fallback', 'cron');
+      const result = await runYahooGapScan({ minGapPercent: 5, isPreMarket });
       if (!result.success || !result.data) throw new Error('Yahoo fallback also returned no data');
       gainers = result.data.gainers;
       losers = result.data.losers;
       scanned = result.scanned;
       source = 'yahoo';
+      console.log(`[GapScannerTrigger] Yahoo result: ${gainers.length} gainers, ${losers.length} losers`);
       await cacheGapScanResults(result);
       const today = new Date().toISOString().split('T')[0];
       await storeScanResults({ ...result, tradingDate: today } as unknown as ScanResult);
