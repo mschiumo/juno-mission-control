@@ -5,7 +5,8 @@ export interface AppUser {
   id: string;
   email: string;
   name: string;
-  passwordHash: string;
+  passwordHash: string | null;
+  provider: 'credentials' | 'google';
   createdAt: string;
 }
 
@@ -28,6 +29,7 @@ export async function createUser(email: string, name: string, password: string):
     email: email.toLowerCase(),
     name,
     passwordHash,
+    provider: 'credentials',
     createdAt: new Date().toISOString(),
   };
 
@@ -36,6 +38,42 @@ export async function createUser(email: string, name: string, password: string):
   await redis.sAdd(USER_INDEX_KEY, id);
 
   return user;
+}
+
+export async function findOrCreateOAuthUser(
+  email: string,
+  name: string,
+  provider: 'google',
+): Promise<AppUser> {
+  const redis = await getRedisClient();
+
+  const existingId = await redis.get(emailIndexKey(email));
+  if (existingId) {
+    const data = await redis.get(userKey(existingId));
+    if (data) return JSON.parse(data) as AppUser;
+  }
+
+  const id = crypto.randomUUID();
+  const user: AppUser = {
+    id,
+    email: email.toLowerCase(),
+    name,
+    passwordHash: null,
+    provider,
+    createdAt: new Date().toISOString(),
+  };
+
+  await redis.set(userKey(id), JSON.stringify(user));
+  await redis.set(emailIndexKey(email), id);
+
+  return user;
+}
+
+export async function getUserById(id: string): Promise<AppUser | null> {
+  const redis = await getRedisClient();
+  const data = await redis.get(userKey(id));
+  if (!data) return null;
+  return JSON.parse(data) as AppUser;
 }
 
 export async function getUserByEmail(email: string): Promise<AppUser | null> {
@@ -48,6 +86,7 @@ export async function getUserByEmail(email: string): Promise<AppUser | null> {
 }
 
 export async function verifyPassword(user: AppUser, password: string): Promise<boolean> {
+  if (!user.passwordHash) return false;
   return bcrypt.compare(password, user.passwordHash);
 }
 

@@ -1,9 +1,17 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import { getUserByEmail, verifyPassword } from '@/lib/db/users';
+import Google from 'next-auth/providers/google';
+import { getUserByEmail, verifyPassword, findOrCreateOAuthUser } from '@/lib/db/users';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      authorization: {
+        params: { prompt: 'consent', access_type: 'offline' },
+      },
+    }),
     Credentials({
       credentials: {
         email: { label: 'Email', type: 'email' },
@@ -32,6 +40,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     strategy: 'jwt',
   },
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === 'google') {
+        const email = user.email;
+        const name = user.name;
+        if (!email) return false;
+
+        const appUser = await findOrCreateOAuthUser(email, name ?? email.split('@')[0], 'google');
+        user.id = appUser.id;
+      }
+      return true;
+    },
     jwt({ token, user }) {
       if (user?.id) token.sub = user.id;
       return token;
