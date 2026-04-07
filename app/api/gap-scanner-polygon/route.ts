@@ -118,7 +118,6 @@ export async function GET(request: Request) {
         skippedByGap: skipped.gap,
         skippedByVolume: skipped.volume,
         skippedByPrice: skipped.price,
-        skippedNoPremarketTrade: skipped.noPremarketTrade,
       },
       filters: {
         minGapPercent,
