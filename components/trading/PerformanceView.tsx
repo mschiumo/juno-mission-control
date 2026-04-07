@@ -203,16 +203,16 @@ function EquityTooltip({ active, payload, label }: { active?: boolean; payload?:
   const isPositive = pnl >= 0;
 
   return (
-    <div className="bg-[#1c2128] border border-[#30363d] rounded-lg shadow-xl px-4 py-3 min-w-[180px]">
-      <p className="text-xs text-[#8b949e] mb-2 font-medium">{label}</p>
+    <div className="rounded-xl shadow-xl px-4 py-3 min-w-[180px]" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-default)' }}>
+      <p className="text-xs mb-2 font-medium" style={{ color: 'var(--text-secondary)' }}>{label}</p>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4">
-          <span className="text-xs text-[#8b949e]">Account Value</span>
-          <span className="text-sm font-bold text-white">{formatNLV(nlv)}</span>
+          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Account Value</span>
+          <span className="text-sm font-bold num" style={{ color: 'var(--text-primary)' }}>{formatNLV(nlv)}</span>
         </div>
         <div className="flex items-center justify-between gap-4">
-          <span className="text-xs text-[#8b949e]">Total P&L</span>
-          <span className={`text-sm font-semibold ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Total P&L</span>
+          <span className="text-sm font-semibold num" style={{ color: isPositive ? 'var(--positive)' : 'var(--negative)' }}>
             {formatCurrency(pnl)}
           </span>
         </div>
@@ -227,22 +227,22 @@ function DayOfWeekTooltip({ active, payload }: { active?: boolean; payload?: Arr
   const isPositive = d.pnl >= 0;
 
   return (
-    <div className="bg-[#1c2128] border border-[#30363d] rounded-lg shadow-xl px-4 py-3 min-w-[160px]">
-      <p className="text-xs text-[#8b949e] mb-2 font-medium">{d.name}</p>
+    <div className="rounded-xl shadow-xl px-4 py-3 min-w-[160px]" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-default)' }}>
+      <p className="text-xs mb-2 font-semibold" style={{ color: 'var(--text-secondary)' }}>{d.name}</p>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4">
-          <span className="text-xs text-[#8b949e]">P&L</span>
-          <span className={`text-sm font-bold ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>P&L</span>
+          <span className="text-sm font-bold num" style={{ color: isPositive ? 'var(--positive)' : 'var(--negative)' }}>
             {formatDollars(d.pnl)}
           </span>
         </div>
         <div className="flex items-center justify-between gap-4">
-          <span className="text-xs text-[#8b949e]">Trades</span>
-          <span className="text-sm font-semibold text-white">{d.trades}</span>
+          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Trades</span>
+          <span className="text-sm font-semibold num" style={{ color: 'var(--text-primary)' }}>{d.trades}</span>
         </div>
         <div className="flex items-center justify-between gap-4">
-          <span className="text-xs text-[#8b949e]">Win Rate</span>
-          <span className="text-sm font-semibold text-white">{d.winRate}%</span>
+          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Win Rate</span>
+          <span className="text-sm font-semibold num" style={{ color: 'var(--text-primary)' }}>{d.winRate}%</span>
         </div>
       </div>
     </div>
@@ -366,29 +366,30 @@ export default function PerformanceView() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-8 h-8 text-[#F97316] animate-spin" />
+        <Loader2 className="w-7 h-7 animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header with period selector */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white">Performance</h2>
-          <p className="text-sm text-[#8b949e]">Track your account growth over time</p>
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Performance</h2>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>Track your account growth over time</p>
         </div>
-        <div className="flex items-center gap-1 bg-[#0d1117] rounded-lg p-1 border border-[#30363d]">
+        <div className="flex items-center gap-0.5 rounded-lg p-1" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)' }}>
           {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                period === p
-                  ? 'bg-[#F97316] text-white'
-                  : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'
-              }`}
+              className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+              style={{
+                background: period === p ? 'var(--accent)' : 'transparent',
+                color: period === p ? 'white' : 'var(--text-secondary)',
+                boxShadow: period === p ? '0 1px 4px rgba(255,107,0,0.3)' : 'none',
+              }}
             >
               {PERIOD_LABELS[p]}
             </button>
@@ -397,46 +398,48 @@ export default function PerformanceView() {
       </div>
 
       {/* Equity Curve Card */}
-      <div className={`bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden${!hasData ? ' relative' : ''}`}>
+      <div className={`rounded-xl overflow-hidden${!hasData ? ' relative' : ''}`} style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
         {!hasData && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0d1117]/60 backdrop-blur-[2px] rounded-xl">
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl backdrop-blur-[2px]" style={{ background: 'rgba(5,7,9,0.6)' }}>
             <div className="text-center px-6">
-              <BarChart3 className="w-10 h-10 text-[#F97316] mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-white mb-1">No Trade Data Yet</h3>
-              <p className="text-sm text-[#8b949e]">Import trades on the Overview tab to populate your equity curve.</p>
+              <BarChart3 className="w-9 h-9 mx-auto mb-3" style={{ color: 'var(--accent)' }} />
+              <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No Trade Data Yet</h3>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Import trades on the Overview tab to populate your equity curve.</p>
             </div>
           </div>
         )}
-        <div className={!hasData ? 'opacity-30 pointer-events-none select-none' : ''}>
-          <div className="px-6 py-4 border-b border-[#30363d]">
+        <div className={!hasData ? 'opacity-25 pointer-events-none select-none' : ''}>
+          <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-white">Equity Curve</p>
-                <p className="text-xs text-[#8b949e]">Net Liquidating Value &mdash; {PERIOD_LABELS[period]}</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Equity Curve</p>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Net Liquidating Value — {PERIOD_LABELS[period]}</p>
               </div>
               <div className="flex items-center gap-4">
                 {/* Starting Balance */}
                 <div className="flex items-center gap-2">
                   {editingBalance ? (
                     <div className="flex items-center gap-1.5">
-                      <DollarSign className="w-3.5 h-3.5 text-[#8b949e]" />
+                      <DollarSign className="w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
                       <input
                         type="number"
                         value={balanceInput}
                         onChange={(e) => setBalanceInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleBalanceSave(); }}
-                        className="w-32 bg-[#0d1117] border border-[#30363d] rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-[#F97316]"
+                        className="w-28 rounded px-2 py-1 text-xs focus:outline-none"
+                        style={{ background: 'var(--surface-2)', border: '1px solid var(--border-focus)', color: 'var(--text-primary)' }}
                         placeholder="e.g. 100000"
                         autoFocus
                       />
-                      <button onClick={handleBalanceSave} className="p-1 hover:bg-[#30363d] rounded transition-colors">
-                        <Check className="w-3.5 h-3.5 text-[#3fb950]" />
+                      <button onClick={handleBalanceSave} className="p-1 rounded transition-colors" style={{ color: 'var(--positive)' }}>
+                        <Check className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   ) : startingBalance > 0 ? (
                     <button
                       onClick={() => { setBalanceInput(startingBalance.toString()); setEditingBalance(true); }}
-                      className="flex items-center gap-1.5 text-xs text-[#8b949e] hover:text-white transition-colors group"
+                      className="flex items-center gap-1.5 text-xs transition-colors group"
+                      style={{ color: 'var(--text-tertiary)' }}
                       title="Edit starting account balance"
                     >
                       <span>Starting: {formatNLV(startingBalance)}</span>
@@ -445,7 +448,8 @@ export default function PerformanceView() {
                   ) : (
                     <button
                       onClick={() => { setBalanceInput(''); setEditingBalance(true); }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F97316]/10 border border-[#F97316]/30 rounded-lg text-xs text-[#F97316] hover:bg-[#F97316]/20 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors"
+                      style={{ background: 'var(--accent-dim)', border: '1px solid rgba(255,107,0,0.2)', color: 'var(--accent-light)' }}
                     >
                       <DollarSign className="w-3.5 h-3.5" />
                       <span>Set Starting Balance</span>
@@ -454,8 +458,8 @@ export default function PerformanceView() {
                 </div>
                 {/* NLV + P&L */}
                 <div className="text-right">
-                  <p className="text-lg font-bold text-white">{hasData ? formatNLV(currentNLV) : '$0'}</p>
-                  <p className={`text-xs font-medium ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                  <p className="text-base font-bold num" style={{ color: 'var(--text-primary)' }}>{hasData ? formatNLV(currentNLV) : '$0'}</p>
+                  <p className="text-xs font-semibold num" style={{ color: isPositive ? 'var(--positive)' : 'var(--negative)' }}>
                     {hasData ? formatCurrency(totalPnL) : '+$0'}
                     {hasData && pnlPercent !== null && ` (${isPositive ? '+' : ''}${pnlPercent}%)`}
                   </p>
@@ -464,72 +468,72 @@ export default function PerformanceView() {
             </div>
           </div>
 
-          <div className="p-4 sm:p-6">
+          <div className="p-4 sm:p-5">
             {equityCurve.length > 1 ? (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={equityCurve} margin={{ top: 10, right: 16, left: 10, bottom: 20 }}>
                   <defs>
                     <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3fb950" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#3fb950" stopOpacity={0} />
+                      <stop offset="0%" stopColor="#00C896" stopOpacity={0.2} />
+                      <stop offset="100%" stopColor="#00C896" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                   <XAxis
                     dataKey="label"
-                    tick={{ fill: '#8b949e', fontSize: 11 }}
+                    tick={{ fill: '#4A5568', fontSize: 10 }}
                     tickLine={false}
-                    axisLine={{ stroke: '#30363d' }}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.04)' }}
                     interval="preserveStartEnd"
                     dy={8}
                   />
                   <YAxis
-                    tick={{ fill: '#8b949e', fontSize: 11 }}
+                    tick={{ fill: '#4A5568', fontSize: 10 }}
                     tickLine={false}
-                    axisLine={{ stroke: '#30363d' }}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.04)' }}
                     tickFormatter={(v: number) => formatNLV(v)}
                     domain={['dataMin', 'dataMax']}
-                    width={70}
+                    width={68}
                   />
-                  <Tooltip content={<EquityTooltip />} cursor={{ stroke: '#30363d', strokeDasharray: '4 4' }} />
+                  <Tooltip content={<EquityTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.06)', strokeDasharray: '4 4' }} />
                   <Area
                     type="monotone"
                     dataKey="nlv"
-                    stroke="#3fb950"
-                    strokeWidth={2.5}
+                    stroke="#00C896"
+                    strokeWidth={2}
                     fill="url(#equityGradient)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={PLACEHOLDER_CURVE} margin={{ top: 10, right: 16, left: 10, bottom: 20 }}>
                   <defs>
                     <linearGradient id="equityGradientPlaceholder" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3fb950" stopOpacity={0.15} />
-                      <stop offset="100%" stopColor="#3fb950" stopOpacity={0} />
+                      <stop offset="0%" stopColor="#00C896" stopOpacity={0.08} />
+                      <stop offset="100%" stopColor="#00C896" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                   <XAxis
                     dataKey="label"
-                    tick={{ fill: '#8b949e', fontSize: 11 }}
+                    tick={{ fill: '#4A5568', fontSize: 10 }}
                     tickLine={false}
-                    axisLine={{ stroke: '#30363d' }}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.04)' }}
                     dy={8}
                   />
                   <YAxis
-                    tick={{ fill: '#8b949e', fontSize: 11 }}
+                    tick={{ fill: '#4A5568', fontSize: 10 }}
                     tickLine={false}
-                    axisLine={{ stroke: '#30363d' }}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.04)' }}
                     tickFormatter={(v: number) => formatNLV(v)}
-                    width={70}
+                    width={68}
                   />
                   <Area
                     type="monotone"
                     dataKey="nlv"
-                    stroke="#30363d"
-                    strokeWidth={2}
+                    stroke="rgba(255,255,255,0.08)"
+                    strokeWidth={1.5}
                     fill="url(#equityGradientPlaceholder)"
                   />
                 </AreaChart>
@@ -538,16 +542,16 @@ export default function PerformanceView() {
           </div>
 
           {/* Bottom stats bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-[#30363d] border-t border-[#30363d]">
+          <div className="grid grid-cols-2 sm:grid-cols-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
             {[
               { label: 'Total Trades', value: hasData ? String(metrics.totalTrades) : '--' },
               { label: 'Win Rate', value: hasData ? `${metrics.winRate}%` : '--' },
               { label: 'Avg Win', value: hasData ? `+$${metrics.averageWin.toFixed(0)}` : '--' },
               { label: 'Avg Loss', value: hasData ? `-$${metrics.averageLoss.toFixed(0)}` : '--' },
-            ].map((s) => (
-              <div key={s.label} className="px-3 py-3 text-center">
-                <p className="text-[10px] text-[#8b949e] mb-0.5">{s.label}</p>
-                <p className="text-sm font-bold text-white">{s.value}</p>
+            ].map((s, i) => (
+              <div key={s.label} className="px-4 py-3 text-center" style={{ borderRight: i < 3 ? '1px solid var(--border-subtle)' : 'none' }}>
+                <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{s.label}</p>
+                <p className="text-sm font-bold num" style={{ color: 'var(--text-primary)' }}>{s.value}</p>
               </div>
             ))}
           </div>
@@ -560,26 +564,26 @@ export default function PerformanceView() {
       </div>
 
       {/* Metrics cards */}
-      <div className={`grid grid-cols-2 md:grid-cols-4 gap-4${!hasData ? ' opacity-30' : ''}`}>
+      <div className={`grid grid-cols-2 md:grid-cols-4 gap-3${!hasData ? ' opacity-25' : ''}`}>
         <MetricCard
-          icon={<TrendingUp className="w-5 h-5 text-[#3fb950]" />}
+          icon={<TrendingUp className="w-4 h-4" style={{ color: 'var(--positive)' }} />}
           label="Net Profit"
           value={hasData ? formatDollars(metrics.netProfit) : '--'}
-          valueColor={metrics.netProfit >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}
+          valueStyle={{ color: metrics.netProfit >= 0 ? 'var(--positive)' : 'var(--negative)' }}
         />
         <MetricCard
-          icon={<Target className="w-5 h-5 text-[#F97316]" />}
+          icon={<Target className="w-4 h-4" style={{ color: 'var(--accent)' }} />}
           label="Profit Factor"
           value={hasData ? (metrics.profitFactor === Infinity ? '--' : metrics.profitFactor.toFixed(2)) : '--'}
         />
         <MetricCard
-          icon={<TrendingDown className="w-5 h-5 text-[#f85149]" />}
+          icon={<TrendingDown className="w-4 h-4" style={{ color: 'var(--negative)' }} />}
           label="Max Drawdown"
           value={hasData ? formatDollars(metrics.maxDrawdown) : '--'}
           sub={hasData && metrics.maxDrawdownPercent > 0 ? `${metrics.maxDrawdownPercent.toFixed(1)}%` : undefined}
         />
         <MetricCard
-          icon={<Trophy className="w-5 h-5 text-[#d2a8ff]" />}
+          icon={<Trophy className="w-4 h-4" style={{ color: '#9B8FFF' }} />}
           label="Best Streak"
           value={hasData ? `${metrics.maxWinStreak} wins` : '--'}
           sub={hasData && metrics.currentWinStreak > 0 ? `Current: ${metrics.currentWinStreak}` : undefined}
@@ -587,90 +591,90 @@ export default function PerformanceView() {
       </div>
 
       {/* Detailed Statistics + Day of Week side by side */}
-      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6${!hasData ? ' opacity-30' : ''}`}>
+      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-5${!hasData ? ' opacity-25' : ''}`}>
         {/* Detailed stats table */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#30363d]">
-            <p className="text-sm font-semibold text-white">Detailed Statistics</p>
+        <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
+          <div className="px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+            <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Detailed Statistics</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-[#30363d]">
+          <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
             {[
-              { label: 'Total Trades', value: hasData ? String(metrics.totalTrades) : '--' },
-              { label: 'Winning Trades', value: hasData ? String(metrics.winningTrades) : '--' },
-              { label: 'Losing Trades', value: hasData ? String(metrics.losingTrades) : '--' },
-              { label: 'Breakeven', value: hasData ? String(metrics.breakevenTrades) : '--' },
-              { label: 'Gross Profit', value: hasData ? formatDollars(metrics.grossProfit) : '--', color: hasData ? 'text-[#3fb950]' : undefined },
-              { label: 'Gross Loss', value: hasData ? formatDollars(metrics.grossLoss) : '--', color: hasData ? 'text-[#f85149]' : undefined },
-              { label: 'Largest Win', value: hasData ? formatDollars(metrics.largestWin) : '--', color: hasData ? 'text-[#3fb950]' : undefined },
-              { label: 'Largest Loss', value: hasData ? formatDollars(metrics.largestLoss) : '--', color: hasData ? 'text-[#f85149]' : undefined },
-              { label: 'Avg Trade', value: hasData ? formatDollars(metrics.averageTrade) : '--', color: hasData ? (metrics.averageTrade >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]') : undefined },
-              { label: 'Max Win Streak', value: hasData ? String(metrics.maxWinStreak) : '--' },
-              { label: 'Max Loss Streak', value: hasData ? String(metrics.maxLossStreak) : '--' },
-              { label: 'Current Streak', value: hasData ? (metrics.currentWinStreak > 0 ? `${metrics.currentWinStreak}W` : metrics.currentLossStreak > 0 ? `${metrics.currentLossStreak}L` : '--') : '--' },
+              { label: 'Total Trades', value: hasData ? String(metrics.totalTrades) : '--', style: {} },
+              { label: 'Winning Trades', value: hasData ? String(metrics.winningTrades) : '--', style: {} },
+              { label: 'Losing Trades', value: hasData ? String(metrics.losingTrades) : '--', style: {} },
+              { label: 'Breakeven', value: hasData ? String(metrics.breakevenTrades) : '--', style: {} },
+              { label: 'Gross Profit', value: hasData ? formatDollars(metrics.grossProfit) : '--', style: hasData ? { color: 'var(--positive)' } : {} },
+              { label: 'Gross Loss', value: hasData ? formatDollars(metrics.grossLoss) : '--', style: hasData ? { color: 'var(--negative)' } : {} },
+              { label: 'Largest Win', value: hasData ? formatDollars(metrics.largestWin) : '--', style: hasData ? { color: 'var(--positive)' } : {} },
+              { label: 'Largest Loss', value: hasData ? formatDollars(metrics.largestLoss) : '--', style: hasData ? { color: 'var(--negative)' } : {} },
+              { label: 'Avg Trade', value: hasData ? formatDollars(metrics.averageTrade) : '--', style: hasData ? { color: metrics.averageTrade >= 0 ? 'var(--positive)' : 'var(--negative)' } : {} },
+              { label: 'Max Win Streak', value: hasData ? String(metrics.maxWinStreak) : '--', style: {} },
+              { label: 'Max Loss Streak', value: hasData ? String(metrics.maxLossStreak) : '--', style: {} },
+              { label: 'Current Streak', value: hasData ? (metrics.currentWinStreak > 0 ? `${metrics.currentWinStreak}W` : metrics.currentLossStreak > 0 ? `${metrics.currentLossStreak}L` : '--') : '--', style: {} },
             ].map((s) => (
-              <div key={s.label} className="bg-[#161b22] px-6 py-3 flex items-center justify-between">
-                <span className="text-xs text-[#8b949e]">{s.label}</span>
-                <span className={`text-sm font-semibold ${s.color || 'text-white'}`}>{s.value}</span>
+              <div key={s.label} className="px-5 py-2.5 flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
+                <span className="text-xs font-semibold num" style={{ color: 'var(--text-primary)', ...s.style }}>{s.value}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Day of Week Performance */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#30363d]">
+        <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
+          <div className="px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
             <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-[#F97316]" />
-              <p className="text-sm font-semibold text-white">Day of Week</p>
+              <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+              <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Day of Week</p>
             </div>
-            <p className="text-xs text-[#8b949e]">Performance by weekday</p>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>Performance by weekday</p>
           </div>
           <div className="p-4">
             {dayOfWeekData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={dayOfWeekData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }} barCategoryGap="25%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" vertical={false} />
+              <ResponsiveContainer width="100%" height={270}>
+                <BarChart data={dayOfWeekData} margin={{ top: 5, right: 16, left: 0, bottom: 5 }} barCategoryGap="25%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
                   <XAxis
                     dataKey="name"
-                    tick={{ fill: '#8b949e', fontSize: 12, fontWeight: 500 }}
+                    tick={{ fill: '#4A5568', fontSize: 11, fontWeight: 500 }}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis
-                    tick={{ fill: '#8b949e', fontSize: 11 }}
+                    tick={{ fill: '#4A5568', fontSize: 10 }}
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(v: number) => formatNLV(v)}
                   />
-                  <Tooltip content={<DayOfWeekTooltip />} cursor={{ fill: '#21262d', radius: 4 }} />
-                  <Bar dataKey="pnl" radius={[6, 6, 0, 0]} maxBarSize={48}>
+                  <Tooltip content={<DayOfWeekTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)', radius: 4 }} />
+                  <Bar dataKey="pnl" radius={[5, 5, 0, 0]} maxBarSize={44}>
                     {dayOfWeekData.map((entry, idx) => (
                       <Cell
                         key={idx}
-                        fill={entry.pnl >= 0 ? '#3fb950' : '#f85149'}
-                        fillOpacity={0.85}
+                        fill={entry.pnl >= 0 ? '#00C896' : '#FF3D57'}
+                        fillOpacity={0.8}
                       />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={PLACEHOLDER_DOW} margin={{ top: 5, right: 20, left: 0, bottom: 5 }} barCategoryGap="25%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" vertical={false} />
+              <ResponsiveContainer width="100%" height={270}>
+                <BarChart data={PLACEHOLDER_DOW} margin={{ top: 5, right: 16, left: 0, bottom: 5 }} barCategoryGap="25%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
                   <XAxis
                     dataKey="name"
-                    tick={{ fill: '#8b949e', fontSize: 12, fontWeight: 500 }}
+                    tick={{ fill: '#4A5568', fontSize: 11, fontWeight: 500 }}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis
-                    tick={{ fill: '#8b949e', fontSize: 11 }}
+                    tick={{ fill: '#4A5568', fontSize: 10 }}
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(v: number) => formatNLV(v)}
                   />
-                  <Bar dataKey="pnl" radius={[6, 6, 0, 0]} maxBarSize={48} fill="#30363d" />
+                  <Bar dataKey="pnl" radius={[5, 5, 0, 0]} maxBarSize={44} fill="rgba(255,255,255,0.06)" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -686,23 +690,23 @@ function MetricCard({
   icon,
   label,
   value,
-  valueColor,
+  valueStyle,
   sub,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
-  valueColor?: string;
+  valueStyle?: React.CSSProperties;
   sub?: string;
 }) {
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
+    <div className="rounded-xl p-4" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
       <div className="flex items-center gap-2 mb-2">
         {icon}
-        <span className="text-xs text-[#8b949e]">{label}</span>
+        <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-tertiary)' }}>{label}</span>
       </div>
-      <p className={`text-lg font-bold ${valueColor || 'text-white'}`}>{value}</p>
-      {sub && <p className="text-xs text-[#8b949e] mt-0.5">{sub}</p>}
+      <p className="text-base font-bold num" style={{ color: 'var(--text-primary)', ...valueStyle }}>{value}</p>
+      {sub && <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
     </div>
   );
 }

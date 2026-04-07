@@ -77,8 +77,16 @@ type SortDirection = 'asc' | 'desc';
 const DEFAULT_PROMPTS = [
   { id: 'went-well', question: 'What went well today?', answer: '' },
   { id: 'improve', question: 'What could you improve?', answer: '' },
-  { id: 'followed-plan', question: 'Did you follow your trading plan?', answer: '' }
+  { id: 'followed-plan', question: 'Did you follow your trading plan?', answer: '' },
+  { id: 'other', question: 'Other', answer: '' }
 ];
+
+const mergePromptsWithDefaults = (savedPrompts: JournalPrompt[]): JournalPrompt[] => {
+  return DEFAULT_PROMPTS.map(defaultPrompt => {
+    const saved = savedPrompts.find(p => p.id === defaultPrompt.id);
+    return saved ?? { ...defaultPrompt };
+  });
+};
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -1499,8 +1507,9 @@ function JournalModal({
   onSave: () => void;
 }) {
   const [prompts, setPrompts] = useState<JournalPrompt[]>(
-    entry?.prompts?.length ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p }))
+    mergePromptsWithDefaults(entry?.prompts?.length ? entry.prompts : DEFAULT_PROMPTS.map(p => ({ ...p })))
   );
+  const [isEditing, setIsEditing] = useState(!entry);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -1517,7 +1526,7 @@ function JournalModal({
     // Validate
     const errors: Record<string, string> = {};
     prompts.forEach((prompt) => {
-      if (!prompt.answer || prompt.answer.trim() === '') {
+      if (prompt.id !== 'other' && (!prompt.answer || prompt.answer.trim() === '')) {
         errors[prompt.id] = 'This field is required';
       }
     });
@@ -1573,7 +1582,7 @@ function JournalModal({
     }
   };
 
-  const isEditMode = !!entry;
+  const hasExistingEntry = !!entry;
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1586,13 +1595,22 @@ function JournalModal({
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white">
-                {isEditMode ? 'Edit Journal Entry' : 'New Journal Entry'}
+                {!hasExistingEntry ? 'New Journal Entry' : isEditing ? 'Edit Journal Entry' : 'Journal Entry'}
               </h3>
               <p className="text-sm text-[#8b949e]">{formatDateEST(date)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isEditMode && (
+            {hasExistingEntry && !isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="p-2 hover:bg-[#30363d] text-[#8b949e] hover:text-[#F97316] rounded-lg transition-colors"
+                title="Edit entry"
+              >
+                <Edit2 className="w-5 h-5" />
+              </button>
+            )}
+            {hasExistingEntry && isEditing && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 className="p-2 hover:bg-[#da3633]/20 text-[#f85149] rounded-lg transition-colors"
@@ -1611,19 +1629,34 @@ function JournalModal({
         <div className="flex-1 overflow-auto p-4 space-y-4">
           {prompts.map((prompt) => (
             <div key={prompt.id}>
-              <label className="block text-sm font-medium text-[#F97316] mb-2">
+              <p className="text-sm font-medium text-[#F97316] mb-2">
                 {prompt.question}
-              </label>
-              <textarea
-                value={prompt.answer}
-                onChange={(e) => updatePromptAnswer(prompt.id, e.target.value)}
-                placeholder="Type your answer here..."
-                className={`w-full h-40 px-3 py-2 bg-[#0d1117] border rounded-lg text-white placeholder-[#8b949e] resize-none focus:outline-none focus:border-[#F97316] ${
-                  validationErrors[prompt.id] ? 'border-[#f85149]' : 'border-[#30363d]'
-                }`}
-              />
-              {validationErrors[prompt.id] && (
-                <p className="text-xs text-[#f85149] mt-1">{validationErrors[prompt.id]}</p>
+                {prompt.id === 'other' && (
+                  <span className="text-[#8b949e] font-normal ml-1">(optional)</span>
+                )}
+              </p>
+              {isEditing ? (
+                <>
+                  <textarea
+                    value={prompt.answer}
+                    onChange={(e) => updatePromptAnswer(prompt.id, e.target.value)}
+                    placeholder={prompt.id === 'other' ? 'Any other details about your trading today...' : 'Type your answer here...'}
+                    className={`w-full h-40 px-3 py-2 bg-[#0d1117] border rounded-lg text-white placeholder-[#8b949e] resize-none focus:outline-none focus:border-[#F97316] ${
+                      validationErrors[prompt.id] ? 'border-[#f85149]' : 'border-[#30363d]'
+                    }`}
+                  />
+                  {validationErrors[prompt.id] && (
+                    <p className="text-xs text-[#f85149] mt-1">{validationErrors[prompt.id]}</p>
+                  )}
+                </>
+              ) : (
+                <div className="pl-4 border-l-2 border-[#F97316]/40 py-1">
+                  {prompt.answer ? (
+                    <p className="text-[#c9d1d9] whitespace-pre-wrap leading-relaxed">{prompt.answer}</p>
+                  ) : (
+                    <p className="text-[#8b949e] italic">No response</p>
+                  )}
+                </div>
               )}
             </div>
           ))}
@@ -1642,29 +1675,40 @@ function JournalModal({
 
         {/* Footer */}
         <div className="p-4 border-t border-[#30363d] bg-[#0d1117] flex justify-between">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-[#8b949e] hover:text-white transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg transition-colors disabled:opacity-50"
-          >
-            {isSaving ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                {isEditMode ? 'Update Entry' : 'Save Entry'}
-              </>
-            )}
-          </button>
+          {isEditing ? (
+            <>
+              <button
+                onClick={() => hasExistingEntry ? setIsEditing(false) : onClose()}
+                className="px-4 py-2 text-[#8b949e] hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea580c] text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    {hasExistingEntry ? 'Update Entry' : 'Save Entry'}
+                  </>
+                )}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onClose}
+              className="ml-auto px-4 py-2 text-[#8b949e] hover:text-white transition-colors"
+            >
+              Close
+            </button>
+          )}
         </div>
       </div>
 

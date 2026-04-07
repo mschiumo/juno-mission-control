@@ -46,38 +46,42 @@ export default function TradeManagementView() {
           <button
             data-tour="trading-mode"
             onClick={enterTradingMode}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#F97316] hover:bg-[#F97316]/10 rounded-lg transition-all"
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all btn-ghost"
           >
             <Maximize2 className="w-3.5 h-3.5" />
             Trading Mode
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Daily Favorites + Calculator - Left */}
-          <div className="space-y-6">
+          <div className="space-y-5">
             <QuickWatchlist
               onSelectTicker={setSelectedTicker}
               calculatorRef={calculatorRef}
             />
-            <div ref={calculatorRef} data-tour="position-calculator" className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden sticky top-6">
-              <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
-                <Calculator className="w-5 h-5 text-[#F97316]" />
-                <h3 className="text-lg font-semibold text-white">Position Calculator</h3>
+            <div ref={calculatorRef} data-tour="position-calculator" className="rounded-xl overflow-hidden sticky top-6" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
+              <div className="flex items-center gap-2.5 px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.01)' }}>
+                <div className="flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: 'var(--accent-dim)' }}>
+                  <Calculator className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                </div>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Position Calculator</h3>
               </div>
-              <div className="p-6">
+              <div className="p-5">
                 <PositionCalculator initialTicker={selectedTicker} onTickerChange={setSelectedTicker} />
               </div>
             </div>
           </div>
 
           {/* Watchlist - Right */}
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50 shrink-0">
-              <Bookmark className="w-5 h-5 text-[#F97316]" />
-              <h3 className="text-lg font-semibold text-white">Watchlist</h3>
+          <div className="rounded-xl overflow-hidden flex flex-col" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
+            <div className="flex items-center gap-2.5 px-5 py-3.5 shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.01)' }}>
+              <div className="flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: 'var(--accent-dim)' }}>
+                <Bookmark className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+              </div>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Watchlist</h3>
             </div>
-            <div className="p-6 flex-1 min-h-0 overflow-y-auto">
+            <div className="p-5 flex-1 min-h-0 overflow-y-auto">
               <WatchlistView />
             </div>
           </div>
@@ -88,33 +92,32 @@ export default function TradeManagementView() {
       {tradingMode && (
         <div
           ref={tradingModeContainerRef}
-          className="fixed inset-0 z-50 bg-[#0d1117] flex flex-col overflow-hidden"
+          className="fixed inset-0 z-50 flex flex-col overflow-hidden"
+          style={{ background: 'var(--bg-base)' }}
         >
           {/* Top bar */}
-          <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-[#30363d] bg-[#161b22]">
+          <div className="shrink-0 flex items-center justify-between px-6 py-3" style={{ borderBottom: '1px solid var(--border-default)', background: 'var(--surface-1)' }}>
             <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-[#F97316] animate-pulse" />
-              <span className="text-sm font-semibold text-white tracking-wide">Trading Mode</span>
-              <span className="text-xs text-[#8b949e]">Press Esc to exit</span>
+              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--accent)' }} />
+              <span className="text-sm font-semibold tracking-wide" style={{ color: 'var(--text-primary)' }}>Trading Mode</span>
+              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Press Esc to exit</span>
             </div>
             <button
               onClick={exitTradingMode}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#f85149] hover:bg-[#f85149]/10 rounded-lg transition-all"
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
+              style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}
             >
               <Minimize2 className="w-3.5 h-3.5" />
               Exit
             </button>
           </div>
 
-          {/* Content — no outer scroll, each section manages its own */}
-          <div className="flex-1 min-h-0 flex flex-col gap-4 p-6 overflow-hidden">
-            {/* Row 1 — Active Trades: ~60% */}
+          {/* Content */}
+          <div className="flex-1 min-h-0 flex flex-col gap-4 p-5 overflow-hidden">
             <div className="flex-[3] min-h-0 flex flex-col">
               <ActiveTradesStrip />
             </div>
-
-            {/* Row 2 — Potential Trades: ~40% */}
-            <div className="flex-[2] min-h-0 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
+            <div className="flex-[2] min-h-0 rounded-xl overflow-hidden flex flex-col" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
               <div className="flex-1 min-h-0 overflow-y-auto p-4">
                 <WatchlistView hideActiveTrades hideClosedPositions cardColumns={4} emptyMessage="Add trades to your Watchlist to see them here" />
               </div>
