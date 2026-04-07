@@ -1650,9 +1650,9 @@ function JournalModal({
                   )}
                 </>
               ) : (
-                <div className="px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg min-h-[4rem]">
+                <div className="pl-4 border-l-2 border-[#F97316]/40 py-1">
                   {prompt.answer ? (
-                    <p className="text-white whitespace-pre-wrap">{prompt.answer}</p>
+                    <p className="text-[#c9d1d9] whitespace-pre-wrap leading-relaxed">{prompt.answer}</p>
                   ) : (
                     <p className="text-[#8b949e] italic">No response</p>
                   )}
