@@ -5,15 +5,23 @@ export default auth((req) => {
   const { nextUrl, auth: session } = req;
   const isLoggedIn = !!session;
 
-  // Allow cron/internal API routes without session
-  const isInternalApi =
-    nextUrl.pathname.startsWith('/api/cron') ||
-    nextUrl.pathname.startsWith('/api/cron-jobs') ||
-    nextUrl.pathname.startsWith('/api/run-cron') ||
-    nextUrl.pathname.startsWith('/api/cron-results') ||
-    nextUrl.pathname.startsWith('/api/gap-scanner');
+  // Vercel-scheduled cron routes bypass user session auth but require CRON_SECRET.
+  const isVercelCron =
+    nextUrl.pathname.startsWith('/api/cron/') ||
+    nextUrl.pathname.startsWith('/api/cron-jobs/');
 
-  if (isInternalApi) return NextResponse.next();
+  if (isVercelCron) {
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      return NextResponse.json({ error: 'Cron not configured' }, { status: 503 });
+    }
+    const authHeader = req.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (token !== cronSecret) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
 
   const publicPaths = ['/', '/login', '/signup'];
   const authPages = ['/login', '/signup']; // redirect away from these when already logged in

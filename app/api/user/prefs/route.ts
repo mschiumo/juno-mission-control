@@ -56,6 +56,24 @@ export async function POST(request: Request) {
   }
 
   const url = body.calendarUrl.trim();
+
+  // Validate protocol to prevent SSRF (reject file://, ftp://, internal IPs, etc.)
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return NextResponse.json({ success: false, error: 'Invalid URL' }, { status: 400 });
+  }
+  if (!['https:', 'http:'].includes(parsedUrl.protocol)) {
+    return NextResponse.json({ success: false, error: 'Only HTTPS/HTTP calendar URLs are allowed' }, { status: 400 });
+  }
+  // Block private/loopback IP ranges to prevent SSRF
+  const hostname = parsedUrl.hostname;
+  const privateRanges = /^(localhost|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|::1|fc00:|fe80:)/i;
+  if (privateRanges.test(hostname)) {
+    return NextResponse.json({ success: false, error: 'Private network URLs are not allowed' }, { status: 400 });
+  }
+
   const isIcalUrl = url.includes('/ical/') || url.endsWith('.ics') || url.includes('ical=true');
   if (!isIcalUrl) {
     return NextResponse.json({
@@ -65,7 +83,7 @@ export async function POST(request: Request) {
   }
 
   const existing = await getPrefs(userId);
-  await savePrefs(userId, { ...existing, calendarUrl: body.calendarUrl.trim() });
+  await savePrefs(userId, { ...existing, calendarUrl: url });
 
   return NextResponse.json({ success: true });
 }

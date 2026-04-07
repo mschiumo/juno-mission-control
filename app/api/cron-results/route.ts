@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
+import { requireUserId, requireCronSecret } from '@/lib/auth-session';
 
 interface CronResult {
   id: string;
@@ -39,6 +40,9 @@ async function getRedisClient() {
 }
 
 export async function GET(request: Request) {
+  const authResult = await requireUserId();
+  if (authResult.error) return authResult.error;
+
   try {
     const { searchParams } = new URL(request.url);
     const jobName = searchParams.get('jobName');
@@ -101,6 +105,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const authError = requireCronSecret(request);
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const { jobName, content, type } = body;

@@ -22,15 +22,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
     }
 
-    const user = await createUser(email, name, password);
+    await createUser(email, name, password);
 
-    return NextResponse.json({
-      success: true,
-      user: { id: user.id, email: user.email, name: user.name },
-    });
+    return NextResponse.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Registration failed';
-    const status = message === 'Email already registered' ? 409 : 500;
-    return NextResponse.json({ error: message }, { status });
+    if (message === 'Email already registered') {
+      // Return the same response as success to prevent email enumeration.
+      return NextResponse.json({ success: true });
+    }
+    return NextResponse.json({ error: 'Registration failed' }, { status: 500 });
   }
 }
