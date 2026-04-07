@@ -93,67 +93,65 @@ export default function TradingView() {
   const ActiveIcon = subTabs.find((t) => t.id === activeSubTab)?.icon || BookOpen;
 
   return (
-    <div className="space-y-6">
-      {/* Sub-Navigation - Desktop: Buttons, Mobile: Dropdown */}
-      <div data-tour="trading-nav" className="bg-[#161b22] border border-[#30363d] rounded-xl p-2">
-        {/* Desktop - Button Grid */}
-        <div className="hidden md:flex flex-wrap gap-1">
+    <div className="space-y-5">
+      {/* Sub-Navigation — Desktop: underline tabs, Mobile: dropdown */}
+      <div data-tour="trading-nav">
+        {/* Desktop */}
+        <div className="hidden md:flex tab-underline-nav">
           {subTabs.map((tab) => {
             const Icon = tab.icon;
+            const isActive = activeSubTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveSubTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                  activeSubTab === tab.id
-                    ? 'bg-[#F97316] text-white'
-                    : 'text-[#8b949e] hover:bg-[#262626] hover:text-white'
-                }`}
+                className={`tab-underline flex items-center gap-2 ${isActive ? 'active' : ''}`}
               >
-                <Icon className="w-4 h-4" />
-                <span className="text-sm font-medium">{tab.label}</span>
+                <Icon className="w-3.5 h-3.5" />
+                <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Mobile - Hamburger Menu */}
+        {/* Mobile - Dropdown */}
         <div className="md:hidden">
-          {/* Hamburger Button */}
           <button
             onClick={() => setMobileDropdownOpen(!mobileDropdownOpen)}
-            className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-[#0d1117] border border-[#30363d] rounded-lg text-white"
+            className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl transition-all"
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
           >
             <div className="flex items-center gap-2">
-              <ActiveIcon className="w-5 h-5 text-[#F97316]" />
-              <span className="font-medium">{activeTabLabel}</span>
+              <ActiveIcon className="w-4 h-4" style={{ color: 'var(--accent)' } as React.CSSProperties} />
+              <span className="text-sm font-medium">{activeTabLabel}</span>
             </div>
             {mobileDropdownOpen ? (
-              <X className="w-5 h-5 text-[#8b949e]" />
+              <X className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
             ) : (
-              <Menu className="w-5 h-5 text-[#8b949e]" />
+              <Menu className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
             )}
           </button>
 
-          {/* Expanded Menu */}
           {mobileDropdownOpen && (
-            <div className="mt-2 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+            <div className="mt-1 rounded-xl overflow-hidden" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)' }}>
               {subTabs.map((tab) => {
                 const Icon = tab.icon;
+                const isActive = activeSubTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveSubTab(tab.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
-                      activeSubTab === tab.id
-                        ? 'bg-[#F97316]/20 text-white'
-                        : 'text-[#8b949e] hover:bg-[#262626] hover:text-white'
-                    }`}
+                    className="w-full flex items-center gap-3 px-4 py-3 transition-colors"
+                    style={{
+                      background: isActive ? 'var(--accent-dim)' : 'transparent',
+                      color: isActive ? 'var(--accent-light)' : 'var(--text-secondary)',
+                      borderBottom: '1px solid var(--border-subtle)',
+                    }}
                   >
-                    <Icon className={`w-5 h-5 ${activeSubTab === tab.id ? 'text-[#F97316]' : ''}`} />
-                    <span className="font-medium">{tab.label}</span>
-                    {activeSubTab === tab.id && (
-                      <div className="ml-auto w-2 h-2 bg-[#F97316] rounded-full" />
+                    <Icon className="w-4 h-4" style={{ color: isActive ? 'var(--accent)' : 'inherit' } as React.CSSProperties} />
+                    <span className="text-sm font-medium">{tab.label}</span>
+                    {isActive && (
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent)' }} />
                     )}
                   </button>
                 );
