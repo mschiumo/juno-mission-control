@@ -24,6 +24,28 @@ interface GapScannerEmailProps {
   marketSession?: string;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Design tokens (Dark Precision palette)                             */
+/* ------------------------------------------------------------------ */
+
+const PALETTE = {
+  bgBase:        '#050709',
+  surface1:      '#0a0e15',
+  borderSubtle:  'rgba(255,255,255,0.04)',
+  borderDefault: 'rgba(255,255,255,0.08)',
+  accent:        '#FF6B00',
+  positive:      '#00C896',
+  positiveDim:   'rgba(0,200,150,0.1)',
+  negative:      '#FF3D57',
+  negativeDim:   'rgba(255,61,87,0.1)',
+  warning:       '#F5A623',
+  warningDim:    'rgba(245,166,35,0.1)',
+  textPrimary:   '#EEF2F7',
+  textSecondary: '#7E8CA0',
+  textTertiary:  '#4A5568',
+  info:          '#4DA6FF',
+};
+
 function formatVolume(vol: number): string {
   if (vol >= 1_000_000) return `${(vol / 1_000_000).toFixed(1)}M`;
   if (vol >= 1_000) return `${(vol / 1_000).toFixed(0)}K`;
@@ -41,20 +63,21 @@ function formatMarketCap(cap: number | undefined): string {
 /*  Gap row with inline bar showing gap magnitude                      */
 /* ------------------------------------------------------------------ */
 
-function GapRow({ stock, maxGap, color, barBg }: {
+function GapRow({ stock, maxGap, color, barBg, dimBg }: {
   stock: GapStock;
   maxGap: number;
   color: string;
   barBg: string;
+  dimBg: string;
 }) {
   const absGap = Math.abs(stock.gapPercent);
   const barWidth = maxGap > 0 ? Math.round((absGap / maxGap) * 100) : 0;
   const sign = stock.gapPercent >= 0 ? '+' : '';
-  const rowBg = stock.gapPercent >= 0 ? 'rgba(63,185,80,0.04)' : 'rgba(248,81,73,0.04)';
+  const rowBg = stock.gapPercent >= 0 ? 'rgba(0,200,150,0.03)' : 'rgba(255,61,87,0.03)';
 
   return (
     <Row style={{ ...tableRow, backgroundColor: rowBg }}>
-      <Column style={{ width: '22%', verticalAlign: 'middle' as const, paddingLeft: '8px' }}>
+      <Column style={{ width: '22%', verticalAlign: 'middle' as const, paddingLeft: '10px' }}>
         <Link
           href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
           style={symbolLink}
@@ -63,7 +86,7 @@ function GapRow({ stock, maxGap, color, barBg }: {
         </Link>
       </Column>
       <Column style={{ width: '18%', textAlign: 'right' as const, verticalAlign: 'middle' as const }}>
-        <Text style={{ ...gapText, color }}>
+        <Text style={{ ...gapText, color, backgroundColor: dimBg, borderRadius: '5px', padding: '2px 8px' }}>
           {sign}{stock.gapPercent.toFixed(1)}%
         </Text>
       </Column>
@@ -78,7 +101,7 @@ function GapRow({ stock, maxGap, color, barBg }: {
       <Column style={{ width: '12%', textAlign: 'right' as const, verticalAlign: 'middle' as const }}>
         <Text style={volText}>{formatVolume(stock.volume)}</Text>
       </Column>
-      <Column style={{ width: '10%', textAlign: 'right' as const, verticalAlign: 'middle' as const, paddingRight: '8px' }}>
+      <Column style={{ width: '10%', textAlign: 'right' as const, verticalAlign: 'middle' as const, paddingRight: '10px' }}>
         <Text style={volText}>{formatMarketCap(stock.marketCap)}</Text>
       </Column>
     </Row>
@@ -89,12 +112,13 @@ function GapRow({ stock, maxGap, color, barBg }: {
 /*  Gap table with header and rows                                     */
 /* ------------------------------------------------------------------ */
 
-function GapTable({ stocks, title, icon, color, barBg }: {
+function GapTable({ stocks, title, icon, color, barBg, dimBg }: {
   stocks: GapStock[];
   title: string;
   icon: string;
   color: string;
   barBg: string;
+  dimBg: string;
 }) {
   if (stocks.length === 0) return null;
   const top10 = stocks.slice(0, 10);
@@ -102,10 +126,10 @@ function GapTable({ stocks, title, icon, color, barBg }: {
 
   return (
     <Section style={card}>
-      <Row style={{ padding: '0 0 8px' }}>
+      <Row style={sectionHeaderRow}>
         <Column>
           <Text style={{ ...sectionTitle, color }}>
-            <span style={{ marginRight: '6px', fontSize: '14px' }}>{icon}</span>
+            <span style={{ marginRight: '7px', fontSize: '14px' }}>{icon}</span>
             {title}
           </Text>
         </Column>
@@ -113,16 +137,16 @@ function GapTable({ stocks, title, icon, color, barBg }: {
 
       {/* Column headers */}
       <Row style={headerRow}>
-        <Column style={{ width: '22%', paddingLeft: '8px' }}><Text style={colHeader}>Symbol</Text></Column>
+        <Column style={{ width: '22%', paddingLeft: '10px' }}><Text style={colHeader}>Symbol</Text></Column>
         <Column style={{ width: '18%', textAlign: 'right' as const }}><Text style={colHeader}>Gap</Text></Column>
         <Column style={{ width: '20%', paddingLeft: '10px' }}><Text style={colHeader}></Text></Column>
         <Column style={{ width: '18%', textAlign: 'right' as const }}><Text style={colHeader}>Price</Text></Column>
         <Column style={{ width: '12%', textAlign: 'right' as const }}><Text style={colHeader}>Vol</Text></Column>
-        <Column style={{ width: '10%', textAlign: 'right' as const, paddingRight: '8px' }}><Text style={colHeader}>Cap</Text></Column>
+        <Column style={{ width: '10%', textAlign: 'right' as const, paddingRight: '10px' }}><Text style={colHeader}>Cap</Text></Column>
       </Row>
 
       {top10.map((stock) => (
-        <GapRow key={stock.symbol} stock={stock} maxGap={maxGap} color={color} barBg={barBg} />
+        <GapRow key={stock.symbol} stock={stock} maxGap={maxGap} color={color} barBg={barBg} dimBg={dimBg} />
       ))}
     </Section>
   );
@@ -154,7 +178,7 @@ export function GapScannerEmail({
             <Text style={dateTextStyle}>Pre-Market Gap Scan</Text>
             <Text style={dateSubtext}>{displayDate}</Text>
           </Column>
-          <Column style={{ width: '120px', textAlign: 'right' as const, verticalAlign: 'middle' as const }}>
+          <Column style={{ width: '130px', textAlign: 'right' as const, verticalAlign: 'middle' as const }}>
             <Text style={sessionBadge}>
               {marketSession || 'Pre-Market'}
             </Text>
@@ -162,19 +186,19 @@ export function GapScannerEmail({
         </Row>
 
         {/* Summary stats */}
-        <Section style={{ padding: '12px 0 0' }}>
+        <Section style={{ padding: '14px 0 0' }}>
           <Row>
             <Column>
               <Text style={summaryStats}>
-                <span style={{ color: '#3fb950', fontWeight: 700 }}>{gainers.length}</span>
-                <span style={{ color: '#8b949e' }}> gapping up</span>
-                {' · '}
-                <span style={{ color: '#f85149', fontWeight: 700 }}>{losers.length}</span>
-                <span style={{ color: '#8b949e' }}> gapping down</span>
+                <span style={{ color: PALETTE.positive, fontWeight: 700 }}>{gainers.length}</span>
+                <span style={{ color: PALETTE.textTertiary }}> gapping up</span>
+                {'  ·  '}
+                <span style={{ color: PALETTE.negative, fontWeight: 700 }}>{losers.length}</span>
+                <span style={{ color: PALETTE.textTertiary }}> gapping down</span>
                 {scanned ? (
                   <>
-                    {' · '}
-                    <span style={{ color: '#8b949e' }}>{scanned.toLocaleString()} scanned</span>
+                    {'  ·  '}
+                    <span style={{ color: PALETTE.textTertiary }}>{scanned.toLocaleString()} scanned</span>
                   </>
                 ) : null}
               </Text>
@@ -192,8 +216,9 @@ export function GapScannerEmail({
         stocks={gainers}
         title="Top Gainers"
         icon="🟢"
-        color="#3fb950"
-        barBg="#3fb950"
+        color={PALETTE.positive}
+        barBg={PALETTE.positive}
+        dimBg={PALETTE.positiveDim}
       />
 
       {/* Losers table */}
@@ -201,8 +226,9 @@ export function GapScannerEmail({
         stocks={losers}
         title="Top Losers"
         icon="🔴"
-        color="#f85149"
-        barBg="#f85149"
+        color={PALETTE.negative}
+        barBg={PALETTE.negative}
+        dimBg={PALETTE.negativeDim}
       />
     </EmailLayout>
   );
@@ -215,75 +241,82 @@ export default GapScannerEmail;
 /* ------------------------------------------------------------------ */
 
 const card: React.CSSProperties = {
-  backgroundColor: '#161b22',
-  border: '1px solid #30363d',
-  borderRadius: '12px',
-  padding: '16px 20px',
-  marginBottom: '10px',
+  background: 'linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 60%), #0a0e15',
+  border: `1px solid ${PALETTE.borderDefault}`,
+  borderRadius: '14px',
+  padding: '20px 24px',
+  marginBottom: '12px',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02)',
 };
 
 const dateTextStyle: React.CSSProperties = {
-  color: '#ffffff',
-  fontSize: '20px',
+  color: PALETTE.textPrimary,
+  fontSize: '22px',
   fontWeight: 800,
   letterSpacing: '-0.02em',
   margin: 0,
 };
 
 const dateSubtext: React.CSSProperties = {
-  color: '#8b949e',
+  color: PALETTE.textSecondary,
   fontSize: '13px',
   fontWeight: 500,
-  margin: '2px 0 0',
+  margin: '3px 0 0',
 };
 
 const sessionBadge: React.CSSProperties = {
   display: 'inline-block',
   fontSize: '12px',
   fontWeight: 700,
-  padding: '5px 14px',
+  padding: '6px 16px',
   borderRadius: '8px',
   margin: 0,
-  letterSpacing: '0.02em',
-  color: '#d29922',
-  backgroundColor: '#2d2208',
-  border: '1px solid #d2992230',
+  letterSpacing: '0.03em',
+  color: PALETTE.warning,
+  backgroundColor: PALETTE.warningDim,
+  border: `1px solid ${PALETTE.warning}40`,
 };
 
 const summaryStats: React.CSSProperties = {
   fontSize: '12px',
-  margin: '0 0 6px',
+  margin: '0 0 7px',
   lineHeight: '18px',
 };
 
 const heatBarTrack: React.CSSProperties = {
   height: '4px',
-  backgroundColor: '#f8514930',
+  backgroundColor: PALETTE.negativeDim,
   borderRadius: '2px',
   overflow: 'hidden',
 };
 
 const heatBarFillGreen: React.CSSProperties = {
   height: '4px',
-  backgroundColor: '#3fb950',
+  backgroundColor: PALETTE.positive,
   borderRadius: '2px',
 };
 
+const sectionHeaderRow: React.CSSProperties = {
+  padding: '0 0 10px',
+  borderBottom: `1px solid ${PALETTE.borderSubtle}`,
+  marginBottom: '4px',
+};
+
 const sectionTitle: React.CSSProperties = {
-  fontSize: '12px',
+  fontSize: '11px',
   fontWeight: 700,
   textTransform: 'uppercase' as const,
-  letterSpacing: '0.06em',
+  letterSpacing: '0.08em',
   margin: 0,
 };
 
 const headerRow: React.CSSProperties = {
-  borderBottom: '1px solid #30363d',
-  padding: '0 0 6px',
+  borderBottom: `1px solid ${PALETTE.borderDefault}`,
+  padding: '8px 0 6px',
 };
 
 const colHeader: React.CSSProperties = {
-  color: '#484f58',
+  color: PALETTE.textTertiary,
   fontSize: '10px',
   fontWeight: 600,
   textTransform: 'uppercase' as const,
@@ -292,26 +325,27 @@ const colHeader: React.CSSProperties = {
 };
 
 const tableRow: React.CSSProperties = {
-  borderBottom: '1px solid #21262d',
-  padding: '7px 0',
+  borderBottom: `1px solid ${PALETTE.borderSubtle}`,
+  padding: '8px 0',
 };
 
 const symbolLink: React.CSSProperties = {
-  color: '#58a6ff',
+  color: PALETTE.info,
   fontSize: '13px',
   fontWeight: 700,
   textDecoration: 'none',
 };
 
 const gapText: React.CSSProperties = {
-  fontSize: '13px',
+  fontSize: '12px',
   fontWeight: 700,
   margin: 0,
+  fontVariantNumeric: 'tabular-nums',
 };
 
 const barTrack: React.CSSProperties = {
   height: '4px',
-  backgroundColor: '#21262d',
+  backgroundColor: PALETTE.borderSubtle,
   borderRadius: '2px',
   overflow: 'hidden',
 };
@@ -322,14 +356,15 @@ const barFill: React.CSSProperties = {
 };
 
 const priceText: React.CSSProperties = {
-  color: '#e6edf3',
+  color: PALETTE.textPrimary,
   fontSize: '13px',
   fontWeight: 500,
   margin: 0,
+  fontVariantNumeric: 'tabular-nums',
 };
 
 const volText: React.CSSProperties = {
-  color: '#8b949e',
+  color: PALETTE.textSecondary,
   fontSize: '11px',
   margin: 0,
 };

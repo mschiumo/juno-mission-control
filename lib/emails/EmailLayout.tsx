@@ -50,9 +50,9 @@ export function EmailLayout({ children, previewText }: EmailLayoutProps) {
                 <Img
                   src={`${APP_URL}/icon.svg`}
                   alt="Confluence"
-                  width="36"
-                  height="36"
-                  style={{ margin: '0 auto 8px', borderRadius: '10px' }}
+                  width="40"
+                  height="40"
+                  style={{ margin: '0 auto 10px', borderRadius: '12px' }}
                 />
                 <Text style={headerTitle}>Confluence Trading</Text>
                 <Text style={headerSubtitle}>Trading Command Center</Text>
@@ -61,7 +61,7 @@ export function EmailLayout({ children, previewText }: EmailLayoutProps) {
           </Section>
 
           {/* Gradient accent line */}
-          <Section style={{ padding: '0 0 16px' }}>
+          <Section style={{ padding: '0 0 20px' }}>
             <div style={gradientLine} />
           </Section>
 
@@ -69,7 +69,7 @@ export function EmailLayout({ children, previewText }: EmailLayoutProps) {
           {children}
 
           {/* Open Dashboard CTA */}
-          <Section style={{ textAlign: 'center' as const, padding: '8px 0 20px' }}>
+          <Section style={{ textAlign: 'center' as const, padding: '12px 0 24px' }}>
             <Button href={APP_URL} style={dashboardButton}>
               Open Dashboard
             </Button>
@@ -101,76 +101,82 @@ export function EmailLayout({ children, previewText }: EmailLayoutProps) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Styles — Dark Precision palette                                    */
+/* ------------------------------------------------------------------ */
+
 const body: React.CSSProperties = {
-  backgroundColor: '#0d1117',
+  backgroundColor: '#050709',
   fontFamily: 'Inter, Helvetica, Arial, sans-serif',
   margin: 0,
   padding: 0,
+  WebkitFontSmoothing: 'antialiased',
 };
 
 const container: React.CSSProperties = {
-  maxWidth: '600px',
+  maxWidth: '680px',
   margin: '0 auto',
-  padding: '20px 16px',
+  padding: '24px 20px',
 };
 
 const header: React.CSSProperties = {
   textAlign: 'center' as const,
-  padding: '28px 0 12px',
+  padding: '32px 0 16px',
 };
 
 const headerTitle: React.CSSProperties = {
-  color: '#ffffff',
-  fontSize: '22px',
+  color: '#EEF2F7',
+  fontSize: '24px',
   fontWeight: 800,
   letterSpacing: '-0.02em',
   margin: '0 0 2px',
 };
 
 const headerSubtitle: React.CSSProperties = {
-  color: '#8b949e',
-  fontSize: '12px',
+  color: '#4A5568',
+  fontSize: '11px',
   fontWeight: 500,
-  letterSpacing: '0.04em',
+  letterSpacing: '0.1em',
   textTransform: 'uppercase' as const,
   margin: 0,
 };
 
 const gradientLine: React.CSSProperties = {
   height: '2px',
-  background: 'linear-gradient(90deg, transparent, #F97316, #ea580c, transparent)',
+  background: 'linear-gradient(90deg, transparent, #FF6B00, #FF8C38, transparent)',
   borderRadius: '1px',
 };
 
 const dashboardButton: React.CSSProperties = {
-  backgroundColor: '#F97316',
+  backgroundColor: '#FF6B00',
   color: '#ffffff',
   fontSize: '13px',
   fontWeight: 600,
-  padding: '10px 28px',
+  padding: '11px 32px',
   borderRadius: '8px',
   textDecoration: 'none',
   display: 'inline-block',
+  letterSpacing: '0.01em',
 };
 
 const divider: React.CSSProperties = {
-  borderColor: '#21262d',
+  borderColor: 'rgba(255,255,255,0.06)',
   margin: '16px 0',
 };
 
 const footer: React.CSSProperties = {
   textAlign: 'center' as const,
-  padding: '0 0 24px',
+  padding: '0 0 28px',
 };
 
 const footerText: React.CSSProperties = {
-  color: '#484f58',
+  color: '#2D3748',
   fontSize: '11px',
   lineHeight: '18px',
   margin: '4px 0',
 };
 
 const footerLink: React.CSSProperties = {
-  color: '#F97316',
+  color: '#4A5568',
   textDecoration: 'none',
 };

@@ -40,19 +40,46 @@ interface BriefingEmailProps {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/*  Design tokens (Dark Precision palette)                             */
+/* ------------------------------------------------------------------ */
+
+const PALETTE = {
+  bgBase:       '#050709',
+  surface1:     '#0a0e15',
+  surface2:     '#0f1520',
+  surface3:     '#151d2a',
+  borderSubtle: 'rgba(255,255,255,0.04)',
+  borderDefault:'rgba(255,255,255,0.08)',
+  borderStrong: 'rgba(255,255,255,0.13)',
+  accent:       '#FF6B00',
+  accentLight:  '#FF8C38',
+  accentDim:    'rgba(255,107,0,0.12)',
+  positive:     '#00C896',
+  positiveDim:  'rgba(0,200,150,0.1)',
+  negative:     '#FF3D57',
+  negativeDim:  'rgba(255,61,87,0.1)',
+  warning:      '#F5A623',
+  warningDim:   'rgba(245,166,35,0.1)',
+  textPrimary:  '#EEF2F7',
+  textSecondary:'#7E8CA0',
+  textTertiary: '#4A5568',
+  info:         '#4DA6FF',
+};
+
 const SENTIMENT_CONFIG: Record<string, { color: string; bg: string; icon: string; label: string }> = {
-  bullish: { color: '#3fb950', bg: '#132d1b', icon: '▲', label: 'Bullish' },
-  bearish: { color: '#f85149', bg: '#3b1c1c', icon: '▼', label: 'Bearish' },
-  neutral: { color: '#8b949e', bg: '#1c2128', icon: '●', label: 'Neutral' },
-  mixed: { color: '#d29922', bg: '#2d2208', icon: '◆', label: 'Mixed' },
+  bullish: { color: PALETTE.positive,  bg: PALETTE.positiveDim,  icon: '▲', label: 'Bullish' },
+  bearish: { color: PALETTE.negative,  bg: PALETTE.negativeDim,  icon: '▼', label: 'Bearish' },
+  neutral: { color: PALETTE.textSecondary, bg: 'rgba(126,140,160,0.1)', icon: '●', label: 'Neutral' },
+  mixed:   { color: PALETTE.warning,   bg: PALETTE.warningDim,   icon: '◆', label: 'Mixed' },
 };
 
 const SECTION_ICONS: Record<string, string> = {
   snapshot: '📊',
-  gaps: '🔍',
-  movers: '⚡',
-  news: '📰',
-  events: '📅',
+  gaps:     '🔍',
+  movers:   '⚡',
+  news:     '📰',
+  events:   '📅',
 };
 
 function getTickerUrl(symbol: string): string {
@@ -73,33 +100,33 @@ function formatPrice(price: number, symbol: string): string {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Ticker row with direction arrow and subtle row tint               */
+/*  Ticker row                                                         */
 /* ------------------------------------------------------------------ */
 
 function TickerRow({ item }: { item: MarketItem }) {
   const isUp = item.change >= 0;
   const sign = isUp ? '+' : '';
   const arrow = isUp ? '▲' : '▼';
-  const arrowColor = isUp ? '#3fb950' : '#f85149';
-  const pillBg = isUp ? '#132d1b' : '#3b1c1c';
-  const pillColor = isUp ? '#3fb950' : '#f85149';
-  const rowBg = isUp ? 'rgba(63,185,80,0.04)' : 'rgba(248,81,73,0.04)';
+  const arrowColor = isUp ? PALETTE.positive : PALETTE.negative;
+  const pillBg = isUp ? PALETTE.positiveDim : PALETTE.negativeDim;
+  const pillColor = isUp ? PALETTE.positive : PALETTE.negative;
+  const rowBg = isUp ? 'rgba(0,200,150,0.03)' : 'rgba(255,61,87,0.03)';
 
   return (
     <Row style={{ ...tickerRow, backgroundColor: rowBg }}>
-      <Column style={{ width: '5%', verticalAlign: 'middle' as const, paddingLeft: '8px' }}>
-        <Text style={{ color: arrowColor, fontSize: '8px', margin: 0, lineHeight: '14px' }}>{arrow}</Text>
+      <Column style={{ width: '5%', verticalAlign: 'middle' as const, paddingLeft: '10px' }}>
+        <Text style={{ color: arrowColor, fontSize: '8px', margin: 0, lineHeight: '16px' }}>{arrow}</Text>
       </Column>
-      <Column style={{ width: '40%', verticalAlign: 'middle' as const }}>
+      <Column style={{ width: '42%', verticalAlign: 'middle' as const }}>
         <Link href={getTickerUrl(item.symbol)} style={tickerName}>
           {item.name}
         </Link>
         <Text style={tickerSymbol}>{item.symbol}</Text>
       </Column>
-      <Column style={{ width: '28%', textAlign: 'right' as const, verticalAlign: 'middle' as const, paddingRight: '10px' }}>
+      <Column style={{ width: '27%', textAlign: 'right' as const, verticalAlign: 'middle' as const, paddingRight: '12px' }}>
         <Text style={tickerPrice}>{formatPrice(item.price, item.symbol)}</Text>
       </Column>
-      <Column style={{ width: '27%', textAlign: 'right' as const, verticalAlign: 'middle' as const, paddingRight: '8px' }}>
+      <Column style={{ width: '26%', textAlign: 'right' as const, verticalAlign: 'middle' as const, paddingRight: '10px' }}>
         <Text style={{ ...changePill, backgroundColor: pillBg, color: pillColor }}>
           {sign}{item.changePercent.toFixed(2)}%
         </Text>
@@ -122,7 +149,7 @@ function TickerGroup({ items, label, icon }: { items: MarketItem[]; label: strin
 }
 
 /* ------------------------------------------------------------------ */
-/*  Copyable ticker list for gap scan data                             */
+/*  Gap scan copy box                                                  */
 /* ------------------------------------------------------------------ */
 
 function TickerCopyBox({ stocks, label, color, icon }: {
@@ -145,27 +172,25 @@ function TickerCopyBox({ stocks, label, color, icon }: {
         <span style={{ marginRight: '6px' }}>{icon}</span>
         {label}
       </Text>
-      {/* Copyable ticker box */}
       <div style={tickerBox}>
         <Text style={tickerBoxText}>{tickerString}</Text>
       </div>
       <Text style={tickerBoxHint}>Select and copy tickers to your watchlist</Text>
-      {/* Gap percentages for context */}
       <Text style={gapDetails}>{summary}</Text>
     </Section>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  Section header with icon                                           */
+/*  Section header                                                     */
 /* ------------------------------------------------------------------ */
 
 function SectionHeader({ icon, title }: { icon: string; title: string }) {
   return (
-    <Row style={{ padding: '0 0 8px' }}>
+    <Row style={sectionHeaderRow}>
       <Column>
         <Text style={sectionTitle}>
-          <span style={{ marginRight: '6px', fontSize: '14px' }}>{icon}</span>
+          <span style={{ marginRight: '7px', fontSize: '14px' }}>{icon}</span>
           {title}
         </Text>
       </Column>
@@ -187,7 +212,6 @@ export function MarketBriefingEmail({
 }: BriefingEmailProps) {
   const sentiment = SENTIMENT_CONFIG[aiSummary.sentiment] || SENTIMENT_CONFIG.neutral;
 
-  // Count gainers/losers for the heat bar
   const allItems = [...indices, ...stocks, ...crypto];
   const gainers = allItems.filter(i => i.change > 0).length;
   const losers = allItems.filter(i => i.change < 0).length;
@@ -196,33 +220,36 @@ export function MarketBriefingEmail({
 
   return (
     <EmailLayout previewText={`Market Briefing ${date} — ${aiSummary.sentiment}`}>
-      {/* Header card with sentiment */}
+
+      {/* Header card — title + sentiment badge */}
       <Section style={card}>
         <Row>
           <Column style={{ verticalAlign: 'middle' as const }}>
             <Text style={dateText}>Market Briefing</Text>
             <Text style={dateSubtext}>{date}</Text>
           </Column>
-          <Column style={{ width: '120px', textAlign: 'right' as const, verticalAlign: 'middle' as const }}>
+          <Column style={{ width: '130px', textAlign: 'right' as const, verticalAlign: 'middle' as const }}>
             <Text style={{
               ...sentimentBadge,
               color: sentiment.color,
               backgroundColor: sentiment.bg,
-              border: `1px solid ${sentiment.color}30`,
+              border: `1px solid ${sentiment.color}40`,
             }}>
               {sentiment.icon} {sentiment.label}
             </Text>
           </Column>
         </Row>
 
-        {/* Market heat bar */}
-        <Section style={{ padding: '12px 0 0' }}>
+        {/* Market breadth heat bar */}
+        <Section style={{ padding: '14px 0 0' }}>
           <Row>
             <Column>
               <Text style={heatBarLabel}>
-                <span style={{ color: '#3fb950' }}>{gainers} up</span>
-                {' · '}
-                <span style={{ color: '#f85149' }}>{losers} down</span>
+                <span style={{ color: PALETTE.positive, fontWeight: 700 }}>{gainers}</span>
+                <span style={{ color: PALETTE.textTertiary }}> up</span>
+                {'  ·  '}
+                <span style={{ color: PALETTE.negative, fontWeight: 700 }}>{losers}</span>
+                <span style={{ color: PALETTE.textTertiary }}> down</span>
               </Text>
               <div style={heatBarTrack}>
                 <div style={{ ...heatBarFill, width: `${gainerPct}%` }} />
@@ -249,8 +276,8 @@ export function MarketBriefingEmail({
       {gapData && (gapData.gainers.length > 0 || gapData.losers.length > 0) && (
         <Section style={card}>
           <SectionHeader icon={SECTION_ICONS.gaps} title="Pre-Market Gaps" />
-          <TickerCopyBox stocks={gapData.gainers} label="Gapping Up" color="#3fb950" icon="🟢" />
-          <TickerCopyBox stocks={gapData.losers} label="Gapping Down" color="#f85149" icon="🔴" />
+          <TickerCopyBox stocks={gapData.gainers} label="Gapping Up" color={PALETTE.positive} icon="🟢" />
+          <TickerCopyBox stocks={gapData.losers} label="Gapping Down" color={PALETTE.negative} icon="🔴" />
         </Section>
       )}
 
@@ -268,11 +295,12 @@ export function MarketBriefingEmail({
                       <Column style={{ width: 'auto' }}>
                         <Link href={getTickerUrl(mover.symbol)} style={moverLink}>{mover.symbol}</Link>
                       </Column>
-                      <Column style={{ width: 'auto', paddingLeft: '8px' }}>
+                      <Column style={{ width: 'auto', paddingLeft: '10px' }}>
                         <Text style={{
                           ...moverMoveBadge,
-                          backgroundColor: isDown ? '#3b1c1c' : '#132d1b',
-                          color: isDown ? '#f85149' : '#3fb950',
+                          backgroundColor: isDown ? PALETTE.negativeDim : PALETTE.positiveDim,
+                          color: isDown ? PALETTE.negative : PALETTE.positive,
+                          border: `1px solid ${isDown ? PALETTE.negative : PALETTE.positive}30`,
                         }}>
                           {mover.move}
                         </Text>
@@ -295,7 +323,7 @@ export function MarketBriefingEmail({
             const news = typeof item === 'string' ? { headline: item, url: '' } : item;
             return (
               <Row key={i} style={newsRow}>
-                <Column style={{ width: '16px', verticalAlign: 'top' as const, paddingTop: '2px' }}>
+                <Column style={{ width: '18px', verticalAlign: 'top' as const, paddingTop: '3px' }}>
                   <Text style={newsBullet}>→</Text>
                 </Column>
                 <Column style={{ verticalAlign: 'top' as const }}>
@@ -319,16 +347,17 @@ export function MarketBriefingEmail({
           <SectionHeader icon={SECTION_ICONS.events} title="Upcoming Events" />
           {aiSummary.upcomingEvents.map((event, i) => (
             <Row key={i} style={eventRow}>
-              <Column style={{ width: '4px', verticalAlign: 'top' as const, paddingTop: '6px' }}>
+              <Column style={{ width: '4px', verticalAlign: 'top' as const, paddingTop: '7px' }}>
                 <div style={eventDot} />
               </Column>
-              <Column style={{ paddingLeft: '10px', verticalAlign: 'top' as const }}>
+              <Column style={{ paddingLeft: '12px', verticalAlign: 'top' as const }}>
                 <Text style={eventItem}>{event}</Text>
               </Column>
             </Row>
           ))}
         </Section>
       )}
+
     </EmailLayout>
   );
 }
@@ -340,112 +369,120 @@ export default MarketBriefingEmail;
 /* ------------------------------------------------------------------ */
 
 const card: React.CSSProperties = {
-  backgroundColor: '#161b22',
-  border: '1px solid #30363d',
-  borderRadius: '12px',
-  padding: '16px 20px',
-  marginBottom: '10px',
+  background: 'linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 60%), #0a0e15',
+  border: `1px solid ${PALETTE.borderDefault}`,
+  borderRadius: '14px',
+  padding: '20px 24px',
+  marginBottom: '12px',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02)',
 };
 
 const dateText: React.CSSProperties = {
-  color: '#ffffff',
-  fontSize: '20px',
+  color: PALETTE.textPrimary,
+  fontSize: '22px',
   fontWeight: 800,
   letterSpacing: '-0.02em',
   margin: 0,
 };
 
 const dateSubtext: React.CSSProperties = {
-  color: '#8b949e',
+  color: PALETTE.textSecondary,
   fontSize: '13px',
   fontWeight: 500,
-  margin: '2px 0 0',
+  margin: '3px 0 0',
 };
 
 const sentimentBadge: React.CSSProperties = {
   display: 'inline-block',
   fontSize: '12px',
   fontWeight: 700,
-  padding: '5px 14px',
+  padding: '6px 16px',
   borderRadius: '8px',
   margin: 0,
-  letterSpacing: '0.02em',
+  letterSpacing: '0.03em',
 };
 
 const heatBarLabel: React.CSSProperties = {
-  color: '#8b949e',
-  fontSize: '11px',
-  margin: '0 0 4px',
+  color: PALETTE.textSecondary,
+  fontSize: '12px',
+  margin: '0 0 6px',
 };
 
 const heatBarTrack: React.CSSProperties = {
   height: '4px',
-  backgroundColor: '#f8514930',
+  backgroundColor: PALETTE.negativeDim,
   borderRadius: '2px',
   overflow: 'hidden',
 };
 
 const heatBarFill: React.CSSProperties = {
   height: '4px',
-  backgroundColor: '#3fb950',
+  backgroundColor: PALETTE.positive,
   borderRadius: '2px',
 };
 
 const overviewText: React.CSSProperties = {
-  color: '#c9d1d9',
+  color: PALETTE.textPrimary,
   fontSize: '14px',
-  lineHeight: '22px',
+  lineHeight: '23px',
   margin: 0,
 };
 
+const sectionHeaderRow: React.CSSProperties = {
+  padding: '0 0 12px',
+  borderBottom: `1px solid ${PALETTE.borderSubtle}`,
+  marginBottom: '4px',
+};
+
 const sectionTitle: React.CSSProperties = {
-  color: '#F97316',
-  fontSize: '12px',
+  color: PALETTE.accent,
+  fontSize: '11px',
   fontWeight: 700,
   textTransform: 'uppercase' as const,
-  letterSpacing: '0.06em',
+  letterSpacing: '0.08em',
   margin: 0,
 };
 
 // --- Market Snapshot ---
 
 const groupLabel: React.CSSProperties = {
-  color: '#58a6ff',
+  color: PALETTE.info,
   fontSize: '10px',
   fontWeight: 700,
   textTransform: 'uppercase' as const,
-  letterSpacing: '0.08em',
-  margin: '14px 0 4px',
-  paddingBottom: '4px',
-  borderBottom: '1px solid #21262d',
+  letterSpacing: '0.1em',
+  margin: '16px 0 6px',
+  paddingBottom: '5px',
+  borderBottom: `1px solid ${PALETTE.borderSubtle}`,
 };
 
 const tickerRow: React.CSSProperties = {
-  borderBottom: '1px solid #21262d',
-  padding: '7px 0',
+  borderBottom: `1px solid ${PALETTE.borderSubtle}`,
+  padding: '8px 0',
 };
 
 const tickerName: React.CSSProperties = {
-  color: '#e6edf3',
+  color: PALETTE.textPrimary,
   fontSize: '13px',
   fontWeight: 600,
   textDecoration: 'none',
-  lineHeight: '16px',
+  lineHeight: '17px',
 };
 
 const tickerSymbol: React.CSSProperties = {
-  color: '#484f58',
+  color: PALETTE.textTertiary,
   fontSize: '10px',
   fontWeight: 500,
   margin: '1px 0 0',
-  lineHeight: '12px',
+  lineHeight: '13px',
 };
 
 const tickerPrice: React.CSSProperties = {
-  color: '#c9d1d9',
+  color: PALETTE.textSecondary,
   fontSize: '13px',
   fontWeight: 500,
   margin: 0,
+  fontVariantNumeric: 'tabular-nums',
 };
 
 const changePill: React.CSSProperties = {
@@ -456,6 +493,7 @@ const changePill: React.CSSProperties = {
   borderRadius: '6px',
   margin: 0,
   textAlign: 'center' as const,
+  fontVariantNumeric: 'tabular-nums',
 };
 
 // --- Gap Scanner ---
@@ -465,18 +503,18 @@ const gapListLabel: React.CSSProperties = {
   fontWeight: 700,
   textTransform: 'uppercase' as const,
   letterSpacing: '0.06em',
-  margin: '0 0 6px',
+  margin: '0 0 8px',
 };
 
 const tickerBox: React.CSSProperties = {
-  backgroundColor: '#0d1117',
-  border: '1px solid #30363d',
+  backgroundColor: PALETTE.bgBase,
+  border: `1px solid ${PALETTE.borderDefault}`,
   borderRadius: '8px',
   padding: '12px 16px',
 };
 
 const tickerBoxText: React.CSSProperties = {
-  color: '#e6edf3',
+  color: PALETTE.textPrimary,
   fontSize: '14px',
   fontWeight: 600,
   fontFamily: 'monospace, Courier New, monospace',
@@ -487,14 +525,14 @@ const tickerBoxText: React.CSSProperties = {
 };
 
 const tickerBoxHint: React.CSSProperties = {
-  color: '#484f58',
+  color: PALETTE.textTertiary,
   fontSize: '10px',
   margin: '4px 0 0',
   fontStyle: 'italic' as const,
 };
 
 const gapDetails: React.CSSProperties = {
-  color: '#8b949e',
+  color: PALETTE.textSecondary,
   fontSize: '11px',
   lineHeight: '18px',
   margin: '6px 0 0',
@@ -503,12 +541,12 @@ const gapDetails: React.CSSProperties = {
 // --- Big Movers ---
 
 const moverRow: React.CSSProperties = {
-  padding: '10px 0',
-  borderBottom: '1px solid #21262d',
+  padding: '11px 0',
+  borderBottom: `1px solid ${PALETTE.borderSubtle}`,
 };
 
 const moverLink: React.CSSProperties = {
-  color: '#58a6ff',
+  color: PALETTE.info,
   fontSize: '15px',
   fontWeight: 700,
   textDecoration: 'none',
@@ -518,60 +556,61 @@ const moverMoveBadge: React.CSSProperties = {
   display: 'inline-block',
   fontSize: '11px',
   fontWeight: 700,
-  padding: '2px 8px',
-  borderRadius: '4px',
+  padding: '2px 9px',
+  borderRadius: '5px',
   margin: 0,
 };
 
 const moverReason: React.CSSProperties = {
-  color: '#8b949e',
+  color: PALETTE.textSecondary,
   fontSize: '12px',
-  margin: '4px 0 0',
+  margin: '5px 0 0',
   lineHeight: '18px',
 };
 
 // --- News ---
 
 const newsRow: React.CSSProperties = {
-  padding: '4px 0',
+  padding: '5px 0',
 };
 
 const newsBullet: React.CSSProperties = {
-  color: '#F97316',
+  color: PALETTE.accent,
   fontSize: '12px',
   fontWeight: 700,
   margin: 0,
-  lineHeight: '20px',
+  lineHeight: '21px',
 };
 
 const newsItem: React.CSSProperties = {
-  color: '#c9d1d9',
+  color: PALETTE.textPrimary,
   fontSize: '13px',
-  lineHeight: '20px',
+  lineHeight: '21px',
   margin: '0 0 4px',
 };
 
 const newsLink: React.CSSProperties = {
-  color: '#58a6ff',
+  color: PALETTE.info,
   textDecoration: 'none',
 };
 
 // --- Events ---
 
 const eventRow: React.CSSProperties = {
-  padding: '4px 0',
+  padding: '5px 0',
 };
 
 const eventDot: React.CSSProperties = {
   width: '4px',
   height: '4px',
   borderRadius: '2px',
-  backgroundColor: '#F97316',
+  backgroundColor: PALETTE.accent,
 };
 
 const eventItem: React.CSSProperties = {
-  color: '#c9d1d9',
+  color: PALETTE.textPrimary,
   fontSize: '13px',
-  lineHeight: '20px',
+  lineHeight: '21px',
   margin: 0,
 };
+
