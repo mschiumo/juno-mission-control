@@ -148,30 +148,96 @@ function isLikelyADRBySymbol(symbol: string): boolean {
 
 // ── Core scanning ───────────────────────────────────────────────────────────
 
+const FETCH_TIMEOUT_MS = 30_000; // 30 seconds
+
+/**
+ * Fetch ALL US stock snapshots from Polygon.
+ * Warning: response can be 20-50MB. Use fetchGainersAndLosers() in cron jobs.
+ */
 export async function fetchAllSnapshots(
-  session: 'pre-market' | 'market-open' | 'post-market' | 'closed'
+  _session: 'pre-market' | 'market-open' | 'post-market' | 'closed'
 ): Promise<PolygonSnapshot[]> {
   if (!POLYGON_API_KEY) {
     throw new Error('POLYGON_API_KEY environment variable is required');
   }
 
-  const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=${POLYGON_API_KEY}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?include_otc=false&apiKey=${POLYGON_API_KEY}`;
   console.log('[GapScanner-Polygon] Fetching all stock snapshots...');
 
-  const response = await fetch(url, { cache: 'no-store' });
+  try {
+    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    clearTimeout(timer);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Polygon API error: ${response.status} - ${errorText}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Polygon API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json() as { tickers?: PolygonSnapshot[] };
+    if (!data.tickers || !Array.isArray(data.tickers)) {
+      throw new Error('Invalid response from Polygon API');
+    }
+
+    console.log(`[GapScanner-Polygon] Fetched ${data.tickers.length} snapshots`);
+    return data.tickers;
+  } catch (error) {
+    clearTimeout(timer);
+    throw error;
+  }
+}
+
+/**
+ * Fetch only Polygon's top 20 gainers and top 20 losers.
+ * Response is ~20KB vs 20-50MB for the all-tickers snapshot, avoiding OOM on Vercel.
+ * Used by the cron job; the user-facing route uses fetchAllSnapshots during market hours.
+ */
+async function fetchGainersAndLosers(): Promise<PolygonSnapshot[]> {
+  if (!POLYGON_API_KEY) {
+    throw new Error('POLYGON_API_KEY environment variable is required');
   }
 
-  const data = await response.json();
-  if (!data.tickers || !Array.isArray(data.tickers)) {
-    throw new Error('Invalid response from Polygon API');
-  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-  console.log(`[GapScanner-Polygon] Fetched ${data.tickers.length} snapshots`);
-  return data.tickers;
+  try {
+    const [gainersRes, losersRes] = await Promise.all([
+      fetch(
+        `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/gainers?include_otc=false&apiKey=${POLYGON_API_KEY}`,
+        { cache: 'no-store', signal: controller.signal }
+      ),
+      fetch(
+        `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/losers?include_otc=false&apiKey=${POLYGON_API_KEY}`,
+        { cache: 'no-store', signal: controller.signal }
+      ),
+    ]);
+
+    clearTimeout(timer);
+
+    if (!gainersRes.ok) throw new Error(`Polygon gainers API error: ${gainersRes.status}`);
+    if (!losersRes.ok) throw new Error(`Polygon losers API error: ${losersRes.status}`);
+
+    const [gainersData, losersData] = await Promise.all([
+      gainersRes.json() as Promise<{ tickers?: PolygonSnapshot[] }>,
+      losersRes.json() as Promise<{ tickers?: PolygonSnapshot[] }>,
+    ]);
+
+    const tickers = [
+      ...(gainersData.tickers ?? []),
+      ...(losersData.tickers ?? []),
+    ];
+
+    console.log(
+      `[GapScanner-Polygon] Fetched ${gainersData.tickers?.length ?? 0} gainers + ` +
+      `${losersData.tickers?.length ?? 0} losers from Polygon`
+    );
+    return tickers;
+  } catch (error) {
+    clearTimeout(timer);
+    throw error;
+  }
 }
 
 export function processGaps(
@@ -255,8 +321,10 @@ export async function runPolygonGapScan(options: {
   } = options;
 
   const marketInfo = getMarketSession();
+  // Use gainers/losers endpoints (~40 results, ~20KB) instead of the all-tickers
+  // snapshot (~20K results, 20-50MB) to prevent OOM kills in Vercel serverless.
   const [snapshots, avgVolumeMap] = await Promise.all([
-    fetchAllSnapshots(marketInfo.session),
+    fetchGainersAndLosers(),
     getAvgVolumeMap().catch(() => null),
   ]);
 
