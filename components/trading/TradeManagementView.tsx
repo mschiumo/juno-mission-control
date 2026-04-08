@@ -56,16 +56,16 @@ export default function TradeManagementView() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:h-[960px]">
           {/* Daily Favorites + Calculator - Left */}
           <div className="flex flex-col h-full overflow-hidden rounded-xl" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
-            {/* Daily Favorites — capped at 45%, scrolls independently */}
-            <div className="flex-shrink-0 overflow-y-auto p-5" style={{ maxHeight: '45%' }}>
+            {/* Daily Favorites — capped at 45%, scrolls independently; can shrink to give Calculator space */}
+            <div className="overflow-y-auto p-5" style={{ maxHeight: '45%', flexShrink: 1, flexGrow: 0 }}>
               <QuickWatchlist
                 onSelectTicker={setSelectedTicker}
                 calculatorRef={calculatorRef}
               />
             </div>
 
-            {/* Position Calculator — always visible, occupies remaining space */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            {/* Position Calculator — always visible, guaranteed minimum height so Daily Favorites never covers it */}
+            <div className="flex-1 overflow-y-auto p-5" style={{ borderTop: '1px solid var(--border-subtle)', minHeight: '320px' }}>
               <div ref={calculatorRef} data-tour="position-calculator" className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)' }}>
                 <div className="flex items-center gap-2.5 px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.01)' }}>
                   <div className="flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: 'var(--accent-dim)' }}>
