@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
+import { requireCronSecret } from '@/lib/auth-session';
 
 // OpenClaw Gateway endpoint
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://127.0.0.1:18789';
 const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || '';
 
 export async function POST(request: Request) {
+  const authError = requireCronSecret(request);
+  if (authError) return authError;
+
   try {
     const { jobId } = await request.json();
 
@@ -15,7 +19,6 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    // Try to trigger via OpenClaw gateway
     const response = await fetch(`${GATEWAY_URL}/api/cron/run`, {
       method: 'POST',
       headers: {
@@ -34,22 +37,16 @@ export async function POST(request: Request) {
       });
     }
 
-    // Fallback: simulate success (for demo purposes)
-    console.log(`Simulating cron job run: ${jobId}`);
-    
     return NextResponse.json({
-      success: true,
-      message: `Job ${jobId} triggered (simulated)`,
-      timestamp: new Date().toISOString()
-    });
+      success: false,
+      error: `Gateway returned ${response.status}`
+    }, { status: 502 });
 
   } catch (error) {
     console.error('Run cron job error:', error);
-    
     return NextResponse.json({
-      success: true, // Return success anyway for demo
-      message: 'Job triggered (offline mode)',
-      timestamp: new Date().toISOString()
-    });
+      success: false,
+      error: 'Internal error triggering cron job'
+    }, { status: 500 });
   }
 }

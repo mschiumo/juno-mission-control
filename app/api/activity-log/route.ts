@@ -1,5 +1,6 @@
 import { createClient } from 'redis';
 import { NextResponse } from 'next/server';
+import { requireUserId } from '@/lib/auth-session';
 
 interface ActivityItem {
   id: string;
@@ -39,6 +40,9 @@ async function getRedisClient() {
 }
 
 export async function GET() {
+  const authResult = await requireUserId();
+  if (authResult.error) return authResult.error;
+
   try {
     const redis = await getRedisClient();
     

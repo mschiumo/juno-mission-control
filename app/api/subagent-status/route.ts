@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireUserId } from '@/lib/auth-session';
 import { readFile, stat } from 'fs/promises';
 import { join } from 'path';
 
@@ -8,7 +9,7 @@ const SESSIONS_JSON = join(SESSIONS_DIR, 'sessions.json');
 interface SessionMapping {
   sessionId: string;
   updatedAt: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface SessionsJson {
@@ -35,17 +36,17 @@ async function isSessionActive(sessionId: string): Promise<boolean> {
 }
 
 export async function GET() {
+  const authResult = await requireUserId();
+  if (authResult.error) return authResult.error;
+
   try {
     const sessions = await readSessionsJson();
     let activeCount = 0;
-    
-    // Count active subagent sessions
+
     for (const [sessionKey, sessionData] of Object.entries(sessions)) {
       if (!sessionKey.includes('subagent')) continue;
-      
       const sessionId = sessionData.sessionId;
       if (!sessionId) continue;
-      
       if (await isSessionActive(sessionId)) {
         activeCount++;
       }
