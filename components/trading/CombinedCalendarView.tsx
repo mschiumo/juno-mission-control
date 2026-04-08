@@ -95,7 +95,9 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // ============================================================================
 
 const parseDateAsEST = (dateStr: string): Date => {
-  return new Date(`${dateStr}T00:00:00-05:00`);
+  // Use noon UTC so toLocaleDateString with America/New_York always returns the right date
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
 };
 
 const formatDateEST = (dateStr: string): string => {
@@ -512,7 +514,7 @@ export default function CombinedCalendarView() {
             <ChevronLeft className="w-5 h-5 text-[#8b949e]" />
           </button>
           <h2 className="text-lg sm:text-xl font-bold text-white min-w-[140px] sm:min-w-[180px] text-center">
-            {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'America/New_York' })}
           </h2>
           <button
             onClick={() => navigateMonth('next')}

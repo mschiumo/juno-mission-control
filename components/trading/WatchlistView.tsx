@@ -1142,6 +1142,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
       const displayDate = new Date(position.closedAt).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
+        timeZone: 'America/New_York',
       });
 
       // Create trade request with EDITABLE VALUES from form
@@ -1256,14 +1257,19 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'America/New_York',
     });
   };
 
   // Short date format for closed positions: MM/DD
   const formatShortDate = (isoString: string) => {
-    const date = new Date(isoString);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date(isoString));
+    const month = parts.find(p => p.type === 'month')?.value ?? '00';
+    const day = parts.find(p => p.type === 'day')?.value ?? '00';
     return `${month}/${day}`;
   };
 

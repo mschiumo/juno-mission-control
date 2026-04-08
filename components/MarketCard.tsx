@@ -290,7 +290,7 @@ export default function MarketCard() {
         <div className="flex items-center gap-3">
           {lastUpdated && !loading && (
             <span className="text-[10px] text-[#8b949e]">
-              Updated {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+              Updated {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })} ET
             </span>
           )}
           <button
