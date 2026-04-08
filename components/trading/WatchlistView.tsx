@@ -132,6 +132,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   // Edit Active Trade state
   const [editingTrade, setEditingTrade] = useState<ActiveTrade | null>(null);
   const [isEditTradeModalOpen, setIsEditTradeModalOpen] = useState(false);
+  const [deletingActiveTradeId, setDeletingActiveTradeId] = useState<string | null>(null);
 
   // Inline edit state for Active Trades
   const [inlineEditing, setInlineEditing] = useState<{
@@ -993,6 +994,26 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     }
   };
 
+  // ===== DELETE: Active Trade (permanent) =====
+  const handleDeleteActiveTrade = async (tradeId: string) => {
+    setActiveTradesLoading(true);
+    try {
+      const response = await fetch(`/api/active-trades?id=${tradeId}&userId=${DEFAULT_USER_ID}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete active trade');
+
+      await fetchActiveTrades();
+      window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
+      setDeletingActiveTradeId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete active trade');
+    } finally {
+      setActiveTradesLoading(false);
+    }
+  };
+
   // ===== MULTI-SELECT: Closed Positions =====
   const toggleClosedPositionSelection = (positionId: string) => {
     setSelectedClosedPositions(prev => {
@@ -1555,6 +1576,14 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     >
                       <X className="w-3.5 h-3.5" />
                       Close Trade
+                    </button>
+                    <button
+                      onClick={() => setDeletingActiveTradeId(trade.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+                      title="Delete active trade"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -2575,6 +2604,37 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 </button>
                 <button
                   onClick={() => deletingPositionId && handleDeleteClosedPosition(deletingPositionId)}
+                  className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-medium"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Active Trade Confirmation Modal */}
+      {deletingActiveTradeId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#0F0F0F] border border-[#262626] rounded-2xl w-full max-w-sm p-6">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6 text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Delete Active Trade?</h3>
+              <p className="text-sm text-[#8b949e] mb-6">
+                This will permanently remove this active trade. This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeletingActiveTradeId(null)}
+                  className="flex-1 px-4 py-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deletingActiveTradeId && handleDeleteActiveTrade(deletingActiveTradeId)}
                   className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-medium"
                 >
                   Delete
