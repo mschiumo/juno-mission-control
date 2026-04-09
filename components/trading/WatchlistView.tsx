@@ -1931,7 +1931,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                         collapsedSections.favorites ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
                       }`}
                     >
-                      <div className={`grid ${cardGridClass} gap-3`}>
+                      <div className={`grid ${cardGridClass} gap-3 items-start`}>
                   {favorites.map((item) => (
                     <div
                       key={item.id}
@@ -2045,7 +2045,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     collapsedSections.otherTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
                   }`}
                 >
-                  <div className={`grid ${cardGridClass} gap-3`}>
+                  <div className={`grid ${cardGridClass} gap-3 items-start`}>
                   {others.map((item) => (
                     <div
                       key={item.id}
