@@ -98,9 +98,8 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     });
   }, [watchlist, searchQuery, sideFilter]);
   
-  const favorites = filteredWatchlist.filter(i => i.isFavorite && i.entryPrice > 0 && i.stopPrice > 0 && i.targetPrice > 0);
-  // Only show complete trades in Potential Trades (exclude ticker-only favorites with 0 values)
-  const others = filteredWatchlist.filter(i => !i.isFavorite && i.entryPrice > 0 && i.stopPrice > 0 && i.targetPrice > 0);
+  const favorites = filteredWatchlist.filter(i => i.isFavorite);
+  const others = filteredWatchlist.filter(i => !i.isFavorite);
   const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [enteringItem, setEnteringItem] = useState<WatchlistItem | null>(null);
@@ -2011,36 +2010,6 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                         </div>
                       </div>
 
-                      {/* Card Body */}
-                      <div className="p-3">
-                        {/* Unified Stats Row */}
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Entry</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-red-400">Stop</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.stopPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-green-400">Target</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.targetPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Profit</div>
-                            <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Shares</div>
-                            <div className="text-sm font-semibold">{formatNumber(item.shareSize)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Value</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   ))}
                       </div>{/* End of favorites items */}
@@ -2155,36 +2124,6 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                         </div>
                       </div>
 
-                      {/* Card Body */}
-                      <div className="p-3">
-                        {/* Unified Stats Row */}
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Entry</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-red-400">Stop</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.stopPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-green-400">Target</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.targetPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Profit</div>
-                            <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Shares</div>
-                            <div className="text-sm font-semibold">{formatNumber(item.shareSize)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Value</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   ))}
                       </div>{/* End of other trades items */}
