@@ -56,8 +56,8 @@ export default function TradeManagementView() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:h-[960px]">
           {/* Daily Favorites + Calculator - Left */}
           <div className="flex flex-col h-full overflow-hidden rounded-xl" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
-            {/* Daily Favorites — capped at 45%, scrolls independently */}
-            <div className="flex-shrink-0 overflow-y-auto p-5" style={{ maxHeight: '45%' }}>
+            {/* Daily Favorites — fixed at 50% height, does not expand or move when items change */}
+            <div className="flex-shrink-0 overflow-hidden p-5" style={{ height: '50%' }}>
               <QuickWatchlist
                 onSelectTicker={setSelectedTicker}
                 calculatorRef={calculatorRef}

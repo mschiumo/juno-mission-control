@@ -427,8 +427,8 @@ export default function QuickWatchlist({
   };
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 bg-[#0d1117]/50 border-b border-[#30363d]">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden h-full flex flex-col">
+      <div className="flex items-center justify-between px-4 py-3 bg-[#0d1117]/50 border-b border-[#30363d] shrink-0">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-2 flex-1 text-left"
@@ -448,10 +448,10 @@ export default function QuickWatchlist({
       </div>
 
       {isExpanded && (
-        <div className="p-4 space-y-4">
+        <div className="p-4 flex flex-col flex-1 min-h-0 gap-4">
           {/* Bulk Import Panel */}
           {showImport && (
-            <div className="p-3 bg-[#0d1117] border border-[#30363d] rounded-lg space-y-2">
+            <div className="p-3 bg-[#0d1117] border border-[#30363d] rounded-lg space-y-2 shrink-0">
               <p className="text-xs text-[#8b949e]">Paste tickers separated by spaces or new lines (no commas needed)</p>
               <textarea
                 value={importText}
@@ -477,7 +477,7 @@ export default function QuickWatchlist({
           )}
 
           {/* Single row: Ticker input + Add button + Search */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 shrink-0">
             <form onSubmit={handleAddTicker} className="flex gap-2 flex-1 relative">
               <div className="flex-1 relative">
                 <input
@@ -545,15 +545,15 @@ export default function QuickWatchlist({
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded-lg shrink-0">
               <X className="w-4 h-4" /> {error}
             </div>
           )}
 
           {filteredAndSortedWatchlist.length > 0 ? (
-            <div className="border border-[#30363d] rounded-lg overflow-hidden">
+            <div className="border border-[#30363d] rounded-lg overflow-hidden flex flex-col flex-1 min-h-0">
               {/* Header */}
-              <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[#0d1117] border-b border-[#30363d] text-xs">
+              <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[#0d1117] border-b border-[#30363d] text-xs shrink-0">
                 <button onClick={() => handleSort('ticker')} className="col-span-3 flex items-center gap-1 text-[#8b949e] hover:text-white">
                   Ticker {getSortIcon('ticker')}
                 </button>
@@ -563,7 +563,7 @@ export default function QuickWatchlist({
                 </button>
                 <div className="col-span-3 text-right text-[#8b949e]">Actions</div>
               </div>
-              <div className="max-h-64 overflow-y-auto">
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 {filteredAndSortedWatchlist.map((item) => {
                   const premarket = premarketData[item.ticker];
                   return (
@@ -627,18 +627,20 @@ export default function QuickWatchlist({
               </div>
             </div>
           ) : watchlist.length === 0 ? (
-            <div className="text-center py-6 text-[#8b949e]">
-              <p className="text-sm">No tickers</p>
-              <p className="text-xs mt-1">Enter a ticker to add</p>
+            <div className="flex-1 flex items-center justify-center text-center text-[#8b949e]">
+              <div>
+                <p className="text-sm">No tickers</p>
+                <p className="text-xs mt-1">Enter a ticker to add</p>
+              </div>
             </div>
           ) : (
-            <div className="text-center py-6 text-[#8b949e]">
+            <div className="flex-1 flex items-center justify-center text-center text-[#8b949e]">
               <p className="text-sm">No matches</p>
             </div>
           )}
 
           {watchlist.length > 0 && (
-            <div className="pt-2 border-t border-[#30363d]">
+            <div className="pt-2 border-t border-[#30363d] shrink-0">
               <span className="text-xs text-[#8b949e]">Total: {watchlist.length}</span>
             </div>
           )}
