@@ -13,7 +13,10 @@ import {
   X,
   Calculator,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Copy,
+  Check,
+  Download
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 
@@ -76,6 +79,7 @@ export default function QuickWatchlist({
 
   // Premarket data state
   const [premarketData, setPremarketData] = useState<Record<string, PremarketData>>({});
+  const [copied, setCopied] = useState(false);
 
   // Fetch premarket data for watchlist items
   useEffect(() => {
@@ -386,6 +390,35 @@ export default function QuickWatchlist({
     };
   }, [removeFromFavorites]);
 
+  const copyTickers = async () => {
+    const tickers = filteredAndSortedWatchlist.map(item => item.ticker).join(' ');
+    await navigator.clipboard.writeText(tickers);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const exportToCSV = () => {
+    const rows = [
+      ['Ticker', 'Prev Close', 'Premarket Price', 'Change %'],
+      ...filteredAndSortedWatchlist.map(item => {
+        const pm = premarketData[item.ticker];
+        return [
+          item.ticker,
+          pm ? pm.previousClose.toFixed(2) : '',
+          pm ? pm.premarketPrice.toFixed(2) : '',
+          pm ? pm.changePercent.toFixed(2) : '',
+        ];
+      }),
+    ];
+    const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' });
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(blob),
+      download: `daily-favorites-${new Date().toISOString().split('T')[0]}.csv`,
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   const handleSort = (field: SortField) => {
     setSort(prev => ({
       field,
@@ -438,12 +471,34 @@ export default function QuickWatchlist({
           {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
         </button>
         {isExpanded && (
-          <button
-            onClick={() => { setShowImport(v => !v); setImportResult(null); }}
-            className={`text-xs px-2 py-1 rounded-md transition-colors ${showImport ? 'bg-[#F97316]/20 text-[#F97316]' : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'}`}
-          >
-            Import
-          </button>
+          <div className="flex items-center gap-1">
+            {watchlist.length > 0 && (
+              <>
+                <button
+                  onClick={copyTickers}
+                  title="Copy tickers to clipboard"
+                  className="p-1.5 hover:bg-[#30363d] rounded transition-colors"
+                >
+                  {copied
+                    ? <Check className="w-3.5 h-3.5 text-green-400" />
+                    : <Copy className="w-3.5 h-3.5 text-[#8b949e]" />}
+                </button>
+                <button
+                  onClick={exportToCSV}
+                  title="Export to CSV"
+                  className="p-1.5 hover:bg-[#30363d] rounded transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-[#8b949e]" />
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => { setShowImport(v => !v); setImportResult(null); }}
+              className={`text-xs px-2 py-1 rounded-md transition-colors ${showImport ? 'bg-[#F97316]/20 text-[#F97316]' : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'}`}
+            >
+              Import
+            </button>
+          </div>
         )}
       </div>
 
