@@ -1944,7 +1944,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                       className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
                     >
                       {/* Card Header */}
-                      <div className="flex flex-wrap items-center justify-between px-3 py-2.5 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors gap-y-1.5">
+                      <div className="flex flex-wrap items-center justify-between px-3 py-2.5 bg-[#161b22] group-hover:bg-[#1c2128] transition-colors gap-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
                             <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
@@ -2058,7 +2058,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                       className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
                     >
                       {/* Card Header */}
-                      <div className="flex flex-wrap items-center justify-between px-3 py-2.5 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors gap-y-1.5">
+                      <div className="flex flex-wrap items-center justify-between px-3 py-2.5 bg-[#161b22] group-hover:bg-[#1c2128] transition-colors gap-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
                             <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
