@@ -49,8 +49,6 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
     };
   });
   const [showTooltips, setShowTooltips] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [addSuccess, setAddSuccess] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'duplicate' | 'success'>('idle');
   const [isLoading, setIsLoading] = useState(false);
   const [optimizeMode, setOptimizeMode] = useState(false);
@@ -103,7 +101,6 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
       targetPrice: '',
       riskRatio: '2',
     });
-    setAddSuccess(false);
     setSaveStatus('idle');
   };
 
@@ -134,7 +131,7 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
   }, []);
 
   const handleAddToWatchlist = async () => {
-    if (!isFormValid() || calculations.status !== 'valid') return;
+    if (!isFormValid()) return;
 
     setIsLoading(true);
 
@@ -144,26 +141,20 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
         fetchWatchlist(),
         fetchActiveTrades(),
       ]);
-      
+
       const tickerInput = inputs.ticker.trim().toUpperCase();
-      
-      // Check for duplicate ticker in Potential Trades (complete trades with prices > 0)
-      // Exclude Daily Favorites (ticker-only entries with 0 prices)
-      const isDuplicateInPotentialTrades = existingWatchlist.some((item: WatchlistItem) =>
-        item.ticker.toUpperCase() === tickerInput &&
-        item.entryPrice > 0 &&
-        item.stopPrice > 0 &&
-        item.targetPrice > 0
+
+      // Check for duplicate ticker in watchlist (any entry, ticker-only or complete)
+      const isDuplicateInWatchlist = existingWatchlist.some((item: WatchlistItem) =>
+        item.ticker.toUpperCase() === tickerInput
       );
-      
+
       // Check for duplicate ticker in active trades
       const isDuplicateInActive = activeTrades.some((trade: ActiveTradeWithPnL) =>
         trade.ticker?.toUpperCase() === tickerInput
       );
-      
-      // Block if in Potential Trades or Active Trades
-      // Note: Daily Favorites (ticker-only) does NOT block - you can have same ticker in Daily Favorites and Potential Trades
-      if (isDuplicateInPotentialTrades) {
+
+      if (isDuplicateInWatchlist) {
         setSaveStatus('duplicate');
         setTimeout(() => setSaveStatus('idle'), 3000);
         setIsLoading(false);
@@ -324,19 +315,10 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
 
   const statusColors = getStatusColors();
 
-  // Check if all required form fields are filled for watchlist
+  // Only ticker is required to add to Potential Trades
   const isFormValid = () => {
-    return (
-      inputs.ticker.trim() !== '' &&
-      inputs.riskAmount !== '' && parseFloat(inputs.riskAmount) > 0 &&
-      inputs.entryPrice !== '' && parseFloat(inputs.entryPrice) > 0 &&
-      inputs.stopPrice !== '' && parseFloat(inputs.stopPrice) > 0 &&
-      inputs.targetPrice !== '' && parseFloat(inputs.targetPrice) > 0
-    );
+    return inputs.ticker.trim() !== '';
   };
-
-  // Check if add to watchlist button should be enabled
-  const canAddToWatchlist = calculations.status === 'valid' && isFormValid();
 
   return (
     <div className="w-full space-y-5">
@@ -500,25 +482,25 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
         ))}
       </div>
 
-      {/* Save button */}
-      {calculations.status === 'valid' && (
+      {/* Add to Potential Trades Button - shown whenever ticker is entered */}
+      {inputs.ticker.trim() !== '' && (
         <button
           onClick={handleAddToWatchlist}
-          disabled={!isFormValid() || saveStatus === 'duplicate' || isLoading}
+          disabled={saveStatus === 'duplicate' || isLoading}
           className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
             saveStatus === 'duplicate'
               ? 'bg-red-500/20 border border-red-500/50 text-red-400'
               : saveStatus === 'success'
                 ? 'bg-[#3fb950]/20 border border-[#3fb950]/50 text-[#3fb950]'
-                : isFormValid() && !isLoading
+                : !isLoading
                   ? 'bg-[#F97316] hover:bg-[#F97316]/90 text-white'
                   : 'bg-[#262626] text-[#8b949e] cursor-not-allowed'
           }`}
         >
           {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</>
-            : saveStatus === 'duplicate' ? <><AlertCircle className="w-4 h-4" />{inputs.ticker.trim().toUpperCase()} already in watchlist</>
-            : saveStatus === 'success' ? <><CheckCircle className="w-4 h-4" />Added!</>
-            : <><BookmarkPlus className="w-4 h-4" />Add to Watchlist</>}
+            : saveStatus === 'duplicate' ? <><AlertCircle className="w-4 h-4" />{inputs.ticker.trim().toUpperCase()} already in Potential Trades</>
+            : saveStatus === 'success' ? <><CheckCircle className="w-4 h-4" />Added to Potential Trades!</>
+            : <><BookmarkPlus className="w-4 h-4" />Add to Potential Trades</>}
         </button>
       )}
     </div>
