@@ -174,7 +174,7 @@ export default function MarketTickerBar() {
           {lastUpdated && (
             <div className="flex items-center gap-1 text-[10px] text-[#484f58] px-3 shrink-0 border-r border-[#30363d] h-full">
               <RefreshCw className="w-2.5 h-2.5" />
-              {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} ET
             </div>
           )}
 
