@@ -98,9 +98,8 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     });
   }, [watchlist, searchQuery, sideFilter]);
   
-  const favorites = filteredWatchlist.filter(i => i.isFavorite && i.entryPrice > 0 && i.stopPrice > 0 && i.targetPrice > 0);
-  // Only show complete trades in Potential Trades (exclude ticker-only favorites with 0 values)
-  const others = filteredWatchlist.filter(i => !i.isFavorite && i.entryPrice > 0 && i.stopPrice > 0 && i.targetPrice > 0);
+  const favorites = filteredWatchlist.filter(i => i.isFavorite);
+  const others = filteredWatchlist.filter(i => !i.isFavorite);
   const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [enteringItem, setEnteringItem] = useState<WatchlistItem | null>(null);
@@ -1932,7 +1931,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                         collapsedSections.favorites ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
                       }`}
                     >
-                      <div className={`grid ${cardGridClass} gap-3`}>
+                      <div className={`grid ${cardGridClass} gap-3 items-start`}>
                   {favorites.map((item) => (
                     <div
                       key={item.id}
@@ -1945,7 +1944,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                       className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
                     >
                       {/* Card Header */}
-                      <div className="flex flex-wrap items-center justify-between px-3 py-2.5 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors gap-y-1.5">
+                      <div className="flex flex-wrap items-center justify-between px-3 py-2.5 bg-[#161b22] group-hover:bg-[#1c2128] transition-colors gap-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
                             <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
@@ -2011,36 +2010,6 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                         </div>
                       </div>
 
-                      {/* Card Body */}
-                      <div className="p-3">
-                        {/* Unified Stats Row */}
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Entry</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-red-400">Stop</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.stopPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-green-400">Target</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.targetPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Profit</div>
-                            <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Shares</div>
-                            <div className="text-sm font-semibold">{formatNumber(item.shareSize)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Value</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   ))}
                       </div>{/* End of favorites items */}
@@ -2076,7 +2045,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     collapsedSections.otherTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
                   }`}
                 >
-                  <div className={`grid ${cardGridClass} gap-3`}>
+                  <div className={`grid ${cardGridClass} gap-3 items-start`}>
                   {others.map((item) => (
                     <div
                       key={item.id}
@@ -2089,7 +2058,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                       className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
                     >
                       {/* Card Header */}
-                      <div className="flex flex-wrap items-center justify-between px-3 py-2.5 border-b border-[#262626] bg-[#161b22] group-hover:bg-[#1c2128] transition-colors gap-y-1.5">
+                      <div className="flex flex-wrap items-center justify-between px-3 py-2.5 bg-[#161b22] group-hover:bg-[#1c2128] transition-colors gap-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
                             <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
@@ -2155,36 +2124,6 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                         </div>
                       </div>
 
-                      {/* Card Body */}
-                      <div className="p-3">
-                        {/* Unified Stats Row */}
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Entry</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-red-400">Stop</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.stopPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-green-400">Target</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.targetPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Profit</div>
-                            <div className="text-sm font-bold text-green-400">{formatCurrency(Math.abs(item.potentialReward))}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Shares</div>
-                            <div className="text-sm font-semibold">{formatNumber(item.shareSize)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[#8b949e]">Value</div>
-                            <div className="text-sm font-semibold">{formatCurrency(item.entryPrice * item.shareSize)}</div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   ))}
                       </div>{/* End of other trades items */}

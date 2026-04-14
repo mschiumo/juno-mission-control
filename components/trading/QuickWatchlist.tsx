@@ -13,7 +13,10 @@ import {
   X,
   Calculator,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Copy,
+  Check,
+  Download
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 
@@ -76,6 +79,7 @@ export default function QuickWatchlist({
 
   // Premarket data state
   const [premarketData, setPremarketData] = useState<Record<string, PremarketData>>({});
+  const [copied, setCopied] = useState(false);
 
   // Fetch premarket data for watchlist items
   useEffect(() => {
@@ -386,6 +390,35 @@ export default function QuickWatchlist({
     };
   }, [removeFromFavorites]);
 
+  const copyTickers = async () => {
+    const tickers = filteredAndSortedWatchlist.map(item => item.ticker).join(' ');
+    await navigator.clipboard.writeText(tickers);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const exportToCSV = () => {
+    const rows = [
+      ['Ticker', 'Prev Close', 'Premarket Price', 'Change %'],
+      ...filteredAndSortedWatchlist.map(item => {
+        const pm = premarketData[item.ticker];
+        return [
+          item.ticker,
+          pm ? pm.previousClose.toFixed(2) : '',
+          pm ? pm.premarketPrice.toFixed(2) : '',
+          pm ? pm.changePercent.toFixed(2) : '',
+        ];
+      }),
+    ];
+    const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' });
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(blob),
+      download: `daily-favorites-${new Date().toISOString().split('T')[0]}.csv`,
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   const handleSort = (field: SortField) => {
     setSort(prev => ({
       field,
@@ -427,8 +460,8 @@ export default function QuickWatchlist({
   };
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 bg-[#0d1117]/50 border-b border-[#30363d]">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden h-full flex flex-col">
+      <div className="flex items-center justify-between px-4 py-3 bg-[#0d1117]/50 border-b border-[#30363d] shrink-0">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-2 flex-1 text-left"
@@ -438,20 +471,42 @@ export default function QuickWatchlist({
           {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
         </button>
         {isExpanded && (
-          <button
-            onClick={() => { setShowImport(v => !v); setImportResult(null); }}
-            className={`text-xs px-2 py-1 rounded-md transition-colors ${showImport ? 'bg-[#F97316]/20 text-[#F97316]' : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'}`}
-          >
-            Import
-          </button>
+          <div className="flex items-center gap-1">
+            {watchlist.length > 0 && (
+              <>
+                <button
+                  onClick={copyTickers}
+                  title="Copy tickers to clipboard"
+                  className="p-1.5 hover:bg-[#30363d] rounded transition-colors"
+                >
+                  {copied
+                    ? <Check className="w-3.5 h-3.5 text-green-400" />
+                    : <Copy className="w-3.5 h-3.5 text-[#8b949e]" />}
+                </button>
+                <button
+                  onClick={exportToCSV}
+                  title="Export to CSV"
+                  className="p-1.5 hover:bg-[#30363d] rounded transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-[#8b949e]" />
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => { setShowImport(v => !v); setImportResult(null); }}
+              className={`text-xs px-2 py-1 rounded-md transition-colors ${showImport ? 'bg-[#F97316]/20 text-[#F97316]' : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'}`}
+            >
+              Import
+            </button>
+          </div>
         )}
       </div>
 
       {isExpanded && (
-        <div className="p-4 space-y-4">
+        <div className="p-4 flex flex-col flex-1 min-h-0 gap-4">
           {/* Bulk Import Panel */}
           {showImport && (
-            <div className="p-3 bg-[#0d1117] border border-[#30363d] rounded-lg space-y-2">
+            <div className="p-3 bg-[#0d1117] border border-[#30363d] rounded-lg space-y-2 shrink-0">
               <p className="text-xs text-[#8b949e]">Paste tickers separated by spaces or new lines (no commas needed)</p>
               <textarea
                 value={importText}
@@ -477,7 +532,7 @@ export default function QuickWatchlist({
           )}
 
           {/* Single row: Ticker input + Add button + Search */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 shrink-0">
             <form onSubmit={handleAddTicker} className="flex gap-2 flex-1 relative">
               <div className="flex-1 relative">
                 <input
@@ -545,15 +600,15 @@ export default function QuickWatchlist({
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded-lg shrink-0">
               <X className="w-4 h-4" /> {error}
             </div>
           )}
 
           {filteredAndSortedWatchlist.length > 0 ? (
-            <div className="border border-[#30363d] rounded-lg overflow-hidden">
+            <div className="border border-[#30363d] rounded-lg overflow-hidden flex flex-col flex-1 min-h-0">
               {/* Header */}
-              <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[#0d1117] border-b border-[#30363d] text-xs">
+              <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[#0d1117] border-b border-[#30363d] text-xs shrink-0">
                 <button onClick={() => handleSort('ticker')} className="col-span-3 flex items-center gap-1 text-[#8b949e] hover:text-white">
                   Ticker {getSortIcon('ticker')}
                 </button>
@@ -563,7 +618,7 @@ export default function QuickWatchlist({
                 </button>
                 <div className="col-span-3 text-right text-[#8b949e]">Actions</div>
               </div>
-              <div className="max-h-64 overflow-y-auto">
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 {filteredAndSortedWatchlist.map((item) => {
                   const premarket = premarketData[item.ticker];
                   return (
@@ -627,18 +682,20 @@ export default function QuickWatchlist({
               </div>
             </div>
           ) : watchlist.length === 0 ? (
-            <div className="text-center py-6 text-[#8b949e]">
-              <p className="text-sm">No tickers</p>
-              <p className="text-xs mt-1">Enter a ticker to add</p>
+            <div className="flex-1 flex items-center justify-center text-center text-[#8b949e]">
+              <div>
+                <p className="text-sm">No tickers</p>
+                <p className="text-xs mt-1">Enter a ticker to add</p>
+              </div>
             </div>
           ) : (
-            <div className="text-center py-6 text-[#8b949e]">
+            <div className="flex-1 flex items-center justify-center text-center text-[#8b949e]">
               <p className="text-sm">No matches</p>
             </div>
           )}
 
           {watchlist.length > 0 && (
-            <div className="pt-2 border-t border-[#30363d]">
+            <div className="pt-2 border-t border-[#30363d] shrink-0">
               <span className="text-xs text-[#8b949e]">Total: {watchlist.length}</span>
             </div>
           )}
