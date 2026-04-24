@@ -20,19 +20,30 @@ interface LaidEvent extends CalendarEvent {
 }
 
 const PX_PER_HOUR = 56;
+const DISPLAY_TZ = 'America/New_York';
+
+function minuteOfDayInEST(date: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: DISPLAY_TZ,
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  }).formatToParts(date);
+  const h = parseInt(parts.find(p => p.type === 'hour')?.value ?? '0', 10);
+  const m = parseInt(parts.find(p => p.type === 'minute')?.value ?? '0', 10);
+  return (isNaN(h) ? 0 : h % 24) * 60 + (isNaN(m) ? 0 : m);
+}
 
 function localMinuteOfDay(iso: string): number {
-  const d = new Date(iso);
-  return d.getHours() * 60 + d.getMinutes();
+  return minuteOfDayInEST(new Date(iso));
 }
 
 function nowMinutes(): number {
-  const d = new Date();
-  return d.getHours() * 60 + d.getMinutes();
+  return minuteOfDayInEST(new Date());
 }
 
 function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: DISPLAY_TZ });
 }
 
 function hourLabel(h: number): string {
@@ -121,24 +132,28 @@ const SETUP_STEPS = [
 ];
 
 function getDateStringForOffset(offset: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d.toLocaleDateString('en-CA'); // YYYY-MM-DD
+  // Get today's date in EST, then apply day offset
+  const todayEST = new Date().toLocaleDateString('en-CA', { timeZone: DISPLAY_TZ }); // "YYYY-MM-DD"
+  const [y, mo, d] = todayEST.split('-').map(Number);
+  const shifted = new Date(Date.UTC(y, mo - 1, d + offset));
+  return shifted.toISOString().slice(0, 10); // "YYYY-MM-DD"
 }
 
 function getDayLabel(offset: number): string {
   if (offset === 0) return 'Today';
   if (offset === -1) return 'Yesterday';
   if (offset === 1) return 'Tomorrow';
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const dateStr = getDateStringForOffset(offset);
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 function getDateSubtitle(offset: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const dateStr = getDateStringForOffset(offset);
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 export default function CalendarCard() {
@@ -182,7 +197,7 @@ export default function CalendarCard() {
     setError(null);
     setNoCalendar(false);
     try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const tz = DISPLAY_TZ;
       const date = getDateStringForOffset(dayOffset);
       const res = await fetch(`/api/calendar-events?tz=${encodeURIComponent(tz)}&date=${date}`);
       const data = await res.json();
