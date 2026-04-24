@@ -264,9 +264,20 @@ export function processGaps(
     if (isLikelyADRBySymbol(snap.ticker)) continue;
     if (!snap.prevDay?.c) continue;
 
-    // During premarket, day.c is often 0 (no regular-session trades yet).
-    // Prefer lastTrade.p which reflects the most recent premarket/after-hours trade.
-    const currentPrice = snap.lastTrade?.p || snap.day?.c;
+    // During pre-market day.c is 0 (no regular-session close yet).
+    // Polygon's todaysChangePerc is updated in real-time for all sessions including
+    // pre-market, so prefer it over a manual calculation from lastTrade.p which may
+    // be stale (e.g. an after-hours trade from two sessions ago after a long weekend).
+    const gapPercent = snap.todaysChangePerc ?? (
+      snap.lastTrade?.p
+        ? ((snap.lastTrade.p - snap.prevDay.c) / snap.prevDay.c) * 100
+        : null
+    );
+    if (gapPercent == null || Math.abs(gapPercent) < minGapPercent) { skippedGap++; continue; }
+
+    // Derive current price: prefer the field that matches the session.
+    // lastQuote.p (mid) > lastTrade.p > day.c (may be 0 pre-market).
+    const currentPrice = snap.lastQuote?.p || snap.lastTrade?.p || snap.day?.c;
     if (!currentPrice) continue;
     const previousClose = snap.prevDay.c;
     const volume = snap.day.v || 0;
@@ -278,9 +289,6 @@ export function processGaps(
 
     if (currentPrice < minPrice || currentPrice > maxPrice) { skippedPrice++; continue; }
     if (volumeForFilter < minVolume) { skippedVolume++; continue; }
-
-    const gapPercent = ((currentPrice - previousClose) / previousClose) * 100;
-    if (Math.abs(gapPercent) < minGapPercent) { skippedGap++; continue; }
 
     const stock: GapStock = {
       symbol: snap.ticker,
