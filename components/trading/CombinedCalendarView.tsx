@@ -701,30 +701,28 @@ export default function CombinedCalendarView() {
                     </button>
                   )}
 
-                  {/* Journal Icon - Only show for weekdays that are today or in the past */}
-                  {dayData.isWeekday && dayData.date <= getTodayInEST() && (
-                    <button
-                      onClick={(e) => handleJournalIconClick(dayData.date, e)}
-                      className={`
-                        relative flex items-center justify-center shrink-0
-                        w-9 h-9 sm:w-10 sm:h-10 rounded-xl
-                        transition-all duration-200
-                        hover:scale-110 hover:shadow-xl
-                        ${hasJournal
-                          ? 'bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20 text-[#58a6ff] hover:from-[#58a6ff]/40 hover:to-[#1f6feb]/30 ring-1 ring-[#58a6ff]/50 shadow-[0_2px_8px_-2px_rgba(88,166,255,0.3)]'
-                          : 'bg-[#21262d] text-[#6e7681] hover:text-[#8b949e] hover:bg-[#30363d] ring-1 ring-[#6e7681]/30 border border-dashed border-[#6e7681]/50'
-                        }
-                      `}
-                      title={hasJournal ? 'Journal entry - Click to view/edit' : 'Add journal entry'}
-                    >
-                      <BookOpen className="w-5 h-5 sm:w-5 sm:h-5" strokeWidth={hasJournal ? 2 : 1.5} />
-                      {hasJournal && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center bg-[#58a6ff] text-[#0d1117] rounded-full border-2 border-[#161b22]">
-                          <CheckCircle className="w-2.5 h-2.5" strokeWidth={3} />
-                        </span>
-                      )}
-                    </button>
-                  )}
+                  {/* Journal Icon - Available on all days */}
+                  <button
+                    onClick={(e) => handleJournalIconClick(dayData.date, e)}
+                    className={`
+                      relative flex items-center justify-center shrink-0
+                      w-9 h-9 sm:w-10 sm:h-10 rounded-xl
+                      transition-all duration-200
+                      hover:scale-110 hover:shadow-xl
+                      ${hasJournal
+                        ? 'bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20 text-[#58a6ff] hover:from-[#58a6ff]/40 hover:to-[#1f6feb]/30 ring-1 ring-[#58a6ff]/50 shadow-[0_2px_8px_-2px_rgba(88,166,255,0.3)]'
+                        : 'bg-[#21262d] text-[#6e7681] hover:text-[#8b949e] hover:bg-[#30363d] ring-1 ring-[#6e7681]/30 border border-dashed border-[#6e7681]/50'
+                      }
+                    `}
+                    title={hasJournal ? 'Journal entry - Click to view/edit' : 'Add journal entry'}
+                  >
+                    <BookOpen className="w-5 h-5 sm:w-5 sm:h-5" strokeWidth={hasJournal ? 2 : 1.5} />
+                    {hasJournal && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center bg-[#58a6ff] text-[#0d1117] rounded-full border-2 border-[#161b22]">
+                        <CheckCircle className="w-2.5 h-2.5" strokeWidth={3} />
+                      </span>
+                    )}
+                  </button>
                 </div>
 
                 {/* Bottom spacer for visual balance */}
