@@ -78,6 +78,41 @@ function getNowInEST(): string {
 }
 
 /**
+ * TOS Account Statement exports record fill timestamps in UTC, even though
+ * descriptive text labels them "CST" (the broker's home timezone). Without
+ * converting, after-hours trades that happen past 8 PM ET roll into the next
+ * UTC calendar day and get assigned the wrong trading date — breaking
+ * round-trip matching and daily P&L.
+ */
+function convertUTCDateTimeToET(dateStr: string, timeStr: string): { date: string; time: string } {
+  if (!dateStr || !timeStr) return { date: '', time: timeStr };
+  const [month, day, yearShort] = dateStr.split('/');
+  if (!month || !day || !yearShort) return { date: '', time: timeStr };
+  const year = yearShort.length === 2 ? '20' + yearShort : yearShort;
+  const utcISO = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timeStr}Z`;
+  const utcDate = new Date(utcISO);
+  if (isNaN(utcDate.getTime())) {
+    return {
+      date: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
+      time: timeStr,
+    };
+  }
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: EST_TIMEZONE,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  }).formatToParts(utcDate);
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+  let hour = get('hour');
+  if (hour === '24') hour = '00';
+  return {
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+    time: `${hour}:${get('minute')}:${get('second')}`,
+  };
+}
+
+/**
  * Parse a TOS Account Statement returning both trades and position adjustments.
  */
 export function parseTOSAccountStatementFull(csvText: string): TOSAccountStatementResult {
@@ -151,16 +186,13 @@ function parseTOSAccountStatement(csvText: string): TOSTrade[] {
     const datePart = execTime.slice(0, spaceIdx);
     const timePart = execTime.slice(spaceIdx + 1);
 
-    const [month, day, yearShort] = datePart.split('/');
-    if (!month || !day || !yearShort) continue;
-
-    const year = '20' + yearShort;
-    const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    const { date: isoDate, time: localTime } = convertUTCDateTimeToET(datePart, timePart);
+    if (!isoDate) continue;
 
     trades.push({
-      id: `${symbol}-${isoDate}-${timePart.replace(/:/g, '-')}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `${symbol}-${isoDate}-${localTime.replace(/:/g, '-')}-${Math.random().toString(36).substr(2, 9)}`,
       symbol, side, quantity, price,
-      date: isoDate, time: timePart, execTime, posEffect, orderType
+      date: isoDate, time: localTime, execTime, posEffect, orderType
     });
   }
   return trades;
@@ -211,15 +243,13 @@ function parseCashBalanceAdjustments(csvText: string): RawPositionAdjustment[] {
     if (!dateStr || !dateStr.includes('/')) continue;
     if (type !== 'FND' || description !== 'Position adjustment') continue;
 
-    const dateParts = dateStr.split('/');
-    if (dateParts.length !== 3) continue;
-    const [month, day, yearShort] = dateParts;
-    const isoDate = `20${yearShort}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    const { date: isoDate, time: localTime } = convertUTCDateTimeToET(dateStr, timeStr);
+    if (!isoDate) continue;
 
     const amount = parseQuotedAmount(amountStr);
     if (amount === 0) continue;
 
-    adjustments.push({ date: isoDate, time: timeStr, amount: Math.abs(amount) });
+    adjustments.push({ date: isoDate, time: localTime, amount: Math.abs(amount) });
   }
   return adjustments;
 }
