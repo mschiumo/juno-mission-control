@@ -41,6 +41,17 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    '/((?!api/auth|_next/static|_next/image|favicon|.*\\.svg$).*)',
+    // Excludes:
+    //   api/auth — NextAuth endpoints
+    //   _next/static, _next/image — build assets
+    //   favicon — favicon.ico and related
+    //   opengraph-image, twitter-image, icon, apple-icon — Next.js metadata
+    //     routes. These MUST be reachable by unauthenticated social-card
+    //     crawlers (Facebook, Twitter, iMessage, Slack, Discord) — auth-gating
+    //     them sends the crawler to the login page and the share preview
+    //     shows "no image found".
+    //   robots.txt, sitemap.xml — public crawler conventions
+    //   *.svg — public SVG assets
+    '/((?!api/auth|_next/static|_next/image|favicon|opengraph-image|twitter-image|icon|apple-icon|robots\\.txt|sitemap\\.xml|.*\\.svg$).*)',
   ],
 };

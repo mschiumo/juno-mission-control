@@ -13,7 +13,18 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Absolute base for og:image and twitter:image meta tags. Social crawlers
+// (iMessage, older Slack/Discord, etc.) don't resolve relative image URLs,
+// so without this they emit `/opengraph-image` and the share preview is empty.
+// Vercel sets VERCEL_PROJECT_PRODUCTION_URL automatically on prod builds;
+// fall back to the configured custom domain.
+const productionUrl = process.env.NEXT_PUBLIC_SITE_URL
+  ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : 'https://confluencetrading.app');
+
 export const metadata: Metadata = {
+  metadataBase: new URL(productionUrl),
   title: "Confluence Trading",
   description: "Your disciplined trading command center",
   openGraph: {
@@ -21,6 +32,7 @@ export const metadata: Metadata = {
     description: "Your disciplined trading command center",
     siteName: "Confluence Trading",
     type: "website",
+    url: productionUrl,
   },
   twitter: {
     card: "summary_large_image",
