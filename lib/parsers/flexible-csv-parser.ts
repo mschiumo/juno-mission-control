@@ -315,11 +315,23 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
   const now = getNowInEST();
   const isPositionStatement = csvText.includes('Position Statement for');
 
+  // Build an ISO timestamp from an ET-local date+time, applying the correct
+  // -04:00 (EDT) or -05:00 (EST) offset based on whether DST is active.
+  const buildETISO = (date: string, time: string): string => {
+    const probe = new Date(`${date}T12:00:00Z`);
+    const hourStr = isNaN(probe.getTime())
+      ? '7'
+      : new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/New_York',
+          hour: 'numeric', hour12: false,
+        }).format(probe);
+    const offset = parseInt(hourStr, 10) === 8 ? '-04:00' : '-05:00';
+    return `${date}T${time}${offset}`;
+  };
+
   if (isPositionStatement) {
     tosTrades.forEach(t => {
-      const [year, month, day] = t.date.split('-');
-      const [hours, minutes, seconds] = t.time.split(':');
-      const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
+      const entryDate = buildETISO(t.date, t.time);
 
       trades.push({
         id: crypto.randomUUID(),
@@ -355,54 +367,101 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
       const symbol = key.split('::')[0];
       const tradeDate = key.split('::')[1];
 
-      const buys = symbolTrades.filter(t => t.side === 'BUY').sort((a, b) =>
+      // Walk trades chronologically and close round trips when the position
+      // returns to zero. This correctly aggregates multi-fill entries/exits
+      // (e.g. two BUYs followed by one SELL) using weighted-average pricing.
+      const chronological = [...symbolTrades].sort((a, b) =>
         new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()
       );
-      const sells = symbolTrades.filter(t => t.side === 'SELL').sort((a, b) =>
-        new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()
-      );
 
-      // Pair round trips
-      const minPairs = Math.min(buys.length, sells.length);
-      for (let i = 0; i < minPairs; i++) {
-        const buy = buys[i];
-        const sell = sells[i];
-        const shares = Math.min(buy.quantity, sell.quantity);
-        const netPnL = (sell.price - buy.price) * shares;
+      type Fill = { shares: number; price: number; date: string; time: string };
+      let openFills: Fill[] = [];
+      let closeFills: Fill[] = [];
+      let openIsShort = false;
+      let position = 0; // positive = long, negative = short
+      const unmatchedBuys: TOSTrade[] = [];
+      const unmatchedSells: TOSTrade[] = [];
 
-        const isShort = sell.posEffect === 'TO OPEN' && buy.posEffect === 'TO CLOSE';
-        const entry = isShort ? sell : buy;
-        const exit = isShort ? buy : sell;
+      const closeRoundTrip = () => {
+        if (openFills.length === 0 || closeFills.length === 0) return;
+        const openQty = openFills.reduce((s, f) => s + f.shares, 0);
+        const openValue = openFills.reduce((s, f) => s + f.shares * f.price, 0);
+        const avgOpen = openValue / openQty;
+        const closeQty = closeFills.reduce((s, f) => s + f.shares, 0);
+        const closeValue = closeFills.reduce((s, f) => s + f.shares * f.price, 0);
+        const avgClose = closeValue / closeQty;
+        const matchedQty = Math.min(openQty, closeQty);
 
-        const [year, month, day] = entry.date.split('-');
-        const [hours, minutes, seconds] = entry.time.split(':');
-        const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
-
-        const [eYear, eMonth, eDay] = exit.date.split('-');
-        const [eHours, eMinutes, eSeconds] = exit.time.split(':');
-        const exitDate = `${eYear}-${eMonth}-${eDay}T${eHours}:${eMinutes}:${eSeconds}-05:00`;
+        const firstOpen = openFills[0];
+        const lastClose = closeFills[closeFills.length - 1];
+        const rawPnL = openIsShort
+          ? (avgOpen - avgClose) * matchedQty
+          : (avgClose - avgOpen) * matchedQty;
+        const netPnL = Math.round(rawPnL * 100) / 100;
 
         trades.push({
           id: crypto.randomUUID(),
           userId: options.userId,
           symbol,
-          side: isShort ? TradeSide.SHORT : TradeSide.LONG,
+          side: openIsShort ? TradeSide.SHORT : TradeSide.LONG,
           status: TradeStatus.CLOSED,
           strategy: Strategy.DAY_TRADE,
-          entryDate,
-          entryPrice: entry.price,
-          exitDate,
-          exitPrice: exit.price,
-          shares,
-          netPnL: isShort ? (entry.price - exit.price) * shares : netPnL,
+          entryDate: buildETISO(firstOpen.date, firstOpen.time),
+          entryPrice: Math.round(avgOpen * 10000) / 10000,
+          exitDate: buildETISO(lastClose.date, lastClose.time),
+          exitPrice: Math.round(avgClose * 10000) / 10000,
+          shares: matchedQty,
+          netPnL,
           createdAt: now,
           updatedAt: now,
-          entryNotes: `Imported from TOS - ${isShort ? 'Short' : 'Long'} round trip`,
+          entryNotes: `Imported from TOS - ${openIsShort ? 'Short' : 'Long'} round trip`,
         });
+
+        openFills = [];
+        closeFills = [];
+      };
+
+      for (const t of chronological) {
+        const signedQty = t.side === 'BUY' ? t.quantity : -t.quantity;
+        const fill: Fill = { shares: t.quantity, price: t.price, date: t.date, time: t.time };
+
+        if (position === 0) {
+          openFills = [fill];
+          closeFills = [];
+          openIsShort = t.side === 'SELL';
+          position = signedQty;
+        } else if ((position > 0 && signedQty > 0) || (position < 0 && signedQty < 0)) {
+          openFills.push(fill);
+          position += signedQty;
+        } else {
+          closeFills.push(fill);
+          position += signedQty;
+          if (position === 0) {
+            closeRoundTrip();
+          }
+        }
       }
 
-      const unmatchedBuys = buys.slice(minPairs);
-      const unmatchedSells = sells.slice(minPairs);
+      // Position didn't fully close — record what we matched, then flag the
+      // leftover side for position-adjustment matching below.
+      if (openFills.length > 0 && closeFills.length > 0) {
+        closeRoundTrip();
+      }
+      const recordLeftover = (f: Fill, side: 'BUY' | 'SELL', posEffect: string) => {
+        const stub: TOSTrade = {
+          symbol, side, quantity: f.shares, price: f.price,
+          date: f.date, time: f.time, execTime: `${f.date} ${f.time}`, posEffect,
+        };
+        if (side === 'BUY') unmatchedBuys.push(stub);
+        else unmatchedSells.push(stub);
+      };
+      for (const f of openFills) {
+        recordLeftover(f, openIsShort ? 'SELL' : 'BUY', 'TO OPEN');
+      }
+      for (const f of closeFills) {
+        recordLeftover(f, openIsShort ? 'BUY' : 'SELL', 'TO CLOSE');
+      }
+
       const stillUnmatched: TOSTrade[] = [];
 
       // Resolve unmatched BUY TO CLOSE via position adjustments (short covers)
@@ -428,10 +487,8 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
             const derivedEntry = Math.round((adj.amount / buy.quantity) * 100) / 100;
             const shortPnL = Math.round((derivedEntry - buy.price) * buy.quantity * 100) / 100;
 
-            const entryDate = `${adj.date}T${adj.time}-05:00`;
-            const [bY, bM, bD] = buy.date.split('-');
-            const [bH, bMi, bS] = buy.time.split(':');
-            const exitDate = `${bY}-${bM}-${bD}T${bH}:${bMi}:${bS}-05:00`;
+            const entryDate = buildETISO(adj.date, adj.time);
+            const exitDate = buildETISO(buy.date, buy.time);
 
             trades.push({
               id: crypto.randomUUID(),
@@ -479,10 +536,8 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
             const derivedEntry = Math.round((adj.amount / sell.quantity) * 100) / 100;
             const longPnL = Math.round((sell.price - derivedEntry) * sell.quantity * 100) / 100;
 
-            const entryDate = `${adj.date}T${adj.time}-05:00`;
-            const [sY, sM, sD] = sell.date.split('-');
-            const [sH, sMi, sS] = sell.time.split(':');
-            const exitDate = `${sY}-${sM}-${sD}T${sH}:${sMi}:${sS}-05:00`;
+            const entryDate = buildETISO(adj.date, adj.time);
+            const exitDate = buildETISO(sell.date, sell.time);
 
             trades.push({
               id: crypto.randomUUID(),
@@ -510,9 +565,7 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
 
       // Remaining truly unmatched orders
       stillUnmatched.forEach(t => {
-        const [year, month, day] = t.date.split('-');
-        const [hours, minutes, seconds] = t.time.split(':');
-        const entryDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-05:00`;
+        const entryDate = buildETISO(t.date, t.time);
 
         trades.push({
           id: crypto.randomUUID(),
