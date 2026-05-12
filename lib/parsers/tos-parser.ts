@@ -262,8 +262,8 @@ function parseCashBalanceStartingBalance(csvText: string): number | undefined {
   const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   let inCashBalance = false;
   let headerFound = false;
-  let earliestDate = '';
-  let earliestBalance: number | undefined;
+  const balByDate = new Map<string, number>();
+  let firstTradeDate = '';
 
   const SECTION_HEADERS = [
     'Futures Statements', 'Forex Statements', 'Account Order History',
@@ -295,20 +295,42 @@ function parseCashBalanceStartingBalance(csvText: string): number | undefined {
     const balanceStr = parts[8].trim();
 
     if (!dateStr || !dateStr.includes('/')) continue;
-    if (type !== 'BAL') continue;
 
     const dateParts = dateStr.split('/');
     if (dateParts.length !== 3) continue;
     const [month, day, yearShort] = dateParts;
     const isoDate = `20${yearShort}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
-    if (!earliestDate || isoDate < earliestDate) {
-      earliestDate = isoDate;
-      earliestBalance = parseQuotedAmount(balanceStr);
+    if (type === 'BAL') {
+      balByDate.set(isoDate, parseQuotedAmount(balanceStr));
+    } else if (type === 'TRD') {
+      // Track the earliest trading day in the file. The "start of business
+      // day" BAL for that date is the right starting capital for the session.
+      if (!firstTradeDate || isoDate < firstTradeDate) {
+        firstTradeDate = isoDate;
+      }
     }
   }
 
-  return earliestBalance && earliestBalance > 0 ? earliestBalance : undefined;
+  // Prefer the start-of-day balance on the first trading day. This is the
+  // capital actually deployed against trades (post-deposit, pre-trades) and
+  // matches what users see at the top of the Cash Balance section in TOS.
+  if (firstTradeDate && balByDate.has(firstTradeDate)) {
+    const bal = balByDate.get(firstTradeDate)!;
+    if (bal > 0) return bal;
+  }
+
+  // Fallback: earliest non-zero BAL anywhere in the file (covers files with
+  // no trades, e.g. a balance-only export after a deposit).
+  let earliestDate = '';
+  let earliestBalance: number | undefined;
+  for (const [date, bal] of balByDate) {
+    if (bal > 0 && (!earliestDate || date < earliestDate)) {
+      earliestDate = date;
+      earliestBalance = bal;
+    }
+  }
+  return earliestBalance;
 }
 
 function splitCSVLine(line: string): string[] {
