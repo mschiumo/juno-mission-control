@@ -934,11 +934,41 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   };
 
   // ===== ORDER PLACED TOGGLE =====
+  // Toggling moves the trade to the boundary between the two groups:
+  //   • Marking ON  → bottom of the "Order Placed" group
+  //   • Marking OFF → top of the "Active" (no-order) group
+  // Other trades preserve their relative order within each group. This is
+  // the only auto-reorder path; edits and drag-drop don't trigger it.
   const toggleOrderPlaced = (tradeId: string) => {
-    setOrderPlacedMap(prev => ({
-      ...prev,
-      [tradeId]: !prev[tradeId]
-    }));
+    const willBePlaced = !orderPlacedMap[tradeId];
+    const newMap = { ...orderPlacedMap, [tradeId]: willBePlaced };
+    setOrderPlacedMap(newMap);
+
+    setActiveTrades(prev => {
+      const toggled = prev.find(t => t.id === tradeId);
+      if (!toggled) return prev;
+
+      const placed: ActiveTradeWithPnL[] = [];
+      const unplaced: ActiveTradeWithPnL[] = [];
+      for (const trade of prev) {
+        if (trade.id === tradeId) continue;
+        if (newMap[trade.id]) placed.push(trade);
+        else unplaced.push(trade);
+      }
+
+      if (willBePlaced) placed.push(toggled);       // bottom of placed group
+      else unplaced.unshift(toggled);                // top of unplaced group
+
+      const reordered = [...placed, ...unplaced];
+      const orderedIds = reordered.map(t => t.id);
+      fetch(`/api/active-trades?reorder=1`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds }),
+      }).catch(err => console.error('Failed to persist active trades order:', err));
+
+      return reordered;
+    });
   };
 
   // ===== COLLAPSE/EXPAND SECTION TOGGLE =====
