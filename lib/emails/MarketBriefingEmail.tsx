@@ -27,6 +27,7 @@ interface BriefingEmailProps {
   indices: MarketItem[];
   stocks: MarketItem[];
   crypto: MarketItem[];
+  futures?: MarketItem[];
   aiSummary: {
     marketOverview: string;
     bigMovers: { symbol: string; move: string; reason: string }[];
@@ -71,10 +72,29 @@ const SENTIMENT_CONFIG: Record<string, { color: string; bg: string; border: stri
 
 const SECTION_ICONS = { snapshot: '📊', gaps: '🔍', movers: '⚡', news: '📰', events: '📅' };
 
+// Yahoo "=F" continuous front-month → TradingView "1!" continuous contract.
+const FUTURES_TV_MAP: Record<string, string> = {
+  'ES=F':  'CME_MINI:ES1!',
+  'NQ=F':  'CME_MINI:NQ1!',
+  'YM=F':  'CBOT_MINI:YM1!',
+  'RTY=F': 'CME_MINI:RTY1!',
+  'CL=F':  'NYMEX:CL1!',
+  'GC=F':  'COMEX:GC1!',
+  'SI=F':  'COMEX:SI1!',
+  'ZB=F':  'CBOT:ZB1!',
+  'DX=F':  'ICEUS:DX1!',
+};
+
 function getTickerUrl(symbol: string): string {
+  if (FUTURES_TV_MAP[symbol]) return `https://www.tradingview.com/chart/?symbol=${FUTURES_TV_MAP[symbol]}`;
   if (symbol === 'BTC' || symbol === 'ETH') return `https://www.tradingview.com/chart/?symbol=BINANCE:${symbol}USDT`;
   if (symbol === 'VIX') return `https://www.tradingview.com/chart/?symbol=TVC:VIX`;
   return `https://www.tradingview.com/chart/?symbol=${symbol}`;
+}
+
+function displaySymbol(symbol: string): string {
+  // Futures: drop "=F" suffix for readability ("ES" reads better than "ES=F").
+  return symbol.endsWith('=F') ? symbol.slice(0, -2) : symbol;
 }
 
 function formatPrice(price: number, symbol: string): string {
@@ -100,7 +120,7 @@ function TickerRow({ item }: { item: MarketItem }) {
       </Column>
       <Column style={{ width: '42%', verticalAlign: 'middle' as const }}>
         <Link href={getTickerUrl(item.symbol)} style={tickerName}>{item.name}</Link>
-        <Text style={tickerSymbol}>{item.symbol}</Text>
+        <Text style={tickerSymbol}>{displaySymbol(item.symbol)}</Text>
       </Column>
       <Column style={{ width: '27%', textAlign: 'right' as const, verticalAlign: 'middle' as const, paddingRight: '12px' }}>
         <Text style={tickerPrice}>{formatPrice(item.price, item.symbol)}</Text>
@@ -173,9 +193,10 @@ function SectionHeader({ icon, title }: { icon: string; title: string }) {
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 
-export function MarketBriefingEmail({ date, indices, stocks, crypto, aiSummary, gapData }: BriefingEmailProps) {
+export function MarketBriefingEmail({ date, indices, stocks, crypto, futures, aiSummary, gapData }: BriefingEmailProps) {
   const sentiment = SENTIMENT_CONFIG[aiSummary.sentiment] || SENTIMENT_CONFIG.neutral;
-  const allItems = [...indices, ...stocks, ...crypto];
+  const futuresList = futures ?? [];
+  const allItems = [...futuresList, ...indices, ...stocks, ...crypto];
   const gainers = allItems.filter(i => i.change > 0).length;
   const losers = allItems.filter(i => i.change < 0).length;
   const total = allItems.length || 1;
@@ -225,9 +246,11 @@ export function MarketBriefingEmail({ date, indices, stocks, crypto, aiSummary, 
         <Text style={overviewText}>{aiSummary.marketOverview}</Text>
       </Section>
 
-      {/* Market Snapshot */}
+      {/* Market Snapshot — futures lead so overnight risk-on/off context
+          sits at the top before the cash session prices. */}
       <Section style={card}>
         <SectionHeader icon={SECTION_ICONS.snapshot} title="Market Snapshot" />
+        <TickerGroup items={futuresList} label="Futures" icon="⏱️" />
         <TickerGroup items={indices} label="Indices" icon="📈" />
         <TickerGroup items={stocks} label="Stocks" icon="🏢" />
         <TickerGroup items={crypto} label="Crypto" icon="₿" />
