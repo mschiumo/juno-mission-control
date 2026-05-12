@@ -149,58 +149,6 @@ function getTimeAgo(timestamp: number): string {
   return `${days}d ago`;
 }
 
-/**
- * Fetch general market news from Finnhub
- * Free tier: 60 calls/minute
- */
-async function fetchEconomicCalendarNews(): Promise<NewsItem[]> {
-  if (!FINNHUB_API_KEY) return [];
-
-  try {
-    const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const fromDate = yesterday.toISOString().split('T')[0];
-    const toDate = now.toISOString().split('T')[0];
-
-    const response = await fetch(
-      `https://finnhub.io/api/v1/calendar/economic?from=${fromDate}&to=${toDate}&token=${FINNHUB_API_KEY}`,
-      { next: { revalidate: 900 } }
-    );
-
-    if (!response.ok) {
-      console.warn(`Finnhub economic calendar error: ${response.status}`);
-      return [];
-    }
-
-    const data = await response.json();
-    const events = data?.economicCalendar ?? [];
-
-    if (!Array.isArray(events)) return [];
-
-    const now_ts = Math.floor(Date.now() / 1000);
-
-    return events.map((event: { event: string; time: string; country: string; actual?: number; previous?: number; estimate?: number; unit?: string }) => {
-      const actualStr = event.actual != null ? `Actual: ${event.actual}${event.unit ?? ''}` : 'Pending';
-      const prevStr = event.previous != null ? `Previous: ${event.previous}${event.unit ?? ''}` : '';
-      const estStr = event.estimate != null ? `Estimate: ${event.estimate}${event.unit ?? ''}` : '';
-
-      return {
-        category: 'economic calendar',
-        datetime: now_ts,
-        headline: `${event.event} (${event.country})`,
-        image: '',
-        related: '',
-        source: 'Economic Calendar',
-        summary: [actualStr, estStr, prevStr].filter(Boolean).join(' | '),
-        url: ''
-      };
-    });
-  } catch (error) {
-    console.warn('Finnhub economic calendar fetch error:', error);
-    return [];
-  }
-}
-
 async function fetchCryptoPanicNews(): Promise<NewsItem[]> {
   if (!CRYPTOPANIC_API_KEY) return [];
 
@@ -247,7 +195,7 @@ async function fetchFinnhubNews(): Promise<NewsItem[]> {
   }
 
   try {
-    const [newsResponse, cryptoResponse, calendarNews, cryptoPanicNews] = await Promise.all([
+    const [newsResponse, cryptoResponse, cryptoPanicNews] = await Promise.all([
       fetch(
         `https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_API_KEY}`,
         { next: { revalidate: 900 } },
@@ -256,7 +204,6 @@ async function fetchFinnhubNews(): Promise<NewsItem[]> {
         `https://finnhub.io/api/v1/news?category=crypto&token=${FINNHUB_API_KEY}`,
         { next: { revalidate: 900 } },
       ),
-      fetchEconomicCalendarNews(),
       fetchCryptoPanicNews(),
     ]);
 
@@ -278,7 +225,7 @@ async function fetchFinnhubNews(): Promise<NewsItem[]> {
       console.warn(`Finnhub crypto news error: ${cryptoResponse.status}`);
     }
 
-    const combined = [...generalNews, ...cryptoNews, ...calendarNews, ...cryptoPanicNews];
+    const combined = [...generalNews, ...cryptoNews, ...cryptoPanicNews];
     if (combined.length === 0) return getMockNews();
 
     return combined;
@@ -286,6 +233,12 @@ async function fetchFinnhubNews(): Promise<NewsItem[]> {
     console.error('Finnhub news fetch error:', error);
     return getMockNews();
   }
+}
+
+/** Only keep items whose URL is something a click can actually open. */
+function hasValidUrl(item: { url?: string }): boolean {
+  const u = (item.url || '').trim();
+  return /^https?:\/\//i.test(u);
 }
 
 /**
@@ -398,13 +351,14 @@ export async function GET() {
     
     // Fetch news from Finnhub
     const rawNews = await fetchFinnhubNews();
-    
-    // Categorize news items
+
+    // Categorize and de-dupe. Drop anything without a usable URL — broken
+    // anchors make the screener feel unresponsive when you click through.
     let categorizedNews: CategorizedNews[] = [];
     const seenHeadlines = new Set<string>();
 
     for (const item of rawNews) {
-      // Skip duplicates
+      if (!hasValidUrl(item)) continue;
       if (seenHeadlines.has(item.headline)) continue;
       seenHeadlines.add(item.headline);
 
@@ -419,19 +373,24 @@ export async function GET() {
       console.warn('[NewsScreener] Live data produced 0 categorized items, falling back to mock data');
       const mockItems = getMockNews();
       for (const item of mockItems) {
+        if (!hasValidUrl(item)) continue;
         const categorized = categorizeNews(item);
         if (categorized) categorizedNews.push(categorized);
       }
     }
-    
-    // Sort by timestamp (newest first), then by priority
+
+    // Sort: high priority first, then newest. This surfaces market-moving
+    // categories (Fed, macro, M&A) at the top of the list.
     categorizedNews.sort((a, b) => {
-      // High priority first
       if (a.priority === 'high' && b.priority !== 'high') return -1;
       if (b.priority === 'high' && a.priority !== 'high') return 1;
-      // Then by timestamp
       return b.timestamp - a.timestamp;
     });
+
+    // Cap at 10. The screener is a quick read of what's moving markets right
+    // now — past 10 items, the signal-to-noise drops fast.
+    const MAX_ITEMS = 10;
+    categorizedNews = categorizedNews.slice(0, MAX_ITEMS);
     
     // Count by category
     const categoryCounts: Record<string, number> = {};
@@ -455,7 +414,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: {
-        items: categorizedNews.slice(0, 50), // Return top 50 items
+        items: categorizedNews,
         latestByCategory,
         counts: categoryCounts,
         totalScanned: rawNews.length,
