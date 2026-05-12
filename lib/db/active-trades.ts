@@ -121,6 +121,36 @@ export async function clearActiveTrades(userId: string = 'default'): Promise<voi
 }
 
 /**
+ * Reorder active trades to match the supplied id sequence. Trades whose ids
+ * aren't in `orderedIds` (e.g. a brand-new trade created concurrently with a
+ * drag-drop) are appended to the end so they aren't dropped. Used to persist
+ * the user's manual ordering across refetches.
+ */
+export async function reorderActiveTrades(orderedIds: string[], userId: string = 'default'): Promise<void> {
+  try {
+    const redis = await getRedisClient();
+    const existing = await getActiveTrades(userId);
+    const byId = new Map(existing.map(t => [t.id, t]));
+    const reordered: ActiveTradeWithPnL[] = [];
+    const seen = new Set<string>();
+    for (const id of orderedIds) {
+      const trade = byId.get(id);
+      if (trade && !seen.has(id)) {
+        reordered.push(trade);
+        seen.add(id);
+      }
+    }
+    for (const trade of existing) {
+      if (!seen.has(trade.id)) reordered.push(trade);
+    }
+    await redis.set(`${ACTIVE_TRADES_KEY}:${userId}`, JSON.stringify({ trades: reordered }));
+  } catch (error) {
+    console.error('Error reordering active trades:', error);
+    throw error;
+  }
+}
+
+/**
  * Update active trade by ID
  */
 export async function updateActiveTrade(id: string, updates: Partial<ActiveTradeWithPnL>, userId: string = 'default'): Promise<ActiveTradeWithPnL | null> {
