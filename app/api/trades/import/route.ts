@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Trade } from '@/types/trading';
 import { Strategy } from '@/types/trading';
 import { saveTradesReplacingByDate } from '@/lib/db/trades-v2';
+import { saveDailyBalances } from '@/lib/db/balances';
 import { parseFlexibleCSV, detectCSVFormat, validateCSVFormat, CSVFormat, getFormatSample } from '@/lib/parsers/flexible-csv-parser';
 import { getNowInEST } from '@/lib/date-utils';
 import { requireUserId } from '@/lib/auth-session';
@@ -98,17 +99,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await saveTradesReplacingByDate(result.trades, userId);
     }
 
-    // Persist starting balance from account statement if available
+    // Persist starting balance from account statement if available. Only
+    // overwrite when the new file's anchor is *earlier* than what's stored —
+    // daily uploads shouldn't keep ratcheting the baseline forward and
+    // double-counting prior days' P&L.
     if (result.startingBalance && result.startingBalance > 0) {
       try {
         const redis = await getRedisClient();
         const prefsKey = `user:prefs:${userId}`;
         const raw = await redis.get(prefsKey);
         const prefs = raw ? JSON.parse(raw as string) : {};
-        prefs.startingBalance = result.startingBalance;
-        await redis.set(prefsKey, JSON.stringify(prefs));
+        const incomingAnchor = result.dailyBalances?.[0]?.date;
+        const storedAnchor = prefs.startingBalanceDate;
+        const isEarlier = incomingAnchor && (!storedAnchor || incomingAnchor < storedAnchor);
+        const noStoredBalance = !prefs.startingBalance || prefs.startingBalance <= 0;
+        if (isEarlier || noStoredBalance) {
+          prefs.startingBalance = result.startingBalance;
+          if (incomingAnchor) prefs.startingBalanceDate = incomingAnchor;
+          await redis.set(prefsKey, JSON.stringify(prefs));
+        }
       } catch (e) {
         console.error('Failed to save starting balance from import:', e);
+      }
+    }
+
+    // Persist daily balances from account statement. These accumulate across
+    // uploads so the Equity Curve can plot the broker's authoritative NLV
+    // for every day, instead of deriving it from starting balance + P&L.
+    if (result.dailyBalances && result.dailyBalances.length > 0) {
+      try {
+        await saveDailyBalances(result.dailyBalances, userId);
+      } catch (e) {
+        console.error('Failed to save daily balances from import:', e);
       }
     }
 
@@ -121,6 +143,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         trades: result.trades,
         detectedFormat,
         startingBalance: result.startingBalance,
+        dailyBalances: result.dailyBalances,
       },
       count: result.imported
     });

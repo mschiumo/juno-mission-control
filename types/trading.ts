@@ -285,6 +285,7 @@ export interface CSVImportResult {
   errors: CSVImportError[];
   trades: Trade[];
   startingBalance?: number;
+  dailyBalances?: Array<{ date: string; balance: number }>;
 }
 
 export interface CSVImportError {
