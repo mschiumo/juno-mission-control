@@ -150,6 +150,11 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   const [selectedClosedPositions, setSelectedClosedPositions] = useState<Set<string>>(new Set());
   const [showDeleteMultipleModal, setShowDeleteMultipleModal] = useState(false);
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
+  // Active Trades multi-select (kept separate from closed positions so each
+  // section's selection state is independent).
+  const [selectedActiveTrades, setSelectedActiveTrades] = useState<Set<string>>(new Set());
+  const [showDeleteMultipleActiveModal, setShowDeleteMultipleActiveModal] = useState(false);
+  const [isDeletingMultipleActive, setIsDeletingMultipleActive] = useState(false);
   
   // Edit Closed Position state
   const [editingClosedPosition, setEditingClosedPosition] = useState<ClosedPosition | null>(null);
@@ -1052,6 +1057,64 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     }
   };
 
+  // ===== MULTI-SELECT: Active Trades =====
+  const toggleActiveTradeSelection = (tradeId: string) => {
+    setSelectedActiveTrades(prev => {
+      const next = new Set(prev);
+      if (next.has(tradeId)) next.delete(tradeId);
+      else next.add(tradeId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllActiveTrades = () => {
+    // "Select all" operates over the currently visible (search-filtered) list
+    // so users don't accidentally select hidden trades.
+    const visibleIds = (activeTradesSearchQuery
+      ? activeTrades.filter(t => t.ticker.toLowerCase().includes(activeTradesSearchQuery.toLowerCase()))
+      : activeTrades
+    ).map(t => t.id);
+    if (visibleIds.every(id => selectedActiveTrades.has(id)) && visibleIds.length > 0) {
+      setSelectedActiveTrades(prev => {
+        const next = new Set(prev);
+        visibleIds.forEach(id => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedActiveTrades(prev => {
+        const next = new Set(prev);
+        visibleIds.forEach(id => next.add(id));
+        return next;
+      });
+    }
+  };
+
+  const deleteSelectedActiveTrades = async () => {
+    setIsDeletingMultipleActive(true);
+    const ids = Array.from(selectedActiveTrades);
+    try {
+      // Fire deletes in parallel — server is idempotent per id and the network
+      // round trip is the bottleneck. Failures get reported via setError but
+      // don't abort the batch.
+      const results = await Promise.allSettled(ids.map(id =>
+        fetch(`/api/active-trades?id=${id}&userId=${DEFAULT_USER_ID}`, { method: 'DELETE' })
+      ));
+      const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)).length;
+      await fetchActiveTrades();
+      window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
+      setSelectedActiveTrades(new Set());
+      setShowDeleteMultipleActiveModal(false);
+      if (failed > 0) {
+        setError(`Failed to delete ${failed} of ${ids.length} active trade${ids.length !== 1 ? 's' : ''}`);
+      }
+    } catch (error) {
+      console.error('Error deleting active trades:', error);
+      setError('Failed to delete active trades');
+    } finally {
+      setIsDeletingMultipleActive(false);
+    }
+  };
+
   // ===== MULTI-SELECT: Closed Positions =====
   const toggleClosedPositionSelection = (positionId: string) => {
     setSelectedClosedPositions(prev => {
@@ -1467,6 +1530,45 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 </button>
               )}
             </div>
+
+            {/* Select All — operates over the visible (search-filtered) list */}
+            {activeTrades.length > 0 && (() => {
+              const visible = activeTradesSearchQuery
+                ? activeTrades.filter(t => t.ticker.toLowerCase().includes(activeTradesSearchQuery.toLowerCase()))
+                : activeTrades;
+              const allSelected = visible.length > 0 && visible.every(t => selectedActiveTrades.has(t.id));
+              return (
+                <button
+                  onClick={toggleSelectAllActiveTrades}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+                  title={allSelected ? 'Deselect all' : 'Select all'}
+                >
+                  {allSelected ? (
+                    <>
+                      <CheckSquare className="w-4 h-4 text-green-400" />
+                      <span className="hidden sm:inline">Deselect All</span>
+                    </>
+                  ) : (
+                    <>
+                      <Square className="w-4 h-4" />
+                      <span className="hidden sm:inline">Select All</span>
+                    </>
+                  )}
+                </button>
+              );
+            })()}
+
+            {/* Delete Selected */}
+            {selectedActiveTrades.size > 0 && (
+              <button
+                onClick={() => setShowDeleteMultipleActiveModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete ({selectedActiveTrades.size})</span>
+              </button>
+            )}
+
             <button
               onClick={fetchActiveTrades}
               disabled={activeTradesLoading}
@@ -1545,10 +1647,26 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 {/* Card Header */}
                 <div className="flex flex-wrap items-center justify-between px-3 py-2.5 border-b border-[#262626] bg-green-500/5 gap-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
+                    {/* Multi-select checkbox */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleActiveTradeSelection(trade.id);
+                      }}
+                      className={`p-1 rounded transition-colors ${selectedActiveTrades.has(trade.id) ? 'text-green-400' : 'text-[#8b949e] hover:text-white'}`}
+                      title={selectedActiveTrades.has(trade.id) ? 'Deselect' : 'Select'}
+                    >
+                      {selectedActiveTrades.has(trade.id) ? (
+                        <CheckSquare className="w-5 h-5" />
+                      ) : (
+                        <Square className="w-5 h-5" />
+                      )}
+                    </button>
+
                     <div className="px-3 py-1 bg-green-500/10 rounded-lg">
                       <span className="text-lg font-bold text-green-400">{trade.ticker}</span>
                     </div>
-                    
+
                     {/* Order Placed Checkbox */}
                     <label 
                       className="flex items-center gap-2 px-2 py-1 bg-[#161b22] border border-[#30363d] rounded-lg cursor-pointer hover:border-green-500/50 hover:bg-[#1c2128] transition-colors select-none"
@@ -2728,6 +2846,66 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-[#30363d] disabled:text-[#8b949e] disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
               >
                 Add to Calendar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Multiple Active Trades Confirmation Modal */}
+      {showDeleteMultipleActiveModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Delete Active Trades</h3>
+              <button
+                onClick={() => setShowDeleteMultipleActiveModal(false)}
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-[#8b949e]" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-[#da3633]/20 rounded-full">
+                  <Trash2 className="w-6 h-6 text-[#f85149]" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">
+                    Delete {selectedActiveTrades.size} active trade{selectedActiveTrades.size !== 1 ? 's' : ''}?
+                  </p>
+                  <p className="text-sm text-[#8b949e]">
+                    This removes the positions without recording them as closed. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteMultipleActiveModal(false)}
+                disabled={isDeletingMultipleActive}
+                className="flex-1 px-4 py-3 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteSelectedActiveTrades}
+                disabled={isDeletingMultipleActive}
+                className="flex-1 px-4 py-3 bg-[#da3633] hover:bg-[#f85149] text-white rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeletingMultipleActive ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </>
+                )}
               </button>
             </div>
           </div>
