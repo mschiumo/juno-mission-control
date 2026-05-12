@@ -324,7 +324,11 @@ export function parseDailyBalances(csvText: string): DailyBalance[] {
 
     const balance = parseQuotedAmount(balanceStr);
     const existing = byDate.get(isoDate);
-    if (!existing || ts > existing.ts) {
+    // Use >= so that later rows in file order override earlier ones when
+    // timestamps tie. TOS emits multi-leg fills (one order broken across
+    // multiple BALANCE rows at the same broker timestamp) in execution
+    // order — the *last* row reflects the post-fill running balance.
+    if (!existing || ts >= existing.ts) {
       byDate.set(isoDate, { ts, balance });
     }
   }
