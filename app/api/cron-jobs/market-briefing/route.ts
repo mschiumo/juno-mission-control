@@ -65,6 +65,61 @@ const SYMBOL_NAMES: Record<string, string> = {
   ETH: 'Ethereum',
 };
 
+// Yahoo continuous front-month futures — overnight read on equity index risk,
+// energy, metals, rates, and the dollar. Polygon's free tier doesn't expose
+// these, so we go to Yahoo directly.
+const FUTURES_SYMBOLS: { symbol: string; name: string }[] = [
+  { symbol: 'ES=F',  name: 'S&P 500 Futures' },
+  { symbol: 'NQ=F',  name: 'Nasdaq 100 Futures' },
+  { symbol: 'YM=F',  name: 'Dow Jones Futures' },
+  { symbol: 'RTY=F', name: 'Russell 2000 Futures' },
+  { symbol: 'CL=F',  name: 'Crude Oil Futures' },
+  { symbol: 'GC=F',  name: 'Gold Futures' },
+  { symbol: 'ZB=F',  name: '30-Yr Treasury Bond Futures' },
+  { symbol: 'DX=F',  name: 'US Dollar Index Futures' },
+];
+
+async function fetchYahooFuture(symbol: string, name: string): Promise<MarketItem | null> {
+  try {
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`,
+      {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+        cache: 'no-store',
+      },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const meta = data?.chart?.result?.[0]?.meta;
+    if (!meta) return null;
+    const price = meta.regularMarketPrice || meta.previousClose || meta.chartPreviousClose || 0;
+    const prevClose = meta.previousClose || meta.chartPreviousClose || price;
+    const change = price - prevClose;
+    const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+    if (price <= 0) return null;
+    return {
+      symbol,
+      name,
+      price: +price.toFixed(2),
+      change: +change.toFixed(2),
+      changePercent: +changePercent.toFixed(2),
+      status: change >= 0 ? 'up' : 'down',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchFutures(): Promise<MarketItem[]> {
+  const results = await Promise.all(
+    FUTURES_SYMBOLS.map(f => fetchYahooFuture(f.symbol, f.name)),
+  );
+  return results.filter((item): item is MarketItem => item !== null);
+}
+
 // ---------------------------------------------------------------------------
 // Polygon — stock & index prices (premium)
 // ---------------------------------------------------------------------------
@@ -287,6 +342,7 @@ export interface BriefingData {
   indices: MarketItem[];
   stocks: MarketItem[];
   crypto: MarketItem[];
+  futures: MarketItem[];
   aiSummary: {
     marketOverview: string;
     bigMovers: { symbol: string; move: string; reason: string }[];
@@ -300,6 +356,7 @@ async function generateAIBriefing(
   indices: MarketItem[],
   stocks: MarketItem[],
   crypto: MarketItem[],
+  futures: MarketItem[],
   news: FinnhubNewsItem[],
   calendarEvents: string[],
   earningsEvents: string[],
@@ -317,6 +374,12 @@ async function generateAIBriefing(
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
   const priceContext = [
+    '## Futures (overnight)',
+    ...futures.map(
+      (f) =>
+        `${f.name} (${f.symbol}): $${f.price.toFixed(2)} ${f.change >= 0 ? '+' : ''}${f.change} (${f.change >= 0 ? '+' : ''}${f.changePercent}%)`,
+    ),
+    '',
     '## Index Prices',
     ...indices.map(
       (i) =>
@@ -454,17 +517,18 @@ export async function GET(request: Request) {
     }
 
     // Fetch all data in parallel
-    const [indices, stocks, crypto, news, calendarEvents, earningsEvents] = await Promise.all([
+    const [indices, stocks, crypto, futures, news, calendarEvents, earningsEvents] = await Promise.all([
       fetchPolygonSnapshots(['SPY', 'QQQ', 'DIA', 'VIX']),
       fetchPolygonSnapshots(['AAPL', 'NVDA', 'MSFT', 'TSLA', 'META', 'AMZN', 'GOOGL']),
       fetchCoinGeckoPrices(),
+      fetchFutures(),
       fetchMarketNews(),
       fetchEconomicCalendar(),
       fetchUpcomingEarnings(),
     ]);
 
     // Generate AI summary
-    const aiSummary = await generateAIBriefing(indices, stocks, crypto, news, calendarEvents, earningsEvents);
+    const aiSummary = await generateAIBriefing(indices, stocks, crypto, futures, news, calendarEvents, earningsEvents);
 
     const today = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' });
     const briefing: BriefingData = {
@@ -473,6 +537,7 @@ export async function GET(request: Request) {
       indices,
       stocks,
       crypto,
+      futures,
       aiSummary,
     };
 
@@ -521,6 +586,7 @@ export async function GET(request: Request) {
             indices: briefing.indices,
             stocks: briefing.stocks,
             crypto: briefing.crypto,
+            futures: briefing.futures,
             aiSummary: briefing.aiSummary,
             gapData,
           });

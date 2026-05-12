@@ -44,6 +44,7 @@ interface BriefingData {
   indices: MarketItem[];
   stocks: MarketItem[];
   crypto: MarketItem[];
+  futures?: MarketItem[];
   aiSummary: AiSummary;
 }
 
@@ -500,6 +501,22 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
                   {briefing.aiSummary.marketOverview}
                 </p>
               </div>
+
+              {/* Futures — lead with overnight read so users see pre-cash
+                  context before the index quotes. */}
+              {briefing.futures && briefing.futures.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <BarChart3 className="w-4 h-4 text-[#F97316]" />
+                    <h3 className="text-sm font-semibold text-white uppercase tracking-wide">Futures</h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {briefing.futures.map((item) => (
+                      <ChangeIndicator key={item.symbol} item={item} />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Indices */}
               {briefing.indices.length > 0 && (

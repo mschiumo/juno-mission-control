@@ -27,7 +27,7 @@ const forexNames: Record<string, string> = {
 // Stock/ETF/Commodity name mappings
 const stockNames: Record<string, string> = {
   'SPY': 'S&P 500 ETF',
-  'QQQ': 'NASDAQ ETF', 
+  'QQQ': 'NASDAQ ETF',
   'DIA': 'Dow Jones ETF',
   'VXX': 'iPath VIX Short-Term Futures',
   '^VIX': 'CBOE Volatility Index',
@@ -45,6 +45,29 @@ const stockNames: Record<string, string> = {
   'PLTM': 'GraniteShares Platinum Trust',
   'PALL': 'Aberdeen Physical Palladium'
 };
+
+/**
+ * Futures contracts to track. Yahoo's continuous front-month symbols use the
+ * `=F` suffix. These give a fast read on overnight risk-on/off (equity index
+ * futures), inflation/dollar pressure (CL, GC, DX), and rates (ZB) before the
+ * cash session opens. Finnhub free tier doesn't expose futures so we go to
+ * Yahoo directly for this category.
+ */
+const FUTURES_SYMBOLS: { symbol: string; name: string }[] = [
+  { symbol: 'ES=F',  name: 'S&P 500 Futures' },
+  { symbol: 'NQ=F',  name: 'Nasdaq 100 Futures' },
+  { symbol: 'YM=F',  name: 'Dow Jones Futures' },
+  { symbol: 'RTY=F', name: 'Russell 2000 Futures' },
+  { symbol: 'CL=F',  name: 'Crude Oil Futures' },
+  { symbol: 'GC=F',  name: 'Gold Futures' },
+  { symbol: 'ZB=F',  name: '30-Yr Treasury Bond Futures' },
+  { symbol: 'DX=F',  name: 'US Dollar Index Futures' },
+];
+
+const FUTURES_NAME_MAP: Record<string, string> = FUTURES_SYMBOLS.reduce(
+  (acc, f) => { acc[f.symbol] = f.name; return acc; },
+  {} as Record<string, string>,
+);
 
 /**
  * Fetches stock/commodity data from Finnhub API
@@ -322,6 +345,18 @@ async function fetchYahooSingle(symbol: string): Promise<MarketItem | null> {
 }
 
 /**
+ * Fetches continuous front-month futures from Yahoo. Each symbol is fetched
+ * individually because Yahoo's chart API only returns the first symbol from
+ * a comma-separated request.
+ */
+async function fetchFutures(): Promise<MarketItem[]> {
+  const results = await Promise.all(FUTURES_SYMBOLS.map(f => fetchYahooSingle(f.symbol)));
+  return results
+    .filter((item): item is MarketItem => item !== null)
+    .map(item => ({ ...item, name: FUTURES_NAME_MAP[item.symbol] ?? item.name }));
+}
+
+/**
  * Fetches CNN Fear & Greed Index (0-100)
  * Falls back to alternative.me F&G if CNN is unreachable
  */
@@ -377,7 +412,7 @@ async function fetchFearAndGreed(): Promise<{ score: number; rating: string } | 
 /**
  * Fallback mock data when all APIs fail
  */
-function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commodities: MarketItem[]; crypto: MarketItem[]; forex: MarketItem[] } {
+function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commodities: MarketItem[]; crypto: MarketItem[]; forex: MarketItem[]; futures: MarketItem[] } {
   return {
     indices: [
       { symbol: 'SPY', name: 'S&P 500 ETF', price: 595.32, change: 2.15, changePercent: 0.36, status: 'up' },
@@ -416,6 +451,16 @@ function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commo
       { symbol: 'USD/JPY', name: 'US Dollar / Japanese Yen', price: 149.52, change: -0.38, changePercent: -0.25, status: 'down' },
       { symbol: 'USD/CNY', name: 'US Dollar / Chinese Yuan', price: 7.2415, change: 0.0085, changePercent: 0.12, status: 'up' },
       { symbol: 'DXY', name: 'US Dollar Index', price: 104.23, change: -0.18, changePercent: -0.17, status: 'down' },
+    ],
+    futures: [
+      { symbol: 'ES=F',  name: 'S&P 500 Futures',           price: 5957.50, change: 12.25, changePercent: 0.21, status: 'up' },
+      { symbol: 'NQ=F',  name: 'Nasdaq 100 Futures',         price: 21184.25, change: 76.50, changePercent: 0.36, status: 'up' },
+      { symbol: 'YM=F',  name: 'Dow Jones Futures',          price: 44892.0, change: 145.0, changePercent: 0.32, status: 'up' },
+      { symbol: 'RTY=F', name: 'Russell 2000 Futures',       price: 2298.10, change: -4.80, changePercent: -0.21, status: 'down' },
+      { symbol: 'CL=F',  name: 'Crude Oil Futures',          price: 68.42, change: -0.55, changePercent: -0.80, status: 'down' },
+      { symbol: 'GC=F',  name: 'Gold Futures',               price: 2658.30, change: 8.40, changePercent: 0.32, status: 'up' },
+      { symbol: 'ZB=F',  name: '30-Yr Treasury Bond Futures', price: 118.59, change: 0.31, changePercent: 0.26, status: 'up' },
+      { symbol: 'DX=F',  name: 'US Dollar Index Futures',    price: 106.45, change: -0.12, changePercent: -0.11, status: 'down' },
     ]
   };
 }
@@ -464,6 +509,9 @@ export async function GET() {
     // Always fetch forex from Yahoo Finance
     const forex = await fetchForexRates();
 
+    // Always fetch futures from Yahoo Finance
+    const futures = await fetchFutures();
+
     // Fetch Fear & Greed index (best-effort)
     const fearAndGreed = await fetchFearAndGreed();
     
@@ -475,6 +523,7 @@ export async function GET() {
     const hasRealCommodities = commodities.length > 0;
     const hasRealCrypto = crypto.length > 0;
     const hasRealForex = forex.length > 0;
+    const hasRealFutures = futures.length > 0;
 
     const marketData = {
       indices: hasRealIndices ? indices : fallback.indices,
@@ -482,18 +531,19 @@ export async function GET() {
       commodities: hasRealCommodities ? commodities : fallback.commodities,
       crypto: hasRealCrypto ? crypto : fallback.crypto,
       forex: hasRealForex ? forex : fallback.forex,
+      futures: hasRealFutures ? futures : fallback.futures,
       fearAndGreed: fearAndGreed ?? null,
       lastUpdated: timestamp
     };
 
     // Determine data source
-    const realCount = [hasRealIndices, hasRealStocks, hasRealCommodities, hasRealCrypto, hasRealForex].filter(Boolean).length;
+    const realCount = [hasRealIndices, hasRealStocks, hasRealCommodities, hasRealCrypto, hasRealForex, hasRealFutures].filter(Boolean).length;
     let source: 'live' | 'partial' | 'fallback';
-    if (realCount === 5) source = 'live';
+    if (realCount === 6) source = 'live';
     else if (realCount > 0) source = 'partial';
     else source = 'fallback';
 
-    console.log(`Market data: source=${source}, provider=${hasFinnhubKey ? 'finnhub' : 'yahoo'}, indices=${indices.length}, stocks=${stocks.length}, commodities=${commodities.length}, crypto=${crypto.length}, forex=${forex.length}`);
+    console.log(`Market data: source=${source}, provider=${hasFinnhubKey ? 'finnhub' : 'yahoo'}, indices=${indices.length}, stocks=${stocks.length}, commodities=${commodities.length}, crypto=${crypto.length}, forex=${forex.length}, futures=${futures.length}`);
     
     return NextResponse.json({ 
       success: true, 
@@ -507,13 +557,15 @@ export async function GET() {
     console.error('Market data error:', error);
     const fallback = getFallbackData();
     
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: {
         indices: fallback.indices,
         stocks: fallback.stocks,
         commodities: fallback.commodities,
         crypto: fallback.crypto,
+        forex: fallback.forex,
+        futures: fallback.futures,
         fearAndGreed: { score: 50, rating: 'Neutral' },
         lastUpdated: timestamp
       },
