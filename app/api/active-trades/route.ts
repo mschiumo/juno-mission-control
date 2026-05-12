@@ -13,7 +13,8 @@ import {
   getActiveTrades,
   saveActiveTrade,
   deleteActiveTrade,
-  updateActiveTrade
+  updateActiveTrade,
+  reorderActiveTrades,
 } from '@/lib/db/active-trades';
 import { requireUserId } from '@/lib/auth-session';
 
@@ -148,6 +149,46 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       { success: false, error: 'Failed to update active trade' },
       { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/active-trades?reorder=1
+ *
+ * Persists a manual ordering of active trades. Body: `{ orderedIds: string[] }`.
+ * Drag-drop in the UI is optimistic — this call writes the new order so
+ * subsequent refetches (e.g. after an edit) preserve it.
+ */
+export async function PATCH(request: NextRequest): Promise<NextResponse> {
+  const { userId, error: authError } = await requireUserId();
+  if (authError) return authError;
+
+  try {
+    const { searchParams } = new URL(request.url);
+    if (searchParams.get('reorder') !== '1') {
+      return NextResponse.json(
+        { success: false, error: 'Unsupported PATCH; only ?reorder=1 is implemented' },
+        { status: 400 },
+      );
+    }
+
+    const body = await request.json();
+    const orderedIds: unknown = body?.orderedIds;
+    if (!Array.isArray(orderedIds) || !orderedIds.every(id => typeof id === 'string')) {
+      return NextResponse.json(
+        { success: false, error: 'Body must include orderedIds: string[]' },
+        { status: 400 },
+      );
+    }
+
+    await reorderActiveTrades(orderedIds as string[], userId);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error reordering active trades:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to reorder active trades' },
+      { status: 500 },
     );
   }
 }

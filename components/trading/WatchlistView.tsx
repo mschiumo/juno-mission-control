@@ -649,12 +649,21 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
       const items = [...activeTrades];
       const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
       const targetIndex = items.findIndex(i => i.id === targetId);
-      
+
       if (draggedIndex === -1 || targetIndex === -1) return;
-      
+
       const [removed] = items.splice(draggedIndex, 1);
       items.splice(targetIndex, 0, removed);
       setActiveTrades(items);
+
+      // Persist the new order so a later edit's refetch doesn't wipe the
+      // arrangement. Fire-and-forget: optimistic UI is already set above.
+      const orderedIds = items.map(i => i.id);
+      fetch(`/api/active-trades?reorder=1`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds }),
+      }).catch(err => console.error('Failed to persist active trades order:', err));
     } else if (type === 'closed') {
       const items = [...closedPositions];
       const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
@@ -1467,24 +1476,15 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {(() => {
-              // First filter by search query
-              let filteredActiveTrades = activeTradesSearchQuery
+              // Filter by search query and preserve the user's manual ordering.
+              // Order changes only on close/delete or drag-drop — no automatic
+              // re-sorting by orderPlaced, P&L, date, etc.
+              const filteredActiveTrades = activeTradesSearchQuery
                 ? activeTrades.filter(trade =>
                     trade.ticker.toLowerCase().includes(activeTradesSearchQuery.toLowerCase())
                   )
-                : [...activeTrades];
-              
-              // Sort by orderPlaced status - trades with orderPlaced=true appear first
-              // Within each group, maintain existing order (by date/time - openedAt)
-              filteredActiveTrades.sort((a, b) => {
-                const aOrderPlaced = !!orderPlacedMap[a.id];
-                const bOrderPlaced = !!orderPlacedMap[b.id];
-                
-                if (aOrderPlaced && !bOrderPlaced) return -1;
-                if (!aOrderPlaced && bOrderPlaced) return 1;
-                return 0; // Keep original order within same group
-              });
-              
+                : activeTrades;
+
               if (filteredActiveTrades.length === 0 && activeTradesSearchQuery) {
                 return (
                   <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
