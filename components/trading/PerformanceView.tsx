@@ -148,7 +148,7 @@ function filterByPeriod(trades: Trade[], period: Period): Trade[] {
   return trades.filter((t) => new Date(t.entryDate) >= cutoff);
 }
 
-function computeMetrics(closedTrades: Trade[]): ComputedMetrics {
+function computeMetrics(closedTrades: Trade[], startingBalance: number = 0): ComputedMetrics {
   const totalTrades = closedTrades.length;
   const wins = closedTrades.filter((t) => (t.netPnL || 0) > 0);
   const losses = closedTrades.filter((t) => (t.netPnL || 0) < 0);
@@ -179,12 +179,29 @@ function computeMetrics(closedTrades: Trade[]): ComputedMetrics {
     else break;
   }
 
-  let maxDrawdown = 0, peak = 0, running = 0;
+  // Max drawdown on the daily equity curve (peak-to-trough decline in
+  // end-of-day cumulative P&L). Computing this per-trade overstates the
+  // drawdown for active intraday traders — a session that opens up, swings
+  // down, and recovers shouldn't report a drawdown larger than the day's
+  // realized loss. We aggregate trades to day buckets first, then walk the
+  // running cumulative. Peak starts at 0 so the first losing day correctly
+  // reports its loss as the drawdown.
+  const pnlByDay = new Map<string, number>();
   for (const t of closedTrades) {
-    running += t.netPnL || 0;
+    const date = t.entryDate.split('T')[0];
+    pnlByDay.set(date, (pnlByDay.get(date) || 0) + (t.netPnL || 0));
+  }
+  const sortedDays = [...pnlByDay.entries()].sort(([a], [b]) => a.localeCompare(b));
+  let maxDrawdown = 0, peak = 0, running = 0;
+  for (const [, pnl] of sortedDays) {
+    running += pnl;
     if (running > peak) peak = running;
     maxDrawdown = Math.max(maxDrawdown, peak - running);
   }
+  // % drawdown relative to peak account value (starting capital + peak gains).
+  // Falling back to startingBalance alone if the curve never went positive
+  // keeps the denominator sensible for a sub-starting-balance trough.
+  const peakNLV = startingBalance + peak;
 
   return {
     totalTrades,
@@ -202,7 +219,7 @@ function computeMetrics(closedTrades: Trade[]): ComputedMetrics {
     largestWin: winAmounts.length > 0 ? Number(Math.max(...winAmounts).toFixed(2)) : 0,
     largestLoss: lossAmounts.length > 0 ? Number(Math.max(...lossAmounts).toFixed(2)) : 0,
     maxDrawdown: Number(maxDrawdown.toFixed(2)),
-    maxDrawdownPercent: peak > 0 ? Number(((maxDrawdown / peak) * 100).toFixed(2)) : 0,
+    maxDrawdownPercent: peakNLV > 0 ? Number(((maxDrawdown / peakNLV) * 100).toFixed(2)) : 0,
     currentWinStreak,
     maxWinStreak,
     currentLossStreak,
@@ -327,7 +344,7 @@ export default function PerformanceView() {
     [filteredTrades],
   );
 
-  const metrics = useMemo(() => computeMetrics(closedTrades), [closedTrades]);
+  const metrics = useMemo(() => computeMetrics(closedTrades, startingBalance), [closedTrades, startingBalance]);
 
   const filteredBalances = useMemo(
     () => filterBalancesByPeriod(allDailyBalances, period),
