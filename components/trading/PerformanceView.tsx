@@ -50,6 +50,23 @@ interface EquityCurvePoint {
   nlv: number;
 }
 
+interface DailyBalance {
+  date: string;
+  balance: number;
+}
+
+function filterBalancesByPeriod(balances: DailyBalance[], period: Period): DailyBalance[] {
+  if (period === 'all') return balances;
+  const cutoff = new Date();
+  switch (period) {
+    case 'week': cutoff.setDate(cutoff.getDate() - 7); break;
+    case 'month': cutoff.setMonth(cutoff.getMonth() - 1); break;
+    case 'year': cutoff.setFullYear(cutoff.getFullYear() - 1); break;
+  }
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+  return balances.filter(b => b.date >= cutoffDate);
+}
+
 interface ComputedMetrics {
   totalTrades: number;
   winningTrades: number;
@@ -258,15 +275,17 @@ export default function PerformanceView() {
   const [startingBalance, setStartingBalance] = useState(0);
   const [balanceInput, setBalanceInput] = useState('');
   const [editingBalance, setEditingBalance] = useState(false);
+  const [allDailyBalances, setAllDailyBalances] = useState<DailyBalance[]>([]);
 
-  // Fetch trades and prefs in parallel
+  // Fetch trades, prefs, and daily balances in parallel
   useEffect(() => {
     setLoading(true);
     Promise.all([
       fetch('/api/trades?userId=default&perPage=1000').then((r) => r.json()),
       fetch('/api/user/prefs').then((r) => r.json()),
+      fetch('/api/user/daily-balances').then((r) => r.json()),
     ])
-      .then(([tradesRes, prefsRes]) => {
+      .then(([tradesRes, prefsRes, balancesRes]) => {
         if (tradesRes.success && tradesRes.data) {
           setAllTrades(tradesRes.data.trades || []);
         }
@@ -274,6 +293,9 @@ export default function PerformanceView() {
           const bal = prefsRes.prefs.startingBalance || 0;
           setStartingBalance(bal);
           setBalanceInput(bal > 0 ? bal.toString() : '');
+        }
+        if (balancesRes.success && Array.isArray(balancesRes.balances)) {
+          setAllDailyBalances(balancesRes.balances);
         }
       })
       .catch(console.error)
@@ -307,17 +329,49 @@ export default function PerformanceView() {
 
   const metrics = useMemo(() => computeMetrics(closedTrades), [closedTrades]);
 
-  // Build equity curve as NLV (starting balance + cumulative P&L)
-  const equityCurve = useMemo<EquityCurvePoint[]>(() => {
-    if (!closedTrades.length) return [];
+  const filteredBalances = useMemo(
+    () => filterBalancesByPeriod(allDailyBalances, period),
+    [allDailyBalances, period],
+  );
 
-    const byDay = new Map<string, number>();
+  // Build equity curve. Prefer the broker's authoritative daily balances —
+  // these handle deposits, withdrawals, interest, fees automatically. Fall
+  // back to "starting balance + cumulative P&L" only when no balances are
+  // available (e.g. user only imported Trade Activity files, not Account
+  // Statements). Cumulative P&L is still computed from trades and overlaid.
+  const equityCurve = useMemo<EquityCurvePoint[]>(() => {
+    const pnlByDay = new Map<string, number>();
     for (const t of closedTrades) {
       const date = t.entryDate.split('T')[0];
-      byDay.set(date, (byDay.get(date) || 0) + (t.netPnL || 0));
+      pnlByDay.set(date, (pnlByDay.get(date) || 0) + (t.netPnL || 0));
     }
 
-    const sortedDays = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b));
+    if (filteredBalances.length > 0) {
+      const anchorBalance = filteredBalances[0].balance;
+      const tradePnlBefore = (date: string) => {
+        let s = 0;
+        for (const [d, p] of pnlByDay) if (d < date) s += p;
+        return s;
+      };
+      const baselineCumPnL = tradePnlBefore(filteredBalances[0].date);
+
+      return filteredBalances.map(({ date, balance }) => {
+        const dt = new Date(date + 'T12:00:00');
+        // cumPnL in the visible window: balance delta from the period anchor.
+        // This stays consistent with trade-based P&L when no deposits happen.
+        const cumPnL = balance - anchorBalance + baselineCumPnL;
+        return {
+          date,
+          label: dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          cumPnL: Number(cumPnL.toFixed(2)),
+          nlv: Number(balance.toFixed(2)),
+        };
+      });
+    }
+
+    // Fallback: derive NLV from starting balance + cumulative trade P&L
+    if (!closedTrades.length) return [];
+    const sortedDays = [...pnlByDay.entries()].sort(([a], [b]) => a.localeCompare(b));
     let cumulative = 0;
     return sortedDays.map(([date, pnl]) => {
       cumulative += pnl;
@@ -329,7 +383,7 @@ export default function PerformanceView() {
         nlv: Number((startingBalance + cumulative).toFixed(2)),
       };
     });
-  }, [closedTrades, startingBalance]);
+  }, [closedTrades, startingBalance, filteredBalances]);
 
   // Day of week performance
   const dayOfWeekData = useMemo(() => {
@@ -358,8 +412,11 @@ export default function PerformanceView() {
   }, [closedTrades]);
 
   const hasData = allTrades.length > 0;
+  // NLV = current broker balance (last point on the curve, which uses real
+  // balances when available). totalPnL = trading P&L (sum of trade netPnL),
+  // independent of deposits/withdrawals so % return stays meaningful.
   const currentNLV = equityCurve.length > 0 ? equityCurve[equityCurve.length - 1].nlv : startingBalance;
-  const totalPnL = equityCurve.length > 0 ? equityCurve[equityCurve.length - 1].cumPnL : 0;
+  const totalPnL = closedTrades.reduce((s, t) => s + (t.netPnL || 0), 0);
   const pnlPercent = startingBalance > 0 ? ((totalPnL / startingBalance) * 100).toFixed(2) : null;
   const isPositive = totalPnL >= 0;
 

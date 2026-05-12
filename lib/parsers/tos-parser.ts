@@ -18,10 +18,16 @@ export interface RawPositionAdjustment {
   amount: number; // Positive dollar amount
 }
 
+export interface DailyBalance {
+  date: string;    // YYYY-MM-DD (ET local)
+  balance: number; // End-of-day balance (latest BALANCE column value on that ET date)
+}
+
 export interface TOSAccountStatementResult {
   trades: TOSTrade[];
   positionAdjustments: RawPositionAdjustment[];
   startingBalance?: number;
+  dailyBalances: DailyBalance[];
 }
 
 export interface DayData {
@@ -119,7 +125,8 @@ export function parseTOSAccountStatementFull(csvText: string): TOSAccountStateme
   const trades = parseTOSAccountStatement(csvText);
   const positionAdjustments = parseCashBalanceAdjustments(csvText);
   const startingBalance = parseCashBalanceStartingBalance(csvText);
-  return { trades, positionAdjustments, startingBalance };
+  const dailyBalances = parseDailyBalances(csvText);
+  return { trades, positionAdjustments, startingBalance, dailyBalances };
 }
 
 export function parseTOSCSV(csvText: string): TOSTrade[] {
@@ -252,6 +259,79 @@ function parseCashBalanceAdjustments(csvText: string): RawPositionAdjustment[] {
     adjustments.push({ date: isoDate, time: localTime, amount: Math.abs(amount) });
   }
   return adjustments;
+}
+
+/**
+ * Walk the Cash Balance section and return the end-of-day balance for every
+ * ET date that has any activity (BAL, TRD, CRC, DOI, etc.). The "end-of-day"
+ * value is the latest BALANCE column entry for that ET date — every row in
+ * this section reports a running balance, so the latest timestamp wins.
+ *
+ * As daily statements are uploaded over time, daily balances accumulate
+ * naturally: each new file fills in its own date range. Merging across
+ * uploads happens in the storage layer.
+ */
+export function parseDailyBalances(csvText: string): DailyBalance[] {
+  const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  let inCashBalance = false;
+  let headerFound = false;
+
+  const SECTION_HEADERS = [
+    'Futures Statements', 'Forex Statements', 'Account Order History',
+    'Account Trade History', 'Profits and Losses', 'Crypto',
+  ];
+
+  // Track the latest (highest UTC timestamp) balance entry per ET date.
+  const byDate = new Map<string, { ts: number; balance: number }>();
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (trimmed === 'Cash Balance') {
+      inCashBalance = true;
+      headerFound = false;
+      continue;
+    }
+    if (inCashBalance && !headerFound && trimmed.includes('DATE') && trimmed.includes('TYPE')) {
+      headerFound = true;
+      continue;
+    }
+    if (inCashBalance && headerFound && SECTION_HEADERS.some(h => trimmed.startsWith(h))) {
+      break;
+    }
+    if (!inCashBalance || !headerFound) continue;
+
+    const parts = splitCSVLine(line);
+    if (parts.length < 9) continue;
+
+    const dateStr = parts[0].trim();
+    const timeStr = parts[1].trim();
+    const balanceStr = parts[8].trim();
+
+    if (!dateStr || !dateStr.includes('/') || !timeStr || !balanceStr) continue;
+
+    // Re-derive the UTC timestamp for ordering; convertUTCDateTimeToET only
+    // returns the ET-local date+time, so we compute the UTC instant here.
+    const [m, d, yShort] = dateStr.split('/');
+    if (!m || !d || !yShort) continue;
+    const year = yShort.length === 2 ? '20' + yShort : yShort;
+    const utcInstant = new Date(`${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T${timeStr}Z`);
+    if (isNaN(utcInstant.getTime())) continue;
+    const ts = utcInstant.getTime();
+
+    const { date: isoDate } = convertUTCDateTimeToET(dateStr, timeStr);
+    if (!isoDate) continue;
+
+    const balance = parseQuotedAmount(balanceStr);
+    const existing = byDate.get(isoDate);
+    if (!existing || ts > existing.ts) {
+      byDate.set(isoDate, { ts, balance });
+    }
+  }
+
+  return [...byDate.entries()]
+    .map(([date, { balance }]) => ({ date, balance }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /**
