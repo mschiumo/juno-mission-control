@@ -155,6 +155,12 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   const [selectedActiveTrades, setSelectedActiveTrades] = useState<Set<string>>(new Set());
   const [showDeleteMultipleActiveModal, setShowDeleteMultipleActiveModal] = useState(false);
   const [isDeletingMultipleActive, setIsDeletingMultipleActive] = useState(false);
+
+  // Watchlist multi-select (covers both Favorites and Other Trades — they're
+  // both the same underlying watchlist, just filtered by the isFavorite flag).
+  const [selectedWatchlistItems, setSelectedWatchlistItems] = useState<Set<string>>(new Set());
+  const [showDeleteMultipleWatchlistModal, setShowDeleteMultipleWatchlistModal] = useState(false);
+  const [isDeletingMultipleWatchlist, setIsDeletingMultipleWatchlist] = useState(false);
   
   // Edit Closed Position state
   const [editingClosedPosition, setEditingClosedPosition] = useState<ClosedPosition | null>(null);
@@ -1115,6 +1121,53 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     }
   };
 
+  // ===== MULTI-SELECT: Watchlist (Favorites + Potential Trades) =====
+  const toggleWatchlistItemSelection = (itemId: string) => {
+    setSelectedWatchlistItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
+  // Smart "Select All" for a section: if every item in `groupIds` is already
+  // selected, this deselects them; otherwise it adds them to the selection.
+  // Lets each sub-section (Favorites / Other Trades) have its own toggle
+  // without clobbering the other's selection.
+  const toggleSelectAllInWatchlistGroup = (groupIds: string[]) => {
+    if (groupIds.length === 0) return;
+    setSelectedWatchlistItems(prev => {
+      const next = new Set(prev);
+      const allSelected = groupIds.every(id => next.has(id));
+      if (allSelected) groupIds.forEach(id => next.delete(id));
+      else groupIds.forEach(id => next.add(id));
+      return next;
+    });
+  };
+
+  const deleteSelectedWatchlistItems = async () => {
+    setIsDeletingMultipleWatchlist(true);
+    const ids = Array.from(selectedWatchlistItems);
+    try {
+      const results = await Promise.allSettled(ids.map(id =>
+        fetch(`/api/watchlist?id=${id}&userId=${DEFAULT_USER_ID}`, { method: 'DELETE' })
+      ));
+      const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)).length;
+      await fetchWatchlist();
+      setSelectedWatchlistItems(new Set());
+      setShowDeleteMultipleWatchlistModal(false);
+      if (failed > 0) {
+        setError(`Failed to delete ${failed} of ${ids.length} item${ids.length !== 1 ? 's' : ''}`);
+      }
+    } catch (error) {
+      console.error('Error deleting watchlist items:', error);
+      setError('Failed to delete watchlist items');
+    } finally {
+      setIsDeletingMultipleWatchlist(false);
+    }
+  };
+
   // ===== MULTI-SELECT: Closed Positions =====
   const toggleClosedPositionSelection = (positionId: string) => {
     setSelectedClosedPositions(prev => {
@@ -1986,6 +2039,19 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 </button>
               )}
             </div>
+
+            {/* Bulk Delete — visible whenever any watchlist item (from either
+                sub-section) is selected. */}
+            {selectedWatchlistItems.size > 0 && (
+              <button
+                onClick={() => setShowDeleteMultipleWatchlistModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete ({selectedWatchlistItems.size})</span>
+              </button>
+            )}
+
             <button
               onClick={fetchWatchlist}
               disabled={watchlistLoading}
@@ -2060,18 +2126,38 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                         <h4 className="text-sm font-semibold text-yellow-400">Favorites</h4>
                         <span className="text-xs text-[#8b949e]">({favorites.length})</span>
                       </div>
-                      {/* Collapse/Expand Toggle */}
-                      <button
-                        onClick={() => toggleSection('favorites')}
-                        className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-                        title={collapsedSections.favorites ? 'Expand section' : 'Collapse section'}
-                      >
-                        {collapsedSections.favorites ? (
-                          <ChevronDown className="w-5 h-5" />
-                        ) : (
-                          <ChevronUp className="w-5 h-5" />
-                        )}
-                      </button>
+                      <div className="flex items-center gap-1">
+                        {/* Select All for this section only */}
+                        {(() => {
+                          const allSelected = favorites.length > 0 && favorites.every(i => selectedWatchlistItems.has(i.id));
+                          return (
+                            <button
+                              onClick={() => toggleSelectAllInWatchlistGroup(favorites.map(i => i.id))}
+                              className="flex items-center gap-1.5 px-2 py-1 text-xs text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+                              title={allSelected ? 'Deselect all favorites' : 'Select all favorites'}
+                            >
+                              {allSelected ? (
+                                <CheckSquare className="w-4 h-4 text-yellow-400" />
+                              ) : (
+                                <Square className="w-4 h-4" />
+                              )}
+                              <span className="hidden sm:inline">{allSelected ? 'Deselect All' : 'Select All'}</span>
+                            </button>
+                          );
+                        })()}
+                        {/* Collapse/Expand Toggle */}
+                        <button
+                          onClick={() => toggleSection('favorites')}
+                          className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+                          title={collapsedSections.favorites ? 'Expand section' : 'Collapse section'}
+                        >
+                          {collapsedSections.favorites ? (
+                            <ChevronDown className="w-5 h-5" />
+                          ) : (
+                            <ChevronUp className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                     {/* Favorites List - Collapsible */}
                     <div
@@ -2094,6 +2180,23 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                       {/* Card Header */}
                       <div className="flex flex-wrap items-center justify-between px-3 py-2.5 bg-[#161b22] group-hover:bg-[#1c2128] transition-colors gap-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
+                          {/* Multi-select checkbox — stop propagation so clicking
+                              it doesn't open the edit modal triggered by the
+                              card's onClick handler. */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleWatchlistItemSelection(item.id);
+                            }}
+                            className={`p-1 rounded transition-colors ${selectedWatchlistItems.has(item.id) ? 'text-[#F97316]' : 'text-[#8b949e] hover:text-white'}`}
+                            title={selectedWatchlistItems.has(item.id) ? 'Deselect' : 'Select'}
+                          >
+                            {selectedWatchlistItems.has(item.id) ? (
+                              <CheckSquare className="w-5 h-5" />
+                            ) : (
+                              <Square className="w-5 h-5" />
+                            )}
+                          </button>
                           <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
                             <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
                           </div>
@@ -2174,18 +2277,38 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     <h4 className="text-sm font-semibold text-blue-400">Other Trades</h4>
                     <span className="text-xs text-[#8b949e]">({others.length})</span>
                   </div>
-                  {/* Collapse/Expand Toggle */}
-                  <button
-                    onClick={() => toggleSection('otherTrades')}
-                    className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-                    title={collapsedSections.otherTrades ? 'Expand section' : 'Collapse section'}
-                  >
-                    {collapsedSections.otherTrades ? (
-                      <ChevronDown className="w-5 h-5" />
-                    ) : (
-                      <ChevronUp className="w-5 h-5" />
-                    )}
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {/* Select All for this section only */}
+                    {(() => {
+                      const allSelected = others.length > 0 && others.every(i => selectedWatchlistItems.has(i.id));
+                      return (
+                        <button
+                          onClick={() => toggleSelectAllInWatchlistGroup(others.map(i => i.id))}
+                          className="flex items-center gap-1.5 px-2 py-1 text-xs text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+                          title={allSelected ? 'Deselect all other trades' : 'Select all other trades'}
+                        >
+                          {allSelected ? (
+                            <CheckSquare className="w-4 h-4 text-blue-400" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                          <span className="hidden sm:inline">{allSelected ? 'Deselect All' : 'Select All'}</span>
+                        </button>
+                      );
+                    })()}
+                    {/* Collapse/Expand Toggle */}
+                    <button
+                      onClick={() => toggleSection('otherTrades')}
+                      className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+                      title={collapsedSections.otherTrades ? 'Expand section' : 'Collapse section'}
+                    >
+                      {collapsedSections.otherTrades ? (
+                        <ChevronDown className="w-5 h-5" />
+                      ) : (
+                        <ChevronUp className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 {/* Other Trades List - Collapsible */}
                 <div
@@ -2208,6 +2331,23 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                       {/* Card Header */}
                       <div className="flex flex-wrap items-center justify-between px-3 py-2.5 bg-[#161b22] group-hover:bg-[#1c2128] transition-colors gap-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
+                          {/* Multi-select checkbox — stop propagation so clicking
+                              it doesn't open the edit modal triggered by the
+                              card's onClick handler. */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleWatchlistItemSelection(item.id);
+                            }}
+                            className={`p-1 rounded transition-colors ${selectedWatchlistItems.has(item.id) ? 'text-[#F97316]' : 'text-[#8b949e] hover:text-white'}`}
+                            title={selectedWatchlistItems.has(item.id) ? 'Deselect' : 'Select'}
+                          >
+                            {selectedWatchlistItems.has(item.id) ? (
+                              <CheckSquare className="w-5 h-5" />
+                            ) : (
+                              <Square className="w-5 h-5" />
+                            )}
+                          </button>
                           <div className="px-3 py-1 bg-[#F97316]/10 rounded-lg">
                             <span className="text-lg font-bold text-[#F97316]">{item.ticker}</span>
                           </div>
@@ -2846,6 +2986,66 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-[#30363d] disabled:text-[#8b949e] disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
               >
                 Add to Calendar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Multiple Watchlist Items Confirmation Modal */}
+      {showDeleteMultipleWatchlistModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Delete Watchlist Items</h3>
+              <button
+                onClick={() => setShowDeleteMultipleWatchlistModal(false)}
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-[#8b949e]" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-[#da3633]/20 rounded-full">
+                  <Trash2 className="w-6 h-6 text-[#f85149]" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">
+                    Delete {selectedWatchlistItems.size} item{selectedWatchlistItems.size !== 1 ? 's' : ''}?
+                  </p>
+                  <p className="text-sm text-[#8b949e]">
+                    This removes the selected Favorites and Potential Trades. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteMultipleWatchlistModal(false)}
+                disabled={isDeletingMultipleWatchlist}
+                className="flex-1 px-4 py-3 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteSelectedWatchlistItems}
+                disabled={isDeletingMultipleWatchlist}
+                className="flex-1 px-4 py-3 bg-[#da3633] hover:bg-[#f85149] text-white rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeletingMultipleWatchlist ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </>
+                )}
               </button>
             </div>
           </div>
