@@ -478,7 +478,7 @@ export default function PerformanceView() {
             <div className="text-center px-6">
               <BarChart3 className="w-9 h-9 mx-auto mb-3" style={{ color: 'var(--accent)' }} />
               <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No Trade Data Yet</h3>
-              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Import trades on the Overview tab to populate your equity curve.</p>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Import trades on the Journal tab to populate your equity curve.</p>
             </div>
           </div>
         )}

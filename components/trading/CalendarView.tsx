@@ -469,7 +469,7 @@ export default function CalendarView() {
                 </div>
                 
                 <div className="mt-3 pt-3 border-t border-[#30363d] text-xs text-[#8b949e]">
-                  💡 We extract filled orders from "Today's Trade Activity" section
+                  💡 We parse the full Account Statement — trades, daily balances, and starting capital all come in together.
                 </div>
                 
                 {/* Arrow */}
@@ -1578,13 +1578,13 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: 
           <input
             type="file"
             ref={fileInputRef}
-            accept=".csv,.xlsx,.xls"
+            accept=".csv"
             onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
             className="hidden"
           />
-          
+
           <Upload className="w-12 h-12 text-[#8b949e] mx-auto mb-4" />
-          
+
           {file ? (
             <div className="space-y-2">
               <p className="text-[#3fb950] font-medium">{file.name}</p>
@@ -1592,12 +1592,12 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: 
             </div>
           ) : (
             <>
-              <p className="text-white font-medium mb-2">Drop CSV or Excel file here</p>
-              <p className="text-sm text-[#8b949e] mb-4">Supports ThinkOrSwim, Interactive Brokers, and generic formats</p>
+              <p className="text-white font-medium mb-2">Drop your ThinkOrSwim Account Statement here</p>
+              <p className="text-sm text-[#8b949e] mb-4">In TOS: <span className="text-white">Monitor → Account Statement → Export to CSV</span></p>
             </>
           )}
-          
-          <button 
+
+          <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
             className="px-4 py-2 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors disabled:opacity-50"
@@ -1605,19 +1605,12 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: 
             {file ? 'Change File' : 'Select File'}
           </button>
         </div>
-        
+
         {uploadResult && (
           <div className={`p-3 rounded-lg mb-4 ${uploadResult.success ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#da3633]/20 text-[#f85149]'}`}>
             {uploadResult.message}
           </div>
         )}
-        
-        <div className="flex items-center gap-2 text-sm text-[#8b949e] mb-6">
-          <span>Need a template?</span>
-          <a href="/templates/trades_import_template.csv" download className="text-[#F97316] hover:underline">
-            Download CSV
-          </a>
-        </div>
         
         <div className="flex justify-end gap-3">
           <button 
