@@ -9,7 +9,6 @@ import {
   Mail,
   Bell,
   BarChart3,
-  TrendingUp,
   LogOut,
   Loader2,
   Check,
@@ -26,7 +25,6 @@ interface UserProfile {
 
 interface EmailAlerts {
   marketBriefing: boolean;
-  gapScanner: boolean;
 }
 
 interface UserPrefs {
@@ -69,11 +67,11 @@ export default function ProfilePage() {
     fetchData();
   }, [fetchData]);
 
-  const toggleEmailAlert = async (key: 'marketBriefing' | 'gapScanner') => {
+  const toggleEmailAlert = async (key: 'marketBriefing') => {
     if (!prefs) return;
     setSaving(key);
 
-    const current = prefs.emailAlerts || { marketBriefing: false, gapScanner: false };
+    const current = prefs.emailAlerts || { marketBriefing: false };
     const updated = { ...current, [key]: !current[key] };
 
     try {
@@ -139,7 +137,7 @@ export default function ProfilePage() {
     }
   };
 
-  const emailAlerts = prefs?.emailAlerts || { marketBriefing: false, gapScanner: false };
+  const emailAlerts = prefs?.emailAlerts || { marketBriefing: false };
 
   if (loading) {
     return (
@@ -325,41 +323,6 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            {/* Gap Scanner Toggle */}
-            <div className="flex items-center justify-between px-5 py-4">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 p-2 rounded-lg bg-[#3fb950]/10">
-                  <TrendingUp className="w-4 h-4 text-[#3fb950]" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-white">Gap Scanner Report</p>
-                  <p className="text-xs text-[#8b949e] mt-0.5">
-                    Pre-market gap scan results emailed each weekday morning before market open
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => toggleEmailAlert('gapScanner')}
-                disabled={saving === 'gapScanner'}
-                className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ml-4 ${
-                  emailAlerts.gapScanner
-                    ? 'bg-[#F97316]'
-                    : 'bg-[#30363d]'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform duration-200 flex items-center justify-center ${
-                    emailAlerts.gapScanner ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                >
-                  {saving === 'gapScanner' ? (
-                    <Loader2 className="w-3 h-3 text-[#8b949e] animate-spin" />
-                  ) : emailAlerts.gapScanner ? (
-                    <Check className="w-3 h-3 text-[#F97316]" />
-                  ) : null}
-                </span>
-              </button>
-            </div>
           </div>
 
           {/* Info banner */}
