@@ -35,6 +35,20 @@ export async function createUser(email: string, name: string, password: string):
   await redis.set(emailIndexKey(email), id);
   await redis.sAdd(USER_INDEX_KEY, id);
 
+  // Seed default prefs so the onboarding tour fires deterministically on
+  // first login. Relying on the absence of the prefs entry to mean "new
+  // user" was implicit and brittle — anyone defaulting the prefs route
+  // differently in the future would silently break the first-time walkthrough.
+  // Best-effort: failure here must not block registration.
+  try {
+    await redis.set(
+      `user:prefs:${id}`,
+      JSON.stringify({ calendarUrl: null, tradingTourCompleted: false }),
+    );
+  } catch (err) {
+    console.error('Failed to seed default prefs for new user:', err);
+  }
+
   return user;
 }
 
