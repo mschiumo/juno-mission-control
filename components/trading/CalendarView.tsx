@@ -128,8 +128,11 @@ export default function CalendarView() {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     
-    // Create first day in EST to avoid timezone shift
-    const firstDay = new Date(`${year}-${String(month + 1).padStart(2, '0')}-01T12:00:00-05:00`);
+    // Local-time constructor — getDay() returns the real calendar day-of-week
+    // for "the 1st of this month" regardless of the viewer's timezone. The
+    // earlier "T12:00:00-05:00" form crossed midnight in UTC+8+ timezones
+    // and shifted the entire grid left by one column.
+    const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startPadding = firstDay.getDay(); // 0 = Sunday
     
