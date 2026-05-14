@@ -953,33 +953,39 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   const toggleOrderPlaced = (tradeId: string) => {
     const willBePlaced = !orderPlacedMap[tradeId];
     const newMap = { ...orderPlacedMap, [tradeId]: willBePlaced };
+
+    // Build the post-toggle order off the current activeTrades. Doing this
+    // outside the setState callback keeps the fetch side effect from running
+    // twice under React Strict Mode and matches React's "no side effects in
+    // setState updaters" guidance.
+    const toggled = activeTrades.find(t => t.id === tradeId);
+    if (!toggled) {
+      setOrderPlacedMap(newMap);
+      return;
+    }
+
+    const placed: ActiveTradeWithPnL[] = [];
+    const unplaced: ActiveTradeWithPnL[] = [];
+    for (const trade of activeTrades) {
+      if (trade.id === tradeId) continue;
+      if (newMap[trade.id]) placed.push(trade);
+      else unplaced.push(trade);
+    }
+    if (willBePlaced) placed.push(toggled);       // bottom of placed group
+    else unplaced.unshift(toggled);                // top of unplaced group
+    const reordered = [...placed, ...unplaced];
+
     setOrderPlacedMap(newMap);
+    setActiveTrades(reordered);
 
-    setActiveTrades(prev => {
-      const toggled = prev.find(t => t.id === tradeId);
-      if (!toggled) return prev;
-
-      const placed: ActiveTradeWithPnL[] = [];
-      const unplaced: ActiveTradeWithPnL[] = [];
-      for (const trade of prev) {
-        if (trade.id === tradeId) continue;
-        if (newMap[trade.id]) placed.push(trade);
-        else unplaced.push(trade);
-      }
-
-      if (willBePlaced) placed.push(toggled);       // bottom of placed group
-      else unplaced.unshift(toggled);                // top of unplaced group
-
-      const reordered = [...placed, ...unplaced];
-      const orderedIds = reordered.map(t => t.id);
-      fetch(`/api/active-trades?reorder=1`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderedIds }),
-      }).catch(err => console.error('Failed to persist active trades order:', err));
-
-      return reordered;
-    });
+    // Persist the new order so a later refetch (after editing a trade,
+    // etc.) preserves it instead of reverting to whatever Redis last saw.
+    const orderedIds = reordered.map(t => t.id);
+    fetch(`/api/active-trades?reorder=1`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderedIds }),
+    }).catch(err => console.error('Failed to persist active trades order:', err));
   };
 
   // ===== COLLAPSE/EXPAND SECTION TOGGLE =====
@@ -1720,15 +1726,22 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                       <span className="text-lg font-bold text-green-400">{trade.ticker}</span>
                     </div>
 
-                    {/* Order Placed Checkbox */}
-                    <label 
+                    {/* Order Placed Checkbox — stop pointer/click events
+                        from bubbling so the parent card's drag handler
+                        can't swallow a click as a drag-start. Same trick
+                        we use on the multi-select checkbox above. */}
+                    <label
                       className="flex items-center gap-2 px-2 py-1 bg-[#161b22] border border-[#30363d] rounded-lg cursor-pointer hover:border-green-500/50 hover:bg-[#1c2128] transition-colors select-none"
                       title={orderPlacedMap[trade.id] ? 'Order has been placed with broker' : 'Check when order is placed'}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                      draggable={false}
                     >
                       <input
                         type="checkbox"
                         checked={!!orderPlacedMap[trade.id]}
                         onChange={() => toggleOrderPlaced(trade.id)}
+                        onClick={(e) => e.stopPropagation()}
                         className="w-4 h-4 accent-green-500 cursor-pointer"
                       />
                       <span className={`text-xs font-medium ${orderPlacedMap[trade.id] ? 'text-green-400' : 'text-[#8b949e]'}`}>
