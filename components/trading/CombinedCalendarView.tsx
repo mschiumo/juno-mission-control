@@ -94,8 +94,13 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // Helper Functions
 // ============================================================================
 
+// Parse "YYYY-MM-DD" as the calendar date itself (i.e. day-of-week is the
+// real-world day-of-week for that date, in any viewer's timezone). We use the
+// local-time Date constructor instead of `new Date("YYYY-MM-DDT00:00:00-05:00")`
+// so getDay() can't drift across midnight in timezones far enough east of ET.
 const parseDateAsEST = (dateStr: string): Date => {
-  return new Date(`${dateStr}T00:00:00-05:00`);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
 };
 
 const formatDateEST = (dateStr: string): string => {
@@ -226,7 +231,13 @@ export default function CombinedCalendarView() {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     
-    const firstDay = new Date(`${year}-${String(month + 1).padStart(2, '0')}-01T12:00:00-05:00`);
+    // Use the local-time Date constructor here so getDay() is the real
+    // calendar day-of-week for "the 1st of this month" — independent of the
+    // viewer's timezone. The previous "T12:00:00-05:00" form crossed midnight
+    // in UTC+8+ timezones (Asia/Pacific) and shifted the whole grid left by
+    // one column, which is why East-Asia users saw e.g. May 14 in the Friday
+    // column instead of May 15.
+    const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startPadding = firstDay.getDay();
     
