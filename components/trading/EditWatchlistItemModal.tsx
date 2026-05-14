@@ -250,7 +250,7 @@ export default function EditWatchlistItemModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0F0F0F] border border-[#262626] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-[#0F0F0F] border border-[#262626] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#262626]">
           <div>
@@ -273,7 +273,7 @@ export default function EditWatchlistItemModal({
           <div className="space-y-4">
             {/* Ticker */}
             <div>
-              <label className="block text-sm font-medium text-[#8b949e] mb-2">
+              <label className="block text-xs font-medium text-[#8b949e] mb-2 uppercase tracking-wide">
                 Ticker Symbol
               </label>
               <input
@@ -288,113 +288,117 @@ export default function EditWatchlistItemModal({
               )}
             </div>
 
-            {/* Prices Grid */}
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-[#8b949e] mb-2">
-                  Entry Price
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.entryPrice}
-                  onChange={(e) => handleInputChange('entryPrice', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] focus:ring-1 focus:ring-[#F97316] transition-colors"
-                  placeholder="0.00"
-                />
-                {errors.entryPrice && (
-                  <p className="mt-1 text-xs text-red-400">{errors.entryPrice}</p>
-                )}
+            {/* Prices section: header row with the Optimize toggle keeps the
+                column labels below at identical heights so Entry / Stop /
+                Target inputs align on a single baseline. Grid expands from
+                3 → 4 columns when Optimize is on so R:R sits inline. */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-[#8b949e]">Prices</span>
+                <button
+                  type="button"
+                  onClick={() => setOptimizeMode(prev => !prev)}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                    optimizeMode
+                      ? 'bg-[#F97316]/15 text-[#F97316] border border-[#F97316]/30'
+                      : 'text-[#8b949e] hover:text-white border border-transparent hover:border-[#30363d]'
+                  }`}
+                  title="Auto-calculate target from Entry + (Stop Size × R:R)"
+                >
+                  <Wand2 className="w-3 h-3" />
+                  Optimize
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[#8b949e] mb-2">
-                  Stop Price
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.stopPrice}
-                  onChange={(e) => handleInputChange('stopPrice', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] focus:ring-1 focus:ring-[#F97316] transition-colors"
-                  placeholder="0.00"
-                />
-                {errors.stopPrice && (
-                  <p className="mt-1 text-xs text-red-400">{errors.stopPrice}</p>
-                )}
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-[#8b949e]">
-                    Target Price
+
+              <div className={`grid gap-3 ${optimizeMode ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                <div>
+                  <label className="block text-xs font-medium text-[#8b949e] mb-2 uppercase tracking-wide">
+                    Entry Price
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setOptimizeMode(prev => !prev)}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
-                      optimizeMode
-                        ? 'bg-[#F97316]/15 text-[#F97316] border border-[#F97316]/30'
-                        : 'text-[#8b949e] hover:text-white border border-transparent hover:border-[#30363d]'
-                    }`}
-                    title="Auto-calculate target from Entry + (Stop Size × R:R)"
-                  >
-                    <Wand2 className="w-3 h-3" />
-                    Optimize
-                  </button>
-                </div>
-                <div className="relative">
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.targetPrice}
-                    onChange={(e) => handleInputChange('targetPrice', e.target.value)}
-                    readOnly={optimizeMode}
-                    className={`w-full px-3 py-2 rounded-lg placeholder-[#8b949e] focus:outline-none focus:ring-1 transition-colors ${
-                      optimizeMode
-                        ? 'bg-[#F97316]/5 border border-[#F97316]/30 pr-12 cursor-not-allowed text-[#F97316] focus:border-[#F97316]/30 focus:ring-[#F97316]/30'
-                        : 'bg-[#161b22] border border-[#30363d] text-white focus:border-[#F97316] focus:ring-[#F97316]'
-                    }`}
+                    value={formData.entryPrice}
+                    onChange={(e) => handleInputChange('entryPrice', e.target.value)}
+                    className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] focus:ring-1 focus:ring-[#F97316] transition-colors"
                     placeholder="0.00"
                   />
-                  {optimizeMode && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#F97316] bg-[#F97316]/10 px-1 py-0.5 rounded">
-                      AUTO
-                    </span>
+                  {errors.entryPrice && (
+                    <p className="mt-1 text-xs text-red-400">{errors.entryPrice}</p>
                   )}
                 </div>
-                {errors.targetPrice && !optimizeMode && (
-                  <p className="mt-1 text-xs text-red-400">{errors.targetPrice}</p>
-                )}
-              </div>
-            </div>
-
-            {/* R:R Input — only visible when Optimize is on */}
-            {optimizeMode && (
-              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-[#F97316] mb-2 uppercase tracking-wide">
-                    R:R Ratio
+                  <label className="block text-xs font-medium text-[#8b949e] mb-2 uppercase tracking-wide">
+                    Stop Price
                   </label>
                   <input
                     type="number"
-                    step="0.1"
-                    min="0.1"
-                    value={optimizeRatio}
-                    onChange={(e) => setOptimizeRatio(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#161b22] border border-[#F97316]/30 rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] focus:ring-1 focus:ring-[#F97316] transition-colors"
-                    placeholder="2"
+                    step="0.01"
+                    value={formData.stopPrice}
+                    onChange={(e) => handleInputChange('stopPrice', e.target.value)}
+                    className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] focus:ring-1 focus:ring-[#F97316] transition-colors"
+                    placeholder="0.00"
                   />
+                  {errors.stopPrice && (
+                    <p className="mt-1 text-xs text-red-400">{errors.stopPrice}</p>
+                  )}
                 </div>
-                <div className="col-span-2 self-end">
-                  <p className="text-[11px] text-[#F97316]/60 leading-relaxed">
-                    Target auto-calculated as Entry ± (Stop Size × R:R). Direction follows entry vs stop (long/short).
-                  </p>
+                <div>
+                  <label className="block text-xs font-medium text-[#8b949e] mb-2 uppercase tracking-wide">
+                    Target Price
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.targetPrice}
+                      onChange={(e) => handleInputChange('targetPrice', e.target.value)}
+                      readOnly={optimizeMode}
+                      className={`w-full px-3 py-2 rounded-lg placeholder-[#8b949e] focus:outline-none focus:ring-1 transition-colors ${
+                        optimizeMode
+                          ? 'bg-[#F97316]/5 border border-[#F97316]/30 pr-12 cursor-not-allowed text-[#F97316] focus:border-[#F97316]/30 focus:ring-[#F97316]/30'
+                          : 'bg-[#161b22] border border-[#30363d] text-white focus:border-[#F97316] focus:ring-[#F97316]'
+                      }`}
+                      placeholder="0.00"
+                    />
+                    {optimizeMode && (
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#F97316] bg-[#F97316]/10 px-1 py-0.5 rounded">
+                        AUTO
+                      </span>
+                    )}
+                  </div>
+                  {errors.targetPrice && !optimizeMode && (
+                    <p className="mt-1 text-xs text-red-400">{errors.targetPrice}</p>
+                  )}
                 </div>
+                {optimizeMode && (
+                  <div>
+                    <label className="block text-xs font-medium text-[#F97316] mb-2 uppercase tracking-wide">
+                      R:R Ratio
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      value={optimizeRatio}
+                      onChange={(e) => setOptimizeRatio(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#161b22] border border-[#F97316]/30 rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] focus:ring-1 focus:ring-[#F97316] transition-colors"
+                      placeholder="2"
+                    />
+                  </div>
+                )}
               </div>
-            )}
+
+              {optimizeMode && (
+                <p className="mt-2 text-[11px] text-[#F97316]/60 leading-relaxed">
+                  Target auto-calculated as Entry ± (Stop Size × R:R). Direction follows entry vs stop (long / short).
+                </p>
+              )}
+            </div>
 
             {/* Risk Amount */}
             <div>
-              <label className="block text-sm font-medium text-[#8b949e] mb-2">
+              <label className="block text-xs font-medium text-[#8b949e] mb-2 uppercase tracking-wide">
                 Risk Amount ($)
               </label>
               <input
