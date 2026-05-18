@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Edit3, DollarSign, Layers, FileText, Calendar } from 'lucide-react';
+import { X, Edit3, DollarSign, Layers, FileText, Calendar, Wand2 } from 'lucide-react';
 import type { ActiveTrade } from '@/types/active-trade';
 
 interface EditActiveTradeModalProps {
@@ -10,6 +10,14 @@ interface EditActiveTradeModalProps {
   onClose: () => void;
   onSave: (updatedTrade: ActiveTrade) => void;
 }
+
+const RISK_RATIO_OPTIONS = [
+  { value: '1.5', label: '1.5:1' },
+  { value: '2', label: '2:1' },
+  { value: '2.5', label: '2.5:1' },
+  { value: '3', label: '3:1' },
+  { value: '4', label: '4:1' },
+];
 
 interface FormErrors {
   ticker?: string;
@@ -36,6 +44,8 @@ export default function EditActiveTradeModal({
   const [originalRiskAmount, setOriginalRiskAmount] = useState<number>(0);
   const [errors, setErrors] = useState<FormErrors>({});
   const [sharesManuallyEdited, setSharesManuallyEdited] = useState(false);
+  const [optimizeMode, setOptimizeMode] = useState(false);
+  const [riskRatio, setRiskRatio] = useState('2');
 
   // Calculate shares based on risk amount and prices
   const calculateShares = (entry: number, stop: number, riskAmount: number): number => {
@@ -78,6 +88,8 @@ export default function EditActiveTradeModal({
       // Store original risk amount for share calculation
       const stopSize = Math.abs(trade.actualEntry - trade.plannedStop);
       setOriginalRiskAmount(stopSize * trade.actualShares);
+      // Don't auto-overwrite an existing trade's target when opening
+      setOptimizeMode(false);
     }
   }, [trade]);
 
@@ -94,8 +106,24 @@ export default function EditActiveTradeModal({
       });
       setErrors({});
       setSharesManuallyEdited(false);
+      setOptimizeMode(false);
+      setRiskRatio('2');
     }
   }, [isOpen]);
+
+  // Auto-calculate target when optimize mode is enabled
+  useEffect(() => {
+    if (!optimizeMode) return;
+    const entry = parseFloat(formData.actualEntry);
+    const stop = parseFloat(formData.plannedStop);
+    const ratio = parseFloat(riskRatio);
+    if (entry > 0 && stop > 0 && ratio > 0) {
+      const stopSize = Math.abs(entry - stop);
+      const isLong = entry > stop;
+      const target = isLong ? entry + stopSize * ratio : entry - stopSize * ratio;
+      setFormData(prev => ({ ...prev, plannedTarget: target.toFixed(2) }));
+    }
+  }, [optimizeMode, formData.actualEntry, formData.plannedStop, riskRatio]);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -135,8 +163,11 @@ export default function EditActiveTradeModal({
   };
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
+    // Block manual target edits while optimize mode is on
+    if (field === 'plannedTarget' && optimizeMode) return;
+
     const newFormData = { ...formData, [field]: value };
-    
+
     // Track if shares was manually edited
     if (field === 'actualShares') {
       setSharesManuallyEdited(true);
@@ -430,22 +461,65 @@ export default function EditActiveTradeModal({
 
             {/* Target Price */}
             <div>
-              <label className="block text-sm font-medium text-[#8b949e] mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <span className="text-[10px] text-green-400 font-bold">T</span>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-[#8b949e]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center">
+                      <span className="text-[10px] text-green-400 font-bold">T</span>
+                    </div>
+                    Target Price
                   </div>
-                  Target Price
+                </label>
+                <div className="flex items-center gap-2">
+                  {optimizeMode && (
+                    <select
+                      value={riskRatio}
+                      onChange={(e) => setRiskRatio(e.target.value)}
+                      className="bg-[#0d1117] border border-[#F97316]/30 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F97316] cursor-pointer"
+                    >
+                      {RISK_RATIO_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setOptimizeMode(prev => !prev)}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                      optimizeMode
+                        ? 'bg-[#F97316]/15 text-[#F97316] border border-[#F97316]/30'
+                        : 'text-[#8b949e] hover:text-white border border-transparent hover:border-[#30363d]'
+                    }`}
+                    title="Auto-calculate target from Entry + (Stop Size × R:R)"
+                  >
+                    <Wand2 className="w-3 h-3" />
+                    Optimize
+                  </button>
                 </div>
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.plannedTarget}
-                onChange={(e) => handleInputChange('plannedTarget', e.target.value)}
-                className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-white placeholder-[#8b949e] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                placeholder="Enter target price"
-              />
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.plannedTarget}
+                  onChange={(e) => handleInputChange('plannedTarget', e.target.value)}
+                  readOnly={optimizeMode}
+                  className={`w-full px-3 py-2 rounded-lg focus:outline-none transition-colors ${
+                    optimizeMode
+                      ? 'bg-[#F97316]/5 border border-[#F97316]/30 pr-12 text-[#F97316] cursor-not-allowed'
+                      : 'bg-[#161b22] border border-[#30363d] text-white placeholder-[#8b949e] focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+                  }`}
+                  placeholder="Enter target price"
+                />
+                {optimizeMode && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#F97316] bg-[#F97316]/10 px-1 py-0.5 rounded">
+                    AUTO
+                  </span>
+                )}
+              </div>
+              {optimizeMode && (
+                <p className="mt-1 text-[10px] text-[#F97316]/60">Entry + (Stop Size × R:R)</p>
+              )}
               {errors.plannedTarget && (
                 <p className="mt-1 text-xs text-red-400">{errors.plannedTarget}</p>
               )}
