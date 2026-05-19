@@ -19,6 +19,14 @@ import {
   Download
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
+import type { ActiveTradeWithPnL } from '@/types/active-trade';
+
+type DailyFavoriteItem = {
+  id: string;
+  ticker: string;
+  createdAt?: string;
+  source: 'watchlist' | 'active';
+};
 
 const DEFAULT_USER_ID = 'default';
 const STORAGE_KEY = 'ct:daily-favorites:last-cleared';
@@ -61,6 +69,7 @@ export default function QuickWatchlist({
   const [isExpanded, setIsExpanded] = useState(true);
   const [tickerInput, setTickerInput] = useState('');
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [activeTrades, setActiveTrades] = useState<ActiveTradeWithPnL[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sort, setSort] = useState<SortState>({ field: 'addedAt', direction: 'desc' });
   const [isLoading, setIsLoading] = useState(false);
@@ -81,15 +90,31 @@ export default function QuickWatchlist({
   const [premarketData, setPremarketData] = useState<Record<string, PremarketData>>({});
   const [copied, setCopied] = useState(false);
 
-  // Fetch premarket data for watchlist items
+  // Merge watchlist + active trades into one display list, dedupe by ticker
+  const displayItems = useMemo<DailyFavoriteItem[]>(() => {
+    const seen = new Set<string>();
+    const items: DailyFavoriteItem[] = [];
+    for (const w of watchlist) {
+      items.push({ id: w.id, ticker: w.ticker, createdAt: w.createdAt, source: 'watchlist' });
+      seen.add(w.ticker.toUpperCase());
+    }
+    for (const a of activeTrades) {
+      if (seen.has(a.ticker.toUpperCase())) continue;
+      items.push({ id: a.id, ticker: a.ticker, createdAt: a.openedAt, source: 'active' });
+      seen.add(a.ticker.toUpperCase());
+    }
+    return items;
+  }, [watchlist, activeTrades]);
+
+  // Fetch premarket data for all displayed items (watchlist + active)
   useEffect(() => {
     const fetchPremarketData = async () => {
-      if (watchlist.length === 0) return;
-      
+      if (displayItems.length === 0) return;
+
       const data: Record<string, PremarketData> = {};
-      
+
       await Promise.all(
-        watchlist.map(async (item) => {
+        displayItems.map(async (item) => {
           try {
             const response = await fetch(`/api/premarket?symbol=${item.ticker}`);
             if (response.ok) {
@@ -103,7 +128,7 @@ export default function QuickWatchlist({
           }
         })
       );
-      
+
       setPremarketData(data);
     };
 
@@ -111,7 +136,7 @@ export default function QuickWatchlist({
     // Refresh every 60 seconds
     const interval = setInterval(fetchPremarketData, 60000);
     return () => clearInterval(interval);
-  }, [watchlist]);
+  }, [displayItems]);
 
   // Search for symbols (debounced)
   useEffect(() => {
@@ -177,6 +202,14 @@ export default function QuickWatchlist({
   useEffect(() => {
     checkAndClearIfNewDay();
     fetchWatchlist();
+    fetchActiveTrades();
+  }, []);
+
+  // Refresh active trades when other views update them
+  useEffect(() => {
+    const handler = () => fetchActiveTrades();
+    window.addEventListener('ct:active-trades-updated', handler);
+    return () => window.removeEventListener('ct:active-trades-updated', handler);
   }, []);
 
   // Check if we need to clear (new trading day)
@@ -218,6 +251,17 @@ export default function QuickWatchlist({
       setWatchlist(result.data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load watchlist');
+    }
+  };
+
+  const fetchActiveTrades = async () => {
+    try {
+      const response = await fetch(`/api/active-trades?userId=${DEFAULT_USER_ID}`);
+      if (!response.ok) return;
+      const result = await response.json();
+      setActiveTrades(result.data || []);
+    } catch (err) {
+      console.error('Error fetching active trades:', err);
     }
   };
 
@@ -427,7 +471,7 @@ export default function QuickWatchlist({
   };
 
   const filteredAndSortedWatchlist = useMemo(() => {
-    let filtered = watchlist.filter(item =>
+    let filtered = displayItems.filter(item =>
       item.ticker.toLowerCase().includes(searchQuery.toLowerCase())
     );
     return filtered.sort((a, b) => {
@@ -450,7 +494,7 @@ export default function QuickWatchlist({
       }
       return sort.direction === 'asc' ? comparison : -comparison;
     });
-  }, [watchlist, searchQuery, sort, premarketData]);
+  }, [displayItems, searchQuery, sort, premarketData]);
 
   const getSortIcon = (field: SortField) => {
     if (sort.field !== field) return <ArrowUpDown className="w-3 h-3 text-[#8b949e]" />;
@@ -467,12 +511,12 @@ export default function QuickWatchlist({
           className="flex items-center gap-2 flex-1 text-left"
         >
           <span className="text-sm font-semibold text-white">Daily Favorites</span>
-          <span className="text-xs text-[#8b949e]">({watchlist.length})</span>
+          <span className="text-xs text-[#8b949e]">({displayItems.length})</span>
           {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
         </button>
         {isExpanded && (
           <div className="flex items-center gap-1">
-            {watchlist.length > 0 && (
+            {displayItems.length > 0 && (
               <>
                 <button
                   onClick={copyTickers}
@@ -622,7 +666,7 @@ export default function QuickWatchlist({
                 {filteredAndSortedWatchlist.map((item) => {
                   const premarket = premarketData[item.ticker];
                   return (
-                    <div key={item.id} className="grid grid-cols-12 gap-2 px-3 py-2 border-b border-[#30363d] last:border-b-0 hover:bg-[#0d1117]/50 transition-colors items-center">
+                    <div key={`${item.source}-${item.id}`} className="grid grid-cols-12 gap-2 px-3 py-2 border-b border-[#30363d] last:border-b-0 hover:bg-[#0d1117]/50 transition-colors items-center">
                       <div className="col-span-3 flex items-center gap-2">
                         <button
                           onClick={() => handleSelectTicker(item.ticker, item.id)}
@@ -631,6 +675,11 @@ export default function QuickWatchlist({
                         >
                           {item.ticker}
                         </button>
+                        {item.source === 'active' && (
+                          <span className="text-[9px] font-semibold text-green-400 bg-green-500/10 border border-green-500/20 px-1 py-0.5 rounded uppercase tracking-wide">
+                            Active
+                          </span>
+                        )}
                       </div>
                       
                       {/* Previous Close */}
@@ -660,28 +709,30 @@ export default function QuickWatchlist({
                       
                       <div className="col-span-3 flex justify-end gap-1">
                         {onSelectTicker && (
-                          <button 
-                            onClick={() => handleSelectTicker(item.ticker, item.id)} 
-                            className="p-1 text-[#8b949e] hover:text-[#F97316] transition-colors" 
+                          <button
+                            onClick={() => handleSelectTicker(item.ticker, item.id)}
+                            className="p-1 text-[#8b949e] hover:text-[#F97316] transition-colors"
                             title="Use in calculator"
                           >
                             <Calculator className="w-4 h-4" />
                           </button>
                         )}
-                        <button 
-                          onClick={() => handleDelete(item.id, item.ticker)} 
-                          className="p-1 text-[#8b949e] hover:text-red-400 transition-colors" 
-                          title="Remove"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {item.source === 'watchlist' && (
+                          <button
+                            onClick={() => handleDelete(item.id, item.ticker)}
+                            className="p-1 text-[#8b949e] hover:text-red-400 transition-colors"
+                            title="Remove"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
             </div>
-          ) : watchlist.length === 0 ? (
+          ) : displayItems.length === 0 ? (
             <div className="flex-1 flex items-center justify-center text-center text-[#8b949e]">
               <div>
                 <p className="text-sm">No tickers</p>
@@ -694,9 +745,9 @@ export default function QuickWatchlist({
             </div>
           )}
 
-          {watchlist.length > 0 && (
+          {displayItems.length > 0 && (
             <div className="pt-2 border-t border-[#30363d] shrink-0">
-              <span className="text-xs text-[#8b949e]">Total: {watchlist.length}</span>
+              <span className="text-xs text-[#8b949e]">Total: {displayItems.length}</span>
             </div>
           )}
         </div>
