@@ -10,7 +10,6 @@ import GoalsCard from "@/components/GoalsCard";
 import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
-import TradingRulesModal from "@/components/TradingRulesModal";
 import TradingView from "@/components/TradingView";
 import LandingPage from "@/components/landing/LandingPage";
 import Link from 'next/link';
@@ -84,7 +83,6 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen text-[var(--text-primary)]" style={{ background: 'var(--bg-base)' }}>
-      {isOwner && <TradingRulesModal />}
       {/* Header */}
       <header className="sticky top-0 z-40" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(5,7,9,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-2.5 md:py-3">

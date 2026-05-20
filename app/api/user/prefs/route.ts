@@ -12,7 +12,11 @@ interface UserPrefs {
   tradingTourCompleted?: boolean;
   startingBalance?: number;
   emailAlerts?: EmailAlertPrefs;
+  tradingRules?: string[];
 }
+
+const MAX_RULES = 30;
+const MAX_RULE_LENGTH = 240;
 
 async function getPrefs(userId: string): Promise<UserPrefs> {
   const redis = await getRedisClient();
@@ -116,6 +120,16 @@ export async function PATCH(request: Request) {
       marketBriefing: !!body.emailAlerts.marketBriefing,
       gapScanner: !!body.emailAlerts.gapScanner,
     };
+  }
+
+  if (Array.isArray(body.tradingRules)) {
+    const cleaned = body.tradingRules
+      .filter((r): r is string => typeof r === 'string')
+      .map((r) => r.trim())
+      .filter((r) => r.length > 0)
+      .map((r) => r.slice(0, MAX_RULE_LENGTH))
+      .slice(0, MAX_RULES);
+    updated.tradingRules = cleaned;
   }
 
   await savePrefs(userId, updated);
