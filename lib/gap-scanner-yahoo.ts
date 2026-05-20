@@ -55,7 +55,9 @@ function isLikelyADR(q: YahooQuote): boolean {
   return false;
 }
 
-async function fetchScreener(scrId: 'day_gainers' | 'day_losers', count: number): Promise<YahooQuote[]> {
+type ScreenerId = 'day_gainers' | 'day_losers' | 'pre_market_gainers' | 'pre_market_losers';
+
+async function fetchScreener(scrId: ScreenerId, count: number): Promise<YahooQuote[]> {
   const url = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?count=${count}&scrIds=${scrId}`;
   const res = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
@@ -104,9 +106,16 @@ export async function runYahooGapScan(options: {
     isPreMarket = false,
   } = options;
 
+  // Use pre-market screeners before the regular session opens — Yahoo's day_gainers/
+  // day_losers screeners reflect the previous session's close during pre-market and
+  // return stale data. The pre_market_gainers/losers screeners surface stocks with
+  // active pre-market price movement and include preMarketPrice/preMarketChangePercent.
+  const gainersScreener: ScreenerId = isPreMarket ? 'pre_market_gainers' : 'day_gainers';
+  const losersScreener: ScreenerId = isPreMarket ? 'pre_market_losers' : 'day_losers';
+
   const [gainersRaw, losersRaw] = await Promise.all([
-    fetchScreener('day_gainers', count),
-    fetchScreener('day_losers', count),
+    fetchScreener(gainersScreener, count),
+    fetchScreener(losersScreener, count),
   ]);
 
   const filter = (q: YahooQuote) => {
