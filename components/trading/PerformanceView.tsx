@@ -24,10 +24,34 @@ import {
   DollarSign,
   Check,
   Pencil,
+  Info,
 } from 'lucide-react';
 import JournalInsightsView from '@/components/trading/JournalInsightsView';
 
 type Period = 'week' | 'month' | 'year' | 'all';
+
+// Plain-English explanations shown on hover next to each metric label.
+const METRIC_TOOLTIPS: Record<string, string> = {
+  'Net Profit': 'Total realized P&L across all closed trades in this period (winners minus losers, after fees).',
+  'Profit Factor': 'Gross Profit ÷ Gross Loss. Above 1.0 means winners outweigh losers; 1.5+ is solid, 2.0+ is excellent.',
+  'Max Drawdown': 'Largest peak-to-trough drop in your equity curve — the worst dollar decline from a high-water mark.',
+  'Best Streak': 'Longest consecutive run of winning trades in this period.',
+  'Total Trades': 'Number of closed trades counted in this period.',
+  'Win Rate': 'Percentage of closed trades that ended with positive P&L (winners ÷ total).',
+  'Avg Win': 'Average net profit on winning trades only.',
+  'Avg Loss': 'Average net loss on losing trades only.',
+  'Winning Trades': 'Count of closed trades with positive net P&L.',
+  'Losing Trades': 'Count of closed trades with negative net P&L.',
+  'Breakeven': 'Closed trades that finished at exactly $0 net P&L.',
+  'Gross Profit': 'Sum of P&L from winning trades only (no losses subtracted).',
+  'Gross Loss': 'Sum of P&L from losing trades only (shown as a negative number).',
+  'Largest Win': 'Single biggest winning trade by net P&L.',
+  'Largest Loss': 'Single biggest losing trade by net P&L.',
+  'Avg Trade': 'Average net P&L across every closed trade (winners + losers + breakeven).',
+  'Max Win Streak': 'Longest consecutive run of winning trades.',
+  'Max Loss Streak': 'Longest consecutive run of losing trades.',
+  'Current Streak': 'Your current run — W for consecutive wins, L for consecutive losses.',
+};
 
 interface Trade {
   id: string;
@@ -624,7 +648,10 @@ export default function PerformanceView() {
               { label: 'Avg Loss', value: hasData ? `-$${metrics.averageLoss.toFixed(0)}` : '--' },
             ].map((s, i) => (
               <div key={s.label} className="px-4 py-3 text-center" style={{ borderRight: i < 3 ? '1px solid var(--border-subtle)' : 'none' }}>
-                <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{s.label}</p>
+                <p className="text-[10px] uppercase tracking-wider mb-0.5 inline-flex items-center justify-center" style={{ color: 'var(--text-tertiary)' }}>
+                  {s.label}
+                  {METRIC_TOOLTIPS[s.label] && <InfoTooltip text={METRIC_TOOLTIPS[s.label]} />}
+                </p>
                 <p className="text-sm font-bold num" style={{ color: 'var(--text-primary)' }}>{s.value}</p>
               </div>
             ))}
@@ -644,30 +671,34 @@ export default function PerformanceView() {
           label="Net Profit"
           value={hasData ? formatDollars(metrics.netProfit) : '--'}
           valueStyle={{ color: metrics.netProfit >= 0 ? 'var(--positive)' : 'var(--negative)' }}
+          tooltip={METRIC_TOOLTIPS['Net Profit']}
         />
         <MetricCard
           icon={<Target className="w-4 h-4" style={{ color: 'var(--accent)' }} />}
           label="Profit Factor"
           value={hasData ? (metrics.profitFactor === Infinity ? '--' : metrics.profitFactor.toFixed(2)) : '--'}
+          tooltip={METRIC_TOOLTIPS['Profit Factor']}
         />
         <MetricCard
           icon={<TrendingDown className="w-4 h-4" style={{ color: 'var(--negative)' }} />}
           label="Max Drawdown"
           value={hasData ? formatDollars(metrics.maxDrawdown) : '--'}
           sub={hasData && metrics.maxDrawdownPercent > 0 ? `${metrics.maxDrawdownPercent.toFixed(1)}%` : undefined}
+          tooltip={METRIC_TOOLTIPS['Max Drawdown']}
         />
         <MetricCard
           icon={<Trophy className="w-4 h-4" style={{ color: '#9B8FFF' }} />}
           label="Best Streak"
           value={hasData ? `${metrics.maxWinStreak} wins` : '--'}
           sub={hasData && metrics.currentWinStreak > 0 ? `Current: ${metrics.currentWinStreak}` : undefined}
+          tooltip={METRIC_TOOLTIPS['Best Streak']}
         />
       </div>
 
       {/* Detailed Statistics + Day of Week side by side */}
       <div className={`grid grid-cols-1 lg:grid-cols-2 gap-5${!hasData ? ' opacity-25' : ''}`}>
         {/* Detailed stats table */}
-        <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
+        <div className="rounded-xl" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
           <div className="px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
             <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Detailed Statistics</p>
           </div>
@@ -687,7 +718,10 @@ export default function PerformanceView() {
               { label: 'Current Streak', value: hasData ? (metrics.currentWinStreak > 0 ? `${metrics.currentWinStreak}W` : metrics.currentLossStreak > 0 ? `${metrics.currentLossStreak}L` : '--') : '--', style: {} },
             ].map((s) => (
               <div key={s.label} className="px-5 py-2.5 flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
-                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
+                <span className="text-xs inline-flex items-center" style={{ color: 'var(--text-secondary)' }}>
+                  {s.label}
+                  {METRIC_TOOLTIPS[s.label] && <InfoTooltip text={METRIC_TOOLTIPS[s.label]} align="left" />}
+                </span>
                 <span className="text-xs font-semibold num" style={{ color: 'var(--text-primary)', ...s.style }}>{s.value}</span>
               </div>
             ))}
@@ -760,24 +794,60 @@ export default function PerformanceView() {
   );
 }
 
+function InfoTooltip({
+  text,
+  align = 'center',
+}: {
+  text: string;
+  align?: 'left' | 'center' | 'right';
+}) {
+  const horizontal =
+    align === 'left'
+      ? 'left-0'
+      : align === 'right'
+        ? 'right-0'
+        : 'left-1/2 -translate-x-1/2';
+  return (
+    <span className="group/tip relative inline-flex items-center align-middle ml-1">
+      <Info className="w-3 h-3 cursor-help" style={{ color: 'var(--text-tertiary)' }} />
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute bottom-full mb-1.5 ${horizontal} w-56 px-3 py-2 text-[11px] leading-snug rounded-lg shadow-xl opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all duration-150 z-50 normal-case tracking-normal font-normal whitespace-normal text-left`}
+        style={{
+          background: 'var(--surface-1, #0d1117)',
+          border: '1px solid var(--border-default, #30363d)',
+          color: 'var(--text-primary, #c9d1d9)',
+        }}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
 function MetricCard({
   icon,
   label,
   value,
   valueStyle,
   sub,
+  tooltip,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   valueStyle?: React.CSSProperties;
   sub?: string;
+  tooltip?: string;
 }) {
   return (
     <div className="rounded-xl p-4" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
       <div className="flex items-center gap-2 mb-2">
         {icon}
-        <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-tertiary)' }}>{label}</span>
+        <span className="text-[10px] uppercase tracking-wider font-semibold inline-flex items-center" style={{ color: 'var(--text-tertiary)' }}>
+          {label}
+          {tooltip && <InfoTooltip text={tooltip} />}
+        </span>
       </div>
       <p className="text-base font-bold num" style={{ color: 'var(--text-primary)', ...valueStyle }}>{value}</p>
       {sub && <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
