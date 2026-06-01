@@ -54,6 +54,27 @@ function parseAnalysis(raw: string): StructuredAnalysis | null {
   }
 }
 
+// Replace unicode chars jsPDF's built-in Helvetica can't render (causes width
+// miscalculation and overflow). Maps common AI-output chars to ASCII equivalents.
+function sanitizeForPdf(s: string): string {
+  return s
+    .replace(/[→➡➔⮕]/g, '->') // right arrows
+    .replace(/[←]/g, '<-') // left arrow
+    .replace(/[—―]/g, ' - ') // em dash, horizontal bar
+    .replace(/[–]/g, '-') // en dash
+    .replace(/[‘’‚‛]/g, "'") // smart single quotes
+    .replace(/[“”„‟]/g, '"') // smart double quotes
+    .replace(/…/g, '...') // ellipsis
+    .replace(/×/g, 'x') // multiplication sign
+    .replace(/•/g, '*') // bullet
+    .replace(/ /g, ' ') // non-breaking space
+    .replace(/[≤]/g, '<=')
+    .replace(/[≥]/g, '>=')
+    .replace(/[≠]/g, '!=')
+    // Strip any remaining non-WinAnsi chars to keep widths accurate
+    .replace(/[^\x00-\xFF]/g, '?');
+}
+
 async function downloadPdf(report: SavedReport, structured: StructuredAnalysis | null) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
@@ -104,7 +125,7 @@ async function downloadPdf(report: SavedReport, structured: StructuredAnalysis |
     };
     title += `  (${fmt(report.periodStart)} - ${fmt(report.periodEnd)})`;
   }
-  doc.text(title, margin, y);
+  doc.text(sanitizeForPdf(title), margin, y);
 
   y += 22;
   doc.setFont('helvetica', 'normal');
@@ -123,7 +144,7 @@ async function downloadPdf(report: SavedReport, structured: StructuredAnalysis |
     // --- Key Takeaway ---
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10.5);
-    const takeawayLines: string[] = doc.splitTextToSize(structured.keyTakeaway, contentW - 40);
+    const takeawayLines: string[] = doc.splitTextToSize(sanitizeForPdf(structured.keyTakeaway), contentW - 40);
     const takeawayH = takeawayLines.length * 14.5 + 48;
     y = ensureSpace(takeawayH, y);
 
@@ -153,33 +174,37 @@ async function downloadPdf(report: SavedReport, structured: StructuredAnalysis |
     const textInset = 20; // space after accent bar + padding
     const bulletTextW = colW - textInset - 18; // text width after bullet dot
 
+    const strengths = structured.strengths.map(sanitizeForPdf);
+    const improvements = structured.improvements.map(sanitizeForPdf);
+
     // Pre-measure both columns
-    const leftMeasure = measureSection(doc, structured.strengths, bulletTextW);
-    const rightMeasure = measureSection(doc, structured.improvements, bulletTextW);
+    const leftMeasure = measureSection(doc, strengths, bulletTextW);
+    const rightMeasure = measureSection(doc, improvements, bulletTextW);
     const colH = Math.max(leftMeasure.height, rightMeasure.height);
     y = ensureSpace(colH, y);
 
     drawSectionCard(doc, leftX, y, colW, colH,
-      'WHAT\'S WORKING', [63, 185, 80], structured.strengths, bulletTextW, textInset);
+      'WHAT\'S WORKING', [63, 185, 80], strengths, bulletTextW, textInset);
     drawSectionCard(doc, rightX, y, colW, colH,
-      'AREAS TO IMPROVE', [248, 81, 73], structured.improvements, bulletTextW, textInset);
+      'AREAS TO IMPROVE', [248, 81, 73], improvements, bulletTextW, textInset);
 
     y += colH + 28;
 
     // --- Patterns (full width) ---
     if (structured.patterns && structured.patterns.length > 0) {
+      const patterns = structured.patterns.map(sanitizeForPdf);
       const patTextW = contentW - textInset - 18;
-      const patMeasure = measureSection(doc, structured.patterns, patTextW);
+      const patMeasure = measureSection(doc, patterns, patTextW);
       y = ensureSpace(patMeasure.height, y);
       drawSectionCard(doc, margin, y, contentW, patMeasure.height,
-        'BEHAVIORAL PATTERNS', [137, 87, 229], structured.patterns, patTextW, textInset);
+        'BEHAVIORAL PATTERNS', [137, 87, 229], patterns, patTextW, textInset);
       y += patMeasure.height + 28;
     }
   } else {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10.5);
     doc.setTextColor(201, 209, 217);
-    const lines: string[] = doc.splitTextToSize(report.analysis, contentW);
+    const lines: string[] = doc.splitTextToSize(sanitizeForPdf(report.analysis), contentW);
     doc.text(lines, margin, y);
   }
 
