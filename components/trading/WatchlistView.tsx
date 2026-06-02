@@ -155,6 +155,8 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   const [selectedActiveTrades, setSelectedActiveTrades] = useState<Set<string>>(new Set());
   const [showDeleteMultipleActiveModal, setShowDeleteMultipleActiveModal] = useState(false);
   const [isDeletingMultipleActive, setIsDeletingMultipleActive] = useState(false);
+  const [showMoveMultipleActiveModal, setShowMoveMultipleActiveModal] = useState(false);
+  const [isMovingMultipleActive, setIsMovingMultipleActive] = useState(false);
 
   // Watchlist multi-select (covers both Favorites and Other Trades — they're
   // both the same underlying watchlist, just filtered by the isFavorite flag).
@@ -1127,6 +1129,75 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     }
   };
 
+  const moveSelectedActiveTradesToPotential = async () => {
+    setIsMovingMultipleActive(true);
+    const trades = Array.from(selectedActiveTrades)
+      .map(id => activeTrades.find(t => t.id === id))
+      .filter((t): t is ActiveTradeWithPnL => !!t);
+    try {
+      // Run trades in parallel, but keep add-before-delete ordering per trade so
+      // a failed watchlist add never drops the position entirely. Mirrors the
+      // single-trade moveActiveTradeToPotential, batched.
+      const results = await Promise.allSettled(trades.map(async (trade) => {
+        const watchlistItem: Omit<WatchlistItem, 'id' | 'createdAt'> = {
+          ticker: trade.ticker,
+          entryPrice: trade.plannedEntry,
+          stopPrice: trade.plannedStop,
+          targetPrice: trade.plannedTarget,
+          riskRatio: Math.abs(trade.plannedTarget - trade.plannedEntry) / Math.abs(trade.plannedEntry - trade.plannedStop),
+          stopSize: Math.abs(trade.plannedEntry - trade.plannedStop),
+          shareSize: trade.actualShares,
+          potentialReward: Math.abs(trade.plannedTarget - trade.plannedEntry) * trade.actualShares,
+          positionValue: trade.plannedEntry * trade.actualShares,
+          isFavorite: false,
+        };
+        const addResponse = await fetch(`/api/watchlist?userId=${DEFAULT_USER_ID}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(watchlistItem),
+        });
+        if (!addResponse.ok) throw new Error('Failed to add to watchlist');
+        const deleteResponse = await fetch(`/api/active-trades?id=${trade.id}&userId=${DEFAULT_USER_ID}`, {
+          method: 'DELETE',
+        });
+        if (!deleteResponse.ok) throw new Error('Failed to remove active trade');
+        return trade.id;
+      }));
+
+      const movedIds = results
+        .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+        .map(r => r.value);
+      const failed = results.length - movedIds.length;
+
+      await Promise.all([fetchActiveTrades(), fetchWatchlist()]);
+      window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
+      window.dispatchEvent(new CustomEvent(EVENTS.WATCHLIST_UPDATED));
+
+      // Drop order-placed state for the trades that actually moved.
+      if (movedIds.length > 0) {
+        setOrderPlacedMap(prev => {
+          const updated = { ...prev };
+          movedIds.forEach(id => { delete updated[id]; });
+          return updated;
+        });
+      }
+
+      setSelectedActiveTrades(new Set());
+      setShowMoveMultipleActiveModal(false);
+      if (failed > 0) {
+        setError(`Failed to move ${failed} of ${results.length} active trade${results.length !== 1 ? 's' : ''}`);
+      } else {
+        setSuccessMessage(`Moved ${movedIds.length} trade${movedIds.length !== 1 ? 's' : ''} to Potential Trades`);
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+    } catch (error) {
+      console.error('Error moving active trades:', error);
+      setError('Failed to move active trades');
+    } finally {
+      setIsMovingMultipleActive(false);
+    }
+  };
+
   // ===== MULTI-SELECT: Watchlist (Favorites + Potential Trades) =====
   const toggleWatchlistItemSelection = (itemId: string) => {
     setSelectedWatchlistItems(prev => {
@@ -1616,6 +1687,18 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 </button>
               );
             })()}
+
+            {/* Move Selected → Potential */}
+            {selectedActiveTrades.size > 0 && (
+              <button
+                onClick={() => setShowMoveMultipleActiveModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                title="Move selected trades back to Potential Trades"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Move to Potential ({selectedActiveTrades.size})</span>
+              </button>
+            )}
 
             {/* Delete Selected */}
             {selectedActiveTrades.size > 0 && (
@@ -3117,6 +3200,66 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                   <>
                     <Trash2 className="w-4 h-4" />
                     Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move Multiple Active Trades → Potential Confirmation Modal */}
+      {showMoveMultipleActiveModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Move to Potential Trades</h3>
+              <button
+                onClick={() => setShowMoveMultipleActiveModal(false)}
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-[#8b949e]" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-green-500/20 rounded-full">
+                  <ArrowLeft className="w-6 h-6 text-green-400" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">
+                    Move {selectedActiveTrades.size} active trade{selectedActiveTrades.size !== 1 ? 's' : ''} back to Potential?
+                  </p>
+                  <p className="text-sm text-[#8b949e]">
+                    These return to Potential Trades using their planned entry, stop, and target. They won&apos;t be recorded as closed.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowMoveMultipleActiveModal(false)}
+                disabled={isMovingMultipleActive}
+                className="flex-1 px-4 py-3 bg-[#30363d] hover:bg-[#3d444d] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={moveSelectedActiveTradesToPotential}
+                disabled={isMovingMultipleActive}
+                className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isMovingMultipleActive ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Moving...
+                  </>
+                ) : (
+                  <>
+                    <ArrowLeft className="w-4 h-4" />
+                    Move to Potential
                   </>
                 )}
               </button>
