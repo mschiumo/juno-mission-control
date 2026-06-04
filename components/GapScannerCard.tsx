@@ -120,11 +120,33 @@ function fmtFilterCap(c: number) {
   return c >= 1e9 ? '$' + (c / 1e9).toFixed(0) + 'B' : '$' + (c / 1e6).toFixed(0) + 'M';
 }
 
+const SCAN_CACHE_KEY = 'gap-scanner-last-result';
+
+interface GapScanCache {
+  data: GapData;
+  response: GapResponse;
+  lastUpdated: string;
+  filters: ScanFilters;
+}
+
+/** Read the last successful scan so results survive tab switches / unmounts. */
+function loadScanCache(): GapScanCache | null {
+  try {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(SCAN_CACHE_KEY) : null;
+    return saved ? (JSON.parse(saved) as GapScanCache) : null;
+  } catch { return null; }
+}
+
 export default function GapScannerCard() {
-  const [data, setData] = useState<GapData | null>(null);
-  const [response, setResponse] = useState<GapResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  // Hydrate from the last cached scan so results persist across tab switches (read once).
+  const cacheRef = useRef<GapScanCache | null | undefined>(undefined);
+  if (cacheRef.current === undefined) cacheRef.current = loadScanCache();
+  const cached = cacheRef.current;
+
+  const [data, setData] = useState<GapData | null>(cached?.data ?? null);
+  const [response, setResponse] = useState<GapResponse | null>(cached?.response ?? null);
+  const [loading, setLoading] = useState(!cached?.data);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(cached ? new Date(cached.lastUpdated) : null);
   const [showModal, setShowModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [gainerSort, setGainerSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' }>({ col: 'gap', dir: 'desc' });
@@ -141,11 +163,11 @@ export default function GapScannerCard() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Committed filters (used by auto-refresh)
-  const [filters, setFilters] = useState<ScanFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<ScanFilters>(cached?.filters ?? DEFAULT_FILTERS);
   // Draft filters (edited in the panel, applied on "Run Scan")
-  const [draft, setDraft] = useState<ScanFilters>(DEFAULT_FILTERS);
+  const [draft, setDraft] = useState<ScanFilters>(cached?.filters ?? DEFAULT_FILTERS);
   // Ref so the 15s interval always uses the latest committed filters
-  const filtersRef = useRef<ScanFilters>(DEFAULT_FILTERS);
+  const filtersRef = useRef<ScanFilters>(cached?.filters ?? DEFAULT_FILTERS);
   useEffect(() => { filtersRef.current = filters; }, [filters]);
 
   useEffect(() => {
@@ -190,7 +212,15 @@ export default function GapScannerCard() {
           if (res.ok) { const j: GapResponse = await res.json(); if (j.success) result = j; }
         } catch { /* failed */ }
       }
-      if (result?.success) { setData(result.data); setResponse(result); setLastUpdated(new Date()); }
+      if (result?.success) {
+        const now = new Date();
+        setData(result.data); setResponse(result); setLastUpdated(now);
+        try {
+          localStorage.setItem(SCAN_CACHE_KEY, JSON.stringify({
+            data: result.data, response: result, lastUpdated: now.toISOString(), filters: active,
+          }));
+        } catch { /* ignore */ }
+      }
     } catch (e) { console.error('gap fetch error', e); }
     finally { setLoading(false); }
   };
