@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Star, Download, List, ChevronUp, ChevronDown, Info, SlidersHorizontal } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Star, Download, List, ChevronUp, ChevronDown, Info, SlidersHorizontal, Maximize2, Minimize2 } from 'lucide-react';
 
 /** Simple hover tooltip — small single-line label */
 function Tip({ label, children, position = 'bottom' }: { label: string; children: React.ReactNode; position?: 'top' | 'bottom' }) {
@@ -149,6 +149,7 @@ export default function GapScannerCard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(cached ? new Date(cached.lastUpdated) : null);
   const [showModal, setShowModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [gainerSort, setGainerSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' }>({ col: 'gap', dir: 'desc' });
   const [loserSort, setLoserSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' }>({ col: 'gap', dir: 'desc' });
   const [modalSort, setModalSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' }>({ col: 'gap', dir: 'desc' });
@@ -177,6 +178,14 @@ export default function GapScannerCard() {
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Close the expanded (full-screen) view on Escape
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setExpanded(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [expanded]);
 
   const fetchExistingFavorites = async () => {
     try {
@@ -390,7 +399,17 @@ export default function GapScannerCard() {
 
   return (
     <>
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-full">
+      {/* Backdrop for the expanded full-screen view (click to close) */}
+      {expanded && (
+        <div
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm animate-backdrop-in"
+          onClick={() => setExpanded(false)}
+        />
+      )}
+      <div className={expanded
+        ? "fixed inset-2 sm:inset-4 md:inset-8 z-50 bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden flex flex-col shadow-2xl animate-zoom-in"
+        : "bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-full"
+      }>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
           <div className="flex items-center gap-2.5">
@@ -444,6 +463,11 @@ export default function GapScannerCard() {
                 <SlidersHorizontal className="w-3.5 h-3.5" />
               </button>
             </Tip>
+            <Tip label={expanded ? 'Exit full screen' : 'Expand to full screen'} position="bottom">
+              <button onClick={() => setExpanded(v => !v)} className="p-1.5 hover:bg-[#30363d] rounded transition-colors text-[#8b949e]">
+                {expanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              </button>
+            </Tip>
             <Tip label="Refresh now" position="bottom">
               <button onClick={() => fetchGapData()} disabled={loading} className="p-1.5 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50">
                 <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
@@ -479,7 +503,7 @@ export default function GapScannerCard() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 divide-x divide-[#30363d] flex-1 min-h-0">
+          <div className={`grid grid-cols-2 divide-x divide-[#30363d] flex-1 min-h-0 ${expanded ? 'grid-rows-1' : ''}`}>
             {/* Gainers column */}
             <div className="flex flex-col min-h-0">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-[#238636]/5 border-b border-[#30363d] flex-shrink-0">
@@ -495,7 +519,7 @@ export default function GapScannerCard() {
                 <button onClick={() => toggleGainerSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" sort={gainerSort} /></button>
                 <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
               </div>
-              <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
+              <div className={`overflow-y-auto ${expanded ? 'flex-1 min-h-0' : ''}`} style={{ maxHeight: expanded ? undefined : '480px' }}>
                 {data?.gainers?.length
                   ? sortStocks(data.gainers, gainerSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
                   : <div className="text-center py-8 text-[#8b949e] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No gainers matching criteria'}</div>
@@ -518,7 +542,7 @@ export default function GapScannerCard() {
                 <button onClick={() => toggleLoserSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" sort={loserSort} /></button>
                 <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
               </div>
-              <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
+              <div className={`overflow-y-auto ${expanded ? 'flex-1 min-h-0' : ''}`} style={{ maxHeight: expanded ? undefined : '480px' }}>
                 {data?.losers?.length
                   ? sortStocks(data.losers, loserSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
                   : <div className="text-center py-8 text-[#8b949e] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No losers matching criteria'}</div>
