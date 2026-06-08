@@ -362,6 +362,18 @@ export default function GapScannerCard() {
 
   const numInputClass = 'bg-[#21262d] border border-[#30363d] hover:border-[#8b949e] focus:border-[#F97316] focus:outline-none rounded px-1.5 py-0.5 text-xs text-white text-center transition-colors';
 
+  // Full-screen (expanded) view: bigger type, more row height, width-capped columns for readability
+  const fsColWrap = expanded ? 'max-w-[560px] w-full mx-auto' : '';
+  const fsSection = expanded ? 'px-5 py-3' : 'px-3 py-1.5';
+  const fsSecText = expanded ? 'text-sm' : 'text-[10px]';
+  const fsHeadRow = expanded ? 'gap-x-6 px-5 py-2.5' : 'gap-x-4 px-3 py-1.5';
+  const fsRow = expanded ? 'gap-x-6 px-5 py-3' : 'gap-x-4 px-3 py-2';
+  const fsHdr = expanded ? 'text-xs' : 'text-[10px]';
+  const fsSym = expanded ? 'text-[15px]' : 'text-xs';
+  const fsNum = expanded ? 'text-[15px]' : 'text-xs';
+  const fsIcon = expanded ? 'w-4 h-4' : 'w-3 h-3';
+  const fsChgW = expanded ? 'w-20' : 'w-14';
+
   const StockRow = ({ stock }: { stock: GapStock }) => {
     const isGainer = stock.status === 'gainer';
     const added = addedTickers.has(stock.symbol);
@@ -370,20 +382,20 @@ export default function GapScannerCard() {
         href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
         target="_blank" rel="noopener noreferrer"
         title={stock.name}
-        className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-2 hover:bg-[#21262d] group border-b border-[#30363d] last:border-0 transition-colors"
+        className={`grid grid-cols-[1fr_auto_auto_auto_auto] items-center ${fsRow} hover:bg-[#21262d] group border-b border-[#30363d] last:border-0 transition-colors`}
       >
         <div className="flex items-center gap-1.5 min-w-0">
           {isGainer
-            ? <TrendingUp className="w-3 h-3 text-[#238636] flex-shrink-0" />
-            : <TrendingDown className="w-3 h-3 text-[#da3633] flex-shrink-0" />
+            ? <TrendingUp className={`${fsIcon} text-[#238636] flex-shrink-0`} />
+            : <TrendingDown className={`${fsIcon} text-[#da3633] flex-shrink-0`} />
           }
-          <span className="text-xs font-semibold text-white group-hover:text-[#ff6b35] transition-colors truncate">
+          <span className={`${fsSym} font-semibold text-white group-hover:text-[#ff6b35] transition-colors truncate`}>
             {stock.symbol}
           </span>
         </div>
-        <span className="text-xs text-[#8b949e] tabular-nums">{fmt(stock.price)}</span>
-        <span className="text-xs text-[#8b949e] tabular-nums">{fmtVol(stock.volume)}</span>
-        <span className={`text-xs font-semibold tabular-nums w-14 text-right ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
+        <span className={`${fsNum} text-[#8b949e] tabular-nums`}>{fmt(stock.price)}</span>
+        <span className={`${fsNum} text-[#8b949e] tabular-nums`}>{fmtVol(stock.volume)}</span>
+        <span className={`${fsNum} font-semibold tabular-nums ${fsChgW} text-right ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
           {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%
         </span>
         <button
@@ -391,7 +403,7 @@ export default function GapScannerCard() {
           className={`transition-colors ${added ? 'text-[#F97316]' : 'text-transparent group-hover:text-[#8b949e] hover:!text-[#F97316]'}`}
           title={added ? 'Remove from Daily Favorites' : 'Add to Daily Favorites'}
         >
-          <Star className={`w-3 h-3 ${added ? 'fill-[#F97316]' : ''}`} />
+          <Star className={`${fsIcon} ${added ? 'fill-[#F97316]' : ''}`} />
         </button>
       </a>
     );
@@ -506,20 +518,20 @@ export default function GapScannerCard() {
           <div className={`grid grid-cols-2 divide-x divide-[#30363d] flex-1 min-h-0 ${expanded ? 'grid-rows-1' : ''}`}>
             {/* Gainers column */}
             <div className="flex flex-col min-h-0">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#238636]/5 border-b border-[#30363d] flex-shrink-0">
-                <TrendingUp className="w-3 h-3 text-[#238636]" />
-                <span className="text-[10px] font-semibold text-[#238636] uppercase tracking-widest">
+              <div className={`flex items-center gap-2 ${fsSection} bg-[#238636]/5 border-b border-[#30363d] flex-shrink-0 ${fsColWrap}`}>
+                <TrendingUp className={`${fsIcon} text-[#238636]`} />
+                <span className={`${fsSecText} font-semibold text-[#238636] uppercase tracking-widest`}>
                   Gainers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.gainers.length ?? 0})</span>
                 </span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
-                <button onClick={() => toggleGainerSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" sort={gainerSort} /></button>
-                <button onClick={() => toggleGainerSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" sort={gainerSort} /></button>
-                <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
+              <div className={`grid grid-cols-[1fr_auto_auto_auto_auto] items-center ${fsHeadRow} border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0 ${fsColWrap}`}>
+                <span className={`${fsHdr} text-[#8b949e] uppercase tracking-wide`}>Symbol</span>
+                <span className={`${fsHdr} text-[#8b949e] uppercase tracking-wide`}>Last</span>
+                <button onClick={() => toggleGainerSort('volume')} className={`flex items-center gap-0.5 ${fsHdr} text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors`}>Vol <SortIcon col="volume" sort={gainerSort} /></button>
+                <button onClick={() => toggleGainerSort('gap')} className={`flex items-center gap-0.5 ${fsHdr} text-[#8b949e] uppercase tracking-wide ${fsChgW} justify-end hover:text-white transition-colors`}>Chg% <SortIcon col="gap" sort={gainerSort} /></button>
+                <Star className={`${fsIcon} text-[#F97316] fill-[#F97316]`} />
               </div>
-              <div className={`overflow-y-auto ${expanded ? 'flex-1 min-h-0' : ''}`} style={{ maxHeight: expanded ? undefined : '480px' }}>
+              <div className={`overflow-y-auto ${expanded ? 'flex-1 min-h-0' : ''} ${fsColWrap}`} style={{ maxHeight: expanded ? undefined : '480px' }}>
                 {data?.gainers?.length
                   ? sortStocks(data.gainers, gainerSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
                   : <div className="text-center py-8 text-[#8b949e] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No gainers matching criteria'}</div>
@@ -529,20 +541,20 @@ export default function GapScannerCard() {
 
             {/* Losers column */}
             <div className="flex flex-col min-h-0">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#da3633]/5 border-b border-[#30363d] flex-shrink-0">
-                <TrendingDown className="w-3 h-3 text-[#da3633]" />
-                <span className="text-[10px] font-semibold text-[#da3633] uppercase tracking-widest">
+              <div className={`flex items-center gap-2 ${fsSection} bg-[#da3633]/5 border-b border-[#30363d] flex-shrink-0 ${fsColWrap}`}>
+                <TrendingDown className={`${fsIcon} text-[#da3633]`} />
+                <span className={`${fsSecText} font-semibold text-[#da3633] uppercase tracking-widest`}>
                   Losers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.losers.length ?? 0})</span>
                 </span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
-                <button onClick={() => toggleLoserSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" sort={loserSort} /></button>
-                <button onClick={() => toggleLoserSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" sort={loserSort} /></button>
-                <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
+              <div className={`grid grid-cols-[1fr_auto_auto_auto_auto] items-center ${fsHeadRow} border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0 ${fsColWrap}`}>
+                <span className={`${fsHdr} text-[#8b949e] uppercase tracking-wide`}>Symbol</span>
+                <span className={`${fsHdr} text-[#8b949e] uppercase tracking-wide`}>Last</span>
+                <button onClick={() => toggleLoserSort('volume')} className={`flex items-center gap-0.5 ${fsHdr} text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors`}>Vol <SortIcon col="volume" sort={loserSort} /></button>
+                <button onClick={() => toggleLoserSort('gap')} className={`flex items-center gap-0.5 ${fsHdr} text-[#8b949e] uppercase tracking-wide ${fsChgW} justify-end hover:text-white transition-colors`}>Chg% <SortIcon col="gap" sort={loserSort} /></button>
+                <Star className={`${fsIcon} text-[#F97316] fill-[#F97316]`} />
               </div>
-              <div className={`overflow-y-auto ${expanded ? 'flex-1 min-h-0' : ''}`} style={{ maxHeight: expanded ? undefined : '480px' }}>
+              <div className={`overflow-y-auto ${expanded ? 'flex-1 min-h-0' : ''} ${fsColWrap}`} style={{ maxHeight: expanded ? undefined : '480px' }}>
                 {data?.losers?.length
                   ? sortStocks(data.losers, loserSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
                   : <div className="text-center py-8 text-[#8b949e] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No losers matching criteria'}</div>
