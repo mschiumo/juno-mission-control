@@ -62,9 +62,9 @@ interface ScanFilters {
 }
 
 const DEFAULT_FILTERS: ScanFilters = {
-  minGap: 2,
-  minVolume: 1_000_000,
-  minMarketCap: 50_000_000,
+  minGap: 10,
+  minVolume: 5_000_000,
+  minMarketCap: 100_000_000,
   minPrice: 1,
   maxPrice: 1000,
 };
@@ -120,7 +120,9 @@ function fmtFilterCap(c: number) {
   return c >= 1e9 ? '$' + (c / 1e9).toFixed(0) + 'B' : '$' + (c / 1e6).toFixed(0) + 'M';
 }
 
-const SCAN_CACHE_KEY = 'gap-scanner-last-result';
+// Bump the version suffix whenever DEFAULT_FILTERS changes so stale cached
+// scans (which store their own filters) don't mask the new defaults.
+const SCAN_CACHE_KEY = 'gap-scanner-last-result-v2';
 
 interface GapScanCache {
   data: GapData;
