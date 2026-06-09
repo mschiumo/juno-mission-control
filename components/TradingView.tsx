@@ -9,12 +9,14 @@ import {
   Settings,
   BarChart3,
   BookOpen,
+  Newspaper,
   Menu,
   X,
 } from 'lucide-react';
 import MarketEventsCard from '@/components/MarketEventsCard';
 import GapScannerCard from '@/components/GapScannerCard';
 import MarketCard from '@/components/MarketCard';
+import NewsScreenerCard from '@/components/NewsScreenerCard';
 import MarketBriefingModal from '@/components/MarketBriefingModal';
 import TradingRulesModal from '@/components/TradingRulesModal';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
@@ -24,7 +26,7 @@ import TradeManagementView from '@/components/trading/TradeManagementView';
 import PerformanceView from '@/components/trading/PerformanceView';
 import TradingTour from '@/components/trading/TradingTour';
 
-type TradingSubTab = 'overview' | 'market' | 'performance' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'projection' | 'trade-management';
 
 export default function TradingView() {
   const router = useRouter();
@@ -34,7 +36,7 @@ export default function TradingView() {
   // Get subtab from URL or default to 'overview'
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
     const subtab = searchParams.get('subtab');
-    if (subtab === 'market' || subtab === 'performance' || subtab === 'projection' || subtab === 'trade-management') {
+    if (subtab === 'market' || subtab === 'market-news' || subtab === 'performance' || subtab === 'projection' || subtab === 'trade-management') {
       return subtab;
     }
     return 'overview';
@@ -85,6 +87,7 @@ export default function TradingView() {
   const subTabs = [
     { id: 'overview' as const, label: 'Journal', icon: BookOpen },
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
+    { id: 'market-news' as const, label: 'Market News', icon: Newspaper },
     { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
     { id: 'performance' as const, label: 'Performance', icon: BarChart3 },
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
@@ -177,6 +180,14 @@ export default function TradingView() {
             <div className="lg:col-span-1 h-[640px] lg:h-full overflow-hidden">
               <MarketCard />
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'market-news' && (
+        <div className="max-w-[1100px] mx-auto">
+          <div className="h-[720px]">
+            <NewsScreenerCard />
           </div>
         </div>
       )}

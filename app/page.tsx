@@ -5,7 +5,8 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
 import GapScannerCard from "@/components/GapScannerCard";
-import NewsScreenerCard from "@/components/NewsScreenerCard";
+import DailyJournalCard from "@/components/DailyJournalCard";
+import CountdownCard from "@/components/CountdownCard";
 import GoalsCard from "@/components/GoalsCard";
 import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
@@ -221,12 +222,13 @@ function DashboardContent() {
             <MotivationalBanner compact variant="orange" />
             <EveningCheckinReminder />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 md:gap-6 xl:items-start">
-              <div ref={habitsRef}>
+              <div ref={habitsRef} className="space-y-5">
+                <CountdownCard />
                 <HabitCard />
               </div>
               <div className="grid gap-5 overflow-hidden" style={{ gridTemplateRows: '360px 1fr', height: habitsHeight }}>
                 <CalendarCard />
-                <NewsScreenerCard />
+                <DailyJournalCard />
               </div>
             </div>
           </div>
