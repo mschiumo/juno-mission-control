@@ -99,9 +99,15 @@ interface GapResponse {
   isPreMarket?: boolean;
   nextMarketOpen?: string | null;
   timestamp: string;
+  // Intraday-movers mode only:
+  windowLabel?: string;
+  isPartialWindow?: boolean;
+  windowHours?: number;
+  message?: string;
 }
 
 type SortCol = 'gap' | 'price' | 'volume' | 'cap';
+type ScanMode = 'gap' | 'intraday';
 
 function filtersToParams(f: ScanFilters): string {
   return new URLSearchParams({
@@ -129,6 +135,8 @@ interface GapScanCache {
   response: GapResponse;
   lastUpdated: string;
   filters: ScanFilters;
+  mode?: ScanMode;
+  windowHours?: number;
 }
 
 /** Read the last successful scan so results survive tab switches / unmounts. */
@@ -173,6 +181,16 @@ export default function GapScannerCard() {
   const filtersRef = useRef<ScanFilters>(cached?.filters ?? DEFAULT_FILTERS);
   useEffect(() => { filtersRef.current = filters; }, [filters]);
 
+  // Scan mode: overnight gap (vs previous close) vs intraday momentum (rolling window).
+  const [mode, setMode] = useState<ScanMode>(cached?.mode ?? 'gap');
+  const modeRef = useRef<ScanMode>(cached?.mode ?? 'gap');
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+
+  // Intraday rolling-window length (hours). Backend accepts any value; UI offers 1/2/4.
+  const [windowHours, setWindowHours] = useState<number>(cached?.windowHours ?? 2);
+  const windowHoursRef = useRef<number>(cached?.windowHours ?? 2);
+  useEffect(() => { windowHoursRef.current = windowHours; }, [windowHours]);
+
   useEffect(() => {
     fetchGapData();
     fetchExistingFavorites();
@@ -207,33 +225,63 @@ export default function GapScannerCard() {
     } catch { /* silent */ }
   };
 
-  const fetchGapData = async (overrideFilters?: ScanFilters) => {
+  const fetchGapData = async (overrideFilters?: ScanFilters, overrideMode?: ScanMode) => {
     const active = overrideFilters ?? filtersRef.current;
+    const activeMode = overrideMode ?? modeRef.current;
     setLoading(true);
     try {
       let result: GapResponse | null = null;
       const qs = filtersToParams(active);
-      try {
-        const res = await fetch(`/api/gap-scanner-polygon?${qs}`);
-        if (res.ok) { const j: GapResponse = await res.json(); if (j.success) result = j; }
-      } catch { /* try yahoo */ }
-      if (!result) {
+      if (activeMode === 'intraday') {
+        // Intraday momentum: single Polygon-backed source, no Yahoo fallback.
         try {
-          const res = await fetch(`/api/gap-scanner-yahoo?${qs}`);
+          const res = await fetch(`/api/intraday-movers?${qs}&windowHours=${windowHoursRef.current}`);
           if (res.ok) { const j: GapResponse = await res.json(); if (j.success) result = j; }
         } catch { /* failed */ }
+      } else {
+        try {
+          const res = await fetch(`/api/gap-scanner-polygon?${qs}`);
+          if (res.ok) { const j: GapResponse = await res.json(); if (j.success) result = j; }
+        } catch { /* try yahoo */ }
+        if (!result) {
+          try {
+            const res = await fetch(`/api/gap-scanner-yahoo?${qs}`);
+            if (res.ok) { const j: GapResponse = await res.json(); if (j.success) result = j; }
+          } catch { /* failed */ }
+        }
       }
       if (result?.success) {
         const now = new Date();
         setData(result.data); setResponse(result); setLastUpdated(now);
         try {
           localStorage.setItem(SCAN_CACHE_KEY, JSON.stringify({
-            data: result.data, response: result, lastUpdated: now.toISOString(), filters: active,
+            data: result.data, response: result, lastUpdated: now.toISOString(),
+            filters: active, mode: activeMode, windowHours: windowHoursRef.current,
           }));
         } catch { /* ignore */ }
       }
-    } catch (e) { console.error('gap fetch error', e); }
+    } catch (e) { console.error('scan fetch error', e); }
     finally { setLoading(false); }
+  };
+
+  const switchMode = (m: ScanMode) => {
+    if (m === mode) return;
+    setMode(m);
+    modeRef.current = m;
+    setData(null);      // show skeleton; the two datasets are not interchangeable
+    setResponse(null);
+    fetchGapData(undefined, m);
+  };
+
+  const changeWindow = (h: number) => {
+    if (h === windowHours) return;
+    setWindowHours(h);
+    windowHoursRef.current = h;
+    if (modeRef.current === 'intraday') {
+      setData(null);
+      setResponse(null);
+      fetchGapData(undefined, 'intraday');
+    }
   };
 
   const runScan = () => {
@@ -352,15 +400,19 @@ export default function GapScannerCard() {
 
   // Dynamic criteria for the info hover card
   const activeCriteria = [
-    { label: 'Gap', value: `≥ ${filters.minGap}%`, detail: 'vs previous close' },
+    mode === 'intraday'
+      ? { label: 'Move', value: `≥ ${filters.minGap}%`, detail: `in last ${response?.windowLabel ?? windowHours + 'h'}` }
+      : { label: 'Gap', value: `≥ ${filters.minGap}%`, detail: 'vs previous close' },
     { label: 'Volume', value: `≥ ${fmtFilterVol(filters.minVolume)} shares`, detail: 'pre/intraday' },
-    { label: 'Mkt Cap', value: `≥ ${fmtFilterCap(filters.minMarketCap)}`, detail: 'Yahoo source only' },
+    { label: 'Mkt Cap', value: `≥ ${fmtFilterCap(filters.minMarketCap)}`, detail: mode === 'intraday' ? 'applied' : 'Yahoo source only' },
     { label: 'Price', value: `$${filters.minPrice} – $${filters.maxPrice}`, detail: 'filters sub-penny junk' },
     { label: 'Market', value: 'US only', detail: 'NYSE · NASDAQ · AMEX' },
-    { label: 'Refresh', value: 'Every 15s', detail: 'during market hours' },
+    { label: 'Refresh', value: 'Every 2m', detail: 'during market hours' },
   ];
 
-  const criteriaSubtitle = `${filters.minGap}%+ gap | ${fmtFilterVol(filters.minVolume)}+ vol | ${fmtFilterCap(filters.minMarketCap)}+ cap | $${filters.minPrice}–$${filters.maxPrice}`;
+  const moveLabel = mode === 'intraday' ? 'move' : 'gap';
+  const windowSuffix = mode === 'intraday' ? ` ${response?.windowLabel ?? windowHours + 'h'}` : '';
+  const criteriaSubtitle = `${filters.minGap}%+ ${moveLabel}${windowSuffix} | ${fmtFilterVol(filters.minVolume)}+ vol | ${fmtFilterCap(filters.minMarketCap)}+ cap | $${filters.minPrice}–$${filters.maxPrice}`;
 
   const numInputClass = 'bg-[#21262d] border border-[#30363d] hover:border-[#8b949e] focus:border-[#F97316] focus:outline-none rounded px-1.5 py-0.5 text-xs text-white text-center transition-colors';
 
@@ -456,7 +508,7 @@ export default function GapScannerCard() {
               <Activity className="w-4 h-4 text-[#F97316]" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white leading-none">Gap Scanner</h2>
+              <h2 className="text-sm font-semibold text-white leading-none">{mode === 'intraday' ? 'Intraday Movers' : 'Gap Scanner'}</h2>
               <div className="flex items-center gap-1 mt-0.5">
                 <p className="text-[10px] text-[#8b949e]">{criteriaSubtitle}</p>
                 <CriteriaCard criteria={activeCriteria}>
@@ -466,6 +518,32 @@ export default function GapScannerCard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex items-center rounded-lg border border-[#30363d] overflow-hidden mr-1">
+              <button
+                onClick={() => switchMode('gap')}
+                className={`px-2 py-1 text-[10px] font-medium transition-colors ${mode === 'gap' ? 'bg-[#F97316] text-white' : 'text-[#8b949e] hover:text-white hover:bg-[#21262d]'}`}
+              >
+                Overnight Gap
+              </button>
+              <button
+                onClick={() => switchMode('intraday')}
+                className={`px-2 py-1 text-[10px] font-medium transition-colors ${mode === 'intraday' ? 'bg-[#F97316] text-white' : 'text-[#8b949e] hover:text-white hover:bg-[#21262d]'}`}
+              >
+                Intraday
+              </button>
+            </div>
+            {mode === 'intraday' && (
+              <select
+                value={windowHours}
+                onChange={(e) => changeWindow(parseFloat(e.target.value))}
+                title="Rolling window length"
+                className="bg-[#21262d] border border-[#30363d] hover:border-[#8b949e] focus:border-[#F97316] focus:outline-none rounded text-[10px] text-white px-1.5 py-1 mr-1 cursor-pointer"
+              >
+                <option value={1}>1h</option>
+                <option value={2}>2h</option>
+                <option value={4}>4h</option>
+              </select>
+            )}
             {session && (
               <div className="relative group">
                 <span className={`flex items-center gap-1.5 text-[10px] font-medium ${session.color} cursor-help`}>
@@ -593,7 +671,7 @@ export default function GapScannerCard() {
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.gainers?.length
                   ? sortStocks(data.gainers, gainerSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
-                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No gainers matching criteria'}</div>
+                  : <div className="text-center py-8 text-[#8b949e] text-xs">{response?.message ? response.message : isMarketClosed ? 'Last scan results appear after next market open' : 'No gainers matching criteria'}</div>
                 }
               </div>
             </div>
@@ -616,7 +694,7 @@ export default function GapScannerCard() {
               <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
                 {data?.losers?.length
                   ? sortStocks(data.losers, loserSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
-                  : <div className="text-center py-8 text-[#8b949e] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No losers matching criteria'}</div>
+                  : <div className="text-center py-8 text-[#8b949e] text-xs">{response?.message ? response.message : isMarketClosed ? 'Last scan results appear after next market open' : 'No losers matching criteria'}</div>
                 }
               </div>
             </div>
@@ -631,7 +709,7 @@ export default function GapScannerCard() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#30363d] flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-[#F97316]" />
-                <span className="font-semibold text-white">All Gap Stocks</span>
+                <span className="font-semibold text-white">{mode === 'intraday' ? 'All Intraday Movers' : 'All Gap Stocks'}</span>
                 <span className="text-xs text-[#8b949e] bg-[#0d1117] px-2 py-0.5 rounded">{allStocks.length} tickers</span>
               </div>
               <button onClick={() => setShowModal(false)} className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e] hover:text-white">
@@ -706,8 +784,8 @@ export default function GapScannerCard() {
               {/* Min Gap */}
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium text-white">Min Gap %</p>
-                  <p className="text-[11px] text-[#8b949e]">vs previous close</p>
+                  <p className="text-sm font-medium text-white">{mode === 'intraday' ? 'Min Move %' : 'Min Gap %'}</p>
+                  <p className="text-[11px] text-[#8b949e]">{mode === 'intraday' ? `in last ${response?.windowLabel ?? windowHours + 'h'}` : 'vs previous close'}</p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <input
@@ -741,7 +819,7 @@ export default function GapScannerCard() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-white">Min Market Cap</p>
-                  <p className="text-[11px] text-[#8b949e]">Yahoo source only</p>
+                  <p className="text-[11px] text-[#8b949e]">{mode === 'intraday' ? 'min market cap' : 'Yahoo source only'}</p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm text-[#8b949e]">$</span>

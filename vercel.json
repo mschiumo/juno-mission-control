@@ -5,6 +5,9 @@
     "app/api/gap-scanner/route.ts": {
       "maxDuration": 300
     },
+    "app/api/intraday-movers/route.ts": {
+      "maxDuration": 120
+    },
     "app/api/cron-jobs/gap-scanner-trigger/route.ts": {
       "maxDuration": 300
     },

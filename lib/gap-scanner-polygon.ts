@@ -125,7 +125,7 @@ const ETF_PATTERNS = [
 
 const EXCLUDED_SUFFIXES = ['.WS', '.WSA', '.WSB', '.WT', '+', '^', '=', '/WS', '/WT', '.U', '.UN', '.R', '.RT'];
 
-function isETFOrDerivative(symbol: string): boolean {
+export function isETFOrDerivative(symbol: string): boolean {
   const s = symbol.toUpperCase();
   if (ETF_PATTERNS.includes(s)) return true;
   for (const suffix of EXCLUDED_SUFFIXES) if (s.endsWith(suffix)) return true;
@@ -142,7 +142,7 @@ const KNOWN_ADRS = new Set([
   'GSK', 'BTI', 'VOD', 'DEO', 'WPP',
 ]);
 
-function isLikelyADRBySymbol(symbol: string): boolean {
+export function isLikelyADRBySymbol(symbol: string): boolean {
   return KNOWN_ADRS.has(symbol.toUpperCase());
 }
 
