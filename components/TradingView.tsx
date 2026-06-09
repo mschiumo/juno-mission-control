@@ -16,6 +16,7 @@ import MarketEventsCard from '@/components/MarketEventsCard';
 import GapScannerCard from '@/components/GapScannerCard';
 import MarketCard from '@/components/MarketCard';
 import MarketBriefingModal from '@/components/MarketBriefingModal';
+import TradingRulesModal from '@/components/TradingRulesModal';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
@@ -193,6 +194,9 @@ export default function TradingView() {
 
       {/* Market Briefing Modal */}
       <MarketBriefingModal isOpen={showBriefingModal} onClose={() => setShowBriefingModal(false)} />
+
+      {/* Pre-market trading rules acknowledgement (fires at 9:15 AM ET) */}
+      <TradingRulesModal />
 
       {/* First-time onboarding tour */}
       {showTour && (

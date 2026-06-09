@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Star, Download, List, ChevronUp, ChevronDown, Info, SlidersHorizontal } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Star, Download, List, ChevronUp, ChevronDown, Info, SlidersHorizontal, Maximize2, Minimize2 } from 'lucide-react';
 
 /** Simple hover tooltip — small single-line label */
 function Tip({ label, children, position = 'bottom' }: { label: string; children: React.ReactNode; position?: 'top' | 'bottom' }) {
@@ -62,9 +62,9 @@ interface ScanFilters {
 }
 
 const DEFAULT_FILTERS: ScanFilters = {
-  minGap: 2,
-  minVolume: 1_000_000,
-  minMarketCap: 50_000_000,
+  minGap: 10,
+  minVolume: 5_000_000,
+  minMarketCap: 100_000_000,
   minPrice: 1,
   maxPrice: 1000,
 };
@@ -126,13 +126,40 @@ function fmtFilterCap(c: number) {
   return c >= 1e9 ? '$' + (c / 1e9).toFixed(0) + 'B' : '$' + (c / 1e6).toFixed(0) + 'M';
 }
 
+// Bump the version suffix whenever DEFAULT_FILTERS changes so stale cached
+// scans (which store their own filters) don't mask the new defaults.
+const SCAN_CACHE_KEY = 'gap-scanner-last-result-v2';
+
+interface GapScanCache {
+  data: GapData;
+  response: GapResponse;
+  lastUpdated: string;
+  filters: ScanFilters;
+  mode?: ScanMode;
+  windowHours?: number;
+}
+
+/** Read the last successful scan so results survive tab switches / unmounts. */
+function loadScanCache(): GapScanCache | null {
+  try {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(SCAN_CACHE_KEY) : null;
+    return saved ? (JSON.parse(saved) as GapScanCache) : null;
+  } catch { return null; }
+}
+
 export default function GapScannerCard() {
-  const [data, setData] = useState<GapData | null>(null);
-  const [response, setResponse] = useState<GapResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  // Hydrate from the last cached scan so results persist across tab switches (read once).
+  const cacheRef = useRef<GapScanCache | null | undefined>(undefined);
+  if (cacheRef.current === undefined) cacheRef.current = loadScanCache();
+  const cached = cacheRef.current;
+
+  const [data, setData] = useState<GapData | null>(cached?.data ?? null);
+  const [response, setResponse] = useState<GapResponse | null>(cached?.response ?? null);
+  const [loading, setLoading] = useState(!cached?.data);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(cached ? new Date(cached.lastUpdated) : null);
   const [showModal, setShowModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [gainerSort, setGainerSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' }>({ col: 'gap', dir: 'desc' });
   const [loserSort, setLoserSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' }>({ col: 'gap', dir: 'desc' });
   const [modalSort, setModalSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' }>({ col: 'gap', dir: 'desc' });
@@ -147,21 +174,21 @@ export default function GapScannerCard() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Committed filters (used by auto-refresh)
-  const [filters, setFilters] = useState<ScanFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<ScanFilters>(cached?.filters ?? DEFAULT_FILTERS);
   // Draft filters (edited in the panel, applied on "Run Scan")
-  const [draft, setDraft] = useState<ScanFilters>(DEFAULT_FILTERS);
+  const [draft, setDraft] = useState<ScanFilters>(cached?.filters ?? DEFAULT_FILTERS);
   // Ref so the 15s interval always uses the latest committed filters
-  const filtersRef = useRef<ScanFilters>(DEFAULT_FILTERS);
+  const filtersRef = useRef<ScanFilters>(cached?.filters ?? DEFAULT_FILTERS);
   useEffect(() => { filtersRef.current = filters; }, [filters]);
 
   // Scan mode: overnight gap (vs previous close) vs intraday momentum (rolling window).
-  const [mode, setMode] = useState<ScanMode>('gap');
-  const modeRef = useRef<ScanMode>('gap');
+  const [mode, setMode] = useState<ScanMode>(cached?.mode ?? 'gap');
+  const modeRef = useRef<ScanMode>(cached?.mode ?? 'gap');
   useEffect(() => { modeRef.current = mode; }, [mode]);
 
   // Intraday rolling-window length (hours). Backend accepts any value; UI offers 1/2/4.
-  const [windowHours, setWindowHours] = useState<number>(2);
-  const windowHoursRef = useRef<number>(2);
+  const [windowHours, setWindowHours] = useState<number>(cached?.windowHours ?? 2);
+  const windowHoursRef = useRef<number>(cached?.windowHours ?? 2);
   useEffect(() => { windowHoursRef.current = windowHours; }, [windowHours]);
 
   useEffect(() => {
@@ -171,6 +198,14 @@ export default function GapScannerCard() {
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Close the expanded (full-screen) view on Escape
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setExpanded(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [expanded]);
 
   const fetchExistingFavorites = async () => {
     try {
@@ -215,7 +250,16 @@ export default function GapScannerCard() {
           } catch { /* failed */ }
         }
       }
-      if (result?.success) { setData(result.data); setResponse(result); setLastUpdated(new Date()); }
+      if (result?.success) {
+        const now = new Date();
+        setData(result.data); setResponse(result); setLastUpdated(now);
+        try {
+          localStorage.setItem(SCAN_CACHE_KEY, JSON.stringify({
+            data: result.data, response: result, lastUpdated: now.toISOString(),
+            filters: active, mode: activeMode, windowHours: windowHoursRef.current,
+          }));
+        } catch { /* ignore */ }
+      }
     } catch (e) { console.error('scan fetch error', e); }
     finally { setLoading(false); }
   };
@@ -407,9 +451,56 @@ export default function GapScannerCard() {
     );
   };
 
+  // Compact tile used in the expanded modal's responsive grid (several tickers per row)
+  const TickerTile = ({ stock }: { stock: GapStock }) => {
+    const isGainer = stock.status === 'gainer';
+    const added = addedTickers.has(stock.symbol);
+    return (
+      <a
+        href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
+        target="_blank" rel="noopener noreferrer"
+        title={stock.name}
+        className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-[#0d1117]/40 border border-[#30363d] hover:border-[#F97316]/40 hover:bg-[#21262d] group transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {isGainer
+            ? <TrendingUp className="w-4 h-4 text-[#238636] flex-shrink-0" />
+            : <TrendingDown className="w-4 h-4 text-[#da3633] flex-shrink-0" />
+          }
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-white group-hover:text-[#ff6b35] transition-colors truncate">{stock.symbol}</div>
+            <div className="text-[11px] text-[#8b949e] tabular-nums">{fmt(stock.price)} · {fmtVol(stock.volume)}</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className={`text-sm font-semibold tabular-nums ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
+            {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%
+          </span>
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(stock.symbol); }}
+            className={`transition-colors ${added ? 'text-[#F97316]' : 'text-transparent group-hover:text-[#8b949e] hover:!text-[#F97316]'}`}
+            title={added ? 'Remove from Daily Favorites' : 'Add to Daily Favorites'}
+          >
+            <Star className={`w-4 h-4 ${added ? 'fill-[#F97316]' : ''}`} />
+          </button>
+        </div>
+      </a>
+    );
+  };
+
   return (
     <>
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-full">
+      {/* Backdrop for the expanded full-screen view (click to close) */}
+      {expanded && (
+        <div
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm animate-backdrop-in"
+          onClick={() => setExpanded(false)}
+        />
+      )}
+      <div className={expanded
+        ? "fixed inset-0 m-auto z-50 w-[min(1040px,94vw)] h-[min(720px,88vh)] bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden flex flex-col shadow-2xl animate-zoom-in"
+        : "bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-full"
+      }>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
           <div className="flex items-center gap-2.5">
@@ -489,6 +580,11 @@ export default function GapScannerCard() {
                 <SlidersHorizontal className="w-3.5 h-3.5" />
               </button>
             </Tip>
+            <Tip label={expanded ? 'Exit full screen' : 'Expand to full screen'} position="bottom">
+              <button onClick={() => setExpanded(v => !v)} className="p-1.5 hover:bg-[#30363d] rounded transition-colors text-[#8b949e]">
+                {expanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              </button>
+            </Tip>
             <Tip label="Refresh now" position="bottom">
               <button onClick={() => fetchGapData()} disabled={loading} className="p-1.5 hover:bg-[#30363d] rounded transition-colors disabled:opacity-50">
                 <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] ${loading ? 'animate-spin' : ''}`} />
@@ -522,6 +618,38 @@ export default function GapScannerCard() {
                 ))}
               </div>
             ))}
+          </div>
+        ) : expanded ? (
+          // Expanded modal: dense responsive grid of compact ticker tiles (several per row)
+          <div className="overflow-y-auto flex-1 min-h-0 p-4 space-y-5">
+            <div>
+              <div className="flex items-center gap-2 mb-2.5 px-0.5">
+                <TrendingUp className="w-4 h-4 text-[#238636]" />
+                <span className="text-xs font-semibold text-[#238636] uppercase tracking-widest">
+                  Gainers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.gainers.length ?? 0})</span>
+                </span>
+              </div>
+              {data?.gainers?.length
+                ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {sortStocks(data.gainers, gainerSort).map(stock => <TickerTile key={stock.symbol} stock={stock} />)}
+                  </div>
+                : <div className="text-center py-8 text-[#8b949e] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No gainers matching criteria'}</div>
+              }
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-2.5 px-0.5">
+                <TrendingDown className="w-4 h-4 text-[#da3633]" />
+                <span className="text-xs font-semibold text-[#da3633] uppercase tracking-widest">
+                  Losers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.losers.length ?? 0})</span>
+                </span>
+              </div>
+              {data?.losers?.length
+                ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {sortStocks(data.losers, loserSort).map(stock => <TickerTile key={stock.symbol} stock={stock} />)}
+                  </div>
+                : <div className="text-center py-8 text-[#8b949e] text-xs">{isMarketClosed ? 'Last scan results appear after next market open' : 'No losers matching criteria'}</div>
+              }
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 divide-x divide-[#30363d] flex-1 min-h-0">
