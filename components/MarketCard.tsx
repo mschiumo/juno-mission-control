@@ -297,7 +297,7 @@ export default function MarketCard() {
   const downCount = currentData.filter(i => i.change < 0).length;
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden h-full flex flex-col">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden h-full flex flex-col @container">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
         <div className="flex items-center gap-3">
@@ -311,7 +311,7 @@ export default function MarketCard() {
         </div>
         <div className="flex items-center gap-3">
           {lastUpdated && !loading && (
-            <span className="text-[10px] text-[#8b949e]">
+            <span className="hidden @min-[360px]:inline text-[10px] text-[#8b949e]">
               Updated {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
             </span>
           )}
@@ -328,7 +328,7 @@ export default function MarketCard() {
 
       <div className="p-6 flex-1 flex flex-col min-h-0">
         {/* Tabs + Add button */}
-        <div className="flex items-center gap-1 mb-5 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5 mb-5 flex-shrink-0">
           {(['indices', 'futures', 'stocks', 'commodities', 'crypto', 'forex', 'sectors'] as const).map((tab) => (
             <button
               key={tab}
@@ -430,7 +430,7 @@ export default function MarketCard() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 @min-[300px]:grid-cols-2 gap-3">
                 {currentData.map((item) => (
                   <div key={item.symbol} className="relative group/card">
                     <a
