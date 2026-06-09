@@ -184,13 +184,7 @@ export default function TradingView() {
         </div>
       )}
 
-      {activeSubTab === 'market-news' && (
-        <div className="max-w-[1100px] mx-auto">
-          <div className="h-[720px]">
-            <NewsScreenerCard />
-          </div>
-        </div>
-      )}
+      {activeSubTab === 'market-news' && <NewsScreenerCard />}
 
       {activeSubTab === 'performance' && <PerformanceView />}
 

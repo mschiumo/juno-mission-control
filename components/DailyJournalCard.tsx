@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  BookOpen, Sparkles, ChevronLeft, ChevronRight, Loader2, Check, RefreshCw,
+  BookOpen, Sparkles, ChevronLeft, ChevronRight, Loader2, Pencil, CheckCircle2,
 } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
 import JournalReportModal from '@/components/JournalReportModal';
@@ -44,30 +44,46 @@ function formatDayLabel(dateStr: string): string {
   });
 }
 
+function formatTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+}
+
 export default function DailyJournalCard() {
   const today = getTodayInEST();
   const [date, setDate] = useState<string>(today);
   const [prompts, setPrompts] = useState<JournalPrompt[]>(DEFAULT_PROMPTS.map((p) => ({ ...p })));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+  const [mode, setMode] = useState<'view' | 'edit'>('edit');
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
 
   const isToday = date === today;
 
   const loadEntry = useCallback(async (d: string) => {
     setLoading(true);
-    setSaveStatus('idle');
     try {
       const res = await fetch(`/api/personal-journal?date=${d}&_t=${Date.now()}`);
       const data = await res.json();
-      if (data.success && data.entry?.prompts?.length) {
-        setPrompts(mergePromptsWithDefaults(data.entry.prompts));
+      const entry = data?.entry;
+      const hasContent = entry?.prompts?.length && entry.prompts.some((p: JournalPrompt) => p.answer?.trim());
+      if (hasContent) {
+        setPrompts(mergePromptsWithDefaults(entry.prompts));
+        setUpdatedAt(entry.updatedAt || null);
+        setMode('view');
       } else {
         setPrompts(DEFAULT_PROMPTS.map((p) => ({ ...p })));
+        setUpdatedAt(null);
+        setMode('edit');
       }
     } catch {
       setPrompts(DEFAULT_PROMPTS.map((p) => ({ ...p })));
+      setUpdatedAt(null);
+      setMode('edit');
     } finally {
       setLoading(false);
     }
@@ -79,12 +95,10 @@ export default function DailyJournalCard() {
 
   const updateAnswer = (id: string, answer: string) => {
     setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, answer } : p)));
-    setSaveStatus('idle');
   };
 
   async function handleSave() {
     setSaving(true);
-    setSaveStatus('idle');
     try {
       const res = await fetch('/api/personal-journal', {
         method: 'POST',
@@ -92,13 +106,18 @@ export default function DailyJournalCard() {
         body: JSON.stringify({ date, prompts }),
       });
       const data = await res.json();
-      setSaveStatus(data.success ? 'saved' : 'error');
+      if (data.success) {
+        setUpdatedAt(data.entry?.updatedAt || new Date().toISOString());
+        setMode(prompts.some((p) => p.answer.trim()) ? 'view' : 'edit');
+      }
     } catch {
-      setSaveStatus('error');
+      // keep editing on failure
     } finally {
       setSaving(false);
     }
   }
+
+  const answered = prompts.filter((p) => p.answer.trim());
 
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-full">
@@ -127,6 +146,7 @@ export default function DailyJournalCard() {
           <ChevronLeft className="w-4 h-4" />
         </button>
         <div className="flex items-center gap-2">
+          {mode === 'view' && <CheckCircle2 className="w-3.5 h-3.5 text-[#3fb950]" />}
           <span className="text-xs font-medium text-[#c9d1d9]">{formatDayLabel(date)}</span>
           {isToday && (
             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#238636]/20 text-[#3fb950] font-medium uppercase tracking-wide">
@@ -144,50 +164,102 @@ export default function DailyJournalCard() {
         </button>
       </div>
 
-      {/* Prompts */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
-        {loading ? (
-          <div className="flex items-center justify-center py-10 text-[#8b949e]">
-            <Loader2 className="w-5 h-5 animate-spin" />
-          </div>
-        ) : (
-          prompts.map((prompt) => (
-            <div key={prompt.id}>
-              <label className="text-xs font-medium text-[#F97316] mb-1.5 block">
-                {prompt.question}
-                {prompt.id === 'other' && <span className="text-[#8b949e] font-normal ml-1">(optional)</span>}
-              </label>
-              <textarea
-                value={prompt.answer}
-                onChange={(e) => updateAnswer(prompt.id, e.target.value)}
-                placeholder="Type here..."
-                rows={2}
-                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#484f58] resize-none focus:outline-none focus:border-[#F97316] transition-colors"
-              />
+      {/* Body */}
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center text-[#8b949e]">
+          <Loader2 className="w-5 h-5 animate-spin" />
+        </div>
+      ) : mode === 'view' ? (
+        /* ---- Submitted / read view ---- */
+        <>
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0">
+            {/* Completed banner */}
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-[#238636]/25 bg-gradient-to-r from-[#238636]/15 to-transparent">
+              <div className="w-9 h-9 rounded-full bg-[#238636]/20 flex items-center justify-center flex-shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-[#3fb950]" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white">
+                  {isToday ? "Today's reflection is in" : 'Reflection saved'}
+                </p>
+                <p className="text-xs text-[#8b949e]">
+                  {answered.length} {answered.length === 1 ? 'prompt' : 'prompts'} answered
+                  {updatedAt ? ` · ${formatTime(updatedAt)}` : ''}
+                </p>
+              </div>
             </div>
-          ))
-        )}
-      </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between px-4 py-3 border-t border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
-        <span className="text-xs">
-          {saveStatus === 'saved' && (
-            <span className="flex items-center gap-1 text-[#3fb950]">
-              <Check className="w-3.5 h-3.5" /> Saved
+            {/* Answers */}
+            {answered.map((prompt) => (
+              <div key={prompt.id}>
+                <p className="text-xs font-medium text-[#F97316] mb-1">{prompt.question}</p>
+                <p className="text-sm text-[#c9d1d9] whitespace-pre-wrap leading-relaxed pl-3 border-l-2 border-[#F97316]/30">
+                  {prompt.answer}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
+            <span className="text-xs text-[#8b949e]">
+              {isToday ? 'Nice work showing up today.' : ''}
             </span>
-          )}
-          {saveStatus === 'error' && <span className="text-[#f85149]">Failed to save</span>}
-        </span>
-        <button
-          onClick={handleSave}
-          disabled={saving || loading}
-          className="flex items-center gap-2 px-4 py-1.5 bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] hover:border-[#8b949e] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
-        >
-          {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
-          {saving ? 'Saving...' : 'Save'}
-        </button>
-      </div>
+            <button
+              onClick={() => setMode('edit')}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] hover:border-[#8b949e] text-[#c9d1d9] text-xs font-medium rounded-lg transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Edit
+            </button>
+          </div>
+        </>
+      ) : (
+        /* ---- Edit form ---- */
+        <>
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+            <p className="text-xs text-[#8b949e]">
+              {isToday ? 'Take a moment to reflect on your day.' : `Add a reflection for ${formatDayLabel(date)}.`}
+            </p>
+            {prompts.map((prompt) => (
+              <div key={prompt.id}>
+                <label className="text-xs font-medium text-[#F97316] mb-1.5 block">
+                  {prompt.question}
+                  {prompt.id === 'other' && <span className="text-[#8b949e] font-normal ml-1">(optional)</span>}
+                </label>
+                <textarea
+                  value={prompt.answer}
+                  onChange={(e) => updateAnswer(prompt.id, e.target.value)}
+                  placeholder="Type here..."
+                  rows={2}
+                  className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#484f58] resize-none focus:outline-none focus:border-[#F97316] transition-colors"
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
+            {updatedAt && (
+              <button
+                onClick={() => loadEntry(date)}
+                disabled={saving}
+                className="px-3 py-1.5 text-[#8b949e] hover:text-white text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-1.5 bg-[#F97316] hover:bg-[#ea6c08] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              {saving ? 'Saving...' : 'Save Entry'}
+            </button>
+          </div>
+        </>
+      )}
 
       {showReport && <JournalReportModal onClose={() => setShowReport(false)} />}
     </div>
