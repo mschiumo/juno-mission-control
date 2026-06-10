@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Sparkles, Loader2, AlertCircle, X, TrendingUp, TrendingDown, Brain,
   Lightbulb, FileText, Archive, ChevronDown, BookOpen,
@@ -160,7 +161,9 @@ export default function JournalReportModal({ onClose }: { onClose: () => void })
   const structured = report ? parseAnalysis(report.analysis) : null;
   const busy = loading || loadingArchive;
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -378,6 +381,7 @@ export default function JournalReportModal({ onClose }: { onClose: () => void })
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
