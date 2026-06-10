@@ -59,6 +59,8 @@ interface ScanFilters {
   minMarketCap: number;
   minPrice: number;
   maxPrice: number;
+  /** Max bid-ask spread as a % of mid price. 0 = no limit. */
+  maxSpread: number;
 }
 
 const DEFAULT_FILTERS: ScanFilters = {
@@ -67,6 +69,7 @@ const DEFAULT_FILTERS: ScanFilters = {
   minMarketCap: 100_000_000,
   minPrice: 1,
   maxPrice: 1000,
+  maxSpread: 0,
 };
 
 interface GapStock {
@@ -77,6 +80,8 @@ interface GapStock {
   gapPercent: number;
   volume: number;
   marketCap: number;
+  spread?: number;
+  spreadPercent?: number;
   status: 'gainer' | 'loser';
 }
 
@@ -116,6 +121,7 @@ function filtersToParams(f: ScanFilters): string {
     minMarketCap: String(f.minMarketCap),
     minPrice: String(f.minPrice),
     maxPrice: String(f.maxPrice),
+    maxSpread: String(f.maxSpread),
   }).toString();
 }
 
@@ -128,7 +134,7 @@ function fmtFilterCap(c: number) {
 
 // Bump the version suffix whenever DEFAULT_FILTERS changes so stale cached
 // scans (which store their own filters) don't mask the new defaults.
-const SCAN_CACHE_KEY = 'gap-scanner-last-result-v2';
+const SCAN_CACHE_KEY = 'gap-scanner-last-result-v3';
 
 interface GapScanCache {
   data: GapData;
@@ -344,9 +350,9 @@ export default function GapScannerCard() {
   const exportToCSV = () => {
     if (!data) return;
     const rows = [
-      ['Type','Symbol','Name','Gap %','Price','Prev Close','Volume','Market Cap'],
-      ...data.gainers.map(s => ['Gainer',s.symbol,s.name,s.gapPercent.toFixed(2),s.price.toFixed(2),s.previousClose.toFixed(2),s.volume,s.marketCap]),
-      ...data.losers.map(s => ['Loser',s.symbol,s.name,s.gapPercent.toFixed(2),s.price.toFixed(2),s.previousClose.toFixed(2),s.volume,s.marketCap]),
+      ['Type','Symbol','Name','Gap %','Price','Prev Close','Volume','Market Cap','Spread %'],
+      ...data.gainers.map(s => ['Gainer',s.symbol,s.name,s.gapPercent.toFixed(2),s.price.toFixed(2),s.previousClose.toFixed(2),s.volume,s.marketCap,s.spreadPercent != null ? s.spreadPercent.toFixed(2) : '']),
+      ...data.losers.map(s => ['Loser',s.symbol,s.name,s.gapPercent.toFixed(2),s.price.toFixed(2),s.previousClose.toFixed(2),s.volume,s.marketCap,s.spreadPercent != null ? s.spreadPercent.toFixed(2) : '']),
     ];
     const blob = new Blob([rows.map(r=>r.join(',')).join('\n')], { type: 'text/csv' });
     const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `gaps-${new Date().toISOString().split('T')[0]}.csv` });
@@ -406,13 +412,14 @@ export default function GapScannerCard() {
     { label: 'Volume', value: `≥ ${fmtFilterVol(filters.minVolume)} shares`, detail: 'pre/intraday' },
     { label: 'Mkt Cap', value: `≥ ${fmtFilterCap(filters.minMarketCap)}`, detail: mode === 'intraday' ? 'applied' : 'Yahoo source only' },
     { label: 'Price', value: `$${filters.minPrice} – $${filters.maxPrice}`, detail: 'filters sub-penny junk' },
+    { label: 'Spread', value: filters.maxSpread > 0 ? `≤ ${filters.maxSpread}%` : 'any', detail: 'bid-ask, % of mid' },
     { label: 'Market', value: 'US only', detail: 'NYSE · NASDAQ · AMEX' },
     { label: 'Refresh', value: 'Every 2m', detail: 'during market hours' },
   ];
 
   const moveLabel = mode === 'intraday' ? 'move' : 'gap';
   const windowSuffix = mode === 'intraday' ? ` ${response?.windowLabel ?? windowHours + 'h'}` : '';
-  const criteriaSubtitle = `${filters.minGap}%+ ${moveLabel}${windowSuffix} | ${fmtFilterVol(filters.minVolume)}+ vol | ${fmtFilterCap(filters.minMarketCap)}+ cap | $${filters.minPrice}–$${filters.maxPrice}`;
+  const criteriaSubtitle = `${filters.minGap}%+ ${moveLabel}${windowSuffix} | ${fmtFilterVol(filters.minVolume)}+ vol | ${fmtFilterCap(filters.minMarketCap)}+ cap | $${filters.minPrice}–$${filters.maxPrice}${filters.maxSpread > 0 ? ` | ≤${filters.maxSpread}% spr` : ''}`;
 
   const numInputClass = 'bg-[#21262d] border border-[#30363d] hover:border-[#8b949e] focus:border-[#F97316] focus:outline-none rounded px-1.5 py-0.5 text-xs text-white text-center transition-colors';
 
@@ -424,7 +431,7 @@ export default function GapScannerCard() {
         href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
         target="_blank" rel="noopener noreferrer"
         title={stock.name}
-        className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-2 hover:bg-[#21262d] group border-b border-[#30363d] last:border-0 transition-colors"
+        className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-3 py-2 hover:bg-[#21262d] group border-b border-[#30363d] last:border-0 transition-colors"
       >
         <div className="flex items-center gap-1.5 min-w-0">
           {isGainer
@@ -437,6 +444,12 @@ export default function GapScannerCard() {
         </div>
         <span className="text-xs text-[#8b949e] tabular-nums">{fmt(stock.price)}</span>
         <span className="text-xs text-[#8b949e] tabular-nums">{fmtVol(stock.volume)}</span>
+        <span
+          className={`text-xs tabular-nums w-12 text-right ${stock.spreadPercent != null && stock.spreadPercent >= 1 ? 'text-[#d29922]' : 'text-[#8b949e]'}`}
+          title={stock.spread != null ? `$${stock.spread.toFixed(2)} bid-ask spread` : 'No live quote'}
+        >
+          {stock.spreadPercent != null ? `${stock.spreadPercent.toFixed(2)}%` : '—'}
+        </span>
         <span className={`text-xs font-semibold tabular-nums w-14 text-right ${isGainer ? 'text-[#238636]' : 'text-[#da3633]'}`}>
           {isGainer ? '+' : ''}{stock.gapPercent.toFixed(2)}%
         </span>
@@ -469,7 +482,7 @@ export default function GapScannerCard() {
           }
           <div className="min-w-0">
             <div className="text-sm font-semibold text-white group-hover:text-[#ff6b35] transition-colors truncate">{stock.symbol}</div>
-            <div className="text-[11px] text-[#8b949e] tabular-nums">{fmt(stock.price)} · {fmtVol(stock.volume)}</div>
+            <div className="text-[11px] text-[#8b949e] tabular-nums">{fmt(stock.price)} · {fmtVol(stock.volume)}{stock.spreadPercent != null ? ` · ${stock.spreadPercent.toFixed(2)}% sp` : ''}</div>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -602,15 +615,16 @@ export default function GapScannerCard() {
                   <div className="w-3 h-3 rounded-sm bg-[#30363d]" />
                   <div className="h-3 w-16 bg-[#30363d] rounded" />
                 </div>
-                <div className="px-3 py-1.5 border-b border-[#21262d] grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4">
-                  {[40, 28, 24, 32, 12].map((w, i) => (
+                <div className="px-3 py-1.5 border-b border-[#21262d] grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-3">
+                  {[40, 28, 24, 24, 32, 12].map((w, i) => (
                     <div key={i} className="h-2.5 bg-[#30363d] rounded" style={{ width: w }} />
                   ))}
                 </div>
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-2.5 border-b border-[#30363d] last:border-0">
+                  <div key={i} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-3 py-2.5 border-b border-[#30363d] last:border-0">
                     <div className="h-3 w-12 bg-[#30363d] rounded" />
                     <div className="h-3 w-10 bg-[#30363d] rounded" />
+                    <div className="h-3 w-8 bg-[#30363d] rounded" />
                     <div className="h-3 w-8 bg-[#30363d] rounded" />
                     <div className="h-3 w-10 bg-[#30363d] rounded" />
                     <div className="h-3 w-3 bg-[#30363d] rounded" />
@@ -661,10 +675,11 @@ export default function GapScannerCard() {
                   Gainers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.gainers.length ?? 0})</span>
                 </span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
                 <button onClick={() => toggleGainerSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" sort={gainerSort} /></button>
+                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide w-12 text-right">Spread</span>
                 <button onClick={() => toggleGainerSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" sort={gainerSort} /></button>
                 <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
               </div>
@@ -684,10 +699,11 @@ export default function GapScannerCard() {
                   Losers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.losers.length ?? 0})</span>
                 </span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
                 <button onClick={() => toggleLoserSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" sort={loserSort} /></button>
+                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide w-12 text-right">Spread</span>
                 <button onClick={() => toggleLoserSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" sort={loserSort} /></button>
                 <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
               </div>
@@ -728,6 +744,7 @@ export default function GapScannerCard() {
                     <th className="text-right px-4 py-2.5 text-xs text-[#8b949e] font-medium cursor-pointer hover:text-white select-none" onClick={() => toggleModalSort('price')}>
                       <span className="flex items-center justify-end gap-1">Price <SortIcon col="price" sort={modalSort} /></span>
                     </th>
+                    <th className="text-right px-4 py-2.5 text-xs text-[#8b949e] font-medium hidden sm:table-cell">Spread</th>
                     <th className="text-right px-4 py-2.5 text-xs text-[#8b949e] font-medium cursor-pointer hover:text-white select-none hidden sm:table-cell" onClick={() => toggleModalSort('volume')}>
                       <span className="flex items-center justify-end gap-1">Vol <SortIcon col="volume" sort={modalSort} /></span>
                     </th>
@@ -753,6 +770,7 @@ export default function GapScannerCard() {
                         {stock.status === 'gainer' ? '+' : ''}{stock.gapPercent.toFixed(2)}%
                       </td>
                       <td className="px-4 py-2.5 text-right text-xs text-white">{fmt(stock.price)}</td>
+                      <td className={`px-4 py-2.5 text-right text-xs hidden sm:table-cell ${stock.spreadPercent != null && stock.spreadPercent >= 1 ? 'text-[#d29922]' : 'text-[#8b949e]'}`} title={stock.spread != null ? `$${stock.spread.toFixed(2)} spread` : 'No live quote'}>{stock.spreadPercent != null ? `${stock.spreadPercent.toFixed(2)}%` : '—'}</td>
                       <td className="px-4 py-2.5 text-right text-xs text-[#8b949e] hidden sm:table-cell">{fmtVol(stock.volume)}</td>
                       <td className="px-4 py-2.5 text-right text-xs text-[#8b949e] hidden sm:table-cell">{stock.marketCap > 0 ? fmtCap(stock.marketCap) : '—'}</td>
                     </tr>
@@ -830,6 +848,23 @@ export default function GapScannerCard() {
                     className={`${numInputClass} w-20`}
                   />
                   <span className="text-sm text-[#8b949e]">M</span>
+                </div>
+              </div>
+
+              {/* Max Spread */}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-white">Max Spread %</p>
+                  <p className="text-[11px] text-[#8b949e]">bid-ask; 0 = no limit</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number" min={0} step={0.05}
+                    value={draft.maxSpread}
+                    onChange={e => setDraft(d => ({ ...d, maxSpread: parseFloat(e.target.value) || 0 }))}
+                    className={`${numInputClass} w-20`}
+                  />
+                  <span className="text-sm text-[#8b949e]">%</span>
                 </div>
               </div>
 

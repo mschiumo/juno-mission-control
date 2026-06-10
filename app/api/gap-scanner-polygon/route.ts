@@ -27,6 +27,7 @@ export async function GET(request: Request) {
   const minVolume = parseInt(searchParams.get('minVolume') || '1000000', 10);
   const minPrice = parseFloat(searchParams.get('minPrice') || '1');
   const maxPrice = parseFloat(searchParams.get('maxPrice') || '1000');
+  const maxSpreadPercent = parseFloat(searchParams.get('maxSpread') || '0');
 
   const marketInfo = getMarketSession();
 
@@ -95,6 +96,7 @@ export async function GET(request: Request) {
       maxPrice,
       isPreMarket: marketInfo.isPreMarket,
       avgVolumeMap: avgVolumeMap ?? undefined,
+      maxSpreadPercent,
     });
 
     const durationMs = Date.now() - startTime;
@@ -118,12 +120,14 @@ export async function GET(request: Request) {
         skippedByGap: skipped.gap,
         skippedByVolume: skipped.volume,
         skippedByPrice: skipped.price,
+        skippedBySpread: skipped.spread,
       },
       filters: {
         minGapPercent,
         minVolume,
         minPrice,
         maxPrice,
+        maxSpreadPercent,
       },
     };
 

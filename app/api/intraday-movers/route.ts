@@ -22,6 +22,7 @@ export async function GET(request: Request) {
   const minPrice = parseFloat(searchParams.get('minPrice') ?? '1');
   const maxPrice = parseFloat(searchParams.get('maxPrice') ?? '1000');
   const windowHours = parseFloat(searchParams.get('windowHours') ?? '2');
+  const maxSpreadPercent = parseFloat(searchParams.get('maxSpread') ?? '0');
 
   try {
     const result = await runIntradayScan({
@@ -31,6 +32,7 @@ export async function GET(request: Request) {
       minPrice,
       maxPrice,
       windowHours,
+      maxSpreadPercent,
     });
     return NextResponse.json(result);
   } catch (error) {

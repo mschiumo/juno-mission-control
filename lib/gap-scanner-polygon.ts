@@ -17,7 +17,8 @@ export interface PolygonSnapshot {
   day: { c: number; h: number; l: number; o: number; v: number; vw: number };
   prevDay: { c: number; h: number; l: number; o: number; v: number; vw: number };
   lastTrade?: { p: number };
-  lastQuote?: { p: number };
+  // p = bid, P = ask, s = bid size, S = ask size (Polygon NBBO snapshot)
+  lastQuote?: { p: number; P?: number; s?: number; S?: number };
   min?: { c: number };
   todaysChange?: number;
   todaysChangePerc?: number;
@@ -31,6 +32,10 @@ export interface GapStock {
   gapPercent: number;
   volume: number;
   marketCap: number;
+  /** Bid-ask spread in dollars (absolute). Undefined when there's no live two-sided quote. */
+  spread?: number;
+  /** Bid-ask spread as a percent of the mid price. Undefined when there's no quote. */
+  spreadPercent?: number;
   status: 'gainer' | 'loser';
 }
 
@@ -53,12 +58,14 @@ export interface PolygonScanResult {
     skippedByGap: number;
     skippedByVolume: number;
     skippedByPrice: number;
+    skippedBySpread?: number;
   };
   filters: {
     minGapPercent: number;
     minVolume: number;
     minPrice: number;
     maxPrice: number;
+    maxSpreadPercent?: number;
   };
 }
 
@@ -144,6 +151,26 @@ const KNOWN_ADRS = new Set([
 
 export function isLikelyADRBySymbol(symbol: string): boolean {
   return KNOWN_ADRS.has(symbol.toUpperCase());
+}
+
+/**
+ * Bid-ask spread from a snapshot's lastQuote.
+ * Returns undefined when there's no valid two-sided quote (missing, zero, or crossed) —
+ * e.g. outside market hours or on illiquid names with one-sided books.
+ * `spread` is absolute dollars; `spreadPercent` is relative to the mid price.
+ */
+export function computeSpread(
+  lastQuote?: { p?: number; P?: number }
+): { spread: number; spreadPercent: number } | undefined {
+  const bid = lastQuote?.p;
+  const ask = lastQuote?.P;
+  if (!bid || !ask || bid <= 0 || ask <= 0 || ask < bid) return undefined;
+  const spread = ask - bid;
+  const mid = (ask + bid) / 2;
+  return {
+    spread: Number(spread.toFixed(4)),
+    spreadPercent: Number(((spread / mid) * 100).toFixed(3)),
+  };
 }
 
 // ── Core scanning ───────────────────────────────────────────────────────────
@@ -249,15 +276,17 @@ export function processGaps(
     maxPrice: number;
     isPreMarket: boolean;
     avgVolumeMap?: Record<string, number>;
+    maxSpreadPercent?: number;
   }
-): { gainers: GapStock[]; losers: GapStock[]; skipped: { gap: number; volume: number; price: number } } {
-  const { minGapPercent, minVolume, minPrice, maxPrice, isPreMarket, avgVolumeMap } = options;
+): { gainers: GapStock[]; losers: GapStock[]; skipped: { gap: number; volume: number; price: number; spread: number } } {
+  const { minGapPercent, minVolume, minPrice, maxPrice, isPreMarket, avgVolumeMap, maxSpreadPercent } = options;
 
   const gainers: GapStock[] = [];
   const losers: GapStock[] = [];
   let skippedGap = 0;
   let skippedVolume = 0;
   let skippedPrice = 0;
+  let skippedSpread = 0;
 
   for (const snap of snapshots) {
     if (isETFOrDerivative(snap.ticker)) continue;
@@ -282,6 +311,14 @@ export function processGaps(
     const gapPercent = ((currentPrice - previousClose) / previousClose) * 100;
     if (Math.abs(gapPercent) < minGapPercent) { skippedGap++; continue; }
 
+    const spreadInfo = computeSpread(snap.lastQuote);
+    // Only drop a row when the spread is known AND too wide; unknown-quote rows
+    // pass through (the UI renders "—") so a missing quote never hides a mover.
+    if (maxSpreadPercent && spreadInfo && spreadInfo.spreadPercent > maxSpreadPercent) {
+      skippedSpread++;
+      continue;
+    }
+
     const stock: GapStock = {
       symbol: snap.ticker,
       name: snap.ticker,
@@ -290,6 +327,8 @@ export function processGaps(
       gapPercent: Number(gapPercent.toFixed(2)),
       volume,
       marketCap: 0,
+      spread: spreadInfo?.spread,
+      spreadPercent: spreadInfo?.spreadPercent,
       status: gapPercent > 0 ? 'gainer' : 'loser',
     };
 
@@ -302,7 +341,7 @@ export function processGaps(
   return {
     gainers,
     losers,
-    skipped: { gap: skippedGap, volume: skippedVolume, price: skippedPrice },
+    skipped: { gap: skippedGap, volume: skippedVolume, price: skippedPrice, spread: skippedSpread },
   };
 }
 
@@ -311,6 +350,7 @@ export async function runPolygonGapScan(options: {
   minVolume?: number;
   minPrice?: number;
   maxPrice?: number;
+  maxSpreadPercent?: number;
 } = {}): Promise<PolygonScanResult> {
   const startTime = Date.now();
   const {
@@ -318,6 +358,7 @@ export async function runPolygonGapScan(options: {
     minVolume = 1_000_000,
     minPrice = 1,
     maxPrice = 1000,
+    maxSpreadPercent = 0,
   } = options;
 
   const marketInfo = getMarketSession();
@@ -335,6 +376,7 @@ export async function runPolygonGapScan(options: {
     maxPrice,
     isPreMarket: marketInfo.isPreMarket,
     avgVolumeMap: avgVolumeMap ?? undefined,
+    maxSpreadPercent,
   });
 
   return {
@@ -356,7 +398,8 @@ export async function runPolygonGapScan(options: {
       skippedByGap: skipped.gap,
       skippedByVolume: skipped.volume,
       skippedByPrice: skipped.price,
+      skippedBySpread: skipped.spread,
     },
-    filters: { minGapPercent, minVolume, minPrice, maxPrice },
+    filters: { minGapPercent, minVolume, minPrice, maxPrice, maxSpreadPercent },
   };
 }
