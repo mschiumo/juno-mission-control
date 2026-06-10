@@ -112,7 +112,7 @@ export default function JournalEntryModal({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl flex flex-col">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-[#161b22] border-b border-[#30363d] px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
