@@ -190,7 +190,7 @@ export default function NewsScreenerCard() {
         )}
       </div>
 
-      {/* News grid */}
+      {/* News grid — 5 across at xl, which is 3 rows at the API's 15-item cap */}
       {loading ? (
         <div className="text-center py-24 text-[#8b949e]">
           <RefreshCw className="w-7 h-7 animate-spin mx-auto mb-3 text-[#F97316]" />
@@ -203,17 +203,17 @@ export default function NewsScreenerCard() {
           <p className="text-xs text-[#484f58] mt-1">Try a different category or turn off high-priority.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {newsItems.map((item) => (
             <a
               key={item.id}
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex flex-col bg-[#161b22] rounded-xl border border-[#30363d] p-4 hover:border-[#F97316]/50 hover:bg-[#1b212a] transition-all"
+              className="group flex flex-col bg-[#161b22] rounded-lg border border-[#30363d] p-3 hover:border-[#F97316]/50 hover:bg-[#1b212a] transition-all"
             >
               {/* Top meta row */}
-              <div className="flex items-center justify-between gap-2 mb-2.5">
+              <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span
                     className="px-2 py-0.5 rounded-full text-[10px] font-semibold text-white flex-shrink-0"
@@ -241,17 +241,17 @@ export default function NewsScreenerCard() {
               </div>
 
               {/* Headline */}
-              <h3 className="text-sm font-medium text-white group-hover:text-[#F97316] transition-colors leading-snug line-clamp-3">
+              <h3 className="text-[13px] font-medium text-white group-hover:text-[#F97316] transition-colors leading-snug line-clamp-3">
                 {item.headline}
                 <ExternalLink className="w-3 h-3 inline ml-1 opacity-0 group-hover:opacity-50 transition-opacity" />
               </h3>
 
               {/* Footer: source + tickers */}
-              <div className="mt-auto pt-3 flex items-center justify-between gap-2">
+              <div className="mt-auto pt-2.5 flex items-center justify-between gap-2">
                 <span className="text-[11px] text-[#8b949e] truncate">{item.source}</span>
                 {item.related.length > 0 && (
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    {item.related.slice(0, 3).map((ticker) => (
+                    {item.related.slice(0, 2).map((ticker) => (
                       <span
                         key={ticker}
                         className="px-1.5 py-0.5 bg-[#0d1117] border border-[#30363d] rounded text-[10px] text-[#58a6ff] font-mono"
@@ -259,8 +259,8 @@ export default function NewsScreenerCard() {
                         {ticker}
                       </span>
                     ))}
-                    {item.related.length > 3 && (
-                      <span className="text-[10px] text-[#8b949e]">+{item.related.length - 3}</span>
+                    {item.related.length > 2 && (
+                      <span className="text-[10px] text-[#8b949e]">+{item.related.length - 2}</span>
                     )}
                   </div>
                 )}
