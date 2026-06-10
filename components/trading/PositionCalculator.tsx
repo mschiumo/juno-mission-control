@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Eraser, CheckCircle, AlertCircle, XCircle, BookmarkPlus, Info, Loader2, Wand2 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTradeWithPnL } from '@/types/active-trade';
+import { optimizeTargetPrice } from '@/lib/trading/optimize-target';
 
 interface CalculatorInputs {
   ticker: string;
@@ -60,20 +61,16 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
     }
   }, [initialTicker]);
 
-  // Auto-calculate target when optimize mode is enabled
+  // Auto-calculate target when optimize mode is enabled. Rounds the reward leg
+  // away from entry so the result always meets (never undershoots) the R:R.
   useEffect(() => {
     if (!optimizeMode) return;
-    const entry = parseFloat(inputs.entryPrice);
-    const stop = parseFloat(inputs.stopPrice);
-    const ratio = parseFloat(inputs.riskRatio);
-    if (entry > 0 && stop > 0 && ratio > 0) {
-      const stopSize = Math.abs(entry - stop);
-      const isLong = entry > stop;
-      const target = isLong ? entry + stopSize * ratio : entry - stopSize * ratio;
-      setInputs(prev => ({ ...prev, targetPrice: target.toFixed(2) }));
-    } else {
-      setInputs(prev => ({ ...prev, targetPrice: '' }));
-    }
+    const target = optimizeTargetPrice(
+      parseFloat(inputs.entryPrice),
+      parseFloat(inputs.stopPrice),
+      parseFloat(inputs.riskRatio)
+    );
+    setInputs(prev => ({ ...prev, targetPrice: target === null ? '' : target.toFixed(2) }));
   }, [optimizeMode, inputs.entryPrice, inputs.stopPrice, inputs.riskRatio]);
 
   const handleInputChange = (field: keyof CalculatorInputs, value: string) => {

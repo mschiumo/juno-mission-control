@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Edit3, DollarSign, Layers, FileText, Calendar, Wand2 } from 'lucide-react';
 import type { ActiveTrade } from '@/types/active-trade';
+import { optimizeTargetPrice, meetsMinRatio } from '@/lib/trading/optimize-target';
 
 interface EditActiveTradeModalProps {
   trade: ActiveTrade | null;
@@ -111,16 +112,16 @@ export default function EditActiveTradeModal({
     }
   }, [isOpen]);
 
-  // Auto-calculate target when optimize mode is enabled
+  // Auto-calculate target when optimize mode is enabled. Rounds the reward leg
+  // away from entry so the result always meets (never undershoots) the R:R.
   useEffect(() => {
     if (!optimizeMode) return;
-    const entry = parseFloat(formData.actualEntry);
-    const stop = parseFloat(formData.plannedStop);
-    const ratio = parseFloat(riskRatio);
-    if (entry > 0 && stop > 0 && ratio > 0) {
-      const stopSize = Math.abs(entry - stop);
-      const isLong = entry > stop;
-      const target = isLong ? entry + stopSize * ratio : entry - stopSize * ratio;
+    const target = optimizeTargetPrice(
+      parseFloat(formData.actualEntry),
+      parseFloat(formData.plannedStop),
+      parseFloat(riskRatio)
+    );
+    if (target !== null) {
       setFormData(prev => ({ ...prev, plannedTarget: target.toFixed(2) }));
     }
   }, [optimizeMode, formData.actualEntry, formData.plannedStop, riskRatio]);
@@ -152,9 +153,10 @@ export default function EditActiveTradeModal({
       newErrors.plannedTarget = 'Valid target price required';
     }
 
-    // Validate minimum 2:1 risk/reward ratio
+    // Validate minimum 2:1 risk/reward ratio. Tolerant of float dust so a
+    // perfectly-valid 2:1 target isn't rejected for dividing to 1.9999999:1.
     const { ratio } = calculateRiskReward();
-    if (ratio > 0 && ratio < 2) {
+    if (ratio > 0 && !meetsMinRatio(ratio, 2)) {
       newErrors.plannedTarget = `Risk/Reward ratio is ${ratio.toFixed(2)}:1. Minimum 2:1 required.`;
     }
 
