@@ -387,9 +387,9 @@ export async function GET() {
       return b.timestamp - a.timestamp;
     });
 
-    // Cap at 10. The screener is a quick read of what's moving markets right
-    // now — past 10 items, the signal-to-noise drops fast.
-    const MAX_ITEMS = 10;
+    // Cap at 15. The screener is a quick read of what's moving markets right
+    // now — past 15 items, the signal-to-noise drops fast.
+    const MAX_ITEMS = 15;
     categorizedNews = categorizedNews.slice(0, MAX_ITEMS);
     
     // Count by category
