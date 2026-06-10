@@ -108,6 +108,20 @@ export async function deleteWatchlistItem(id: string, userId: string = 'default'
 }
 
 /**
+ * Replace the entire watchlist for a user (overwrites all items in one write).
+ * Used by the daily-favorites seeding cron to reset & reseed atomically.
+ */
+export async function replaceWatchlist(items: WatchlistItem[], userId: string = 'default'): Promise<void> {
+  try {
+    const redis = await getRedisClient();
+    await redis.set(`${WATCHLIST_KEY}:${userId}`, JSON.stringify({ items }));
+  } catch (error) {
+    console.error('Error replacing watchlist:', error);
+    throw error;
+  }
+}
+
+/**
  * Clear all watchlist items for a user
  */
 export async function clearWatchlist(userId: string = 'default'): Promise<void> {

@@ -37,6 +37,10 @@
     {
       "path": "/api/cron-jobs/avg-volume-daily",
       "schedule": "0 23 * * 1-5"
+    },
+    {
+      "path": "/api/cron-jobs/seed-daily-favorites",
+      "schedule": "0 12 * * 1-5"
     }
   ]
 }
