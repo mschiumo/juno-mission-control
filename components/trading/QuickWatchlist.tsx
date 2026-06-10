@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTradeWithPnL } from '@/types/active-trade';
+import IntradayAlertsBadge from './IntradayAlertsBadge';
 
 type DailyFavoriteItem = {
   id: string;
@@ -514,36 +515,39 @@ export default function QuickWatchlist({
           <span className="text-xs text-[#8b949e]">({displayItems.length})</span>
           {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
         </button>
-        {isExpanded && (
-          <div className="flex items-center gap-1">
-            {displayItems.length > 0 && (
-              <>
-                <button
-                  onClick={copyTickers}
-                  title="Copy tickers to clipboard"
-                  className="p-1.5 hover:bg-[#30363d] rounded transition-colors"
-                >
-                  {copied
-                    ? <Check className="w-3.5 h-3.5 text-green-400" />
-                    : <Copy className="w-3.5 h-3.5 text-[#8b949e]" />}
-                </button>
-                <button
-                  onClick={exportToCSV}
-                  title="Export to CSV"
-                  className="p-1.5 hover:bg-[#30363d] rounded transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5 text-[#8b949e]" />
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => { setShowImport(v => !v); setImportResult(null); }}
-              className={`text-xs px-2 py-1 rounded-md transition-colors ${showImport ? 'bg-[#F97316]/20 text-[#F97316]' : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'}`}
-            >
-              Import
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-1">
+          <IntradayAlertsBadge />
+          {isExpanded && (
+            <>
+              {displayItems.length > 0 && (
+                <>
+                  <button
+                    onClick={copyTickers}
+                    title="Copy tickers to clipboard"
+                    className="p-1.5 hover:bg-[#30363d] rounded transition-colors"
+                  >
+                    {copied
+                      ? <Check className="w-3.5 h-3.5 text-green-400" />
+                      : <Copy className="w-3.5 h-3.5 text-[#8b949e]" />}
+                  </button>
+                  <button
+                    onClick={exportToCSV}
+                    title="Export to CSV"
+                    className="p-1.5 hover:bg-[#30363d] rounded transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5 text-[#8b949e]" />
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => { setShowImport(v => !v); setImportResult(null); }}
+                className={`text-xs px-2 py-1 rounded-md transition-colors ${showImport ? 'bg-[#F97316]/20 text-[#F97316]' : 'text-[#8b949e] hover:text-white hover:bg-[#30363d]'}`}
+              >
+                Import
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {isExpanded && (

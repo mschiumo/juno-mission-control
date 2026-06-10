@@ -96,6 +96,15 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* ── Intraday alert badge glow (pulses while there are unseen alerts) ── */
+@keyframes alert-glow-pulse {
+  0%, 100% { box-shadow: 0 0 5px 0 rgba(249, 115, 22, 0.45); }
+  50%      { box-shadow: 0 0 12px 3px rgba(249, 115, 22, 0.85); }
+}
+.alert-glow {
+  animation: alert-glow-pulse 1.6s ease-in-out infinite;
+}
+
 /* ============================================================
    CARD SYSTEM — Layered depth, not flat
    ============================================================ */
