@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef, Suspense } from 'react';
+import { useState, useCallback, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
@@ -48,19 +48,6 @@ function DashboardContent() {
       setActiveTab('trading');
     }
   }, [isOwner, activeTab]);
-  const [habitsHeight, setHabitsHeight] = useState<number>(980);
-  const habitsRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = habitsRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) => {
-      const h = entry.contentRect.height;
-      if (h > 0) setHabitsHeight(h);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [activeTab]);
 
   // Update URL when tab changes (using replace to avoid bloating history)
   const setActiveTab = (tab: TabId) => {
@@ -222,12 +209,14 @@ function DashboardContent() {
             <MotivationalBanner compact variant="orange" />
             <EveningCheckinReminder />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 md:gap-6 xl:items-start">
-              <div ref={habitsRef} className="space-y-5">
-                <CountdownCard />
+              <div>
                 <HabitCard />
               </div>
-              <div className="grid gap-5 overflow-hidden" style={{ gridTemplateRows: '360px 1fr', height: habitsHeight }}>
-                <CalendarCard />
+              <div className="space-y-5">
+                <CountdownCard />
+                <div className="h-[360px]">
+                  <CalendarCard />
+                </div>
                 <DailyJournalCard />
               </div>
             </div>
