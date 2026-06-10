@@ -21,6 +21,8 @@ interface NewsItem {
 
 interface NewsData {
   items: NewsItem[];
+  // Optional so a cached pre-redesign API response can't crash the tab
+  highPriority?: NewsItem[];
   latestByCategory: Record<string, NewsItem>;
   counts: Record<string, number>;
   totalScanned: number;
@@ -36,10 +38,10 @@ interface NewsResponse {
   nextUpdate: string;
 }
 
-type NewsCategory = 'all' | 'fed' | 'macro' | 'mergers' | 'earnings' | 'ai' | 'crypto';
+type NewsCategory = 'high' | 'fed' | 'macro' | 'mergers' | 'earnings' | 'ai' | 'crypto';
 
 const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
-  all:      { label: 'All',     color: '#f97316' },
+  high:     { label: 'High Priority', color: '#ef4444' },
   fed:      { label: 'Fed',     color: '#8b5cf6' },
   macro:    { label: 'Macro',   color: '#3b82f6' },
   mergers:  { label: 'M&A',     color: '#f97316' },
@@ -58,8 +60,7 @@ export default function NewsScreenerCard() {
   const [data, setData] = useState<NewsData | null>(null);
   const [response, setResponse] = useState<NewsResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState<NewsCategory>('all');
-  const [highPriorityOnly, setHighPriorityOnly] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<NewsCategory>('high');
 
   useEffect(() => {
     fetchNews();
@@ -85,19 +86,17 @@ export default function NewsScreenerCard() {
 
   const filteredNews = useCallback(() => {
     if (!data?.items) return [];
-    let filtered = data.items;
-    if (activeCategory !== 'all') {
-      filtered = filtered.filter(item => item.category === activeCategory);
+    if (activeCategory === 'high') {
+      // Fall back to items (the old top-15 digest) for cached pre-redesign responses
+      return data.highPriority ?? data.items;
     }
-    if (highPriorityOnly) {
-      filtered = filtered.filter(item => item.priority === 'high');
-    }
-    return filtered;
-  }, [data, activeCategory, highPriorityOnly]);
+    return data.items.filter(item => item.category === activeCategory);
+  }, [data, activeCategory]);
 
   const getCategoryCount = (category: string) => {
     if (!data?.counts) return 0;
-    return category === 'all' ? data.categorized : data.counts[category] || 0;
+    if (category === 'high') return (data.highPriority ?? data.items).length;
+    return data.counts[category] || 0;
   };
 
   const newsItems = filteredNews();
@@ -141,10 +140,10 @@ export default function NewsScreenerCard() {
         </button>
       </div>
 
-      {/* Toolbar: category filters + high-priority */}
+      {/* Toolbar: high-priority digest + category tabs */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
-          {(['all', 'fed', 'macro', 'mergers', 'earnings', 'ai', 'crypto'] as NewsCategory[]).map((cat) => (
+          {(['high', 'fed', 'macro', 'mergers', 'earnings', 'ai', 'crypto'] as NewsCategory[]).map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -154,7 +153,9 @@ export default function NewsScreenerCard() {
                   : 'bg-[#161b22] text-[#8b949e] hover:text-white hover:bg-[#21262d] border border-[#30363d]'
               }`}
             >
-              {cat !== 'all' && (
+              {cat === 'high' ? (
+                <Bell className="w-3 h-3 flex-shrink-0" />
+              ) : (
                 <span
                   className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ backgroundColor: CATEGORY_CONFIG[cat].color }}
@@ -171,22 +172,9 @@ export default function NewsScreenerCard() {
         </div>
 
         {data && (
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <span className="text-xs text-[#8b949e]">
-              <span className="text-white font-medium">{newsItems.length}</span> {newsItems.length === 1 ? 'item' : 'items'}
-            </span>
-            <button
-              onClick={() => setHighPriorityOnly(!highPriorityOnly)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                highPriorityOnly
-                  ? 'text-[#ef4444] border-[#ef4444]/40 bg-[#ef4444]/10'
-                  : 'text-[#8b949e] border-[#30363d] hover:text-white hover:border-[#8b949e]'
-              }`}
-            >
-              <Bell className={`w-3.5 h-3.5 ${highPriorityOnly ? 'fill-current' : ''}`} />
-              High priority
-            </button>
-          </div>
+          <span className="text-xs text-[#8b949e] flex-shrink-0">
+            <span className="text-white font-medium">{newsItems.length}</span> {newsItems.length === 1 ? 'item' : 'items'}
+          </span>
         )}
       </div>
 
@@ -199,8 +187,8 @@ export default function NewsScreenerCard() {
       ) : newsItems.length === 0 ? (
         <div className="text-center py-24 text-[#8b949e]">
           <Newspaper className="w-10 h-10 mx-auto mb-3 opacity-40" />
-          <p className="text-sm">No news items match your filters</p>
-          <p className="text-xs text-[#484f58] mt-1">Try a different category or turn off high-priority.</p>
+          <p className="text-sm">No stories in this category right now</p>
+          <p className="text-xs text-[#484f58] mt-1">Try another tab — the feed refreshes every 15 minutes.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">

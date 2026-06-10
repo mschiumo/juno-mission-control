@@ -379,19 +379,29 @@ export async function GET() {
       }
     }
 
-    // Sort: high priority first, then newest. This surfaces market-moving
-    // categories (Fed, macro, M&A) at the top of the list.
-    categorizedNews.sort((a, b) => {
-      if (a.priority === 'high' && b.priority !== 'high') return -1;
-      if (b.priority === 'high' && a.priority !== 'high') return 1;
-      return b.timestamp - a.timestamp;
+    // Keep a pool per category (newest first, capped) so every category tab
+    // has stories to show — a single global cap starves the medium-priority
+    // categories whenever Fed/macro/M&A news is heavy.
+    const MAX_PER_CATEGORY = 15;
+    categorizedNews.sort((a, b) => b.timestamp - a.timestamp);
+    const perCategoryCount: Record<string, number> = {};
+    categorizedNews = categorizedNews.filter((item) => {
+      perCategoryCount[item.category] = (perCategoryCount[item.category] || 0) + 1;
+      return perCategoryCount[item.category] <= MAX_PER_CATEGORY;
     });
 
-    // Cap at 15. The screener is a quick read of what's moving markets right
-    // now — past 15 items, the signal-to-noise drops fast.
-    const MAX_ITEMS = 15;
-    categorizedNews = categorizedNews.slice(0, MAX_ITEMS);
-    
+    // The default "High Priority" digest: market-moving categories (Fed,
+    // macro, M&A) first, newest within each group, capped at 15.
+    const MAX_HIGH_PRIORITY = 15;
+    const highPriority = [...categorizedNews]
+      .sort((a, b) => {
+        if (a.priority === 'high' && b.priority !== 'high') return -1;
+        if (b.priority === 'high' && a.priority !== 'high') return 1;
+        return b.timestamp - a.timestamp;
+      })
+      .slice(0, MAX_HIGH_PRIORITY);
+
+
     // Count by category
     const categoryCounts: Record<string, number> = {};
     for (const item of categorizedNews) {
@@ -415,6 +425,7 @@ export async function GET() {
       success: true,
       data: {
         items: categorizedNews,
+        highPriority,
         latestByCategory,
         counts: categoryCounts,
         totalScanned: rawNews.length,
