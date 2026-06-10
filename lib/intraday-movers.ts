@@ -27,6 +27,7 @@ import {
   fetchAllSnapshots,
   isETFOrDerivative,
   isLikelyADRBySymbol,
+  computeSpread,
   type PolygonSnapshot,
   type GapStock,
 } from '@/lib/gap-scanner-polygon';
@@ -63,6 +64,7 @@ export interface IntradayScanResult {
     minMarketCap: number;
     minPrice: number;
     maxPrice: number;
+    maxSpreadPercent?: number;
   };
   debug: {
     apiKeyPresent: boolean;
@@ -152,6 +154,7 @@ export async function runIntradayScan(
     minPrice?: number;
     maxPrice?: number;
     windowHours?: number;
+    maxSpreadPercent?: number;
   } = {},
 ): Promise<IntradayScanResult> {
   const startTime = Date.now();
@@ -162,6 +165,7 @@ export async function runIntradayScan(
     minPrice = 1,
     maxPrice = 1000,
     windowHours = 2,
+    maxSpreadPercent = 0,
   } = options;
 
   const marketInfo = getMarketSession();
@@ -179,7 +183,7 @@ export async function runIntradayScan(
     windowHours,
     windowLabel: `${windowHours}h`,
     isPartialWindow: false,
-    filters: { minMovePercent, minVolume, minMarketCap, minPrice, maxPrice },
+    filters: { minMovePercent, minVolume, minMarketCap, minPrice, maxPrice, maxSpreadPercent },
     debug: {
       apiKeyPresent: !!POLYGON_API_KEY,
       preFiltered: 0,
@@ -276,6 +280,10 @@ export async function runIntradayScan(
     const movePercent = ((c.price - startPrice) / startPrice) * 100;
     if (Math.abs(movePercent) < minMovePercent) return;
 
+    const spreadInfo = computeSpread(c.snap.lastQuote);
+    // Unknown-quote rows pass through (rendered "—"); only a known, too-wide spread is dropped.
+    if (maxSpreadPercent && spreadInfo && spreadInfo.spreadPercent > maxSpreadPercent) return;
+
     const stock: GapStock = {
       symbol: c.snap.ticker,
       name: c.name,
@@ -284,6 +292,8 @@ export async function runIntradayScan(
       gapPercent: Number(movePercent.toFixed(2)),
       volume: c.volume,
       marketCap: c.marketCap,
+      spread: spreadInfo?.spread,
+      spreadPercent: spreadInfo?.spreadPercent,
       status: movePercent > 0 ? 'gainer' : 'loser',
     };
     (movePercent > 0 ? gainers : losers).push(stock);
