@@ -319,3 +319,215 @@ export async function runIntradayScan(
     },
   });
 }
+
+// ── Multi-window scan (powers the intraday alert system) ─────────────────────
+//
+// The alert cron needs the SAME stock measured over several rolling windows
+// (1h / 2h / 4h) in one pass. Calling runIntradayScan() once per window would
+// re-fetch the full-market snapshot and re-confirm bars N times. Instead we take
+// ONE snapshot, run ONE pre-filter, and fetch ONE bar series per survivor over
+// the LONGEST requested window — then derive each shorter window's start price
+// from that same series. Cost ≈ a single intraday scan regardless of how many
+// windows are requested.
+
+/** A single ticker's confirmed move over one specific window. */
+export interface WindowMover {
+  symbol: string;
+  name: string;
+  price: number;
+  windowStartPrice: number;
+  /** Signed percentage move over the window. */
+  movePercent: number;
+  volume: number;
+  marketCap: number;
+  spread?: number;
+  spreadPercent?: number;
+  /** 90-day average volume, when known — used downstream for relative volume. */
+  avgVolume?: number;
+  direction: 'up' | 'down';
+  windowHours: number;
+}
+
+export interface MultiWindowScanResult {
+  success: boolean;
+  marketSession: 'pre-market' | 'market-open' | 'post-market' | 'closed';
+  scanned: number;
+  durationMs: number;
+  windows: number[];
+  /** Flat list of (ticker × window) movers across every requested window. */
+  movers: WindowMover[];
+  message?: string;
+  debug: { apiKeyPresent: boolean; preFiltered: number; barFetched: number; truncated: boolean };
+}
+
+/**
+ * Fetch the full 5-minute bar series for one ticker between two instants.
+ * Returns null on any failure so a single bad ticker never fails the whole scan.
+ */
+async function fetchBarsSeries(
+  ticker: string,
+  fromMs: number,
+  toMs: number,
+): Promise<{ t: number; o: number; c: number }[] | null> {
+  const url =
+    `https://api.polygon.io/v2/aggs/ticker/${encodeURIComponent(ticker)}` +
+    `/range/5/minute/${fromMs}/${toMs}?adjusted=true&sort=asc&limit=5000&apiKey=${POLYGON_API_KEY}`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), BAR_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const json = (await res.json()) as { results?: { t: number; o: number; c: number }[] };
+    return json.results && json.results.length > 0 ? json.results : null;
+  } catch {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
+export async function scanIntradayWindows(
+  windows: number[],
+  options: {
+    minMovePercent?: number;
+    minVolume?: number;
+    minMarketCap?: number;
+    minPrice?: number;
+    maxPrice?: number;
+    maxSpreadPercent?: number;
+  } = {},
+): Promise<MultiWindowScanResult> {
+  const startTime = Date.now();
+  const {
+    minMovePercent = 5,
+    minVolume = 1_000_000,
+    minMarketCap = 50_000_000,
+    minPrice = 1,
+    maxPrice = 1000,
+    maxSpreadPercent = 0,
+  } = options;
+
+  const marketInfo = getMarketSession();
+  const sortedWindows = [...new Set(windows)].filter((w) => w > 0).sort((a, b) => a - b);
+
+  const base = (extra: Partial<MultiWindowScanResult>): MultiWindowScanResult => ({
+    success: true,
+    marketSession: marketInfo.session,
+    scanned: 0,
+    durationMs: Date.now() - startTime,
+    windows: sortedWindows,
+    movers: [],
+    debug: { apiKeyPresent: !!POLYGON_API_KEY, preFiltered: 0, barFetched: 0, truncated: false },
+    ...extra,
+  });
+
+  if (marketInfo.session !== 'market-open') {
+    return base({ message: 'Intraday alerts run during market hours (9:30 AM – 4:00 PM ET).' });
+  }
+  if (!POLYGON_API_KEY) {
+    return base({ success: false, message: 'POLYGON_API_KEY not configured.' });
+  }
+  if (sortedWindows.length === 0) {
+    return base({ message: 'No eligible windows yet.' });
+  }
+
+  const nowMs = Date.now();
+  const sessionOpenMs = getSessionOpenMs(new Date(nowMs));
+  const longestWindowMs = Math.max(...sortedWindows) * 60 * 60 * 1000;
+  const seriesFromMs = Math.max(sessionOpenMs, nowMs - longestWindowMs);
+
+  // Stage 1: snapshot + enrichment maps in parallel.
+  const [snapshots, avgVolumeMap, infoMap] = await Promise.all([
+    fetchAllSnapshots(marketInfo.session),
+    getAvgVolumeMap().catch(() => null),
+    getStockInfoMap().catch(() => new Map<string, StockInfo>()),
+  ]);
+  const capFilterApplied = minMarketCap > 0 && infoMap.size > 0;
+
+  // Stage 2: pre-filter on the necessary day-range condition (a windowed move is
+  // a subset of the day's range) plus the standard liquidity/price/cap filters.
+  type Candidate = {
+    snap: PolygonSnapshot; price: number; volume: number; marketCap: number;
+    name: string; avgVolume: number; dayRange: number;
+  };
+  const candidates: Candidate[] = [];
+  for (const snap of snapshots) {
+    if (isETFOrDerivative(snap.ticker) || isLikelyADRBySymbol(snap.ticker)) continue;
+    const high = snap.day?.h;
+    const low = snap.day?.l;
+    const price = snap.lastTrade?.p || snap.min?.c || snap.day?.c;
+    if (!price || !high || !low) continue;
+    if (price < minPrice || price > maxPrice) continue;
+
+    const avgVol = avgVolumeMap?.[snap.ticker] ?? 0;
+    const volume = snap.day?.v || 0;
+    const volumeForFilter = avgVol > 0 ? avgVol : volume;
+    if (volumeForFilter < minVolume) continue;
+
+    const info = infoMap.get(snap.ticker);
+    const marketCap = info?.marketCap ?? 0;
+    if (capFilterApplied && (!info || marketCap < minMarketCap)) continue;
+
+    const dayRange = ((high - low) / low) * 100;
+    if (dayRange < minMovePercent) continue;
+
+    candidates.push({ snap, price, volume, marketCap, name: info?.name || snap.ticker, avgVolume: avgVol, dayRange });
+  }
+
+  candidates.sort((a, b) => b.dayRange - a.dayRange);
+  const truncated = candidates.length > MAX_SURVIVORS;
+  const survivors = candidates.slice(0, MAX_SURVIVORS);
+
+  // Stage 3: one bar series per survivor over the longest window; derive each
+  // window's start price from the shared series.
+  const seriesList = await mapWithConcurrency(survivors, CONCURRENCY, (c) =>
+    fetchBarsSeries(c.snap.ticker, seriesFromMs, nowMs),
+  );
+
+  const movers: WindowMover[] = [];
+  let barFetched = 0;
+
+  survivors.forEach((c, i) => {
+    const bars = seriesList[i];
+    if (!bars || bars.length === 0) return;
+    barFetched++;
+
+    const spreadInfo = computeSpread(c.snap.lastQuote);
+    // Unknown-quote rows pass through (scored with a spread penalty); only a
+    // known, too-wide spread is dropped here.
+    if (maxSpreadPercent && spreadInfo && spreadInfo.spreadPercent > maxSpreadPercent) return;
+
+    for (const w of sortedWindows) {
+      const windowStartMs = Math.max(sessionOpenMs, nowMs - w * 60 * 60 * 1000);
+      const startBar = bars.find((b) => b.t >= windowStartMs) ?? bars[0];
+      const startPrice = startBar.o || startBar.c;
+      if (!startPrice || startPrice <= 0) continue;
+
+      const movePercent = ((c.price - startPrice) / startPrice) * 100;
+      if (Math.abs(movePercent) < minMovePercent) continue;
+
+      movers.push({
+        symbol: c.snap.ticker,
+        name: c.name,
+        price: c.price,
+        windowStartPrice: startPrice,
+        movePercent: Number(movePercent.toFixed(2)),
+        volume: c.volume,
+        marketCap: c.marketCap,
+        spread: spreadInfo?.spread,
+        spreadPercent: spreadInfo?.spreadPercent,
+        avgVolume: c.avgVolume || undefined,
+        direction: movePercent > 0 ? 'up' : 'down',
+        windowHours: w,
+      });
+    }
+  });
+
+  return base({
+    scanned: snapshots.length,
+    durationMs: Date.now() - startTime,
+    movers,
+    debug: { apiKeyPresent: true, preFiltered: candidates.length, barFetched, truncated },
+  });
+}
