@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { X, Loader2, Trash2, Pencil } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
 import {
-  MOODS, buildEntryPrompts, hasContent, moodOf,
+  MOODS, buildEntryPrompts, hasContent, moodOf, sleepOf,
   type JournalPrompt, type PromptDef,
 } from '@/lib/journal-prompts';
 
@@ -48,11 +48,14 @@ export default function JournalEntryModal({
 
   const isToday = date === getTodayInEST();
   const displayMood = moodOf(mode === 'view' ? initialPrompts || [] : prompts);
+  const sleepVal = sleepOf(mode === 'view' ? initialPrompts || [] : prompts);
 
   // Read view shows exactly what was saved (handles prompts that were later edited/removed).
-  const savedAnswered = (initialPrompts || []).filter((p) => p.id !== 'mood' && p.answer?.trim());
-  // Edit form: the configured text prompts (everything except mood + other).
-  const editText = prompts.filter((p) => p.id !== 'mood' && p.id !== 'other');
+  const savedAnswered = (initialPrompts || []).filter(
+    (p) => p.id !== 'mood' && p.id !== 'sleep' && p.answer?.trim(),
+  );
+  // Edit form: the configured text prompts (everything except mood, sleep + other).
+  const editText = prompts.filter((p) => p.id !== 'mood' && p.id !== 'sleep' && p.id !== 'other');
   const otherPrompt = prompts.find((p) => p.id === 'other');
 
   const update = (id: string, answer: string) =>
@@ -143,6 +146,22 @@ export default function JournalEntryModal({
         {/* Body */}
         {mode === 'view' ? (
           <div className="px-5 py-5 space-y-4">
+            {sleepVal > 0 && (
+              <div>
+                <p className="text-xs font-medium text-[#F97316] mb-1">Sleep Quality</p>
+                <div className="flex items-center gap-2 pl-3 border-l-2 border-[#F97316]/30">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <span
+                        key={n}
+                        className={`w-2.5 h-2.5 rounded-full ${n <= sleepVal ? 'bg-[#F97316]' : 'bg-[#30363d]'}`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-sm text-[#c9d1d9]">{sleepVal}/5</span>
+                </div>
+              </div>
+            )}
             {savedAnswered.length > 0 ? (
               savedAnswered.map((p) => (
                 <div key={p.id}>
@@ -153,7 +172,9 @@ export default function JournalEntryModal({
                 </div>
               ))
             ) : (
-              <p className="text-sm text-[#8b949e] italic">Mood logged — tap the pencil to add a reflection.</p>
+              sleepVal === 0 && (
+                <p className="text-sm text-[#8b949e] italic">Tap the pencil to add a written reflection.</p>
+              )
             )}
           </div>
         ) : (
@@ -178,6 +199,33 @@ export default function JournalEntryModal({
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Sleep quality */}
+            <div>
+              <p className="text-xs font-medium text-[#F97316] mb-1.5">Sleep Quality</p>
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4, 5].map((n) => {
+                  const active = n <= sleepVal;
+                  return (
+                    <button
+                      key={n}
+                      onClick={() => update('sleep', sleepVal === n ? '' : String(n))}
+                      className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+                        active
+                          ? 'bg-[#F97316] text-white'
+                          : 'bg-[#0d1117] text-[#8b949e] hover:bg-[#30363d]'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between text-[10px] text-[#484f58] mt-1 px-0.5">
+                <span>Poor</span>
+                <span>Great</span>
               </div>
             </div>
 

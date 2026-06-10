@@ -120,7 +120,7 @@ export default function ManagePromptsModal({
           </button>
 
           <p className="text-[11px] text-[#484f58] pt-1">
-            A mood quick-pick and an optional “Other” field are always included.
+            A mood quick-pick, Sleep Quality, and an optional “Other” field are always included.
           </p>
         </div>
 
