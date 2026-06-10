@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X, Trash2, Calculator, Wand2 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/watchlist';
+import { optimizeTargetPrice, meetsMinRatio } from '@/lib/trading/optimize-target';
 
 interface EditWatchlistItemModalProps {
   item: WatchlistItem | null;
@@ -45,13 +46,12 @@ export default function EditWatchlistItemModal({
 
   useEffect(() => {
     if (!optimizeMode) return;
-    const entry = parseFloat(formData.entryPrice);
-    const stop = parseFloat(formData.stopPrice);
-    const ratio = parseFloat(optimizeRatio);
-    if (entry > 0 && stop > 0 && ratio > 0 && entry !== stop) {
-      const stopSize = Math.abs(entry - stop);
-      const isLong = entry > stop;
-      const target = isLong ? entry + stopSize * ratio : entry - stopSize * ratio;
+    const target = optimizeTargetPrice(
+      parseFloat(formData.entryPrice),
+      parseFloat(formData.stopPrice),
+      parseFloat(optimizeRatio)
+    );
+    if (target !== null) {
       const formatted = target.toFixed(2);
       if (formatted !== formData.targetPrice) {
         setFormData(prev => ({ ...prev, targetPrice: formatted }));
@@ -88,7 +88,8 @@ export default function EditWatchlistItemModal({
     return reward / risk;
   }, [formData.entryPrice, formData.stopPrice, formData.targetPrice]);
 
-  const isValid = riskRatio >= 2;
+  // Tolerant of float dust so a valid 2:1 target isn't blocked at 1.9999999:1.
+  const isValid = meetsMinRatio(riskRatio, 2);
   const [calculatedValues, setCalculatedValues] = useState<{
     riskRatio: number;
     stopSize: number;
