@@ -1,10 +1,11 @@
 /**
  * Intraday Alerts cron
  *
- * Runs every 30 minutes during market hours. Scans the 1h/2h/4h windows that
- * have fully elapsed since the open, scores the movers, diffs against the prior
- * run to flag new tickers, and stores the top 10 in Redis for the Trade
- * Management screen to read.
+ * Runs every 30 minutes during market hours. Scans the rolling 1h window (once
+ * a full hour has elapsed since the open), scores the movers, diffs against the
+ * prior run to flag new tickers, and stores the top 10 in Redis for the Trade
+ * Management screen to read. The 2h/4h windows are intentionally excluded —
+ * alerts surface only 1h-scan results.
  *
  * Auth: middleware.ts gates /api/cron-jobs/* with CRON_SECRET (Vercel sends it
  * as a Bearer token), so no in-route auth is needed.
@@ -23,7 +24,7 @@ import type { IntradayAlertSnapshot } from '@/types/intraday-alerts';
 
 export const dynamic = 'force-dynamic';
 
-const ALL_WINDOWS = [1, 2, 4];
+const ALL_WINDOWS = [1];
 const REGULAR_OPEN_MIN = 9 * 60 + 30; // 9:30 AM ET
 
 /** Current ET wall-clock as minutes-of-day. */
@@ -34,7 +35,7 @@ function etMinutesOfDay(): number {
 
 /**
  * Windows whose full duration has elapsed since the 9:30 open (the user's rule:
- * 1H at 10:30, 2H at 11:30, 4H at 1:30). A 1-minute grace absorbs cron jitter.
+ * 1H becomes eligible at 10:30). A 1-minute grace absorbs cron jitter.
  */
 function eligibleWindows(): number[] {
   const elapsedMin = etMinutesOfDay() - REGULAR_OPEN_MIN + 1;
