@@ -6,6 +6,7 @@ import {
   Calendar, ArrowRight, CheckCircle, LineChart,
   Activity, Shield, ChevronRight, LogIn,
   Sparkles, Brain, Lightbulb, TrendingDown, Download,
+  Bell, Newspaper, Sunrise, Star, SlidersHorizontal,
 } from 'lucide-react';
 
 /* ─── Candlestick data (pre-calculated, trending upward) ─── */
@@ -37,31 +38,87 @@ const GAPS = [
   { ticker: 'TSLA', gap: '-4.7%', price: '$175.60', vol: '61M',  catalyst: 'Deliveries Miss',  pos: false },
 ];
 
+/* ─── Morning briefing mock data ─── */
+const BRIEFING_INDICES = [
+  { name: 'SPY', value: '$514.80', chg: '+0.62%', pos: true  },
+  { name: 'QQQ', value: '$441.25', chg: '+0.94%', pos: true  },
+  { name: 'VIX', value: '13.20',   chg: '-4.10%', pos: false },
+  { name: 'BTC', value: '$71,240', chg: '+2.30%', pos: true  },
+];
+
+const BRIEFING_MOVERS = [
+  { ticker: 'NVDA', chg: '+6.8%', pos: true  },
+  { ticker: 'SMCI', chg: '+5.1%', pos: true  },
+  { ticker: 'COIN', chg: '+3.4%', pos: true  },
+  { ticker: 'TSLA', chg: '-3.2%', pos: false },
+];
+
+const BRIEFING_NEWS = [
+  { headline: 'CPI cools to 2.6% y/y — futures extend gains',   cat: 'Macro',    catColor: '#58a6ff', pos: true  },
+  { headline: 'NVDA beats and raises full-year guidance',       cat: 'Earnings', catColor: '#39c5cf', pos: true  },
+  { headline: 'Two Fed speakers signal patience on rate cuts',  cat: 'Fed',      catColor: '#bc8cff', pos: null  },
+] as { headline: string; cat: string; catColor: string; pos: boolean | null }[];
+
 /* ─── Feature cards data ─── */
 const FEATURES = [
+  /* ── Before the bell ── */
   {
-    icon: BookOpen,
-    title: 'Trade Journal',
-    desc: 'Log every trade with strategy tags, emotional state, risk parameters, and detailed notes for post-analysis.',
-    tags: ['Journal', 'Notes', 'Tags'],
-    bg: 'bg-[#F97316]/10',
-    color: 'text-[#F97316]',
-  },
-  {
-    icon: LineChart,
-    title: 'P&L Analytics',
-    desc: 'Visualize performance with equity curves, strategy breakdowns, and detailed win/loss statistics.',
-    tags: ['Charts', 'Metrics', 'Trends'],
-    bg: 'bg-[#3fb950]/10',
-    color: 'text-[#3fb950]',
+    icon: Sunrise,
+    title: 'Market Briefings',
+    desc: 'AI-generated morning briefings with indices, big movers, news highlights, and upcoming events — in your inbox before the bell.',
+    tags: ['Daily Email', 'AI Summary', 'PDF'],
+    bg: 'bg-[#d29922]/10',
+    color: 'text-[#d29922]',
   },
   {
     icon: Zap,
     title: 'Gap Scanner',
-    desc: 'Pre-market gap scanner automatically identifies opening gap opportunities with volume and catalyst data.',
-    tags: ['Pre-market', 'Gaps', 'Volume'],
+    desc: 'Pre-market scanner surfaces opening gaps ranked by gap size, volume, and catalyst — then keeps scanning after the open.',
+    tags: ['Pre-market', 'Intraday', 'Catalysts'],
     bg: 'bg-[#f0883e]/10',
     color: 'text-[#f0883e]',
+  },
+  {
+    icon: Bell,
+    title: 'Intraday Alerts',
+    desc: 'Movers in the 1H, 2H, and 4H windows are scored by move size, relative volume, and spread tightness — the top ten ring the bell.',
+    tags: ['Scored', 'Top 10', 'Chime'],
+    bg: 'bg-[#f85149]/10',
+    color: 'text-[#f85149]',
+  },
+  /* ── Stay informed ── */
+  {
+    icon: Newspaper,
+    title: 'News Screener',
+    desc: 'Live market news tagged by sentiment and category — Fed, macro, M&A, earnings, AI, and crypto — with a high-priority digest.',
+    tags: ['Sentiment', 'High-Impact', 'Live'],
+    bg: 'bg-[#39c5cf]/10',
+    color: 'text-[#39c5cf]',
+  },
+  {
+    icon: Calendar,
+    title: 'Market Events',
+    desc: 'Stay informed about earnings dates, FOMC meetings, CPI releases, and high-impact market catalysts.',
+    tags: ['Earnings', 'FOMC', 'Catalysts'],
+    bg: 'bg-[#79c0ff]/10',
+    color: 'text-[#79c0ff]',
+  },
+  {
+    icon: Star,
+    title: 'Daily Favorites',
+    desc: 'A lightweight watchlist auto-seeded every weekday morning. Add entry, stop, and target to graduate a ticker into a full trade plan.',
+    tags: ['Auto-Seeded', 'Premarket', 'Quick Add'],
+    bg: 'bg-[#e3b341]/10',
+    color: 'text-[#e3b341]',
+  },
+  /* ── Plan & execute ── */
+  {
+    icon: TrendingUp,
+    title: 'Watchlist',
+    desc: 'Build and manage your watchlist with price targets, support/resistance levels, and setup notes.',
+    tags: ['Watchlist', 'Targets', 'Setups'],
+    bg: 'bg-[#bc8cff]/10',
+    color: 'text-[#bc8cff]',
   },
   {
     icon: Target,
@@ -72,20 +129,29 @@ const FEATURES = [
     color: 'text-[#58a6ff]',
   },
   {
-    icon: TrendingUp,
-    title: 'Watchlist',
-    desc: 'Build and manage your watchlist with price targets, support/resistance levels, and setup notes.',
-    tags: ['Watchlist', 'Targets', 'Setups'],
-    bg: 'bg-[#bc8cff]/10',
-    color: 'text-[#bc8cff]',
+    icon: BookOpen,
+    title: 'Trade Journal',
+    desc: 'Log every trade with strategy tags, emotional state, risk parameters, and detailed notes for post-analysis.',
+    tags: ['Journal', 'Notes', 'Tags'],
+    bg: 'bg-[#F97316]/10',
+    color: 'text-[#F97316]',
+  },
+  /* ── Review & improve ── */
+  {
+    icon: LineChart,
+    title: 'P&L Analytics',
+    desc: 'Visualize performance with equity curves, strategy breakdowns, and detailed win/loss statistics.',
+    tags: ['Charts', 'Metrics', 'Trends'],
+    bg: 'bg-[#3fb950]/10',
+    color: 'text-[#3fb950]',
   },
   {
-    icon: Calendar,
-    title: 'Market Events',
-    desc: 'Stay informed about earnings dates, FOMC meetings, CPI releases, and high-impact market catalysts.',
-    tags: ['Earnings', 'FOMC', 'Catalysts'],
-    bg: 'bg-[#79c0ff]/10',
-    color: 'text-[#79c0ff]',
+    icon: SlidersHorizontal,
+    title: 'Profit Projection',
+    desc: 'Model best-, base-, and worst-case scenarios from your entry, stop, and target — see the R-multiples before you commit capital.',
+    tags: ['Scenarios', 'R-Multiples', 'Planning'],
+    bg: 'bg-[#db61a2]/10',
+    color: 'text-[#db61a2]',
   },
   {
     icon: Sparkles,
@@ -122,6 +188,7 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8">
             <a href="#features"    className="text-sm text-[#8b949e] hover:text-white transition-colors">Features</a>
             <a href="#analytics"   className="text-sm text-[#8b949e] hover:text-white transition-colors">Analytics</a>
+            <a href="#market-intel" className="text-sm text-[#8b949e] hover:text-white transition-colors">Market Intel</a>
             <a href="#how-it-works" className="text-sm text-[#8b949e] hover:text-white transition-colors">How It Works</a>
           </div>
 
@@ -149,7 +216,7 @@ export default function LandingPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#30363d] bg-[#161b22] text-xs text-[#8b949e] mb-6">
               <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
-              Trading Journal &amp; Analytics Platform
+              Trading Journal, Alerts &amp; Market Intelligence
             </div>
 
             <h1 className="text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
@@ -272,7 +339,7 @@ export default function LandingPage() {
               </div>
               <div>
                 <p className="text-white font-bold text-sm">+$847</p>
-                <p className="text-[#8b949e] text-xs">Today's P&amp;L</p>
+                <p className="text-[#8b949e] text-xs">Today&apos;s P&amp;L</p>
               </div>
             </div>
 
@@ -297,7 +364,7 @@ export default function LandingPage() {
             {[
               { label: 'Strategies Tracked', value: '15+',     icon: BarChart2 },
               { label: 'Live Market Data',   value: 'Real-time', icon: Activity  },
-              { label: 'Journal Entries',    value: 'Unlimited', icon: BookOpen  },
+              { label: 'AI Market Briefings', value: 'Daily',    icon: Sunrise   },
               { label: 'Risk Management',    value: 'Built-in',  icon: Shield    },
             ].map(s => (
               <div key={s.label} className="flex items-center gap-4">
@@ -321,8 +388,8 @@ export default function LandingPage() {
             <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Everything You Need</p>
             <h2 className="text-4xl font-bold text-white mb-4">Built for Disciplined Traders</h2>
             <p className="text-[#8b949e] max-w-2xl mx-auto text-lg">
-              Every feature designed to help you trade with consistency, track your performance,
-              and continuously improve your edge.
+              From the morning briefing to the post-trade review — every feature is designed to help
+              you trade with consistency, track your performance, and continuously improve your edge.
             </p>
           </div>
 
@@ -448,23 +515,42 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══ GAP SCANNER SHOWCASE ═══ */}
-      <section className="py-24 px-6">
+      {/* ═══ GAP SCANNER & INTRADAY ALERTS SHOWCASE ═══ */}
+      <section id="market-intel" className="py-24 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 items-center">
 
             {/* Gap Scanner card */}
-            <div className="lg:col-span-3 order-2 lg:order-1">
+            <div className="relative lg:col-span-3 order-2 lg:order-1">
               <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-hidden shadow-2xl">
                 <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-[#F97316]" />
-                    <p className="text-sm font-semibold text-white">Pre-Market Gap Scanner</p>
+                    <p className="text-sm font-semibold text-white">Gap Scanner</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
                     <span className="text-xs text-[#8b949e]">Live · 04:32 AM ET</span>
                   </div>
+                </div>
+
+                {/* Scan window pills */}
+                <div className="px-5 py-2.5 border-b border-[#30363d] flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    {['Pre-Mkt', '1H', '2H', '4H'].map((w, i) => (
+                      <span
+                        key={w}
+                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-md border ${
+                          i === 0
+                            ? 'bg-[#F97316]/15 text-[#F97316] border-[#F97316]/30'
+                            : 'bg-[#0d1117] text-[#8b949e] border-[#30363d]'
+                        }`}
+                      >
+                        {w}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="hidden sm:block text-[10px] text-[#8b949e] uppercase tracking-wider">Scan Windows</span>
                 </div>
 
                 {/* Table header */}
@@ -496,22 +582,35 @@ export default function LandingPage() {
                   <span className="text-xs text-[#F97316] cursor-pointer hover:underline">View all gaps →</span>
                 </div>
               </div>
+
+              {/* Floating intraday alert badge */}
+              <div className="hidden lg:flex absolute -top-6 -right-5 z-10 items-center gap-2.5 bg-[#161b22] border border-[#F97316]/30 rounded-xl p-3 shadow-xl">
+                <div className="relative w-9 h-9 rounded-lg bg-[#F97316]/10 flex items-center justify-center">
+                  <Bell className="w-4 h-4 text-[#F97316]" />
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#f85149] text-white text-[9px] font-bold flex items-center justify-center">3</span>
+                </div>
+                <div>
+                  <p className="text-white font-bold text-sm">Intraday Alert — 2H Window</p>
+                  <p className="text-[#8b949e] text-xs">NVDA +4.2% on 3.1× rel. volume</p>
+                </div>
+              </div>
             </div>
 
             {/* Text */}
             <div className="lg:col-span-2 order-1 lg:order-2">
-              <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Pre-Market Intelligence</p>
-              <h2 className="text-4xl font-bold text-white mb-4">Never Miss an Opening Gap</h2>
+              <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Pre-Market &amp; Intraday Intelligence</p>
+              <h2 className="text-4xl font-bold text-white mb-4">Never Miss a Move</h2>
               <p className="text-[#8b949e] leading-relaxed mb-8">
                 The gap scanner runs automatically before market open, surfacing high-probability setups
-                ranked by gap size, volume, and catalyst quality.
+                ranked by gap size, volume, and catalyst quality. After the bell, intraday scans sweep the
+                1H, 2H, and 4H windows — and ring the alert bell when a mover scores high enough to matter.
               </p>
               <div className="space-y-3">
                 {[
-                  'Automatic pre-market detection',
-                  'Catalyst & news filtering',
-                  'Volume relative to 30-day avg',
-                  'Integrated with your watchlist',
+                  'Automatic pre-market gap detection',
+                  'Intraday scans at 1H, 2H & 4H after the open',
+                  'Alerts scored by move, relative volume & spread',
+                  'One-click add to your Daily Favorites',
                 ].map(item => (
                   <div key={item} className="flex items-center gap-2.5 text-sm text-[#8b949e]">
                     <CheckCircle className="w-4 h-4 text-[#3fb950] flex-shrink-0" />
@@ -655,6 +754,153 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ═══ BRIEFINGS & NEWS SHOWCASE ═══ */}
+      <section className="py-24 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 items-center">
+
+            {/* Briefing card */}
+            <div className="relative lg:col-span-3 order-2 lg:order-1">
+              <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-hidden shadow-2xl">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sunrise className="w-4 h-4 text-[#d29922]" />
+                    <p className="text-sm font-semibold text-white">Morning Market Briefing</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="hidden sm:block text-xs text-[#8b949e]">Weekdays · 8:00 AM ET</span>
+                    <button className="flex items-center gap-1.5 px-2.5 py-1 bg-[#21262d] border border-[#30363d] text-[#8b949e] text-xs rounded-md">
+                      <Download className="w-3 h-3" />
+                      PDF
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  {/* AI sentiment summary */}
+                  <div className="p-4 bg-[#3fb950]/10 border border-[#3fb950]/20 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="w-4 h-4 text-[#3fb950]" />
+                      <span className="text-[10px] font-semibold text-[#3fb950] uppercase tracking-wide">Bullish Bias</span>
+                    </div>
+                    <p className="text-sm text-[#c9d1d9] leading-relaxed">
+                      Futures point higher as CPI cools and yields ease — semis lead pre-market with NVDA gapping up on raised guidance.
+                    </p>
+                  </div>
+
+                  {/* Indices snapshot */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {BRIEFING_INDICES.map(ix => (
+                      <div key={ix.name} className="bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2.5">
+                        <p className="text-[10px] text-[#8b949e] font-mono mb-0.5">{ix.name}</p>
+                        <p className="text-sm font-bold text-white font-mono">{ix.value}</p>
+                        <p className={`text-xs font-mono ${ix.pos ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>{ix.chg}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Big movers */}
+                  <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4">
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <Activity className="w-3.5 h-3.5 text-[#F97316]" />
+                      <span className="text-[10px] font-semibold text-[#F97316] uppercase tracking-wide">Big Movers</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {BRIEFING_MOVERS.map(m => (
+                        <span key={m.ticker} className={`px-2.5 py-1 rounded-md text-xs font-mono font-semibold ${m.pos ? 'bg-[#3fb950]/10 text-[#3fb950]' : 'bg-[#f85149]/10 text-[#f85149]'}`}>
+                          {m.ticker} {m.chg}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* News highlights */}
+                  <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4">
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <Newspaper className="w-3.5 h-3.5 text-[#39c5cf]" />
+                      <span className="text-[10px] font-semibold text-[#39c5cf] uppercase tracking-wide">News Highlights</span>
+                    </div>
+                    <ul className="space-y-2.5">
+                      {BRIEFING_NEWS.map(n => (
+                        <li key={n.headline} className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${n.pos === true ? 'bg-[#3fb950]' : n.pos === false ? 'bg-[#f85149]' : 'bg-[#8b949e]'}`} />
+                            <span className="text-xs text-[#c9d1d9] truncate">{n.headline}</span>
+                          </div>
+                          <span
+                            className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 border"
+                            style={{ color: n.catColor, borderColor: `${n.catColor}40`, backgroundColor: `${n.catColor}14` }}
+                          >
+                            {n.cat}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-3 border-t border-[#30363d] flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Sparkles className="w-3 h-3 text-[#d29922] flex-shrink-0" />
+                    <span className="text-[10px] text-[#484f58] truncate">AI-generated · emailed daily &amp; available on-demand in app</span>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
+                    <Calendar className="w-3 h-3 text-[#79c0ff]" />
+                    <span className="text-[10px] text-[#8b949e]">Today: CPI 8:30 · FOMC Minutes 2:00</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Floating news screener mini-card */}
+              <div className="hidden lg:flex absolute -right-7 -bottom-7 z-10 w-[230px] flex-col gap-2 bg-[#161b22] border border-[#30363d] rounded-xl p-3.5 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Newspaper className="w-3.5 h-3.5 text-[#39c5cf]" />
+                    <span className="text-xs font-semibold text-white">News Screener</span>
+                  </div>
+                  <span className="flex items-center gap-1 text-[9px] text-[#8b949e]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
+                    LIVE
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {['Fed', 'Macro', 'M&A', 'Earnings', 'AI', 'Crypto'].map(c => (
+                    <span key={c} className="px-1.5 py-0.5 text-[9px] rounded bg-[#0d1117] border border-[#30363d] text-[#8b949e]">{c}</span>
+                  ))}
+                </div>
+                <p className="text-[9px] text-[#484f58]">Sentiment-tagged · refreshes every 15 min</p>
+              </div>
+            </div>
+
+            {/* Text */}
+            <div className="lg:col-span-2 order-1 lg:order-2">
+              <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Market Intelligence</p>
+              <h2 className="text-4xl font-bold text-white mb-4">Start Every Session Informed</h2>
+              <p className="text-[#8b949e] leading-relaxed mb-8">
+                Every weekday morning an AI-generated briefing lands in your inbox — indices, overnight
+                movers, news highlights, and the day&apos;s events, distilled into one sentiment-tagged
+                summary. Through the session, the news screener keeps the headlines that matter in front of you.
+              </p>
+              <div className="space-y-3">
+                {[
+                  'Morning briefing emailed at 8:00 AM ET',
+                  'Indices, movers, events & AI market sentiment',
+                  'News tagged bullish / bearish across 6 categories',
+                  'High-priority digest with downloadable PDF',
+                ].map(item => (
+                  <div key={item} className="flex items-center gap-2.5 text-sm text-[#8b949e]">
+                    <CheckCircle className="w-4 h-4 text-[#d29922] flex-shrink-0" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ═══ HOW IT WORKS ═══ */}
       <section id="how-it-works" className="py-24 px-6 bg-[#161b22]/20">
         <div className="max-w-7xl mx-auto">
@@ -664,33 +910,40 @@ export default function LandingPage() {
             <p className="text-[#8b949e] max-w-xl mx-auto">Start in minutes. Your trades, your data, your edge.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative">
             {/* Connector line (desktop) */}
-            <div className="hidden md:block absolute top-14 left-[calc(33.3%+1rem)] right-[calc(33.3%+1rem)] h-px bg-gradient-to-r from-[#30363d] via-[#F97316]/30 to-[#30363d]" />
+            <div className="hidden lg:block absolute top-14 left-[calc(12.5%+1rem)] right-[calc(12.5%+1rem)] h-px bg-gradient-to-r from-[#30363d] via-[#F97316]/30 to-[#30363d]" />
 
             {[
               {
                 step: '01',
+                title: 'Start Informed',
+                desc: 'Wake up to your AI market briefing, scan pre-market gaps, and stack your Daily Favorites before the bell.',
+                icon: Sunrise,
+                items: ['AI morning briefing', 'Pre-market gap scan', 'Auto-seeded Daily Favorites', 'High-impact news & events'],
+              },
+              {
+                step: '02',
                 title: 'Log Your Trades',
                 desc: 'Enter trades with strategy, risk parameters, entry/exit prices, and emotional state at execution.',
                 icon: BookOpen,
                 items: ['Strategy tags', 'Risk/Reward ratio', 'Emotional state', 'Notes & screenshots'],
               },
               {
-                step: '02',
+                step: '03',
                 title: 'Analyze Performance',
                 desc: 'Visual analytics reveal patterns — which setups work, when you perform best, hidden weaknesses.',
                 icon: BarChart2,
                 items: ['Equity curve', 'Win rate by setup', 'P&L breakdown', 'Drawdown analysis'],
               },
               {
-                step: '03',
+                step: '04',
                 title: 'Sharpen Your Edge',
                 desc: 'Data-driven improvements to your discipline. Focus on what works, eliminate what doesn\'t.',
                 icon: Target,
                 items: ['Pattern recognition', 'Rule adherence', 'Habit tracking', 'Daily check-ins'],
               },
-            ].map((step, i) => (
+            ].map(step => (
               <div key={step.step} className="relative p-6 rounded-2xl border border-[#30363d] bg-[#161b22]">
                 <div className="absolute -top-3 left-6 px-3 py-0.5 bg-[#F97316] text-white text-[10px] font-bold rounded-full uppercase tracking-wider">
                   Step {step.step}
@@ -735,8 +988,8 @@ export default function LandingPage() {
                 Ready to Trade with Discipline?
               </h2>
               <p className="text-lg text-[#8b949e] mb-10 max-w-2xl mx-auto">
-                Join traders who have taken control of their performance with data-driven journaling
-                and real-time market analytics.
+                Join traders who start every session with an AI briefing, never miss a gap or an
+                intraday move, and journal every trade with data-driven discipline.
               </p>
 
               <div className="flex flex-wrap items-center justify-center gap-4">
