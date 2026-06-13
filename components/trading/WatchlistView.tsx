@@ -63,15 +63,17 @@ const ORDER_PLACED_STORAGE_KEY = 'ct:active-trades-orders';
 // LocalStorage key for collapsed sections state
 const COLLAPSED_SECTIONS_STORAGE_KEY = 'ct:watchlist-collapsed-sections';
 
+// Card grids collapse to 2 columns on phones (<sm) and restore the configured
+// column count at sm/lg so desktop layout is unchanged.
 const CARD_GRID: Record<number, string> = {
   2: 'grid-cols-2',
-  3: 'grid-cols-3',
-  4: 'grid-cols-4',
-  5: 'grid-cols-5',
+  3: 'grid-cols-2 sm:grid-cols-3',
+  4: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4',
+  5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
 };
 
 export default function WatchlistView({ hideActiveTrades = false, hideClosedPositions = false, cardColumns = 3, emptyMessage }: { hideActiveTrades?: boolean; hideClosedPositions?: boolean; cardColumns?: number; emptyMessage?: string }) {
-  const cardGridClass = CARD_GRID[cardColumns] ?? 'grid-cols-3';
+  const cardGridClass = CARD_GRID[cardColumns] ?? 'grid-cols-2 sm:grid-cols-3';
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);

@@ -463,7 +463,7 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
       </div>
 
       {/* Metrics strip */}
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         {[
           { label: 'Stop Size', value: calculations.stopSize > 0 ? formatCurrency(calculations.stopSize) : '—', color: 'text-white', tooltip: showTooltips && calculations.stopSize > 0 ? `${formatCurrency(calculations.entry)} − ${formatCurrency(calculations.stop)}` : null },
           { label: 'Shares', value: calculations.shareSize > 0 ? formatNumber(calculations.shareSize) : '—', color: 'text-white', tooltip: showTooltips && calculations.shareSize > 0 ? `$${calculations.risk} ÷ ${formatCurrency(calculations.stopSize)}` : null },

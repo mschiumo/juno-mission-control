@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
 import "./globals.css";
@@ -39,6 +39,15 @@ export const metadata: Metadata = {
     title: "Confluence Trading",
     description: "Your disciplined trading command center",
   },
+};
+
+// Mobile viewport: scale to device width, respect notch safe areas (iPhone),
+// and allow user zoom for accessibility. Affects only how the page maps to the
+// device viewport — desktop layout is unchanged.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

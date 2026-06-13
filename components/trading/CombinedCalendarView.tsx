@@ -479,7 +479,7 @@ export default function CombinedCalendarView() {
           </div>
         </div>
         {/* Stats row skeleton */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 space-y-2">
               <div className="h-3 w-16 bg-[#30363d] rounded" />
@@ -613,11 +613,12 @@ export default function CombinedCalendarView() {
         </div>
       </div>
 
-      {/* Two-column layout: Calendar 2/3 | All Trades 1/3 */}
-      <div style={{ position: 'relative' }}>
+      {/* Two-column layout on desktop (Calendar 2/3 | All Trades 1/3);
+          stacks to a single column on phones/tablets (<lg). */}
+      <div className="relative">
 
-      {/* Left column: Calendar + Legend (2/3 width) — drives outer container height */}
-      <div style={{ width: 'calc(66.667% - 0.5rem)' }}>
+      {/* Left column: Calendar + Legend (2/3 width on desktop) — drives outer container height */}
+      <div className="w-full lg:w-[calc(66.667%_-_0.5rem)]">
 
       {/* Calendar Grid */}
       <div data-tour="trading-calendar" className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
@@ -781,8 +782,9 @@ export default function CombinedCalendarView() {
 
       </div>{/* end left column */}
 
-      {/* Right column: All Trades (1/3 width) — absolutely positioned to match left column height */}
-      <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 'calc(33.333% - 0.5rem)', display: 'flex', flexDirection: 'column' }}>
+      {/* Right column: All Trades. On desktop (lg+) absolutely positioned at 1/3 width to
+          match the calendar's height; on phones/tablets it stacks below in normal flow. */}
+      <div className="flex flex-col w-full mt-4 lg:mt-0 lg:absolute lg:top-0 lg:right-0 lg:bottom-0 lg:w-[calc(33.333%_-_0.5rem)]">
         {isLoading ? (
           <div className="flex-1 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/50">
