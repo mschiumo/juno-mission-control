@@ -515,7 +515,7 @@ export default function GapScannerCard() {
         : "bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-full"
       }>
         {/* Header */}
-        <div className="flex items-center justify-between gap-2 gap-y-2 flex-wrap px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
+        <div className="flex items-center justify-between gap-2 gap-y-2 flex-wrap sm:flex-nowrap px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="p-1.5 bg-[#F97316]/10 rounded-lg">
               <Activity className="w-4 h-4 text-[#F97316]" />
@@ -530,7 +530,7 @@ export default function GapScannerCard() {
               </div>
             </div>
           </div>
-          <div className="flex items-center flex-wrap justify-end gap-2 gap-y-2">
+          <div className="flex items-center flex-wrap sm:flex-nowrap justify-end gap-2 gap-y-2">
             <div className="flex items-center rounded-lg border border-[#30363d] overflow-hidden mr-1">
               <button
                 onClick={() => switchMode('gap')}

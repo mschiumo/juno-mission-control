@@ -88,6 +88,13 @@ body {
   font-feature-settings: "kern" 1, "liga" 1;
 }
 
+/* Mobile-only guard against accidental horizontal scroll. Scoped to phones so
+   desktop is completely unaffected. Applied to <html> (not <body>) so it does
+   not turn the body into a scroll container, which would break the sticky header. */
+@media (max-width: 639px) {
+  html { overflow-x: hidden; }
+}
+
 /* ── Tabular Numbers for Financial Data ── */
 .num {
   font-variant-numeric: tabular-nums;
