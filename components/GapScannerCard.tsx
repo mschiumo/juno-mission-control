@@ -431,7 +431,7 @@ export default function GapScannerCard() {
         href={`https://www.tradingview.com/chart/?symbol=${stock.symbol}`}
         target="_blank" rel="noopener noreferrer"
         title={stock.name}
-        className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-3 py-2 hover:bg-[#21262d] group border-b border-[#30363d] last:border-0 transition-colors"
+        className="grid grid-cols-[1fr_auto_auto_auto_auto] sm:grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-3 py-2 hover:bg-[#21262d] group border-b border-[#30363d] last:border-0 transition-colors"
       >
         <div className="flex items-center gap-1.5 min-w-0">
           {isGainer
@@ -445,7 +445,7 @@ export default function GapScannerCard() {
         <span className="text-xs text-[#8b949e] tabular-nums">{fmt(stock.price)}</span>
         <span className="text-xs text-[#8b949e] tabular-nums">{fmtVol(stock.volume)}</span>
         <span
-          className={`text-xs tabular-nums w-12 text-right ${stock.spreadPercent != null && stock.spreadPercent >= 1 ? 'text-[#d29922]' : 'text-[#8b949e]'}`}
+          className={`hidden sm:block text-xs tabular-nums w-12 text-right ${stock.spreadPercent != null && stock.spreadPercent >= 1 ? 'text-[#d29922]' : 'text-[#8b949e]'}`}
           title={stock.spread != null ? `$${stock.spread.toFixed(2)} bid-ask spread` : 'No live quote'}
         >
           {stock.spreadPercent != null ? `${stock.spreadPercent.toFixed(2)}%` : '—'}
@@ -515,22 +515,22 @@ export default function GapScannerCard() {
         : "bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-full"
       }>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between gap-2 gap-y-2 flex-wrap px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className="p-1.5 bg-[#F97316]/10 rounded-lg">
               <Activity className="w-4 h-4 text-[#F97316]" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-sm font-semibold text-white leading-none">{mode === 'intraday' ? 'Intraday Movers' : 'Gap Scanner'}</h2>
-              <div className="flex items-center gap-1 mt-0.5">
-                <p className="text-[10px] text-[#8b949e]">{criteriaSubtitle}</p>
+              <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                <p className="text-[10px] text-[#8b949e] truncate">{criteriaSubtitle}</p>
                 <CriteriaCard criteria={activeCriteria}>
                   <Info className="w-3 h-3 text-[#8b949e] hover:text-[#58a6ff] cursor-help transition-colors" />
                 </CriteriaCard>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center flex-wrap justify-end gap-2 gap-y-2">
             <div className="flex items-center rounded-lg border border-[#30363d] overflow-hidden mr-1">
               <button
                 onClick={() => switchMode('gap')}
@@ -608,24 +608,24 @@ export default function GapScannerCard() {
 
         {/* Body */}
         {loading && !data ? (
-          <div className="grid grid-cols-2 divide-x divide-[#30363d] flex-1 animate-pulse">
+          <div className="flex flex-col sm:grid sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-[#30363d] flex-1 animate-pulse">
             {['Gainers', 'Losers'].map(label => (
               <div key={label} className="flex flex-col">
                 <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[#30363d]">
                   <div className="w-3 h-3 rounded-sm bg-[#30363d]" />
                   <div className="h-3 w-16 bg-[#30363d] rounded" />
                 </div>
-                <div className="px-3 py-1.5 border-b border-[#21262d] grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-3">
+                <div className="px-3 py-1.5 border-b border-[#21262d] grid grid-cols-[1fr_auto_auto_auto_auto] sm:grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-3">
                   {[40, 28, 24, 24, 32, 12].map((w, i) => (
-                    <div key={i} className="h-2.5 bg-[#30363d] rounded" style={{ width: w }} />
+                    <div key={i} className={`h-2.5 bg-[#30363d] rounded ${i === 3 ? 'hidden sm:block' : ''}`} style={{ width: w }} />
                   ))}
                 </div>
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-3 py-2.5 border-b border-[#30363d] last:border-0">
+                  <div key={i} className="grid grid-cols-[1fr_auto_auto_auto_auto] sm:grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-3 py-2.5 border-b border-[#30363d] last:border-0">
                     <div className="h-3 w-12 bg-[#30363d] rounded" />
                     <div className="h-3 w-10 bg-[#30363d] rounded" />
                     <div className="h-3 w-8 bg-[#30363d] rounded" />
-                    <div className="h-3 w-8 bg-[#30363d] rounded" />
+                    <div className="h-3 w-8 bg-[#30363d] rounded hidden sm:block" />
                     <div className="h-3 w-10 bg-[#30363d] rounded" />
                     <div className="h-3 w-3 bg-[#30363d] rounded" />
                   </div>
@@ -666,7 +666,7 @@ export default function GapScannerCard() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 divide-x divide-[#30363d] flex-1 min-h-0">
+          <div className="flex flex-col sm:grid sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-[#30363d] flex-1 min-h-0 overflow-y-auto sm:overflow-visible">
             {/* Gainers column */}
             <div className="flex flex-col min-h-0">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-[#238636]/5 border-b border-[#30363d] flex-shrink-0">
@@ -675,15 +675,15 @@ export default function GapScannerCard() {
                   Gainers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.gainers.length ?? 0})</span>
                 </span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] sm:grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
                 <button onClick={() => toggleGainerSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" sort={gainerSort} /></button>
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide w-12 text-right">Spread</span>
+                <span className="hidden sm:block text-[10px] text-[#8b949e] uppercase tracking-wide w-12 text-right">Spread</span>
                 <button onClick={() => toggleGainerSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" sort={gainerSort} /></button>
                 <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
               </div>
-              <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
+              <div className="overflow-y-auto sm:max-h-[480px]">
                 {data?.gainers?.length
                   ? sortStocks(data.gainers, gainerSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
                   : <div className="text-center py-8 text-[#8b949e] text-xs">{response?.message ? response.message : isMarketClosed ? 'Last scan results appear after next market open' : 'No gainers matching criteria'}</div>
@@ -699,15 +699,15 @@ export default function GapScannerCard() {
                   Losers <span className="text-[#8b949e] font-normal normal-case tracking-normal">({data?.losers.length ?? 0})</span>
                 </span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] sm:grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117]/30 flex-shrink-0">
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Symbol</span>
                 <span className="text-[10px] text-[#8b949e] uppercase tracking-wide">Last</span>
                 <button onClick={() => toggleLoserSort('volume')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide hover:text-white transition-colors">Vol <SortIcon col="volume" sort={loserSort} /></button>
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wide w-12 text-right">Spread</span>
+                <span className="hidden sm:block text-[10px] text-[#8b949e] uppercase tracking-wide w-12 text-right">Spread</span>
                 <button onClick={() => toggleLoserSort('gap')} className="flex items-center gap-0.5 text-[10px] text-[#8b949e] uppercase tracking-wide w-14 justify-end hover:text-white transition-colors">Chg% <SortIcon col="gap" sort={loserSort} /></button>
                 <Star className="w-3 h-3 text-[#F97316] fill-[#F97316]" />
               </div>
-              <div className="overflow-y-auto" style={{ maxHeight: '480px' }}>
+              <div className="overflow-y-auto sm:max-h-[480px]">
                 {data?.losers?.length
                   ? sortStocks(data.losers, loserSort).map(stock => <StockRow key={stock.symbol} stock={stock} />)
                   : <div className="text-center py-8 text-[#8b949e] text-xs">{response?.message ? response.message : isMarketClosed ? 'Last scan results appear after next market open' : 'No losers matching criteria'}</div>
