@@ -307,6 +307,8 @@ export default function QuickWatchlist({
       if (result.success) {
         setWatchlist(prev => [result.data, ...prev]);
         setTickerInput('');
+        // Notify other sections (e.g. Potential Trades) to refresh their list
+        window.dispatchEvent(new CustomEvent('ct:watchlist-updated'));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add ticker');
@@ -365,6 +367,11 @@ export default function QuickWatchlist({
       } catch {
         // skip failed individual tickers
       }
+    }
+
+    if (added > 0) {
+      // Notify other sections (e.g. Potential Trades) to refresh their list
+      window.dispatchEvent(new CustomEvent('ct:watchlist-updated'));
     }
 
     setImportResult(`Added ${added} of ${unique.length} tickers.`);
