@@ -5,8 +5,8 @@
  * imported into client components — the goal create form previews "N trading
  * days" in the browser — without pulling server-only modules into the bundle.
  *
- * NOTE: US_MARKET_HOLIDAYS mirrors the list in lib/cron-helpers.ts. Keep the two
- * in sync when adding a new year of holidays.
+ * NOTE: US_MARKET_HOLIDAYS below is the single source of truth — lib/cron-helpers.ts
+ * re-exports it. Add a new year of holidays here only.
  */
 
 // US market holidays (full-day closures).
