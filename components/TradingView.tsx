@@ -8,6 +8,7 @@ import {
   Calculator,
   Settings,
   BarChart3,
+  Target,
   BookOpen,
   Newspaper,
   Menu,
@@ -24,9 +25,10 @@ import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
 import PerformanceView from '@/components/trading/PerformanceView';
+import GoalsView from '@/components/trading/GoalsView';
 import TradingTour from '@/components/trading/TradingTour';
 
-type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management';
 
 export default function TradingView() {
   const router = useRouter();
@@ -36,7 +38,7 @@ export default function TradingView() {
   // Get subtab from URL or default to 'overview'
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
     const subtab = searchParams.get('subtab');
-    if (subtab === 'market' || subtab === 'market-news' || subtab === 'performance' || subtab === 'projection' || subtab === 'trade-management') {
+    if (subtab === 'market' || subtab === 'market-news' || subtab === 'performance' || subtab === 'goals' || subtab === 'projection' || subtab === 'trade-management') {
       return subtab;
     }
     return 'overview';
@@ -89,6 +91,7 @@ export default function TradingView() {
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
     { id: 'market-news' as const, label: 'Market News', icon: Newspaper },
     { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
+    { id: 'goals' as const, label: 'Goals', icon: Target },
     { id: 'performance' as const, label: 'Performance', icon: BarChart3 },
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
   ];
@@ -187,6 +190,8 @@ export default function TradingView() {
       {activeSubTab === 'market-news' && <NewsScreenerCard />}
 
       {activeSubTab === 'performance' && <PerformanceView />}
+
+      {activeSubTab === 'goals' && <GoalsView />}
 
       {activeSubTab === 'projection' && (
         <div data-tour="profit-projection">
