@@ -89,6 +89,7 @@ export interface Trade {
   // Journal Fields
   emotion?: Emotion;
   setupQuality?: SetupQuality;
+  followedPlan?: boolean;
   mistakes?: string[];
   lessons?: string[];
   tags?: string[];
@@ -330,6 +331,7 @@ export interface UpdateTradeRequest {
   riskAmount?: number;
   emotion?: Emotion;
   setupQuality?: SetupQuality;
+  followedPlan?: boolean;
   mistakes?: string[];
   lessons?: string[];
   tags?: string[];

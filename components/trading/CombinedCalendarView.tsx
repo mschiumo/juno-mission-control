@@ -69,6 +69,7 @@ interface Trade {
   status: 'OPEN' | 'CLOSED';
   entryNotes?: string;
   exitNotes?: string;
+  followedPlan?: boolean;
 }
 
 type SortField = 'date' | 'symbol' | 'side' | 'entryPrice' | 'shares' | 'pnl';
@@ -1792,6 +1793,7 @@ function EditTradeModal({ trade, onClose, onSave, isSaving }: EditTradeModalProp
     status: trade.status,
     entryNotes: trade.entryNotes || '',
     exitNotes: trade.exitNotes || '',
+    followedPlan: trade.followedPlan === true ? 'yes' : trade.followedPlan === false ? 'no' : '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1808,6 +1810,7 @@ function EditTradeModal({ trade, onClose, onSave, isSaving }: EditTradeModalProp
       status: formData.status as 'OPEN' | 'CLOSED',
       entryNotes: formData.entryNotes.trim() || undefined,
       exitNotes: formData.exitNotes.trim() || undefined,
+      followedPlan: formData.followedPlan === 'yes' ? true : formData.followedPlan === 'no' ? false : undefined,
     } as Trade);
   };
 
@@ -1926,6 +1929,18 @@ function EditTradeModal({ trade, onClose, onSave, isSaving }: EditTradeModalProp
                 className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm resize-none"
                 placeholder="Add exit notes..."
               />
+            </div>
+            <div>
+              <label className="block text-xs text-[#8b949e] mb-1">Followed my plan?</label>
+              <select
+                value={formData.followedPlan}
+                onChange={(e) => setFormData({ ...formData, followedPlan: e.target.value })}
+                className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm"
+              >
+                <option value="">— Not set —</option>
+                <option value="yes">Yes — followed my plan</option>
+                <option value="no">No — deviated</option>
+              </select>
             </div>
           </div>
 

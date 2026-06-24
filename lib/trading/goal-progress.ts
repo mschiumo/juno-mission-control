@@ -154,6 +154,12 @@ export function measureMetric(
       ).length;
       return { current: round2((good / rated.length) * 100), sampleSize: rated.length };
     }
+    case 'plan_adherence': {
+      const marked = cw.filter((t) => t.followedPlan === true || t.followedPlan === false);
+      if (marked.length === 0) return { current: 0, sampleSize: 0 };
+      const followed = marked.filter((t) => t.followedPlan === true).length;
+      return { current: round2((followed / marked.length) * 100), sampleSize: marked.length };
+    }
     case 'journal_consistency': {
       const elapsedEnd = ctx.today < ctx.endDate ? ctx.today : ctx.endDate;
       const days = tradingDaysInRange(ctx.startDate, elapsedEnd);

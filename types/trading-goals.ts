@@ -29,6 +29,7 @@ export type GoalMetric =
   | 'max_trades_per_day'
   // Journaling / process
   | 'quality_setups'
+  | 'plan_adherence'
   | 'journal_consistency';
 
 /** User-controlled lifecycle. Achieved/missed are derived (see GoalOutcome), not stored. */
@@ -222,6 +223,17 @@ export const GOAL_METRICS: Record<GoalMetric, GoalMetricMeta> = {
       'Share of rated trades graded Excellent or Good. Only trades you have graded count toward this.',
     targetPlaceholder: '80',
   },
+  plan_adherence: {
+    metric: 'plan_adherence',
+    label: 'Plan adherence',
+    category: 'journaling',
+    unit: 'percent',
+    direction: 'gte',
+    paced: false,
+    description:
+      'Share of trades you marked as following your plan. Set "Followed my plan?" in the trade editor on the Journal tab.',
+    targetPlaceholder: '90',
+  },
   journal_consistency: {
     metric: 'journal_consistency',
     label: 'Journaling consistency',
@@ -246,7 +258,7 @@ export const METRICS_BY_CATEGORY: Record<GoalCategory, GoalMetric[]> = {
   profit: ['net_profit'],
   consistency: ['win_rate', 'profit_factor', 'green_days', 'max_drawdown'],
   guardrail: ['max_daily_loss', 'max_trade_loss', 'max_trades_per_day'],
-  journaling: ['quality_setups', 'journal_consistency'],
+  journaling: ['quality_setups', 'plan_adherence', 'journal_consistency'],
 };
 
 // ============================================================================
