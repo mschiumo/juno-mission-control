@@ -141,7 +141,8 @@ function PaceStats({ progress }: { progress: GoalProgress }) {
         ))}
       </div>
       <div className="text-[11px] mt-2" style={{ color: 'var(--text-secondary)' }}>
-        {left} trading day{left === 1 ? '' : 's'} left · {progress.outcome === 'on_track' ? 'on pace' : 'behind pace'}
+        {left} trading day{left === 1 ? '' : 's'} left
+        {progress.sampleSize > 0 && ` · ${progress.outcome === 'on_track' ? 'on pace' : 'behind pace'}`}
       </div>
     </div>
   );
@@ -253,10 +254,10 @@ function GoalCard({
 
       {/* context line */}
       <div className="mt-2.5 text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-        {progress.outcome === 'no_data' ? (
-          <span>No closed trades in this window yet — progress updates as you import trades.</span>
-        ) : progress.paced ? (
+        {progress.paced && progress.tradingDaysRemaining > 0 ? (
           <PaceStats progress={progress} />
+        ) : progress.outcome === 'no_data' ? (
+          <span>No closed trades in this window yet — progress updates as you import trades.</span>
         ) : (
           <NonPacedLine progress={progress} lte={lte} />
         )}
