@@ -214,10 +214,10 @@ function DashboardContent() {
               </div>
               <div className="flex flex-col gap-5 xl:h-[900px]">
                 <CountdownCard />
+                <DailyJournalCard />
                 <div className="h-[360px] min-h-0 xl:h-auto xl:flex-1">
                   <CalendarCard />
                 </div>
-                <DailyJournalCard />
               </div>
             </div>
           </div>
