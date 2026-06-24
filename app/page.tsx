@@ -16,10 +16,9 @@ import LandingPage from "@/components/landing/LandingPage";
 import Link from 'next/link';
 import { LayoutDashboard, Target, TrendingUp, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
+import { isOwnerEmail } from '@/lib/owner';
 
 type TabId = 'dashboard' | 'trading' | 'goals';
-
-const OWNER_EMAIL = 'mschiumo18@gmail.com';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -28,7 +27,7 @@ function DashboardContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const isOwner = session?.user?.email === OWNER_EMAIL;
+  const isOwner = isOwnerEmail(session?.user?.email);
 
   // Get tab from URL query param; non-owners land on trading, not dashboard
   const getTabFromUrl = useCallback((): TabId => {

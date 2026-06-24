@@ -1,5 +1,6 @@
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
+import { isOwnerEmail } from '@/lib/owner';
 
 /**
  * Get the authenticated user's ID from the session.
@@ -14,6 +15,31 @@ export async function requireUserId(): Promise<{ userId: string; error?: never }
     };
   }
   return { userId };
+}
+
+/**
+ * Require the authenticated user to be the app owner (root user).
+ * Returns { userId, email } on success, or { error: NextResponse } with a 403.
+ * Mirrors requireUserId() but additionally validates the session email against
+ * the shared OWNER_EMAIL — use this for owner-only endpoints (e.g. Goals).
+ * The returned userId comes straight from the validated session, so callers can
+ * keep keying Redis by `{userId}` without an extra lookup.
+ */
+export async function requireOwner(): Promise<
+  | { userId: string; email: string; error?: never }
+  | { userId?: never; email?: never; error: NextResponse }
+> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  const email = session?.user?.email;
+  if (!userId || !isOwnerEmail(email)) {
+    // 403 for both "not logged in" and "logged in but not owner" so we don't
+    // leak which case applies.
+    return {
+      error: NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 }),
+    };
+  }
+  return { userId, email: email! };
 }
 
 /**
