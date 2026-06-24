@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { createClient } from 'redis';
+import { US_MARKET_HOLIDAYS } from '@/lib/trading/trading-days';
 
 // Redis client - lazy initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
@@ -317,19 +318,9 @@ export function isWeekday(): boolean {
   return day >= 1 && day <= 5;
 }
 
-// US Market Holidays 2026
-export const US_MARKET_HOLIDAYS = [
-  '2026-01-01', // New Year's Day
-  '2026-01-19', // Martin Luther King Jr. Day
-  '2026-02-16', // Presidents' Day
-  '2026-04-03', // Good Friday
-  '2026-05-25', // Memorial Day
-  '2026-06-19', // Juneteenth
-  '2026-07-03', // Independence Day (observed)
-  '2026-09-07', // Labor Day
-  '2026-11-26', // Thanksgiving
-  '2026-12-25', // Christmas Day
-];
+// US market holidays are single-sourced in the client-safe trading-days module
+// (which has no node-redis import) and re-exported here for existing importers.
+export { US_MARKET_HOLIDAYS };
 
 /**
  * Check if US stock market is open today
