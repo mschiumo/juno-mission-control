@@ -11,6 +11,8 @@
 import { NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
+import { auth } from '@/auth';
+import { isOwnerEmail } from '@/lib/owner';
 
 export async function POST() {
   const { userId, error: authError } = await requireUserId();
@@ -100,8 +102,15 @@ export async function POST() {
       await migrateHash(oldKey, newKey);
     }
 
-    // --- Goals ---
-    await migrateString('goals_data', `goals_data:${userId}`);
+    // --- Goals (owner-only feature) ---
+    // Personal goals are restricted to the root user. Never copy the legacy
+    // un-namespaced `goals_data` key into a non-owner's namespace.
+    const session = await auth();
+    if (isOwnerEmail(session?.user?.email)) {
+      await migrateString('goals_data', `goals_data:${userId}`);
+    } else {
+      skipped.push('goals_data (owner-only feature)');
+    }
 
     // --- Evening checkins ---
     await migrateString('evening_checkins', `evening_checkins:${userId}`);
