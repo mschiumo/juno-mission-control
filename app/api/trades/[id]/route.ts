@@ -99,6 +99,7 @@ export async function PUT(
     if (body.riskAmount !== undefined) updates.riskAmount = body.riskAmount;
     if (body.emotion !== undefined) updates.emotion = body.emotion;
     if (body.setupQuality !== undefined) updates.setupQuality = body.setupQuality;
+    if (body.followedPlan !== undefined) updates.followedPlan = body.followedPlan;
     if (body.mistakes !== undefined) updates.mistakes = body.mistakes;
     if (body.lessons !== undefined) updates.lessons = body.lessons;
     if (body.tags !== undefined) updates.tags = body.tags;

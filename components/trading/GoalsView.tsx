@@ -161,6 +161,7 @@ function sampleLabel(metric: string, n: number): string {
   if (n <= 0) return '';
   if (metric === 'journal_consistency') return `${n} trading day${n === 1 ? '' : 's'}`;
   if (metric === 'quality_setups') return `${n} rated trade${n === 1 ? '' : 's'}`;
+  if (metric === 'plan_adherence') return `${n} marked trade${n === 1 ? '' : 's'}`;
   return `${n} trade${n === 1 ? '' : 's'}`;
 }
 
