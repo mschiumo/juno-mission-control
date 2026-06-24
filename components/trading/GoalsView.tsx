@@ -95,34 +95,55 @@ function ProgressBar({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-function PaceLine({ progress }: { progress: GoalProgress }) {
+function PaceStats({ progress }: { progress: GoalProgress }) {
   const left = progress.tradingDaysRemaining;
   if (progress.met) {
     return (
       <span>
-        Target reached with {left} trading day{left === 1 ? '' : 's'} to spare — keep it up.
+        Target reached{left > 0 ? ` with ${left} trading day${left === 1 ? '' : 's'} to spare` : ''} — keep it up.
       </span>
     );
   }
   if (left <= 0) return <span>Window closed.</span>;
-  const req = progress.requiredPerDay ?? 0;
-  const proj = progress.projectedFinal;
+  const cells = [
+    {
+      label: 'Pace needed',
+      value: `${fmtValue(progress.unit, progress.requiredPerDay ?? 0)}/day`,
+      highlight: true,
+    },
+    {
+      label: 'Your pace',
+      value: progress.actualPerDay !== undefined ? `${fmtValue(progress.unit, progress.actualPerDay)}/day` : '—',
+      highlight: false,
+    },
+    {
+      label: 'Projected',
+      value: progress.projectedFinal !== undefined ? fmtValue(progress.unit, progress.projectedFinal) : '—',
+      highlight: false,
+    },
+  ];
   return (
-    <span>
-      Need{' '}
-      <strong className="num" style={{ color: 'var(--text-primary)' }}>
-        {fmtValue(progress.unit, req)}/day
-      </strong>{' '}
-      across {left} trading day{left === 1 ? '' : 's'} left
-      {proj !== undefined && (
-        <>
-          {' '}· on pace for{' '}
-          <span className="num" style={{ color: progress.outcome === 'on_track' ? '#00C896' : '#F5A623' }}>
-            {fmtValue(progress.unit, proj)}
-          </span>
-        </>
-      )}
-    </span>
+    <div>
+      <div className="grid grid-cols-3 gap-2">
+        {cells.map((c) => (
+          <div
+            key={c.label}
+            className="rounded-lg px-2.5 py-1.5"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
+          >
+            <div className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-tertiary)' }}>
+              {c.label}
+            </div>
+            <div className="text-sm font-bold num" style={{ color: c.highlight ? 'var(--accent-light)' : 'var(--text-primary)' }}>
+              {c.value}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="text-[11px] mt-2" style={{ color: 'var(--text-secondary)' }}>
+        {left} trading day{left === 1 ? '' : 's'} left · {progress.outcome === 'on_track' ? 'on pace' : 'behind pace'}
+      </div>
+    </div>
   );
 }
 
@@ -235,7 +256,7 @@ function GoalCard({
         {progress.outcome === 'no_data' ? (
           <span>No closed trades in this window yet — progress updates as you import trades.</span>
         ) : progress.paced ? (
-          <PaceLine progress={progress} />
+          <PaceStats progress={progress} />
         ) : (
           <NonPacedLine progress={progress} lte={lte} />
         )}
@@ -258,6 +279,12 @@ function GoalCard({
             </span>
           ))}
         </div>
+      )}
+
+      {goal.note && (
+        <p className="mt-3 text-[11px] italic leading-snug" style={{ color: 'var(--text-secondary)' }}>
+          {goal.note}
+        </p>
       )}
 
       {/* footer / actions */}

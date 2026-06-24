@@ -418,6 +418,18 @@ export default function CreateGoalModal({ isOpen, onClose, onSaved, editingGoal 
             </div>
           )}
 
+          {/* Notes */}
+          <Field label="Notes (optional)">
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              placeholder="Why this goal, how you'll get there, anything to remember…"
+              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+            />
+          </Field>
+
           {error && (
             <p className="text-xs" style={{ color: 'var(--negative)' }}>
               {error}
