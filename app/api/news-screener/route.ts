@@ -49,6 +49,9 @@ interface NewsItem {
   source: string;
   summary: string;
   url: string;
+  // When set, skip keyword matching and file the item under this category
+  // directly. Used for items from dedicated single-topic feeds (e.g. AI/tech).
+  forceCategory?: keyof typeof NEWS_CATEGORIES;
 }
 
 interface CategorizedNews {
@@ -99,6 +102,22 @@ interface CryptoPanicPost {
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 const CRYPTOPANIC_API_KEY = process.env.CRYPTOPANIC_API_KEY;
 
+// Dedicated AI/tech news sources. Finnhub's general feed almost never surfaces
+// AI stories, which left the "AI & Tech" category empty. These are free, public
+// RSS/Atom feeds (no API key required), so the category stays populated even
+// when no market-data keys are configured.
+const AI_RSS_FEEDS: Array<{ url: string; source: string }> = [
+  { url: 'https://techcrunch.com/category/artificial-intelligence/feed/', source: 'TechCrunch' },
+  { url: 'https://arstechnica.com/ai/feed/', source: 'Ars Technica' },
+  { url: 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml', source: 'The Verge' },
+  { url: 'https://www.technologyreview.com/topic/artificial-intelligence/feed/', source: 'MIT Technology Review' },
+  { url: 'https://www.wired.com/feed/tag/ai/latest/rss', source: 'Wired' },
+];
+
+// Cap stories taken from any one publication so a prolific feed can't crowd the
+// others out of the AI tab.
+const AI_PER_FEED_LIMIT = 6;
+
 /**
  * Categorize news based on headline and summary content
  */
@@ -106,8 +125,12 @@ function categorizeNews(item: NewsItem): CategorizedNews | null {
   const text = `${item.headline} ${item.summary}`.toLowerCase();
   
   for (const [key, config] of Object.entries(NEWS_CATEGORIES)) {
-    const matches = config.keywords.some(keyword => text.includes(keyword.toLowerCase()));
-    
+    // Items from dedicated single-topic feeds carry their category explicitly;
+    // everything else is matched by keyword against the headline + summary.
+    const matches = item.forceCategory
+      ? item.forceCategory === key
+      : config.keywords.some(keyword => text.includes(keyword.toLowerCase()));
+
     if (matches) {
       const result: CategorizedNews = {
         id: `${item.datetime}-${item.headline.slice(0, 30).replace(/\s+/g, '-')}`,
@@ -235,6 +258,112 @@ async function fetchFinnhubNews(): Promise<NewsItem[]> {
   }
 }
 
+/**
+ * Decode the XML/HTML entities and CDATA wrappers that show up in RSS/Atom
+ * payloads, strip any markup, and collapse whitespace.
+ */
+function cleanFeedText(raw: string): string {
+  let text = raw.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
+  text = text.replace(/<[^>]+>/g, ' ');
+  text = text
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&(?:apos|#39);/g, "'")
+    .replace(/&nbsp;/g, ' ');
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Minimal RSS/Atom parser. Pulls the headline, link, timestamp, and summary out
+ * of each <item> (RSS) or <entry> (Atom) block. Intentionally lightweight — good
+ * enough for the well-formed feeds major publications serve; any block without a
+ * title or a usable http(s) link is skipped.
+ */
+function parseFeed(xml: string, source: string, category: keyof typeof NEWS_CATEGORIES): NewsItem[] {
+  const blocks = [
+    ...(xml.match(/<item\b[\s\S]*?<\/item>/gi) ?? []),
+    ...(xml.match(/<entry\b[\s\S]*?<\/entry>/gi) ?? []),
+  ];
+
+  const items: NewsItem[] = [];
+  for (const block of blocks) {
+    const headline = cleanFeedText(block.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '');
+    if (!headline) continue;
+
+    // RSS uses <link>URL</link>; Atom uses <link href="URL" rel="alternate"/>.
+    const rssLink = block.match(/<link>\s*([\s\S]*?)\s*<\/link>/i)?.[1]?.trim();
+    const atomLink =
+      block.match(/<link[^>]*rel=["']alternate["'][^>]*href=["']([^"']+)["']/i)?.[1] ??
+      block.match(/<link[^>]*href=["']([^"']+)["']/i)?.[1];
+    const url = (rssLink && /^https?:\/\//i.test(rssLink) ? rssLink : atomLink ?? '').trim();
+    if (!/^https?:\/\//i.test(url)) continue;
+
+    const dateRaw =
+      block.match(/<pubDate>([\s\S]*?)<\/pubDate>/i)?.[1] ??
+      block.match(/<published>([\s\S]*?)<\/published>/i)?.[1] ??
+      block.match(/<updated>([\s\S]*?)<\/updated>/i)?.[1] ??
+      block.match(/<dc:date>([\s\S]*?)<\/dc:date>/i)?.[1];
+    const parsedMs = dateRaw ? Date.parse(dateRaw.trim()) : NaN;
+    const datetime = Number.isNaN(parsedMs) ? Math.floor(Date.now() / 1000) : Math.floor(parsedMs / 1000);
+
+    const summaryRaw =
+      block.match(/<description>([\s\S]*?)<\/description>/i)?.[1] ??
+      block.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i)?.[1] ??
+      '';
+
+    items.push({
+      category,
+      datetime,
+      headline,
+      image: '',
+      related: '',
+      source,
+      summary: cleanFeedText(summaryRaw).slice(0, 220),
+      url,
+      forceCategory: category,
+    });
+  }
+
+  return items;
+}
+
+/**
+ * Fetch AI/tech headlines from the dedicated RSS/Atom feeds. Each feed is
+ * fetched independently — a slow or failing feed never blocks the others, and
+ * the whole thing degrades to an empty list rather than throwing.
+ */
+async function fetchAiTechNews(): Promise<NewsItem[]> {
+  const results = await Promise.allSettled(
+    AI_RSS_FEEDS.map(async ({ url, source }) => {
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'JunoMissionControl/1.0 (+news-screener)' },
+        signal: AbortSignal.timeout(8000),
+        next: { revalidate: 900 },
+      });
+      if (!response.ok) {
+        console.warn(`AI feed ${source} error: ${response.status}`);
+        return [] as NewsItem[];
+      }
+      const xml = await response.text();
+      return parseFeed(xml, source, 'ai')
+        .sort((a, b) => b.datetime - a.datetime)
+        .slice(0, AI_PER_FEED_LIMIT);
+    }),
+  );
+
+  const items: NewsItem[] = [];
+  for (const result of results) {
+    if (result.status === 'fulfilled') items.push(...result.value);
+    else console.warn('AI feed fetch failed:', result.reason);
+  }
+  console.log(`[NewsScreener] Fetched ${items.length} AI/tech items from ${AI_RSS_FEEDS.length} feeds`);
+  return items;
+}
+
 /** Only keep items whose URL is something a click can actually open. */
 function hasValidUrl(item: { url?: string }): boolean {
   const u = (item.url || '').trim();
@@ -336,6 +465,28 @@ function getMockNews(): NewsItem[] {
       source: 'Bloomberg',
       summary: 'Regulatory crackdown concerns lead to sell-off across decentralized finance tokens.',
       url: 'https://example.com/sec-defi'
+    },
+    {
+      category: 'ai',
+      datetime: now - 2400,
+      headline: 'Nvidia Unveils Next-Gen AI Chip Aimed at Faster LLM Training',
+      image: '',
+      related: 'NVDA',
+      source: 'The Verge',
+      summary: 'The new GPU architecture targets large language model workloads, with major cloud providers already lining up orders.',
+      url: 'https://example.com/nvidia-ai-chip',
+      forceCategory: 'ai'
+    },
+    {
+      category: 'ai',
+      datetime: now - 6000,
+      headline: 'OpenAI and Anthropic Push New Frontier Models for Enterprise',
+      image: '',
+      related: 'MSFT',
+      source: 'TechCrunch',
+      summary: 'Generative AI competition intensifies as both labs prepare major model releases aimed at business customers.',
+      url: 'https://example.com/frontier-models',
+      forceCategory: 'ai'
     }
   ];
 }
@@ -349,8 +500,14 @@ export async function GET() {
   try {
     console.log(`[NewsScreener] Fetching news at ${timestamp}`);
     
-    // Fetch news from Finnhub
-    const rawNews = await fetchFinnhubNews();
+    // Fetch market news (Finnhub/CryptoPanic) and the dedicated AI/tech feeds in
+    // parallel, then merge. The AI feeds are what keep the "AI & Tech" tab
+    // populated — Finnhub's general feed rarely carries AI stories.
+    const [marketNews, aiTechNews] = await Promise.all([
+      fetchFinnhubNews(),
+      fetchAiTechNews(),
+    ]);
+    const rawNews = [...marketNews, ...aiTechNews];
 
     // Categorize and de-dupe. Drop anything without a usable URL — broken
     // anchors make the screener feel unresponsive when you click through.
