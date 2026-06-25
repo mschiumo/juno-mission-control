@@ -416,6 +416,10 @@ export default function GoalsCard() {
 
   // Collaborative goals awaiting a reply from the owner.
   const helpGoals = goals.collaborative.filter((g) => g.helpRequest && !g.helpRequest.answer);
+  // Deliverables Claude (or the owner) attached, flattened for the feed.
+  const resources = goals.collaborative.flatMap((g) =>
+    (g.resources ?? []).map((r) => ({ goalId: g.id, goalTitle: g.title, resource: r })),
+  );
 
   // Poll for agent progress (and external changes) while idle. Paused during
   // editing / confirm dialogs / active selection so it can't disrupt those, but
@@ -524,7 +528,7 @@ export default function GoalsCard() {
       {view === 'insights' && <GoalInsights goals={goals} />}
 
       {view === 'board' && activeCategory === 'collaborative' && (
-        <GoalActivityFeed events={activity} helpGoals={helpGoals} onAnswer={answerHelp} loading={activityLoading} />
+        <GoalActivityFeed events={activity} helpGoals={helpGoals} resources={resources} onAnswer={answerHelp} loading={activityLoading} />
       )}
 
       {/* Modals */}

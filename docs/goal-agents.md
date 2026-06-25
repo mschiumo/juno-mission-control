@@ -63,6 +63,7 @@ curl -s -X POST "$BASE/api/goals/agent" \
 | `completeActionItem` | a milestone id to mark complete. |
 | `phase` | explicit `not-started` \| `in-progress` \| `achieved`. |
 | `requestHelp` | a question for the owner — **blocks** the goal and surfaces it under "Needs your input" in the Collaborative activity feed. Read `task.helpRequest.answer` on a later GET to resume. |
+| `addResource` | `{ title, url?, content?, filename? }` — attach a deliverable reachable from the UI: an external link and/or inline file text the owner can **view + download** under "Resources". Use it for anything you produce; a local file path alone isn't reachable from the web app, so send the file's `content`. |
 | `by` | label for who posted (defaults to `claude`). |
 
 ### Ask for help when stuck
@@ -71,6 +72,12 @@ The goal is marked **Blocked**, the question appears under **Needs your input** 
 Collaborative activity feed, and the owner's reply lands on `task.helpRequest.answer` —
 which the agent reads on its next GET to resume. Every action (owner's and agent's) is
 logged to that feed with a timestamp, so you can follow the back-and-forth.
+
+### Share deliverables
+When the agent produces something the owner should access — a written guide, a draft, a
+report — it attaches it with `addResource` (the file's `content` and/or a `url`), **not**
+just a local path. The resource appears under **Resources** in the feed, where the owner
+can view, copy, or download it.
 
 ## 4. Three ways to run an agent
 
@@ -85,7 +92,9 @@ the work, and posts progress. A ready prompt:
 > blocked on something only I can answer, POST `requestHelp:"<question>"` and read
 > `helpRequest.answer` on a later GET to resume. Keep each `log` and `requestHelp`
 > short (one line / a sentence or two) — they render verbatim in the activity feed,
-> so put longer detail in milestones or notes. Stop when the queue is empty.
+> so put longer detail in milestones or notes. When you produce a deliverable (a doc,
+> guide, draft), attach it with `addResource` (its `content` and/or a `url`) so I can
+> open it in the UI — don't just give a local file path. Stop when the queue is empty.
 
 **b) Node worker + Claude API.** Use [`scripts/goal-agent-worker.mjs`](../scripts/goal-agent-worker.mjs)
 as the polling bridge; drop your Claude API call into its `handleTask()`.

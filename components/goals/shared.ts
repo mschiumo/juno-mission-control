@@ -80,6 +80,7 @@ export const activityKindColor: Record<ActivityKind, string> = {
   blocked: 'var(--negative)',
   help_request: 'var(--warning)',
   help_answer: 'var(--accent)',
+  resource: 'var(--info)',
 };
 
 /** Short "time ago" for feed timestamps (e.g. "3m", "2h", "Jun 24"). */
