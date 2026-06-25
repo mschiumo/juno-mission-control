@@ -126,7 +126,7 @@ export default function NewsScreenerCard() {
               )}
             </div>
             <p className="text-xs text-[#8b949e] mt-0.5">
-              Market-moving headlines across Fed, macro, M&amp;A, earnings &amp; crypto · auto-refreshes every 15 min
+              Market-moving headlines across Fed, macro, M&amp;A, earnings, AI &amp; crypto · auto-refreshes every 15 min
             </p>
           </div>
         </div>
