@@ -83,7 +83,9 @@ the work, and posts progress. A ready prompt:
 > a starting `log`, do the work, post a `log` per milestone (and
 > `completeActionItem`), then POST `status:"done"` with a summary `log`. If you're
 > blocked on something only I can answer, POST `requestHelp:"<question>"` and read
-> `helpRequest.answer` on a later GET to resume. Stop when the queue is empty.
+> `helpRequest.answer` on a later GET to resume. Keep each `log` and `requestHelp`
+> short (one line / a sentence or two) — they render verbatim in the activity feed,
+> so put longer detail in milestones or notes. Stop when the queue is empty.
 
 **b) Node worker + Claude API.** Use [`scripts/goal-agent-worker.mjs`](../scripts/goal-agent-worker.mjs)
 as the polling bridge; drop your Claude API call into its `handleTask()`.
