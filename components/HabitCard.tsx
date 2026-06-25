@@ -300,6 +300,13 @@ export default function HabitCard() {
     return () => clearInterval(interval);
   }, [fetchHabits]);
 
+  // Live-refresh when another surface marks a habit done — e.g. submitting the
+  // Daily Journal auto-completes the "Journal" habit.
+  useEffect(() => {
+    window.addEventListener('ct:habits-updated', fetchHabits);
+    return () => window.removeEventListener('ct:habits-updated', fetchHabits);
+  }, [fetchHabits]);
+
   // Clear sync status after a delay
   useEffect(() => {
     if (syncStatus === 'synced') {
