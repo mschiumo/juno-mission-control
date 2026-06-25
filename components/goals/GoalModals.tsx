@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Plus,
@@ -16,10 +17,12 @@ import {
   ListChecks,
   RotateCcw,
   AlertCircle,
+  Bot,
+  Send,
   Target as TargetIcon,
 } from 'lucide-react';
 import type { ActionItem, Category, Goal, GoalTarget, Priority, Recurrence } from '@/lib/goals/types';
-import { categoryLabels, priorityMeta } from './shared';
+import { categoryLabels, priorityMeta, agentStatusMeta } from './shared';
 
 // ── Shared field styling ──────────────────────────────────────────────────────
 
@@ -36,7 +39,7 @@ function onFieldBlur(e: React.FocusEvent<HTMLElement>) {
 }
 const fieldClass = 'w-full px-3 py-2.5 rounded-xl text-sm transition-colors focus:outline-none placeholder:text-[var(--text-tertiary)]';
 const labelClass = 'block text-[11px] mb-1.5 uppercase tracking-wider';
-const labelStyle: React.CSSProperties = { color: 'var(--text-tertiary)' };
+const labelStyle: React.CSSProperties = { color: 'var(--text-secondary)' };
 
 function Segmented<T extends string>({
   value,
@@ -90,8 +93,8 @@ function ModalShell({
   footer?: React.ReactNode;
   maxWidth?: string;
 }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-backdrop-in">
+  const content = (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 animate-backdrop-in">
       <div
         className="absolute inset-0"
         style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
@@ -135,6 +138,11 @@ function ModalShell({
       </div>
     </div>
   );
+  // Portal to <body> so the overlay escapes the Goals `.card` (which has a
+  // transform from animate-fade-up + overflow:hidden, which would otherwise
+  // clip a position:fixed child and trap it inside the card).
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }
 
 function PrimaryButton({
@@ -193,6 +201,7 @@ export function GoalEditModal({
   onClose,
   onSubmit,
   onOpenMilestones,
+  onOpenAgent,
 }: {
   mode: 'create' | 'edit';
   goal?: Goal;
@@ -200,6 +209,7 @@ export function GoalEditModal({
   onClose: () => void;
   onSubmit: (value: GoalFormValue) => Promise<void> | void;
   onOpenMilestones?: (goal: Goal) => void;
+  onOpenAgent?: (goal: Goal) => void;
 }) {
   const [title, setTitle] = useState(goal?.title ?? '');
   const [notes, setNotes] = useState(goal?.notes ?? '');
@@ -246,7 +256,7 @@ export function GoalEditModal({
         </div>
       }
       onClose={onClose}
-      maxWidth="max-w-lg"
+      maxWidth="max-w-2xl"
       footer={
         <div className="flex gap-2">
           <GhostButton onClick={onClose}>Cancel</GhostButton>
@@ -365,6 +375,10 @@ export function GoalEditModal({
               />
             </button>
           </label>
+          <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+            Turn this goal into a counter (e.g. “Run 5&times; this week”). The card shows a current/target
+            progress bar, and recurring goals reset the count each period.
+          </p>
           {hasTarget && (
             <div className="grid grid-cols-3 gap-2 mt-3">
               <div>
@@ -441,6 +455,21 @@ export function GoalEditModal({
             </span>
             <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               {goal.actionItems?.filter((i) => i.status === 'completed').length ?? 0}/{goal.actionItems?.length ?? 0}
+            </span>
+          </button>
+        )}
+
+        {mode === 'edit' && goal && goal.category === 'collaborative' && onOpenAgent && (
+          <button
+            onClick={() => onOpenAgent(goal)}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
+          >
+            <span className="inline-flex items-center gap-2 text-sm">
+              <Bot className="w-4 h-4" style={{ color: 'var(--accent)' }} /> Claude agent
+            </span>
+            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              {goal.assignee === 'agent' ? agentStatusMeta[goal.agentStatus ?? 'queued'].label : 'Hand off →'}
             </span>
           </button>
         )}
@@ -552,6 +581,120 @@ export function MilestonesModal({
               </div>
             );
           })}
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
+// ── Claude agent handoff + progress modal ────────────────────────────────────
+
+export function AgentModal({
+  goal,
+  onClose,
+  onHandoff,
+  onRecall,
+  onOpenMilestones,
+}: {
+  goal: Goal;
+  onClose: () => void;
+  onHandoff: (goal: Goal) => void;
+  onRecall: (goal: Goal) => void;
+  onOpenMilestones: (goal: Goal) => void;
+}) {
+  const handedOff = goal.assignee === 'agent';
+  const status = agentStatusMeta[goal.agentStatus ?? 'queued'];
+  const log = goal.agentLog ?? [];
+  const done = (goal.actionItems ?? []).filter((i) => i.status === 'completed').length;
+  const total = (goal.actionItems ?? []).length;
+
+  return (
+    <ModalShell
+      title="Claude agent"
+      subtitle={goal.title}
+      maxWidth="max-w-lg"
+      icon={
+        <div className="p-1.5 rounded-lg" style={{ background: 'var(--accent-dim)' }}>
+          <Bot className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+        </div>
+      }
+      onClose={onClose}
+      footer={
+        handedOff ? (
+          <div className="flex gap-2">
+            <GhostButton onClick={() => onRecall(goal)}>Recall task</GhostButton>
+            <PrimaryButton onClick={onClose}>
+              <Check className="w-4 h-4" /> Done
+            </PrimaryButton>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <GhostButton onClick={onClose}>Cancel</GhostButton>
+            <PrimaryButton onClick={() => onHandoff(goal)}>
+              <Send className="w-4 h-4" /> Hand off to Claude
+            </PrimaryButton>
+          </div>
+        )
+      }
+    >
+      {!handedOff ? (
+        <div className="space-y-3">
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Hand this task to a Claude agent. It enters the agent queue, where a Claude agent picks it
+            up, works it, and posts progress back here.
+          </p>
+          <div
+            className="rounded-xl p-3 text-xs"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
+          >
+            Tip: add milestones first so the agent has a concrete checklist to work through.
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${status.pulse ? 'animate-pulse' : ''}`} style={{ background: status.color }} />
+              <span className="text-sm font-medium" style={{ color: status.color }}>
+                {status.label}
+              </span>
+            </div>
+            <button
+              onClick={() => onOpenMilestones(goal)}
+              className="text-xs inline-flex items-center gap-1"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <ListChecks className="w-3.5 h-3.5" /> {done}/{total} milestones
+            </button>
+          </div>
+
+          <div>
+            <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>
+              Progress log
+            </div>
+            {log.length === 0 ? (
+              <div className="text-center py-8 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                No updates yet — the agent will post progress here.
+              </div>
+            ) : (
+              <ol className="space-y-2.5">
+                {[...log].reverse().map((e, i) => (
+                  <li key={i} className="flex gap-2.5">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent)' }} />
+                    <div className="min-w-0">
+                      <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                        {e.message}
+                      </p>
+                      <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                        {new Date(e.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        {e.by ? ` · ${e.by}` : ''}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </div>
       )}
     </ModalShell>

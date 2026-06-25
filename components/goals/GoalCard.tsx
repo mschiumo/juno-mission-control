@@ -13,6 +13,7 @@ import {
   ChevronRight,
   RotateCcw,
   X,
+  Bot,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -23,6 +24,7 @@ import {
   priorityMeta,
   recurrenceLabels,
   sourceMeta,
+  agentStatusMeta,
   categoryLabels,
   getDueStatus,
   milestoneProgress,
@@ -48,7 +50,7 @@ export interface GoalCardProps extends GoalCardActions {
 
 function ProgressBar({ pct, color }: { pct: number; color: string }) {
   return (
-    <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--surface-3)' }}>
+    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-3)' }}>
       <div
         className="h-full rounded-full transition-all duration-500"
         style={{ width: `${pct}%`, background: color }}
@@ -79,6 +81,7 @@ export default function GoalCard({
   const tProg = targetProgress(goal);
   const mProg = milestoneProgress(goal);
   const source = goal.source && goal.source !== 'mj' ? sourceMeta[goal.source] : null;
+  const agent = goal.assignee === 'agent' ? agentStatusMeta[goal.agentStatus ?? 'queued'] : null;
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
@@ -98,14 +101,14 @@ export default function GoalCard({
       }}
     >
       {/* Accent bar — priority when set, else phase */}
-      <div className="w-[3px] flex-shrink-0 rounded-l-lg" style={{ background: accent }} />
+      <div className="w-1 flex-shrink-0 rounded-l-lg" style={{ background: accent }} />
 
-      <div className="flex-1 min-w-0 px-3 py-2.5">
+      <div className="flex-1 min-w-0 px-3.5 py-3">
         {/* Title row */}
         <div className="flex items-start gap-2">
           {dragHandle}
           <p
-            className="flex-1 min-w-0 text-[13px] leading-snug break-words"
+            className="flex-1 min-w-0 text-[14px] leading-snug break-words"
             style={{
               color: isAchieved ? 'var(--text-tertiary)' : 'var(--text-primary)',
               textDecoration: isAchieved ? 'line-through' : 'none',
@@ -134,16 +137,25 @@ export default function GoalCard({
         </div>
 
         {/* Meta chips */}
-        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+          {agent && (
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium"
+              style={{ background: 'var(--surface-3)', color: agent.color }}
+              title={`Claude agent: ${agent.label}`}
+            >
+              <Bot className={`w-3 h-3 ${agent.pulse ? 'animate-pulse' : ''}`} /> {agent.label}
+            </span>
+          )}
           {showPhase && (
-            <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: phaseAccent[goal.phase] }} />
               {phaseLabels[goal.phase]}
             </span>
           )}
           {priority && (
             <span
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium"
               style={{ background: 'var(--surface-3)', color: priorityMeta[priority].color }}
             >
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: priorityMeta[priority].color }} />
@@ -152,34 +164,34 @@ export default function GoalCard({
           )}
           {recurring && (
             <span
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px]"
               style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}
             >
-              <Repeat className="w-2.5 h-2.5" /> {recurrenceLabels[goal.recurrence!]}
+              <Repeat className="w-3 h-3" /> {recurrenceLabels[goal.recurrence!]}
             </span>
           )}
           {recurring && streak > 0 && (
             <span
-              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium"
               style={{ background: 'var(--accent-dim)', color: 'var(--accent-light)' }}
               title={`${streak}-period streak`}
             >
-              <Flame className="w-2.5 h-2.5" /> {streak}
+              <Flame className="w-3 h-3" /> {streak}
             </span>
           )}
           {due && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium" style={{ color: due.color }}>
-              <Calendar className="w-2.5 h-2.5" /> {due.label}
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: due.color }}>
+              <Calendar className="w-3 h-3" /> {due.label}
             </span>
           )}
           {showCategory && (
-            <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+            <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
               {categoryLabels[goal.category]}
             </span>
           )}
           {source && (
             <span
-              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px]"
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px]"
               style={{ background: 'var(--surface-3)', color: source.color }}
             >
               <span>{source.icon}</span>
@@ -193,11 +205,11 @@ export default function GoalCard({
         {tProg && (
           <div className="mt-2">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
                 {tProg.current}/{tProg.target}
                 {tProg.unit ? ` ${tProg.unit}` : ''}
               </span>
-              <span className="text-[10px] font-medium" style={{ color: 'var(--accent-light)' }}>
+              <span className="text-[11px] font-medium" style={{ color: 'var(--accent-light)' }}>
                 {tProg.pct}%
               </span>
             </div>
@@ -213,10 +225,10 @@ export default function GoalCard({
             className="mt-2 w-full text-left"
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                <ListChecks className="w-2.5 h-2.5" /> {mProg.done}/{mProg.total}
+              <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                <ListChecks className="w-3 h-3" /> {mProg.done}/{mProg.total}
               </span>
-              <span className="text-[10px] font-medium" style={{ color: 'var(--positive)' }}>
+              <span className="text-[11px] font-medium" style={{ color: 'var(--positive)' }}>
                 {Math.round((mProg.done / mProg.total) * 100)}%
               </span>
             </div>
@@ -229,10 +241,10 @@ export default function GoalCard({
               stop(e);
               onOpenMilestones(goal);
             }}
-            className="mt-2 inline-flex items-center gap-1 text-[10px] transition-colors"
+            className="mt-2 inline-flex items-center gap-1 text-[11px] transition-colors"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            <ListChecks className="w-2.5 h-2.5" /> Add milestones
+            <ListChecks className="w-3 h-3" /> Add milestones
           </button>
         )}
       </div>

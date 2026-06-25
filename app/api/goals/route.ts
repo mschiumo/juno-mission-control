@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { goalId, newPhase, category, notes, aiAssisted, actionItems, title, dueDate, priority, target, recurrence } = body;
+    const { goalId, newPhase, category, notes, aiAssisted, actionItems, title, dueDate, priority, target, recurrence, assignee, agentStatus } = body;
 
     if (!goalId || !category) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
@@ -135,6 +135,18 @@ export async function POST(request: NextRequest) {
         delete goal.lastPeriodKey;
       }
     }
+
+    // Collaborative agent handoff / recall.
+    if (assignee !== undefined) {
+      goal.assignee = assignee || undefined;
+      if (assignee === 'agent') {
+        if (!goal.assignedAt) goal.assignedAt = getNowInEST();
+        if (!goal.agentStatus) goal.agentStatus = 'queued';
+      } else {
+        delete goal.agentStatus;
+      }
+    }
+    if (agentStatus !== undefined) goal.agentStatus = agentStatus || undefined;
 
     await redis.set(goalsKey(userId), JSON.stringify(goals));
     return NextResponse.json({ success: true, data: goals, timestamp: getNowInEST() });

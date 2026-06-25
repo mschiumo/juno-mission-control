@@ -12,6 +12,15 @@ export type Source = 'mj' | 'ai' | 'subagent';
 export type Priority = 'low' | 'medium' | 'high';
 export type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly';
 
+// Collaborative goals can be handed off to a Claude agent which reports progress.
+export type Assignee = 'me' | 'agent';
+export type AgentStatus = 'queued' | 'working' | 'blocked' | 'done';
+export interface AgentLogEntry {
+  at: string; // EST ISO timestamp
+  message: string;
+  by?: string; // optional agent / session label
+}
+
 export interface ActionItem {
   id: string;
   text: string;
@@ -56,6 +65,12 @@ export interface Goal {
   lastPeriodKey?: string; // the period this recurring goal currently "belongs to"
   recurrenceAnchor?: string; // EST ISO when recurrence was enabled
   streak?: GoalStreak;
+
+  // ── Collaborative agent handoff (optional) ──
+  assignee?: Assignee; // 'agent' once handed off to Claude
+  agentStatus?: AgentStatus; // agent-reported state
+  agentLog?: AgentLogEntry[]; // progress timeline written by the agent (capped)
+  assignedAt?: string; // EST ISO when handed off
 }
 
 export interface GoalsData {
@@ -80,6 +95,9 @@ export const CATEGORIES: Category[] = ['daily', 'weekly', 'yearly', 'collaborati
 
 /** Max history records kept per goal (~6mo daily / ~3.5yr weekly). */
 export const HISTORY_CAP = 180;
+
+/** Max agent progress-log entries kept per collaborative goal. */
+export const AGENT_LOG_CAP = 50;
 
 export function goalsKey(userId: string): string {
   return `goals_data:${userId}`;

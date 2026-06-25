@@ -23,6 +23,21 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  // Agent API: token-authenticated (AGENT_SECRET) so headless Claude agents can
+  // pull/report on handed-off Collaborative goals without a user session.
+  if (nextUrl.pathname.startsWith('/api/goals/agent')) {
+    const agentSecret = process.env.AGENT_SECRET;
+    if (!agentSecret) {
+      return NextResponse.json({ error: 'Agent API not configured' }, { status: 503 });
+    }
+    const authHeader = req.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (token !== agentSecret) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
+
   const publicPaths = ['/', '/login', '/signup'];
   const authPages = ['/login', '/signup']; // redirect away from these when already logged in
 
