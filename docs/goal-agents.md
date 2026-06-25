@@ -62,7 +62,15 @@ curl -s -X POST "$BASE/api/goals/agent" \
 | `addActionItems` | `string[]` — new milestones. |
 | `completeActionItem` | a milestone id to mark complete. |
 | `phase` | explicit `not-started` \| `in-progress` \| `achieved`. |
+| `requestHelp` | a question for the owner — **blocks** the goal and surfaces it under "Needs your input" in the Collaborative activity feed. Read `task.helpRequest.answer` on a later GET to resume. |
 | `by` | label for who posted (defaults to `claude`). |
+
+### Ask for help when stuck
+If the agent hits a blocker only the owner can resolve, it POSTs `requestHelp:"<question>"`.
+The goal is marked **Blocked**, the question appears under **Needs your input** in the
+Collaborative activity feed, and the owner's reply lands on `task.helpRequest.answer` —
+which the agent reads on its next GET to resume. Every action (owner's and agent's) is
+logged to that feed with a timestamp, so you can follow the back-and-forth.
 
 ## 4. Three ways to run an agent
 
@@ -73,8 +81,9 @@ the work, and posts progress. A ready prompt:
 > You are my Goals agent. `GET $BASE/api/goals/agent?status=queued` with header
 > `Authorization: Bearer $AGENT_SECRET`. For each task: POST `status:"working"` with
 > a starting `log`, do the work, post a `log` per milestone (and
-> `completeActionItem`), then POST `status:"done"` with a summary `log`. Stop when
-> the queue is empty.
+> `completeActionItem`), then POST `status:"done"` with a summary `log`. If you're
+> blocked on something only I can answer, POST `requestHelp:"<question>"` and read
+> `helpRequest.answer` on a later GET to resume. Stop when the queue is empty.
 
 **b) Node worker + Claude API.** Use [`scripts/goal-agent-worker.mjs`](../scripts/goal-agent-worker.mjs)
 as the polling bridge; drop your Claude API call into its `handleTask()`.
