@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Loader2, Trash2, Pencil } from 'lucide-react';
+import { X, Loader2, Trash2, Pencil, Target, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
 import {
   MOODS, buildEntryPrompts, hasContent, moodOf, sleepOf,
-  type JournalPrompt, type PromptDef,
+  type JournalPrompt, type PromptDef, type GoalReview,
 } from '@/lib/journal-prompts';
 
 function longLabel(date: string): string {
@@ -17,15 +17,22 @@ function longLabel(date: string): string {
   });
 }
 
+// Minimal shape we need from a daily goal to review it.
+type GoalLite = { id: string; title: string };
+// In-flight answer for one goal card. madeProgress: null until the user picks.
+type ReviewAnswer = { madeProgress: boolean | null; note: string };
+
 export default function JournalEntryModal({
   date,
   initialPrompts,
+  initialGoalReviews,
   textPrompts,
   onClose,
   onSaved,
 }: {
   date: string;
   initialPrompts: JournalPrompt[] | null;
+  initialGoalReviews: GoalReview[] | null;
   textPrompts: PromptDef[];
   onClose: () => void;
   onSaved: () => void;
@@ -37,6 +44,21 @@ export default function JournalEntryModal({
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const isToday = date === getTodayInEST();
+
+  // --- Goal-review wizard (final step before submitting today's entry) ---
+  // `goals` holds the in-progress daily goals to review; null while loading.
+  // Only today's entry gets the review step; past entries just keep whatever
+  // was stored. Prefill answers from any previously-saved reviews by goal id.
+  const [goals, setGoals] = useState<GoalLite[] | null>(isToday ? null : []);
+  const [reviewStep, setReviewStep] = useState(false);
+  const [goalIdx, setGoalIdx] = useState(0);
+  const [reviews, setReviews] = useState<Record<string, ReviewAnswer>>(() =>
+    Object.fromEntries(
+      (initialGoalReviews || []).map((r) => [r.goalId, { madeProgress: r.madeProgress, note: r.note || '' }]),
+    ),
+  );
+
   // Close on Escape
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -46,7 +68,29 @@ export default function JournalEntryModal({
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const isToday = date === getTodayInEST();
+  // Load the owner's in-progress daily goals once (today only).
+  useEffect(() => {
+    if (!isToday) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/goals?_t=${Date.now()}`);
+        const data = await res.json();
+        const daily: Array<{ id: string; title: string; phase: string }> =
+          data?.success && Array.isArray(data?.data?.daily) ? data.data.daily : [];
+        const inProgress = daily
+          .filter((g) => g.phase === 'in-progress')
+          .map((g) => ({ id: g.id, title: g.title }));
+        if (!cancelled) setGoals(inProgress);
+      } catch {
+        if (!cancelled) setGoals([]); // degrade gracefully — no review step
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isToday]);
+
   const displayMood = moodOf(mode === 'view' ? initialPrompts || [] : prompts);
   const sleepVal = sleepOf(mode === 'view' ? initialPrompts || [] : prompts);
 
@@ -54,6 +98,7 @@ export default function JournalEntryModal({
   const savedAnswered = (initialPrompts || []).filter(
     (p) => p.id !== 'mood' && p.id !== 'sleep' && p.answer?.trim(),
   );
+  const viewReviews = initialGoalReviews || [];
   // Edit form: the configured text prompts (everything except mood, sleep + other).
   const editText = prompts.filter((p) => p.id !== 'mood' && p.id !== 'sleep' && p.id !== 'other');
   const otherPrompt = prompts.find((p) => p.id === 'other');
@@ -61,15 +106,61 @@ export default function JournalEntryModal({
   const update = (id: string, answer: string) =>
     setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, answer } : p)));
 
+  const setReview = (goalId: string, patch: Partial<ReviewAnswer>) =>
+    setReviews((prev) => ({
+      ...prev,
+      [goalId]: { madeProgress: prev[goalId]?.madeProgress ?? null, note: prev[goalId]?.note ?? '', ...patch },
+    }));
+
+  // The goals that gate today's submit.
+  const reviewGoals = isToday ? goals ?? [] : [];
+  const goalsLoading = isToday && goals === null;
+  const answeredCount = reviewGoals.filter((g) => reviews[g.id]?.madeProgress != null).length;
+
+  // Snapshot the answers for persistence. When there's nothing to review, keep
+  // whatever was already stored so an edit doesn't wipe past reviews.
+  function buildGoalReviews(): GoalReview[] {
+    if (reviewGoals.length === 0) return initialGoalReviews ?? [];
+    return reviewGoals.map((g) => {
+      const r = reviews[g.id];
+      const note = r?.note?.trim();
+      return {
+        goalId: g.id,
+        title: g.title,
+        madeProgress: r?.madeProgress === true,
+        ...(note ? { note } : {}),
+      };
+    });
+  }
+
   // Submitting today's Daily Journal doubles as completing the "Journal" habit.
   // Best-effort: never blocks (or fails) the journal save. Fires a refresh event
   // so the Habits card reflects the change live.
   async function markJournalHabitDone() {
     try {
+      // Resolve the user's actual Journal habit. The id is NOT always 'journal':
+      // a user's habit list is persisted once and never re-seeded, so renamed or
+      // recreated habits carry generated ids (e.g. `habit_123`). Match the
+      // seeded id first, then fall back to a habit literally named "Journal".
+      const statusRes = await fetch('/api/habit-status');
+      const status = await statusRes.json();
+      const habits: Array<{ id: string; name?: string; completedToday?: boolean }> =
+        status?.data?.habits ?? [];
+      const journal =
+        habits.find((h) => h.id === 'journal') ??
+        habits.find((h) => h.name?.trim().toLowerCase() === 'journal');
+
+      if (!journal) return; // user has no Journal habit — nothing to sync
+      if (journal.completedToday) {
+        // Already done (e.g. re-saving an edit) — just make sure the card reflects it.
+        window.dispatchEvent(new CustomEvent('ct:habits-updated'));
+        return;
+      }
+
       const res = await fetch('/api/habit-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ habitId: 'journal', completed: true }),
+        body: JSON.stringify({ habitId: journal.id, completed: true }),
       });
       if (res.ok) window.dispatchEvent(new CustomEvent('ct:habits-updated'));
     } catch {
@@ -83,7 +174,7 @@ export default function JournalEntryModal({
       const res = await fetch('/api/personal-journal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, prompts }),
+        body: JSON.stringify({ date, prompts, goalReviews: buildGoalReviews() }),
       });
       const data = await res.json();
       if (data.success) {
@@ -95,6 +186,17 @@ export default function JournalEntryModal({
       /* keep open on failure */
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Primary action from the question form: go to the goal review if there are
+  // in-progress daily goals to check off, otherwise save directly.
+  function onFormPrimary() {
+    if (reviewGoals.length > 0) {
+      setGoalIdx(0);
+      setReviewStep(true);
+    } else {
+      save();
     }
   }
 
@@ -115,6 +217,8 @@ export default function JournalEntryModal({
     if (existed) {
       setPrompts(buildEntryPrompts(textPrompts, initialPrompts));
       setConfirmDelete(false);
+      setReviewStep(false);
+      setGoalIdx(0);
       setMode('view');
     } else {
       onClose();
@@ -122,6 +226,11 @@ export default function JournalEntryModal({
   }
 
   if (typeof document === 'undefined') return null;
+
+  const currentGoal = reviewGoals[goalIdx];
+  const currentAnswer = currentGoal ? reviews[currentGoal.id] : undefined;
+  const currentAnswered = currentAnswer?.madeProgress != null;
+  const isLastGoal = goalIdx === reviewGoals.length - 1;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -179,19 +288,121 @@ export default function JournalEntryModal({
                 </div>
               </div>
             )}
-            {savedAnswered.length > 0 ? (
-              savedAnswered.map((p) => (
-                <div key={p.id}>
-                  <p className="text-xs font-medium text-[#F97316] mb-1">{p.question}</p>
-                  <p className="text-sm text-[#c9d1d9] whitespace-pre-wrap leading-relaxed pl-3 border-l-2 border-[#F97316]/30">
-                    {p.answer}
-                  </p>
+            {savedAnswered.length > 0
+              ? savedAnswered.map((p) => (
+                  <div key={p.id}>
+                    <p className="text-xs font-medium text-[#F97316] mb-1">{p.question}</p>
+                    <p className="text-sm text-[#c9d1d9] whitespace-pre-wrap leading-relaxed pl-3 border-l-2 border-[#F97316]/30">
+                      {p.answer}
+                    </p>
+                  </div>
+                ))
+              : sleepVal === 0 &&
+                viewReviews.length === 0 && (
+                  <p className="text-sm text-[#8b949e] italic">Tap the pencil to add a written reflection.</p>
+                )}
+
+            {/* Goals reviewed */}
+            {viewReviews.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-[#F97316] mb-2 flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5" /> Goals Reviewed
+                </p>
+                <div className="space-y-2.5 pl-3 border-l-2 border-[#F97316]/30">
+                  {viewReviews.map((r) => (
+                    <div key={r.goalId} className="flex items-start gap-2">
+                      <span
+                        className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center ${
+                          r.madeProgress ? 'bg-[#3fb950]/20 text-[#3fb950]' : 'bg-[#f85149]/20 text-[#f85149]'
+                        }`}
+                      >
+                        {r.madeProgress ? (
+                          <Check className="w-3 h-3" strokeWidth={3} />
+                        ) : (
+                          <X className="w-3 h-3" strokeWidth={3} />
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm text-[#c9d1d9]">{r.title}</p>
+                        <p
+                          className={`text-[11px] font-medium ${
+                            r.madeProgress ? 'text-[#3fb950]' : 'text-[#f85149]'
+                          }`}
+                        >
+                          {r.madeProgress ? 'Made progress' : 'No progress'}
+                        </p>
+                        {r.note && (
+                          <p className="text-xs text-[#8b949e] mt-0.5 whitespace-pre-wrap leading-relaxed">{r.note}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))
-            ) : (
-              sleepVal === 0 && (
-                <p className="text-sm text-[#8b949e] italic">Tap the pencil to add a written reflection.</p>
-              )
+              </div>
+            )}
+          </div>
+        ) : reviewStep ? (
+          /* ---- Goal review wizard ---- */
+          <div className="px-5 py-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Target className="w-4 h-4 text-[#F97316]" />
+              <p className="text-sm font-semibold text-white">Review Goals Progress</p>
+            </div>
+            <p className="text-xs text-[#8b949e] mb-4">
+              Did you make progress on your in-progress daily goals today?
+            </p>
+
+            {/* Progress bar */}
+            <div className="flex items-center gap-1.5 mb-2">
+              {reviewGoals.map((g, i) => (
+                <div
+                  key={g.id}
+                  className={`h-1.5 flex-1 rounded-full transition-colors ${
+                    i < goalIdx ? 'bg-[#F97316]' : i === goalIdx ? 'bg-[#F97316]/60' : 'bg-[#30363d]'
+                  }`}
+                />
+              ))}
+            </div>
+            <p className="text-[10px] uppercase tracking-wide text-[#6e7681] mb-3">
+              Goal {goalIdx + 1} of {reviewGoals.length}
+            </p>
+
+            {/* Current goal card */}
+            {currentGoal && (
+              <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-4">
+                <p className="text-base font-medium text-white mb-4 leading-snug">{currentGoal.title}</p>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button
+                    onClick={() => setReview(currentGoal.id, { madeProgress: true })}
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                      currentAnswer?.madeProgress === true
+                        ? 'bg-[#3fb950]/15 ring-1 ring-[#3fb950] text-[#3fb950]'
+                        : 'bg-[#161b22] border border-[#30363d] text-[#8b949e] hover:border-[#3fb950]/40 hover:text-[#c9d1d9]'
+                    }`}
+                  >
+                    <Check className="w-4 h-4" strokeWidth={2.5} />
+                    Made progress
+                  </button>
+                  <button
+                    onClick={() => setReview(currentGoal.id, { madeProgress: false })}
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                      currentAnswer?.madeProgress === false
+                        ? 'bg-[#f85149]/15 ring-1 ring-[#f85149] text-[#f85149]'
+                        : 'bg-[#161b22] border border-[#30363d] text-[#8b949e] hover:border-[#f85149]/40 hover:text-[#c9d1d9]'
+                    }`}
+                  >
+                    <X className="w-4 h-4" strokeWidth={2.5} />
+                    No progress
+                  </button>
+                </div>
+                <textarea
+                  value={currentAnswer?.note ?? ''}
+                  onChange={(e) => setReview(currentGoal.id, { note: e.target.value })}
+                  placeholder="Add a note (optional)…"
+                  rows={2}
+                  className="w-full px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#484f58] resize-none focus:outline-none focus:border-[#F97316] transition-colors"
+                />
+              </div>
             )}
           </div>
         ) : (
@@ -279,7 +490,33 @@ export default function JournalEntryModal({
         )}
 
         {/* Footer (edit mode) */}
-        {mode === 'edit' && (
+        {mode === 'edit' && reviewStep && (
+          <div className="sticky bottom-0 bg-[#0d1117]/80 backdrop-blur-sm border-t border-[#30363d] px-5 py-3 flex items-center justify-between">
+            <button
+              onClick={() => (goalIdx > 0 ? setGoalIdx((i) => i - 1) : setReviewStep(false))}
+              disabled={saving}
+              className="flex items-center gap-1 px-3 py-1.5 text-[#8b949e] hover:text-white text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </button>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-[#6e7681] tabular-nums">
+                {answeredCount}/{reviewGoals.length} reviewed
+              </span>
+              <button
+                onClick={() => (isLastGoal ? save() : setGoalIdx((i) => i + 1))}
+                disabled={!currentAnswered || saving}
+                className="flex items-center gap-2 px-4 py-1.5 bg-[#F97316] hover:bg-[#ea6c08] text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {isLastGoal ? (saving ? 'Submitting…' : 'Submit Entry') : 'Next'}
+                {!isLastGoal && !saving && <ChevronRight className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        )}
+        {mode === 'edit' && !reviewStep && (
           <div className="sticky bottom-0 bg-[#0d1117]/80 backdrop-blur-sm border-t border-[#30363d] px-5 py-3 flex items-center justify-between">
             <div>
               {existed &&
@@ -312,12 +549,17 @@ export default function JournalEntryModal({
                 Cancel
               </button>
               <button
-                onClick={save}
-                disabled={saving}
+                onClick={onFormPrimary}
+                disabled={saving || goalsLoading}
                 className="flex items-center gap-2 px-4 py-1.5 bg-[#F97316] hover:bg-[#ea6c08] text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
               >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {saving ? 'Saving…' : 'Save Entry'}
+                {saving || goalsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {saving
+                  ? 'Saving…'
+                  : reviewGoals.length > 0
+                    ? `Review Goals (${reviewGoals.length})`
+                    : 'Save Entry'}
+                {reviewGoals.length > 0 && !saving && !goalsLoading && <ChevronRight className="w-4 h-4" />}
               </button>
             </div>
           </div>

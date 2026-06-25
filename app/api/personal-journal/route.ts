@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
+import type { GoalReview } from '@/lib/journal-prompts';
 
 // Personal (mindset/goals) daily journal — kept in its own namespace, fully
 // separate from the trading `daily-journal:` store used by the Trading Journal.
@@ -22,6 +23,7 @@ export interface PersonalJournalEntry {
   id: string;
   date: string;
   prompts: JournalPrompt[];
+  goalReviews: GoalReview[];
   createdAt: string;
   updatedAt: string;
 }
@@ -32,7 +34,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { date, prompts } = body;
+    const { date, prompts, goalReviews } = body;
 
     if (!date) {
       return NextResponse.json(
@@ -52,6 +54,7 @@ export async function POST(request: NextRequest) {
       id: key,
       date,
       prompts: prompts || [],
+      goalReviews: goalReviews || [],
       createdAt: existing.createdAt || now,
       updatedAt: now
     };
@@ -60,6 +63,7 @@ export async function POST(request: NextRequest) {
       id: entry.id,
       date: entry.date,
       prompts: JSON.stringify(entry.prompts),
+      goalReviews: JSON.stringify(entry.goalReviews),
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt
     });
@@ -110,6 +114,7 @@ export async function GET(request: NextRequest) {
           id: data.id,
           date: data.date,
           prompts: JSON.parse(data.prompts || '[]'),
+          goalReviews: JSON.parse(data.goalReviews || '[]'),
           createdAt: data.createdAt,
           updatedAt: data.updatedAt
         } as PersonalJournalEntry
@@ -128,6 +133,7 @@ export async function GET(request: NextRequest) {
           id: data.id,
           date: data.date,
           prompts: JSON.parse(data.prompts || '[]'),
+          goalReviews: JSON.parse(data.goalReviews || '[]'),
           createdAt: data.createdAt,
           updatedAt: data.updatedAt
         });
