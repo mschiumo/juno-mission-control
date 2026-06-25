@@ -10,7 +10,8 @@
  *   GET  /api/goals/agent?status=queued   → the agent's task queue
  *   POST /api/goals/agent                 → report progress on one task
  *        body: { goalId, status?, log?, addActionItems?: string[],
- *                completeActionItem?: id, phase?, requestHelp?: string, by? }
+ *                completeActionItem?: id, phase?, requestHelp?: string,
+ *                addResource?: { title, url?, content?, filename? }, by? }
  *
  * Set requestHelp to raise a clarifying question the agent can't resolve alone:
  * the goal is marked blocked and the question appears in the Collaborative
@@ -30,10 +31,13 @@ import {
   AgentStatus,
   AgentLogEntry,
   ActivityKind,
+  GoalResource,
   Phase,
   goalsKey,
   applyPhase,
   AGENT_LOG_CAP,
+  RESOURCE_CAP,
+  RESOURCE_CONTENT_MAX,
 } from '@/lib/goals/types';
 import { appendActivity } from '@/lib/goals/activity';
 
@@ -155,6 +159,33 @@ export async function POST(request: NextRequest) {
     goal.agentStatus = 'blocked';
   }
 
+  // Attach a deliverable reachable from the UI: an external link and/or inline
+  // file content (e.g. read a local .md and send its text so the owner can view
+  // + download it — a local file path alone isn't reachable from the web app).
+  let addedResource: GoalResource | null = null;
+  const ar = body.addResource as { title?: unknown; url?: unknown; content?: unknown; filename?: unknown } | undefined;
+  if (ar && typeof ar === 'object') {
+    const rTitle = typeof ar.title === 'string' ? ar.title.trim() : '';
+    const rUrl = typeof ar.url === 'string' ? ar.url.trim() : '';
+    const rContent = typeof ar.content === 'string' ? ar.content : '';
+    const rFile = typeof ar.filename === 'string' ? ar.filename.trim() : '';
+    if (rTitle && (rUrl || rContent)) {
+      addedResource = {
+        id: randomUUID(),
+        title: rTitle,
+        url: rUrl || undefined,
+        content: rContent ? rContent.slice(0, RESOURCE_CONTENT_MAX) : undefined,
+        filename: rFile || undefined,
+        addedAt: nowEST,
+        by,
+      };
+      const arr = goal.resources ?? [];
+      arr.push(addedResource);
+      if (arr.length > RESOURCE_CAP) arr.splice(0, arr.length - RESOURCE_CAP);
+      goal.resources = arr;
+    }
+  }
+
   const redis = await getRedisClient();
   await redis.set(goalsKey(userId), JSON.stringify(goals));
 
@@ -166,6 +197,15 @@ export async function POST(request: NextRequest) {
   else if (status === 'blocked') ev = { kind: 'blocked', message: `Blocked on “${title}”` };
   else if (logText) ev = { kind: 'progress', message: logText };
   if (ev) await appendActivity(redis, userId, { actor: 'claude', goalId, goalTitle: title, ...ev });
+  if (addedResource) {
+    await appendActivity(redis, userId, {
+      actor: 'claude',
+      goalId,
+      goalTitle: title,
+      kind: 'resource',
+      message: `Added resource: ${addedResource.title}`,
+    });
+  }
 
   return NextResponse.json({ success: true, goal });
 }

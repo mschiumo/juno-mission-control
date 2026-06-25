@@ -29,6 +29,18 @@ export interface HelpRequest {
   answeredAt?: string;
 }
 
+/** A deliverable attached to a goal so it's reachable from the UI: an external
+ *  link and/or inline text/markdown that can be viewed and downloaded. */
+export interface GoalResource {
+  id: string;
+  title: string;
+  url?: string; // external link (opens in a new tab)
+  content?: string; // inline text/markdown — viewable + downloadable (capped)
+  filename?: string; // suggested download name, e.g. "mjswrites-seo-guide.md"
+  addedAt: string; // EST ISO
+  by?: string; // who attached it
+}
+
 export interface ActionItem {
   id: string;
   text: string;
@@ -80,6 +92,7 @@ export interface Goal {
   agentLog?: AgentLogEntry[]; // progress timeline written by the agent (capped)
   assignedAt?: string; // EST ISO when handed off
   helpRequest?: HelpRequest; // Claude's open question on this goal
+  resources?: GoalResource[]; // deliverables (links / files) Claude or the owner attached
 }
 
 export interface GoalsData {
@@ -108,6 +121,10 @@ export const HISTORY_CAP = 180;
 /** Max agent progress-log entries kept per collaborative goal. */
 export const AGENT_LOG_CAP = 50;
 
+/** Max resources kept per goal; inline content is truncated to this many chars. */
+export const RESOURCE_CAP = 20;
+export const RESOURCE_CONTENT_MAX = 50000;
+
 // ── Collaborative activity feed (actions by MJ + Claude) ──
 export type ActivityActor = 'mj' | 'claude';
 export type ActivityKind =
@@ -120,7 +137,8 @@ export type ActivityKind =
   | 'reopened'
   | 'blocked'
   | 'help_request'
-  | 'help_answer';
+  | 'help_answer'
+  | 'resource';
 
 export interface ActivityEvent {
   id: string;
