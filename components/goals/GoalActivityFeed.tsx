@@ -29,8 +29,14 @@ const KIND_ICON: Record<ActivityKind, React.ComponentType<{ className?: string; 
   help_answer: CornerUpLeft,
 };
 
+// Messages longer than this get clamped with a show-more toggle.
+const LONG = 140;
+
 function HelpItem({ goal, onAnswer }: { goal: Goal; onAnswer: (goal: Goal, text: string) => void }) {
   const [text, setText] = useState('');
+  const [open, setOpen] = useState(false);
+  const question = goal.helpRequest?.question ?? '';
+  const long = question.length > LONG;
   const submit = () => {
     if (text.trim()) {
       onAnswer(goal, text.trim());
@@ -45,10 +51,15 @@ function HelpItem({ goal, onAnswer }: { goal: Goal; onAnswer: (goal: Goal, text:
           {goal.title}
         </span>
       </div>
-      <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
-        {goal.helpRequest?.question}
+      <p className={`text-sm ${open ? '' : 'line-clamp-3'}`} style={{ color: 'var(--text-secondary)' }}>
+        {question}
       </p>
-      <div className="flex gap-2">
+      {long && (
+        <button onClick={() => setOpen((v) => !v)} className="text-[11px] mt-0.5 mb-2" style={{ color: 'var(--warning)' }}>
+          {open ? 'Show less' : 'Show more'}
+        </button>
+      )}
+      <div className="flex gap-2 mt-2">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -69,6 +80,44 @@ function HelpItem({ goal, onAnswer }: { goal: Goal; onAnswer: (goal: Goal, text:
         </button>
       </div>
     </div>
+  );
+}
+
+function ActivityRow({ e }: { e: ActivityEvent }) {
+  const [open, setOpen] = useState(false);
+  const actor = activityActorMeta[e.actor];
+  const Icon = KIND_ICON[e.kind] ?? Activity;
+  const color = activityKindColor[e.kind] ?? 'var(--text-secondary)';
+  const long = e.message.length > LONG;
+
+  return (
+    <li className="flex items-start gap-2.5">
+      <span
+        className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
+        style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
+      >
+        <Icon className="w-3.5 h-3.5" style={{ color }} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p
+          className={`text-sm ${open ? '' : 'line-clamp-2'} ${long ? 'cursor-pointer' : ''}`}
+          onClick={() => long && setOpen((v) => !v)}
+        >
+          <span style={{ color: actor.color }}>
+            {actor.icon} {actor.label}
+          </span>
+          <span style={{ color: 'var(--text-secondary)' }}> · {e.message}</span>
+        </p>
+        {long && (
+          <button onClick={() => setOpen((v) => !v)} className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            {open ? 'Show less' : 'Show more'}
+          </button>
+        )}
+      </div>
+      <span className="text-[11px] flex-shrink-0 num" style={{ color: 'var(--text-tertiary)' }}>
+        {timeAgo(e.at)}
+      </span>
+    </li>
   );
 }
 
@@ -118,30 +167,9 @@ export default function GoalActivityFeed({
         </div>
       ) : (
         <ol className="space-y-2.5 max-h-80 overflow-y-auto">
-          {ordered.map((e) => {
-            const actor = activityActorMeta[e.actor];
-            const Icon = KIND_ICON[e.kind] ?? Activity;
-            const color = activityKindColor[e.kind] ?? 'var(--text-secondary)';
-            return (
-              <li key={e.id} className="flex items-start gap-2.5">
-                <span
-                  className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
-                >
-                  <Icon className="w-3.5 h-3.5" style={{ color }} />
-                </span>
-                <p className="min-w-0 flex-1 text-sm">
-                  <span style={{ color: actor.color }}>
-                    {actor.icon} {actor.label}
-                  </span>
-                  <span style={{ color: 'var(--text-secondary)' }}> · {e.message}</span>
-                </p>
-                <span className="text-[11px] flex-shrink-0 num" style={{ color: 'var(--text-tertiary)' }}>
-                  {timeAgo(e.at)}
-                </span>
-              </li>
-            );
-          })}
+          {ordered.map((e) => (
+            <ActivityRow key={e.id} e={e} />
+          ))}
         </ol>
       )}
     </div>
