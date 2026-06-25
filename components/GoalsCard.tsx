@@ -7,8 +7,8 @@ import type { ActionItem, Category, Goal, GoalsData, Phase } from '@/lib/goals/t
 import GoalBoard from './goals/GoalBoard';
 import GoalFocus from './goals/GoalFocus';
 import GoalInsights from './goals/GoalInsights';
-import { GoalEditModal, MilestonesModal, ConfirmDialog, Toast, type GoalFormValue, type ToastState } from './goals/GoalModals';
-import { allGoals } from './goals/shared';
+import { GoalEditModal, MilestonesModal, AgentModal, ConfirmDialog, Toast, type GoalFormValue, type ToastState } from './goals/GoalModals';
+import { allGoals, categoryLabels } from './goals/shared';
 
 type View = 'board' | 'focus' | 'insights';
 
@@ -35,6 +35,7 @@ export default function GoalsCard() {
 
   const [editState, setEditState] = useState<{ mode: 'create' | 'edit'; goal?: Goal } | null>(null);
   const [milestonesGoalId, setMilestonesGoalId] = useState<string | null>(null);
+  const [agentGoalId, setAgentGoalId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Goal | null>(null);
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -69,7 +70,9 @@ export default function GoalsCard() {
   const showToast = useCallback((message: string, type: ToastState['type'] = 'success', deletedGoal?: Goal) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ message, type, deletedGoal });
-    if (type !== 'undo') toastTimer.current = setTimeout(() => setToast(null), 4000);
+    // Undo toasts (e.g. "Goal deleted") linger longer so there's time to click
+    // Undo, but still auto-dismiss; other toasts clear quickly.
+    toastTimer.current = setTimeout(() => setToast(null), type === 'undo' ? 10000 : 4000);
   }, []);
   const dismissToast = useCallback(() => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -273,6 +276,30 @@ export default function GoalsCard() {
     }
   };
 
+  const moveSelectedToCategory = async (toCategory: Category) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const flat = allGoals(goals);
+    try {
+      for (const id of ids) {
+        const g = flat.find((x) => x.id === id);
+        if (g && g.category !== toCategory) {
+          await fetch('/api/goals', {
+            method: 'PATCH',
+            headers: JSON_HEADERS,
+            body: JSON.stringify({ goalId: id, fromCategory: g.category, toCategory }),
+          });
+        }
+      }
+      await fetchGoals();
+      setSelectedIds(new Set());
+      showToast(`Moved to ${categoryLabels[toCategory]}`);
+    } catch {
+      fetchGoals();
+      showToast('Failed to move', 'error');
+    }
+  };
+
   // ── Milestones (action items) ────────────────────────────────────────────────
   const milestonesGoal = milestonesGoalId ? allGoals(goals).find((g) => g.id === milestonesGoalId) ?? null : null;
 
@@ -313,6 +340,54 @@ export default function GoalsCard() {
     if (!milestonesGoal) return;
     persistActionItems(milestonesGoal, (milestonesGoal.actionItems ?? []).filter((i) => i.id !== id));
   };
+
+  // ── Claude agent handoff ─────────────────────────────────────────────────────
+  const agentGoal = agentGoalId ? allGoals(goals).find((g) => g.id === agentGoalId) ?? null : null;
+
+  const setAssignee = async (goal: Goal, assignee: 'me' | 'agent') => {
+    const snapshot = goals;
+    const updated = clone(goals);
+    const arr = updated[goal.category];
+    const idx = arr.findIndex((g) => g.id === goal.id);
+    if (idx > -1) {
+      arr[idx].assignee = assignee === 'agent' ? 'agent' : undefined;
+      if (assignee === 'agent') arr[idx].agentStatus = arr[idx].agentStatus ?? 'queued';
+      else delete arr[idx].agentStatus;
+      setGoals(updated);
+    }
+    try {
+      const res = await fetch('/api/goals', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ goalId: goal.id, category: goal.category, assignee }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGoals(data.data);
+        showToast(assignee === 'agent' ? 'Handed off to Claude' : 'Task recalled');
+      } else {
+        setGoals(snapshot);
+        showToast('Failed to update', 'error');
+      }
+    } catch {
+      setGoals(snapshot);
+      showToast('Failed to update', 'error');
+    }
+  };
+  const handoffToAgent = (goal: Goal) => setAssignee(goal, 'agent');
+  const recallFromAgent = (goal: Goal) => setAssignee(goal, 'me');
+
+  // Poll for agent progress (and external changes) while idle. Paused during
+  // editing / confirm dialogs / active selection so it can't disrupt those, but
+  // allowed while the Agent or Milestones modal is open so they update live.
+  const idle = !editState && !deleteConfirm && !bulkConfirm && selectedIds.size === 0;
+  useEffect(() => {
+    if (!idle) return;
+    const t = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') fetchGoals();
+    }, 15000);
+    return () => clearInterval(t);
+  }, [idle, fetchGoals]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   if (loading) {
@@ -384,6 +459,7 @@ export default function GoalsCard() {
           onReorder={reorder}
           onMovePhase={moveGoalPhase}
           onBulkDelete={() => setBulkConfirm(true)}
+          onMoveCategory={moveSelectedToCategory}
           onOpen={(g) => setEditState({ mode: 'edit', goal: g })}
           onAdvance={advance}
           onRevert={revert}
@@ -416,6 +492,10 @@ export default function GoalsCard() {
             setEditState(null);
             setMilestonesGoalId(g.id);
           }}
+          onOpenAgent={(g) => {
+            setEditState(null);
+            setAgentGoalId(g.id);
+          }}
         />
       )}
       {milestonesGoal && (
@@ -425,6 +505,18 @@ export default function GoalsCard() {
           onAdd={addMilestone}
           onToggle={toggleMilestone}
           onDelete={deleteMilestone}
+        />
+      )}
+      {agentGoal && (
+        <AgentModal
+          goal={agentGoal}
+          onClose={() => setAgentGoalId(null)}
+          onHandoff={handoffToAgent}
+          onRecall={recallFromAgent}
+          onOpenMilestones={(g) => {
+            setAgentGoalId(null);
+            setMilestonesGoalId(g.id);
+          }}
         />
       )}
       {deleteConfirm && (

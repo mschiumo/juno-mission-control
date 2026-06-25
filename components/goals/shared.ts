@@ -3,7 +3,7 @@
  * All colors reference the "Dark Precision" design tokens (app/globals.css),
  * never hardcoded hex, so the tab stays on-brand.
  */
-import type { Phase, Category, Source, Priority, Recurrence, Goal, GoalsData } from '@/lib/goals/types';
+import type { Phase, Category, Source, Priority, Recurrence, AgentStatus, Goal, GoalsData } from '@/lib/goals/types';
 import { getTodayInEST } from '@/lib/date-utils';
 
 // ── Label / color maps ──────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ export const categoryDescriptions: Record<Category, string> = {
   yearly: 'Long-term ambitions',
   weekly: 'This week’s targets',
   daily: 'Daily habits & tasks',
-  collaborative: 'Tasks with AI & subagents',
+  collaborative: 'Tasks you hand off to Claude agents',
 };
 
 export const CATEGORY_ORDER: Category[] = ['daily', 'weekly', 'yearly', 'collaborative'];
@@ -55,6 +55,13 @@ export const sourceMeta: Record<Source, { label: string; color: string; icon: st
   mj: { label: 'MJ', color: 'var(--accent-light)', icon: '👤' },
   ai: { label: 'AI', color: '#c084fc', icon: '🤖' },
   subagent: { label: 'Agent', color: 'var(--info)', icon: '⚡' },
+};
+
+export const agentStatusMeta: Record<AgentStatus, { label: string; color: string; pulse?: boolean }> = {
+  queued: { label: 'Queued', color: 'var(--text-secondary)' },
+  working: { label: 'Working', color: 'var(--info)', pulse: true },
+  blocked: { label: 'Blocked', color: 'var(--negative)' },
+  done: { label: 'Done', color: 'var(--positive)' },
 };
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
