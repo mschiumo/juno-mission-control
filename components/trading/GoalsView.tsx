@@ -64,7 +64,7 @@ function outcomeDisplay(outcome: GoalOutcome, direction: GoalDirection): { label
   const blue = { color: '#3B9EFF', bg: 'rgba(59,158,255,0.12)' };
   const amber = { color: '#F5A623', bg: 'rgba(245,166,35,0.12)' };
   const red = { color: '#FF3D57', bg: 'rgba(255,61,87,0.12)' };
-  const gray = { color: 'var(--text-tertiary)', bg: 'var(--surface-2)' };
+  const gray = { color: 'var(--text-secondary)', bg: 'var(--surface-2)' };
   switch (outcome) {
     case 'achieved':
       return { label: lte ? 'Held' : 'Achieved', ...green };
@@ -131,7 +131,7 @@ function PaceStats({ progress }: { progress: GoalProgress }) {
             className="rounded-lg px-2.5 py-1.5"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
           >
-            <div className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            <div className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-secondary)' }}>
               {c.label}
             </div>
             <div className="text-sm font-bold num" style={{ color: c.highlight ? 'var(--accent-light)' : 'var(--text-primary)' }}>
@@ -219,12 +219,12 @@ function GoalCard({
             </h3>
             <span
               className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded"
-              style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}
+              style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}
             >
               {GOAL_CATEGORY_LABELS[goal.category]}
             </span>
           </div>
-          <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+          <p className="text-[11px] mt-1" style={{ color: 'var(--text-secondary)' }}>
             {meta.label} · {fmtDate(goal.startDate)} – {fmtDate(goal.endDate)}
           </p>
         </div>
@@ -242,7 +242,7 @@ function GoalCard({
           <span className="text-xl font-bold num" style={{ color: 'var(--text-primary)' }}>
             {fmtValue(progress.unit, progress.current)}
           </span>
-          <span className="text-xs num" style={{ color: 'var(--text-tertiary)' }}>
+          <span className="text-xs num" style={{ color: 'var(--text-secondary)' }}>
             / {fmtValue(progress.unit, progress.target)}
             {lte ? ' limit' : ''}
           </span>
@@ -290,7 +290,7 @@ function GoalCard({
 
       {/* footer / actions */}
       <div className="mt-3 flex items-center justify-between">
-        <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+        <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
           {sampleLabel(goal.metric, progress.sampleSize)}
         </span>
         <div className="flex items-center gap-0.5">
@@ -396,7 +396,7 @@ export default function GoalsView() {
           <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
             Goals
           </h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             Profit targets, guardrails, and consistency — updated automatically from your trade history.
           </p>
         </div>
