@@ -235,7 +235,7 @@ export default function CreateGoalModal({ isOpen, onClose, onSaved, editingGoal 
             <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
               {isEdit ? 'Edit goal' : 'New goal'}
             </h2>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
               Tracked automatically from your trade history
             </p>
           </div>
@@ -287,7 +287,7 @@ export default function CreateGoalModal({ isOpen, onClose, onSaved, editingGoal 
                 </option>
               ))}
             </select>
-            <p className="text-[11px] mt-1.5 leading-snug" style={{ color: 'var(--text-tertiary)' }}>
+            <p className="text-[11px] mt-1.5 leading-snug" style={{ color: 'var(--text-secondary)' }}>
               {meta.description}
             </p>
           </Field>
@@ -299,7 +299,7 @@ export default function CreateGoalModal({ isOpen, onClose, onSaved, editingGoal 
               style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)' }}
             >
               {affix.prefix && (
-                <span className="pl-3 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                <span className="pl-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
                   {affix.prefix}
                 </span>
               )}
@@ -312,7 +312,7 @@ export default function CreateGoalModal({ isOpen, onClose, onSaved, editingGoal 
                 style={{ color: 'var(--text-primary)' }}
               />
               {affix.suffix && (
-                <span className="pr-3 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                <span className="pr-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
                   {affix.suffix}
                 </span>
               )}
@@ -373,7 +373,7 @@ export default function CreateGoalModal({ isOpen, onClose, onSaved, editingGoal 
                   Add a guardrail
                 </span>
               </label>
-              <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+              <p className="text-[11px] mt-1" style={{ color: 'var(--text-secondary)' }}>
                 Pair this goal with a discipline cap — it&apos;s only fully met if the cap holds too.
               </p>
               {guardrailOn && (
@@ -395,7 +395,7 @@ export default function CreateGoalModal({ isOpen, onClose, onSaved, editingGoal 
                     style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
                   >
                     {guardrailAffix.prefix && (
-                      <span className="pl-2.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      <span className="pl-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
                         {guardrailAffix.prefix}
                       </span>
                     )}
@@ -408,7 +408,7 @@ export default function CreateGoalModal({ isOpen, onClose, onSaved, editingGoal 
                       style={{ color: 'var(--text-primary)' }}
                     />
                     {guardrailAffix.suffix && (
-                      <span className="pr-2.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      <span className="pr-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
                         {guardrailAffix.suffix}
                       </span>
                     )}
@@ -467,7 +467,7 @@ export default function CreateGoalModal({ isOpen, onClose, onSaved, editingGoal 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[11px] font-medium uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
+      <label className="block text-[11px] font-medium uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-secondary)' }}>
         {label}
       </label>
       {children}
