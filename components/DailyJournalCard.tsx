@@ -5,7 +5,7 @@ import { Sparkles, ChevronLeft, ChevronRight, Flame, Check, Settings } from 'luc
 import { getTodayInEST } from '@/lib/date-utils';
 import {
   hasContent, moodOf, DEFAULT_TEXT_PROMPTS,
-  type JournalPrompt, type PromptDef,
+  type JournalPrompt, type PromptDef, type GoalReview,
 } from '@/lib/journal-prompts';
 import JournalReportModal from '@/components/JournalReportModal';
 import JournalEntryModal from '@/components/JournalEntryModal';
@@ -13,6 +13,7 @@ import ManagePromptsModal from '@/components/ManagePromptsModal';
 
 interface Entry {
   prompts: JournalPrompt[];
+  goalReviews?: GoalReview[];
   updatedAt: string;
 }
 
@@ -67,7 +68,7 @@ export default function DailyJournalCard() {
       const map: Record<string, Entry> = {};
       if (data.success) {
         for (const e of data.entries || []) {
-          map[e.date] = { prompts: e.prompts || [], updatedAt: e.updatedAt };
+          map[e.date] = { prompts: e.prompts || [], goalReviews: e.goalReviews || [], updatedAt: e.updatedAt };
         }
       }
       setEntries(map);
@@ -224,6 +225,7 @@ export default function DailyJournalCard() {
         <JournalEntryModal
           date={modalDate}
           initialPrompts={entries[modalDate]?.prompts || null}
+          initialGoalReviews={entries[modalDate]?.goalReviews || null}
           textPrompts={textPrompts}
           onClose={() => setModalDate(null)}
           onSaved={loadAll}

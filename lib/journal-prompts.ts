@@ -13,6 +13,17 @@ export interface PromptDef {
   question: string;
 }
 
+// A per-goal progress check-in captured at the end of the Daily Journal.
+// `madeProgress`: true = "Made progress", false = "No progress". `title` is a
+// snapshot of the goal's title at review time so past entries stay accurate even
+// if the goal is later renamed, completed, or deleted.
+export interface GoalReview {
+  goalId: string;
+  title: string;
+  madeProgress: boolean;
+  note?: string;
+}
+
 // Mood quick-pick — the chosen emoji becomes the day's badge in the weekly strip.
 export const MOODS = ['🤩', '😄', '🙂', '😌', '😐', '😕', '😫', '😴'];
 
