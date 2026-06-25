@@ -66,10 +66,29 @@ export default function JournalEntryModal({
   // so the Habits card reflects the change live.
   async function markJournalHabitDone() {
     try {
+      // Resolve the user's actual Journal habit. The id is NOT always 'journal':
+      // a user's habit list is persisted once and never re-seeded, so renamed or
+      // recreated habits carry generated ids (e.g. `habit_123`). Match the
+      // seeded id first, then fall back to a habit literally named "Journal".
+      const statusRes = await fetch('/api/habit-status');
+      const status = await statusRes.json();
+      const habits: Array<{ id: string; name?: string; completedToday?: boolean }> =
+        status?.data?.habits ?? [];
+      const journal =
+        habits.find((h) => h.id === 'journal') ??
+        habits.find((h) => h.name?.trim().toLowerCase() === 'journal');
+
+      if (!journal) return; // user has no Journal habit — nothing to sync
+      if (journal.completedToday) {
+        // Already done (e.g. re-saving an edit) — just make sure the card reflects it.
+        window.dispatchEvent(new CustomEvent('ct:habits-updated'));
+        return;
+      }
+
       const res = await fetch('/api/habit-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ habitId: 'journal', completed: true }),
+        body: JSON.stringify({ habitId: journal.id, completed: true }),
       });
       if (res.ok) window.dispatchEvent(new CustomEvent('ct:habits-updated'));
     } catch {
