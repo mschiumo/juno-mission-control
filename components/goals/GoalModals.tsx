@@ -21,7 +21,7 @@ import {
   Send,
   Target as TargetIcon,
 } from 'lucide-react';
-import type { ActionItem, Category, Goal, GoalTarget, Priority, Recurrence } from '@/lib/goals/types';
+import type { ActionItem, Category, Goal, Priority, Recurrence } from '@/lib/goals/types';
 import { categoryLabels, priorityMeta, agentStatusMeta } from './shared';
 
 // ── Shared field styling ──────────────────────────────────────────────────────
@@ -191,7 +191,6 @@ export interface GoalFormValue {
   priority?: Priority;
   dueDate?: string;
   recurrence: Recurrence;
-  target?: GoalTarget;
 }
 
 export function GoalEditModal({
@@ -217,10 +216,6 @@ export function GoalEditModal({
   const [priority, setPriority] = useState<Priority | 'none'>(goal?.priority ?? 'none');
   const [dueDate, setDueDate] = useState(goal?.dueDate?.slice(0, 10) ?? '');
   const [recurrence, setRecurrence] = useState<Recurrence>(goal?.recurrence ?? 'none');
-  const [hasTarget, setHasTarget] = useState(!!goal?.target);
-  const [targetCurrent, setTargetCurrent] = useState(String(goal?.target?.current ?? 0));
-  const [targetGoal, setTargetGoal] = useState(String(goal?.target?.target ?? ''));
-  const [targetUnit, setTargetUnit] = useState(goal?.target?.unit ?? '');
   const [saving, setSaving] = useState(false);
 
   const canSave = title.trim().length > 0 && !saving;
@@ -235,10 +230,6 @@ export function GoalEditModal({
       priority: priority === 'none' ? undefined : priority,
       dueDate: dueDate || undefined,
       recurrence,
-      target:
-        hasTarget && Number(targetGoal) > 0
-          ? { current: Number(targetCurrent) || 0, target: Number(targetGoal), unit: targetUnit.trim() || undefined }
-          : undefined,
     };
     try {
       await onSubmit(value);
@@ -355,77 +346,6 @@ export function GoalEditModal({
               { value: 'monthly', label: 'Monthly' },
             ]}
           />
-        </div>
-
-        {/* Numeric target */}
-        <div className="rounded-xl p-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-          <label className="flex items-center justify-between cursor-pointer">
-            <span className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              <TargetIcon className="w-4 h-4" style={{ color: 'var(--accent)' }} /> Track a number
-            </span>
-            <button
-              type="button"
-              onClick={() => setHasTarget((v) => !v)}
-              className="relative w-9 h-5 rounded-full transition-colors"
-              style={{ background: hasTarget ? 'var(--accent)' : 'var(--surface-3)' }}
-            >
-              <span
-                className="absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform"
-                style={{ transform: hasTarget ? 'translateX(18px)' : 'translateX(2px)' }}
-              />
-            </button>
-          </label>
-          <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-secondary)' }}>
-            Turn this goal into a counter (e.g. “Run 5&times; this week”). The card shows a current/target
-            progress bar, and recurring goals reset the count each period.
-          </p>
-          {hasTarget && (
-            <div className="grid grid-cols-3 gap-2 mt-3">
-              <div>
-                <label className="block text-[10px] mb-1" style={labelStyle}>
-                  Current
-                </label>
-                <input
-                  type="number"
-                  value={targetCurrent}
-                  onChange={(e) => setTargetCurrent(e.target.value)}
-                  className={fieldClass}
-                  style={fieldBase}
-                  onFocus={onFieldFocus}
-                  onBlur={onFieldBlur}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] mb-1" style={labelStyle}>
-                  Target
-                </label>
-                <input
-                  type="number"
-                  value={targetGoal}
-                  onChange={(e) => setTargetGoal(e.target.value)}
-                  placeholder="5"
-                  className={fieldClass}
-                  style={fieldBase}
-                  onFocus={onFieldFocus}
-                  onBlur={onFieldBlur}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] mb-1" style={labelStyle}>
-                  Unit
-                </label>
-                <input
-                  value={targetUnit}
-                  onChange={(e) => setTargetUnit(e.target.value)}
-                  placeholder="reps"
-                  className={fieldClass}
-                  style={fieldBase}
-                  onFocus={onFieldFocus}
-                  onBlur={onFieldBlur}
-                />
-              </div>
-            </div>
-          )}
         </div>
 
         <div>

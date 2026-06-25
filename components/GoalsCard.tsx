@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Target, Plus, Columns3, Crosshair, BarChart3, Loader2 } from 'lucide-react';
-import type { ActionItem, Category, Goal, GoalsData, Phase } from '@/lib/goals/types';
+import type { ActionItem, ActivityEvent, Category, Goal, GoalsData, Phase } from '@/lib/goals/types';
 import GoalBoard from './goals/GoalBoard';
 import GoalFocus from './goals/GoalFocus';
 import GoalInsights from './goals/GoalInsights';
+import GoalActivityFeed from './goals/GoalActivityFeed';
 import { GoalEditModal, MilestonesModal, AgentModal, ConfirmDialog, Toast, type GoalFormValue, type ToastState } from './goals/GoalModals';
 import { allGoals, categoryLabels } from './goals/shared';
 
@@ -41,6 +42,8 @@ export default function GoalsCard() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [toast, setToast] = useState<(ToastState & { deletedGoal?: Goal }) | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [activity, setActivity] = useState<ActivityEvent[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
 
   // ── URL <-> state sync ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -99,6 +102,21 @@ export default function GoalsCard() {
     fetchGoals();
   }, [fetchGoals]);
 
+  const fetchActivity = useCallback(async () => {
+    try {
+      const res = await fetch('/api/goals/activity');
+      const data = await res.json();
+      if (data.success) setActivity(data.events ?? []);
+    } catch (e) {
+      console.error('Failed to fetch activity:', e);
+    } finally {
+      setActivityLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    fetchActivity();
+  }, [fetchActivity]);
+
   // ── Mutations ──────────────────────────────────────────────────────────────────
   const handleEditSubmit = async (value: GoalFormValue) => {
     const editing = editState?.mode === 'edit' ? editState.goal : undefined;
@@ -114,7 +132,6 @@ export default function GoalsCard() {
               notes: value.notes ?? '',
               dueDate: value.dueDate ?? '',
               priority: value.priority ?? null,
-              target: value.target ?? null,
               recurrence: value.recurrence,
             }),
           })
@@ -127,7 +144,6 @@ export default function GoalsCard() {
               notes: value.notes,
               dueDate: value.dueDate,
               priority: value.priority,
-              target: value.target,
               recurrence: value.recurrence,
             }),
           });
@@ -364,6 +380,7 @@ export default function GoalsCard() {
       if (res.ok) {
         const data = await res.json();
         setGoals(data.data);
+        fetchActivity();
         showToast(assignee === 'agent' ? 'Handed off to Claude' : 'Task recalled');
       } else {
         setGoals(snapshot);
@@ -377,6 +394,29 @@ export default function GoalsCard() {
   const handoffToAgent = (goal: Goal) => setAssignee(goal, 'agent');
   const recallFromAgent = (goal: Goal) => setAssignee(goal, 'me');
 
+  const answerHelp = async (goal: Goal, text: string) => {
+    try {
+      const res = await fetch('/api/goals', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ goalId: goal.id, category: goal.category, helpAnswer: text }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGoals(data.data);
+        fetchActivity();
+        showToast('Reply sent to Claude');
+      } else {
+        showToast('Failed to send reply', 'error');
+      }
+    } catch {
+      showToast('Failed to send reply', 'error');
+    }
+  };
+
+  // Collaborative goals awaiting a reply from the owner.
+  const helpGoals = goals.collaborative.filter((g) => g.helpRequest && !g.helpRequest.answer);
+
   // Poll for agent progress (and external changes) while idle. Paused during
   // editing / confirm dialogs / active selection so it can't disrupt those, but
   // allowed while the Agent or Milestones modal is open so they update live.
@@ -384,10 +424,13 @@ export default function GoalsCard() {
   useEffect(() => {
     if (!idle) return;
     const t = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') fetchGoals();
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchGoals();
+        fetchActivity();
+      }
     }, 15000);
     return () => clearInterval(t);
-  }, [idle, fetchGoals]);
+  }, [idle, fetchGoals, fetchActivity]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   if (loading) {
@@ -479,6 +522,10 @@ export default function GoalsCard() {
         />
       )}
       {view === 'insights' && <GoalInsights goals={goals} />}
+
+      {view === 'board' && activeCategory === 'collaborative' && (
+        <GoalActivityFeed events={activity} helpGoals={helpGoals} onAnswer={answerHelp} loading={activityLoading} />
+      )}
 
       {/* Modals */}
       {editState && (

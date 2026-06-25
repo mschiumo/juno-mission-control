@@ -3,7 +3,7 @@
  * All colors reference the "Dark Precision" design tokens (app/globals.css),
  * never hardcoded hex, so the tab stays on-brand.
  */
-import type { Phase, Category, Source, Priority, Recurrence, AgentStatus, Goal, GoalsData } from '@/lib/goals/types';
+import type { Phase, Category, Source, Priority, Recurrence, AgentStatus, ActivityActor, ActivityKind, Goal, GoalsData } from '@/lib/goals/types';
 import { getTodayInEST } from '@/lib/date-utils';
 
 // ── Label / color maps ──────────────────────────────────────────────────────
@@ -63,6 +63,36 @@ export const agentStatusMeta: Record<AgentStatus, { label: string; color: string
   blocked: { label: 'Blocked', color: 'var(--negative)' },
   done: { label: 'Done', color: 'var(--positive)' },
 };
+
+export const activityActorMeta: Record<ActivityActor, { label: string; color: string; icon: string }> = {
+  mj: { label: 'You', color: 'var(--accent-light)', icon: '👤' },
+  claude: { label: 'Claude', color: '#c084fc', icon: '🤖' },
+};
+
+export const activityKindColor: Record<ActivityKind, string> = {
+  created: 'var(--text-secondary)',
+  updated: 'var(--text-secondary)',
+  handoff: 'var(--info)',
+  recall: 'var(--text-secondary)',
+  progress: 'var(--info)',
+  completed: 'var(--positive)',
+  reopened: 'var(--warning)',
+  blocked: 'var(--negative)',
+  help_request: 'var(--warning)',
+  help_answer: 'var(--accent)',
+};
+
+/** Short "time ago" for feed timestamps (e.g. "3m", "2h", "Jun 24"). */
+export function timeAgo(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const sec = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (sec < 60) return 'now';
+  if (sec < 3600) return `${Math.floor(sec / 60)}m`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h`;
+  if (sec < 604800) return `${Math.floor(sec / 86400)}d`;
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' });
+}
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
 

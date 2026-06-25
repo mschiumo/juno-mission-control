@@ -9,12 +9,20 @@ import {
   Category,
   Phase,
   Recurrence,
+  ActivityKind,
   CATEGORIES,
   goalsKey,
   goalsHistoryKey,
   isValidCategory,
   applyPhase,
 } from '@/lib/goals/types';
+import { appendActivity } from '@/lib/goals/activity';
+
+const PHASE_LABEL: Record<Phase, string> = {
+  'not-started': 'To Do',
+  'in-progress': 'In Progress',
+  achieved: 'Done',
+};
 
 // Default goals structure — seeds a brand-new owner account.
 const DEFAULT_GOALS: GoalsData = {
@@ -93,7 +101,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { goalId, newPhase, category, notes, aiAssisted, actionItems, title, dueDate, priority, target, recurrence, assignee, agentStatus } = body;
+    const { goalId, newPhase, category, notes, aiAssisted, actionItems, title, dueDate, priority, target, recurrence, assignee, agentStatus, helpAnswer } = body;
 
     if (!goalId || !category) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
@@ -148,7 +156,28 @@ export async function POST(request: NextRequest) {
     }
     if (agentStatus !== undefined) goal.agentStatus = agentStatus || undefined;
 
+    // Answer Claude's open help request → resolve it and unblock the agent.
+    if (typeof helpAnswer === 'string' && helpAnswer.trim() && goal.helpRequest) {
+      goal.helpRequest.answer = helpAnswer.trim();
+      goal.helpRequest.answeredAt = getNowInEST();
+      if (goal.agentStatus === 'blocked') goal.agentStatus = 'working';
+    }
+
     await redis.set(goalsKey(userId), JSON.stringify(goals));
+
+    // Collaborative activity feed (owner-side actions).
+    if (cat === 'collaborative') {
+      const t = goal.title;
+      let ev: { kind: ActivityKind; message: string } | null = null;
+      if (typeof helpAnswer === 'string' && helpAnswer.trim()) ev = { kind: 'help_answer', message: `Answered Claude on “${t}”` };
+      else if (assignee !== undefined) ev = assignee === 'agent' ? { kind: 'handoff', message: `Handed “${t}” to Claude` } : { kind: 'recall', message: `Recalled “${t}” from Claude` };
+      else if (newPhase === 'achieved') ev = { kind: 'completed', message: `Completed “${t}”` };
+      else if (newPhase) ev = { kind: newPhase === 'not-started' ? 'reopened' : 'updated', message: `Moved “${t}” to ${PHASE_LABEL[newPhase as Phase]}` };
+      else if (title !== undefined || notes !== undefined || priority !== undefined || dueDate !== undefined || target !== undefined || recurrence !== undefined)
+        ev = { kind: 'updated', message: `Updated “${t}”` };
+      if (ev) await appendActivity(redis, userId, { actor: 'mj', goalId, goalTitle: t, ...ev });
+    }
+
     return NextResponse.json({ success: true, data: goals, timestamp: getNowInEST() });
   } catch (err) {
     console.error('Goal update error:', err);
@@ -206,6 +235,17 @@ export async function PUT(request: NextRequest) {
 
     goals[finalCategory].push(newGoal);
     await redis.set(goalsKey(userId), JSON.stringify(goals));
+
+    if (finalCategory === 'collaborative') {
+      await appendActivity(redis, userId, {
+        actor: 'mj',
+        kind: 'created',
+        goalId: newGoal.id,
+        goalTitle: newGoal.title,
+        message: `Created “${newGoal.title}”`,
+      });
+    }
+
     return NextResponse.json({ success: true, data: goals, timestamp: getNowInEST() });
   } catch (err) {
     console.error('Goal create error:', err);

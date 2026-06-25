@@ -10,7 +10,12 @@
  *   GET  /api/goals/agent?status=queued   → the agent's task queue
  *   POST /api/goals/agent                 → report progress on one task
  *        body: { goalId, status?, log?, addActionItems?: string[],
- *                completeActionItem?: id, phase?, by? }
+ *                completeActionItem?: id, phase?, requestHelp?: string, by? }
+ *
+ * Set requestHelp to raise a clarifying question the agent can't resolve alone:
+ * the goal is marked blocked and the question appears in the Collaborative
+ * activity feed. Poll GET and read task.helpRequest.answer to resume once the
+ * owner replies.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
@@ -24,11 +29,13 @@ import {
   ActionItem,
   AgentStatus,
   AgentLogEntry,
+  ActivityKind,
   Phase,
   goalsKey,
   applyPhase,
   AGENT_LOG_CAP,
 } from '@/lib/goals/types';
+import { appendActivity } from '@/lib/goals/activity';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +79,7 @@ export async function GET(request: NextRequest) {
       dueDate: g.dueDate,
       assignedAt: g.assignedAt,
       actionItems: (g.actionItems ?? []).map((i) => ({ id: i.id, text: i.text, status: i.status })),
+      helpRequest: g.helpRequest, // read .answer to resume after the owner replies
     }));
 
   return NextResponse.json({ success: true, count: tasks.length, tasks, generatedAt: getNowInEST() });
@@ -131,15 +139,33 @@ export async function POST(request: NextRequest) {
   }
 
   // Append a progress-log line (capped).
-  if (typeof body.log === 'string' && body.log.trim()) {
-    const entry: AgentLogEntry = { at: nowEST, message: body.log.trim(), by };
+  const logText = typeof body.log === 'string' ? body.log.trim() : '';
+  if (logText) {
+    const entry: AgentLogEntry = { at: nowEST, message: logText, by };
     const arr = goal.agentLog ?? [];
     arr.push(entry);
     if (arr.length > AGENT_LOG_CAP) arr.splice(0, arr.length - AGENT_LOG_CAP);
     goal.agentLog = arr;
   }
 
+  // Raise a clarification the agent can't resolve alone → block + record the question.
+  const requestHelp = typeof body.requestHelp === 'string' ? body.requestHelp.trim() : '';
+  if (requestHelp) {
+    goal.helpRequest = { question: requestHelp, askedAt: nowEST };
+    goal.agentStatus = 'blocked';
+  }
+
   const redis = await getRedisClient();
   await redis.set(goalsKey(userId), JSON.stringify(goals));
+
+  // Collaborative activity feed (Claude-side action — one event per call).
+  const title = goal.title;
+  let ev: { kind: ActivityKind; message: string } | null = null;
+  if (requestHelp) ev = { kind: 'help_request', message: `Needs input on “${title}”: ${requestHelp}` };
+  else if (status === 'done') ev = { kind: 'completed', message: logText || `Completed “${title}”` };
+  else if (status === 'blocked') ev = { kind: 'blocked', message: `Blocked on “${title}”` };
+  else if (logText) ev = { kind: 'progress', message: logText };
+  if (ev) await appendActivity(redis, userId, { actor: 'claude', goalId, goalTitle: title, ...ev });
+
   return NextResponse.json({ success: true, goal });
 }

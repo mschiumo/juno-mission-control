@@ -21,6 +21,14 @@ export interface AgentLogEntry {
   by?: string; // optional agent / session label
 }
 
+/** A clarification Claude raises on a goal it can't finish alone (resolved once answered). */
+export interface HelpRequest {
+  question: string;
+  askedAt: string; // EST ISO
+  answer?: string;
+  answeredAt?: string;
+}
+
 export interface ActionItem {
   id: string;
   text: string;
@@ -71,6 +79,7 @@ export interface Goal {
   agentStatus?: AgentStatus; // agent-reported state
   agentLog?: AgentLogEntry[]; // progress timeline written by the agent (capped)
   assignedAt?: string; // EST ISO when handed off
+  helpRequest?: HelpRequest; // Claude's open question on this goal
 }
 
 export interface GoalsData {
@@ -99,12 +108,43 @@ export const HISTORY_CAP = 180;
 /** Max agent progress-log entries kept per collaborative goal. */
 export const AGENT_LOG_CAP = 50;
 
+// ── Collaborative activity feed (actions by MJ + Claude) ──
+export type ActivityActor = 'mj' | 'claude';
+export type ActivityKind =
+  | 'created'
+  | 'updated'
+  | 'handoff'
+  | 'recall'
+  | 'progress'
+  | 'completed'
+  | 'reopened'
+  | 'blocked'
+  | 'help_request'
+  | 'help_answer';
+
+export interface ActivityEvent {
+  id: string;
+  at: string; // EST ISO
+  actor: ActivityActor;
+  kind: ActivityKind;
+  goalId?: string;
+  goalTitle?: string;
+  message: string;
+}
+
+/** Max activity events retained (collaborative feed). */
+export const ACTIVITY_CAP = 100;
+
 export function goalsKey(userId: string): string {
   return `goals_data:${userId}`;
 }
 
 export function goalsHistoryKey(userId: string): string {
   return `goals_history:${userId}`;
+}
+
+export function goalsActivityKey(userId: string): string {
+  return `goals_activity:${userId}`;
 }
 
 export function isValidCategory(cat: string): cat is Category {
