@@ -61,6 +61,22 @@ export default function JournalEntryModal({
   const update = (id: string, answer: string) =>
     setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, answer } : p)));
 
+  // Submitting today's Daily Journal doubles as completing the "Journal" habit.
+  // Best-effort: never blocks (or fails) the journal save. Fires a refresh event
+  // so the Habits card reflects the change live.
+  async function markJournalHabitDone() {
+    try {
+      const res = await fetch('/api/habit-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ habitId: 'journal', completed: true }),
+      });
+      if (res.ok) window.dispatchEvent(new CustomEvent('ct:habits-updated'));
+    } catch {
+      /* habit sync is best-effort */
+    }
+  }
+
   async function save() {
     setSaving(true);
     try {
@@ -71,6 +87,7 @@ export default function JournalEntryModal({
       });
       const data = await res.json();
       if (data.success) {
+        if (isToday && hasContent(prompts)) await markJournalHabitDone();
         onSaved();
         onClose();
       }
