@@ -26,8 +26,10 @@ import {
   Square,
   FileText,
   MessageSquare,
-  Upload
+  Upload,
+  Link2
 } from 'lucide-react';
+import BrokerageConnectModal from './BrokerageConnectModal';
 import { getTodayInEST } from '@/lib/date-utils';
 
 // ============================================================================
@@ -176,6 +178,7 @@ export default function CombinedCalendarView() {
 
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showBrokerModal, setShowBrokerModal] = useState(false);
 
   // Fetch data on mount
   useEffect(() => {
@@ -561,6 +564,16 @@ export default function CombinedCalendarView() {
             </div>
           </div>
 
+          {/* Connect Broker Button */}
+          <button
+            onClick={() => setShowBrokerModal(true)}
+            className="hidden sm:flex items-center gap-2 px-3 py-2 bg-[#F97316] hover:bg-[#ea6c0a] text-white rounded-lg transition-colors font-medium text-sm"
+            title="Connect a brokerage to sync trades automatically"
+          >
+            <Link2 className="w-4 h-4" />
+            <span>Connect Broker</span>
+          </button>
+
           {/* Import Button */}
           <button
             data-tour="trading-import"
@@ -861,6 +874,14 @@ export default function CombinedCalendarView() {
                 )}
 
                 <button
+                  onClick={() => setShowBrokerModal(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-[#F97316]/20 hover:bg-[#F97316]/30 text-[#F97316] rounded-lg text-sm transition-colors"
+                >
+                  <Link2 className="w-4 h-4" />
+                  Connect Broker
+                </button>
+
+                <button
                   onClick={() => setShowImportModal(true)}
                   className="flex items-center gap-2 px-3 py-1.5 bg-[#238636]/20 hover:bg-[#238636]/30 text-[#3fb950] rounded-lg text-sm transition-colors"
                 >
@@ -1158,6 +1179,16 @@ export default function CombinedCalendarView() {
       {/* Import Modal */}
       {showImportModal && (
         <ImportModal onClose={() => setShowImportModal(false)} onSuccess={handleImportSuccess} />
+      )}
+      {/* Connect Brokerage Modal */}
+      {showBrokerModal && (
+        <BrokerageConnectModal
+          onClose={() => setShowBrokerModal(false)}
+          onOpenImport={() => {
+            setShowBrokerModal(false);
+            setShowImportModal(true);
+          }}
+        />
       )}
     </div>
   );

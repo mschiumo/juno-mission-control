@@ -7,9 +7,16 @@ import {
   Activity, Shield, ChevronRight, LogIn,
   Sparkles, Brain, Lightbulb, TrendingDown, Download,
   Bell, Newspaper, Sunrise, Star, SlidersHorizontal, Mail,
+  Link2, RefreshCw,
 } from 'lucide-react';
 
 const SUPPORT_EMAIL = 'confluencetradingsupport@gmail.com';
+
+/* ─── Supported brokerages (via SnapTrade) ─── */
+const BROKERS = [
+  'Robinhood', 'Charles Schwab', 'thinkorswim', 'Webull', 'Fidelity',
+  'E*TRADE', 'Interactive Brokers', 'Tastytrade', 'Coinbase', 'Vanguard',
+];
 
 /* ─── Candlestick data (pre-calculated, trending upward) ─── */
 const CANDLES = [
@@ -900,6 +907,68 @@ export default function LandingPage() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ CONNECT YOUR BROKERAGE ═══ */}
+      <section id="connect-broker" className="py-24 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Auto-Sync</p>
+            <h2 className="text-4xl font-bold text-white mb-4">Connect Your Brokerage</h2>
+            <p className="text-[#8b949e] max-w-2xl mx-auto">
+              Link your broker once and your fills flow straight into your Journal and Performance
+              analytics — no spreadsheets, no manual entry. A secure, read-only connection that never
+              touches your login or lets anyone trade on your behalf.
+            </p>
+          </div>
+
+          {/* Supported brokers */}
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
+            {BROKERS.map(b => (
+              <span
+                key={b}
+                className="px-4 py-2 rounded-xl border border-[#30363d] bg-[#161b22] text-sm text-[#c9d1d9] font-medium"
+              >
+                {b}
+              </span>
+            ))}
+            <span className="px-4 py-2 rounded-xl border border-[#30363d]/60 bg-transparent text-sm text-[#8b949e] font-medium">
+              + 20 more
+            </span>
+          </div>
+
+          {/* Value props */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                icon: Link2,
+                title: 'Connect in seconds',
+                desc: 'Pick your broker, log in on their secure portal, and you\'re done. We never see your credentials.',
+              },
+              {
+                icon: RefreshCw,
+                title: 'Trades sync automatically',
+                desc: 'Your executions import on their own and populate your Journal calendar and P&L analytics.',
+              },
+              {
+                icon: Download,
+                title: 'Or import a statement',
+                desc: 'Prefer to stay manual? Keep uploading CSV / Excel statements from ThinkOrSwim, IBKR, and more.',
+              },
+            ].map(card => (
+              <div
+                key={card.title}
+                className="p-6 rounded-2xl border border-[#30363d] bg-[#161b22] hover:border-[#F97316]/40 transition-colors duration-300"
+              >
+                <div className="mb-4 w-12 h-12 rounded-xl bg-[#F97316]/10 flex items-center justify-center">
+                  <card.icon className="w-6 h-6 text-[#F97316]" />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">{card.title}</h3>
+                <p className="text-sm text-[#8b949e] leading-relaxed">{card.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
