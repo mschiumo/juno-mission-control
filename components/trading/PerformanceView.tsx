@@ -27,6 +27,7 @@ import {
   Info,
 } from 'lucide-react';
 import JournalInsightsView from '@/components/trading/JournalInsightsView';
+import BrokerageSyncBar from '@/components/trading/BrokerageSyncBar';
 
 type Period = 'week' | 'month' | 'year' | 'all';
 
@@ -318,30 +319,37 @@ export default function PerformanceView() {
   const [editingBalance, setEditingBalance] = useState(false);
   const [allDailyBalances, setAllDailyBalances] = useState<DailyBalance[]>([]);
 
-  // Fetch trades, prefs, and daily balances in parallel
-  useEffect(() => {
+  // Fetch trades, prefs, and daily balances in parallel. Extracted so the
+  // brokerage sync bar can re-pull after a sync.
+  const loadData = useCallback(async () => {
     setLoading(true);
-    Promise.all([
-      fetch('/api/trades?userId=default&perPage=1000').then((r) => r.json()),
-      fetch('/api/user/prefs').then((r) => r.json()),
-      fetch('/api/user/daily-balances').then((r) => r.json()),
-    ])
-      .then(([tradesRes, prefsRes, balancesRes]) => {
-        if (tradesRes.success && tradesRes.data) {
-          setAllTrades(tradesRes.data.trades || []);
-        }
-        if (prefsRes.success && prefsRes.prefs) {
-          const bal = prefsRes.prefs.startingBalance || 0;
-          setStartingBalance(bal);
-          setBalanceInput(bal > 0 ? bal.toString() : '');
-        }
-        if (balancesRes.success && Array.isArray(balancesRes.balances)) {
-          setAllDailyBalances(balancesRes.balances);
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    try {
+      const [tradesRes, prefsRes, balancesRes] = await Promise.all([
+        fetch('/api/trades?userId=default&perPage=1000').then((r) => r.json()),
+        fetch('/api/user/prefs').then((r) => r.json()),
+        fetch('/api/user/daily-balances').then((r) => r.json()),
+      ]);
+      if (tradesRes.success && tradesRes.data) {
+        setAllTrades(tradesRes.data.trades || []);
+      }
+      if (prefsRes.success && prefsRes.prefs) {
+        const bal = prefsRes.prefs.startingBalance || 0;
+        setStartingBalance(bal);
+        setBalanceInput(bal > 0 ? bal.toString() : '');
+      }
+      if (balancesRes.success && Array.isArray(balancesRes.balances)) {
+        setAllDailyBalances(balancesRes.balances);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const saveBalance = useCallback((val: number) => {
     setStartingBalance(val);
@@ -471,6 +479,9 @@ export default function PerformanceView() {
 
   return (
     <div className="space-y-5">
+      {/* Brokerage connection + sync status (shared with the Journal tab) */}
+      <BrokerageSyncBar onSynced={loadData} />
+
       {/* Header with period selector */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>

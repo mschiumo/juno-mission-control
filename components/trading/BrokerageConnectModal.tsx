@@ -38,8 +38,8 @@ const SUPPORTED_BROKERS = [
 
 interface BrokerageConnectModalProps {
   onClose: () => void;
-  /** Switch the user over to the manual CSV/Excel import flow. */
-  onOpenImport: () => void;
+  /** Switch the user over to the manual CSV/Excel import flow. Omit to hide the option. */
+  onOpenImport?: () => void;
 }
 
 export default function BrokerageConnectModal({ onClose, onOpenImport }: BrokerageConnectModalProps) {
@@ -293,16 +293,18 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
               )}
             </button>
 
-            <div className="mt-4 pt-4 border-t border-[#30363d] flex items-center justify-between gap-3">
-              <span className="text-sm text-[#8b949e]">Prefer to import a statement?</span>
-              <button
-                onClick={onOpenImport}
-                className="flex items-center gap-2 text-sm text-[#F97316] hover:underline flex-shrink-0"
-              >
-                <Download className="w-4 h-4" />
-                Import CSV / Excel
-              </button>
-            </div>
+            {onOpenImport && (
+              <div className="mt-4 pt-4 border-t border-[#30363d] flex items-center justify-between gap-3">
+                <span className="text-sm text-[#8b949e]">Prefer to import a statement?</span>
+                <button
+                  onClick={onOpenImport}
+                  className="flex items-center gap-2 text-sm text-[#F97316] hover:underline flex-shrink-0"
+                >
+                  <Download className="w-4 h-4" />
+                  Import CSV / Excel
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
