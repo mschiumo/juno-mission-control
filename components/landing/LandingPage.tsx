@@ -6,8 +6,10 @@ import {
   Calendar, ArrowRight, CheckCircle, LineChart,
   Activity, Shield, ChevronRight, LogIn,
   Sparkles, Brain, Lightbulb, TrendingDown, Download,
-  Bell, Newspaper, Sunrise, Star, SlidersHorizontal,
+  Bell, Newspaper, Sunrise, Star, SlidersHorizontal, Mail,
 } from 'lucide-react';
+
+const SUPPORT_EMAIL = 'confluencetradingsupport@gmail.com';
 
 /* ─── Candlestick data (pre-calculated, trending upward) ─── */
 const CANDLES = [
@@ -190,6 +192,7 @@ export default function LandingPage() {
             <a href="#analytics"   className="text-sm text-[#8b949e] hover:text-white transition-colors">Analytics</a>
             <a href="#market-intel" className="text-sm text-[#8b949e] hover:text-white transition-colors">Market Intel</a>
             <a href="#how-it-works" className="text-sm text-[#8b949e] hover:text-white transition-colors">How It Works</a>
+            <a href="#contact" className="text-sm text-[#8b949e] hover:text-white transition-colors">Contact</a>
           </div>
 
           <div className="flex items-center gap-3">
@@ -1006,6 +1009,24 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ═══ CONTACT ═══ */}
+      <section id="contact" className="py-24 px-6 bg-[#161b22]/20">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Questions?</p>
+          <h2 className="text-4xl font-bold text-white mb-4">Get in Touch</h2>
+          <p className="text-[#8b949e] max-w-xl mx-auto mb-8">
+            Questions about terms, services, or anything else? Reach out and we&apos;ll get back to you.
+          </p>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#F97316] hover:bg-[#ea6c0a] text-white font-semibold rounded-xl transition-colors shadow-lg shadow-[#F97316]/20"
+          >
+            <Mail className="w-5 h-5" />
+            {SUPPORT_EMAIL}
+          </a>
+        </div>
+      </section>
+
       {/* ═══ FOOTER ═══ */}
       <footer className="border-t border-[#30363d] bg-[#161b22]">
         <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -1021,7 +1042,12 @@ export default function LandingPage() {
             <span className="text-sm font-semibold text-white">Confluence Trading</span>
             <span className="hidden sm:inline text-[#8b949e] text-sm">— Your disciplined trading command center</span>
           </div>
-          <p className="text-xs text-[#8b949e]">© {new Date().getFullYear()} Confluence Trading. All rights reserved.</p>
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-xs text-[#8b949e] hover:text-[#F97316] transition-colors">
+              {SUPPORT_EMAIL}
+            </a>
+            <p className="text-xs text-[#8b949e]">© {new Date().getFullYear()} Confluence Trading. All rights reserved.</p>
+          </div>
         </div>
       </footer>
 
