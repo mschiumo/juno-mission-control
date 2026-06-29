@@ -16,6 +16,7 @@
  */
 
 import { Snaptrade } from 'snaptrade-typescript-sdk';
+import type { SnapTradeActivity } from '@/lib/snaptrade-transform';
 
 let client: Snaptrade | null = null;
 
@@ -149,4 +150,50 @@ export async function getAccountActivities(params: {
     endDate: params.endDate,
   });
   return res.data;
+}
+
+/**
+ * Fetch ALL activities for an account, following pagination. Returns the flat
+ * list of activity objects (the transform layer filters to BUY/SELL).
+ */
+export async function getAllAccountActivities(params: {
+  snaptradeUserId: string;
+  userSecret: string;
+  accountId: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<SnapTradeActivity[]> {
+  const snaptrade = getSnapTradeClient();
+  const all: SnapTradeActivity[] = [];
+  const limit = 1000;
+  let offset = 0;
+
+  // Guard bounds the loop in case `total` is ever missing/inconsistent.
+  for (let guard = 0; guard < 100; guard++) {
+    const res = await snaptrade.accountInformation.getAccountActivities({
+      userId: params.snaptradeUserId,
+      userSecret: params.userSecret,
+      accountId: params.accountId,
+      startDate: params.startDate,
+      endDate: params.endDate,
+      offset,
+      limit,
+    });
+    const data = res.data as { data?: SnapTradeActivity[]; pagination?: { total?: number } };
+    const page = data?.data ?? [];
+    all.push(...page);
+    const total = data?.pagination?.total ?? all.length;
+    offset += page.length;
+    if (page.length === 0 || all.length >= total) break;
+  }
+  return all;
+}
+
+/** Count a user's brokerage authorizations (connections) — used to enforce limits. */
+export async function countConnections(params: {
+  snaptradeUserId: string;
+  userSecret: string;
+}): Promise<number> {
+  const conns = await listConnections(params);
+  return Array.isArray(conns) ? conns.length : 0;
 }

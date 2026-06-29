@@ -13,6 +13,12 @@
 
 import { getRedisClient } from '@/lib/redis';
 
+/**
+ * Max brokerage connections a single user may link. When at the limit, the user
+ * must disconnect/replace one before adding another.
+ */
+export const MAX_BROKER_CONNECTIONS = 2;
+
 export interface BrokerAccount {
   /** SnapTrade account id — stable, used as the sync key. */
   id: string;
@@ -97,6 +103,31 @@ export async function setLastSyncedAt(userId: string, isoTimestamp: string): Pro
   const existing = await getBrokerConnection(userId);
   if (!existing) return;
   await saveBrokerConnection({ ...existing, lastSyncedAt: isoTimestamp });
+}
+
+/**
+ * Enumerate every user's SnapTrade connection (for the cron sync). Uses SCAN so
+ * it stays safe as the user base grows.
+ */
+export async function getAllBrokerConnections(): Promise<BrokerConnection[]> {
+  const out: BrokerConnection[] = [];
+  try {
+    const redis = await getRedisClient();
+    for await (const key of redis.scanIterator({ MATCH: 'broker:snaptrade:*', COUNT: 100 })) {
+      const keyStr = Array.isArray(key) ? key[0] : key;
+      const data = await redis.get(keyStr);
+      if (!data) continue;
+      try {
+        const parsed = JSON.parse(data) as BrokerConnection;
+        out.push({ ...parsed, userSecret: getUserSecret(parsed.userSecret) });
+      } catch {
+        // skip malformed record
+      }
+    }
+  } catch (error) {
+    console.error('Error enumerating broker connections:', error);
+  }
+  return out;
 }
 
 /** Delete the user's SnapTrade connection record. */

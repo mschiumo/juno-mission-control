@@ -11,13 +11,17 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Link2, Download, CheckCircle } from 'lucide-react';
+import { Link2, Download, CheckCircle, RefreshCw } from 'lucide-react';
+
+// Keep in sync with MAX_BROKER_CONNECTIONS on the server.
+const MAX_ACCOUNTS = 2;
 
 interface BrokerAccount {
   id: string;
   brokerage: string;
   name: string;
   number?: string;
+  authorizationId?: string;
 }
 
 interface AccountsStatus {
@@ -44,6 +48,8 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
   const loadStatus = async () => {
     setLoadingStatus(true);
@@ -73,6 +79,11 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
         return;
       }
       const json = await res.json();
+      if (res.status === 409) {
+        // Hit the account limit — instruct the user to replace one.
+        setError(json.error || `You can connect up to ${MAX_ACCOUNTS} brokerage accounts.`);
+        return;
+      }
       if (json.success && json.url) {
         // Hand off to SnapTrade's secure Connection Portal.
         window.location.href = json.url;
@@ -86,6 +97,27 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
     }
   };
 
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await fetch('/api/snaptrade/sync', { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        const n = json.data?.tradesWritten ?? 0;
+        setSyncMsg(`Synced ${n} trade${n === 1 ? '' : 's'}. Refreshing…`);
+        // Let the Journal/Performance views pick up the new trades.
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        setSyncMsg(json.error || 'Sync failed. Please try again.');
+      }
+    } catch {
+      setSyncMsg('Sync failed. Please try again.');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleDisconnect = async () => {
     setConnecting(true);
     try {
@@ -96,7 +128,12 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
     }
   };
 
-  const isConnected = Boolean(status?.connected && (status?.accounts?.length ?? 0) > 0);
+  const accounts = status?.accounts ?? [];
+  const isConnected = Boolean(status?.connected && accounts.length > 0);
+  // Count distinct brokerage connections (one login can expose multiple accounts).
+  const connectionCount =
+    new Set(accounts.map(a => a.authorizationId).filter(Boolean)).size || accounts.length;
+  const atLimit = connectionCount >= MAX_ACCOUNTS;
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -116,8 +153,26 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
               Brokerage connected. Your trades sync into the Journal automatically.
             </div>
 
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-[#8b949e] uppercase tracking-wide">
+                {connectionCount} of {MAX_ACCOUNTS} brokerage accounts connected
+              </p>
+              <button
+                onClick={handleSync}
+                disabled={syncing || connecting}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing…' : 'Sync now'}
+              </button>
+            </div>
+
+            {syncMsg && (
+              <div className="p-3 rounded-lg bg-[#1f6feb]/15 text-[#58a6ff] text-sm">{syncMsg}</div>
+            )}
+
             <div className="space-y-2">
-              {status!.accounts.map(a => (
+              {accounts.map(a => (
                 <div
                   key={a.id}
                   className="flex items-center justify-between p-3 rounded-lg border border-[#30363d] bg-[#0d1117]"
@@ -138,14 +193,29 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
               </p>
             )}
 
+            {error && (
+              <div className="p-3 rounded-lg bg-[#da3633]/20 text-[#f85149] text-sm">{error}</div>
+            )}
+
+            {atLimit && (
+              <p className="text-xs text-[#8b949e]">
+                You&apos;ve reached the {MAX_ACCOUNTS}-account limit. To connect a different brokerage,
+                disconnect one below first.
+              </p>
+            )}
+
             <div className="flex justify-between items-center pt-2">
-              <button
-                onClick={handleConnect}
-                disabled={connecting}
-                className="text-sm text-[#F97316] hover:underline disabled:opacity-50"
-              >
-                + Connect another account
-              </button>
+              {atLimit ? (
+                <span className="text-sm text-[#8b949e]">Limit reached</span>
+              ) : (
+                <button
+                  onClick={handleConnect}
+                  disabled={connecting}
+                  className="text-sm text-[#F97316] hover:underline disabled:opacity-50"
+                >
+                  + Connect another account
+                </button>
+              )}
               <button
                 onClick={handleDisconnect}
                 disabled={connecting}

@@ -13,8 +13,13 @@ import {
   isSnapTradeConfigured,
   registerUser,
   generateConnectionPortalUrl,
+  countConnections,
 } from '@/lib/snaptrade';
-import { getBrokerConnection, saveBrokerConnection } from '@/lib/db/broker-connections';
+import {
+  getBrokerConnection,
+  saveBrokerConnection,
+  MAX_BROKER_CONNECTIONS,
+} from '@/lib/db/broker-connections';
 
 export async function POST(): Promise<NextResponse> {
   const { userId, error: authError } = await requireUserId();
@@ -42,6 +47,31 @@ export async function POST(): Promise<NextResponse> {
         connectedAt: new Date().toISOString(),
       };
       await saveBrokerConnection(connection);
+    } else {
+      // Existing user adding another brokerage — enforce the connection cap.
+      let connectionCount: number;
+      try {
+        connectionCount = await countConnections({
+          snaptradeUserId: connection.snaptradeUserId,
+          userSecret: connection.userSecret,
+        });
+      } catch {
+        // SnapTrade unreachable — fall back to distinct authorizations we've cached.
+        connectionCount = new Set(
+          connection.accounts.map(a => a.authorizationId).filter(Boolean)
+        ).size;
+      }
+      if (connectionCount >= MAX_BROKER_CONNECTIONS) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'LIMIT_REACHED',
+            limit: MAX_BROKER_CONNECTIONS,
+            error: `You can connect up to ${MAX_BROKER_CONNECTIONS} brokerage accounts. Disconnect one to add a different brokerage.`,
+          },
+          { status: 409 }
+        );
+      }
     }
 
     const customRedirect =
