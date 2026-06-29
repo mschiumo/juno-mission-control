@@ -45,12 +45,12 @@ function BrokerMark({ logo, name, mark, color }: { logo: string; name: string; m
     );
   }
   return (
-    <span className="w-7 h-7 rounded-lg bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
+    <span className="w-7 h-7 flex items-center justify-center flex-shrink-0">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={logo}
         alt={`${name} logo`}
-        className="w-5 h-5 object-contain"
+        className="w-6 h-6 object-contain"
         loading="lazy"
         onError={() => setFailed(true)}
       />
