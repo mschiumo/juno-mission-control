@@ -15,7 +15,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { Link2, RefreshCw, Plug } from 'lucide-react';
+import { isOwnerEmail } from '@/lib/owner';
 import BrokerageConnectModal from './BrokerageConnectModal';
 
 interface BrokerAccount {
@@ -52,6 +54,12 @@ function relativeTime(iso: string): string {
 }
 
 export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSyncBarProps) {
+  // Brokerage connections are owner-only (billing protection) — non-owner
+  // accounts only see the existing manual CSV import. The server enforces this
+  // on every /api/snaptrade/* route; this just hides the UI.
+  const { data: session } = useSession();
+  const isOwner = isOwnerEmail(session?.user?.email);
+
   const [status, setStatus] = useState<AccountsStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -71,8 +79,9 @@ export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSy
   }, []);
 
   useEffect(() => {
-    loadStatus();
-  }, [loadStatus]);
+    if (isOwner) loadStatus();
+    else setLoading(false);
+  }, [isOwner, loadStatus]);
 
   const handleRefresh = async () => {
     setSyncing(true);
@@ -95,8 +104,9 @@ export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSy
     }
   };
 
-  // Avoid layout flash before we know the connection state.
-  if (loading) return null;
+  // Owner-only feature; render nothing for every other account (they keep the
+  // manual CSV import). Also hides during the brief session-loading window.
+  if (!isOwner || loading) return null;
 
   const accounts = status?.accounts ?? [];
   const connected = Boolean(status?.connected && accounts.length > 0);

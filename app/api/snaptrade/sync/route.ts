@@ -7,13 +7,13 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireOwner } from '@/lib/auth-session';
 import { isSnapTradeConfigured } from '@/lib/snaptrade';
 import { getBrokerConnection } from '@/lib/db/broker-connections';
 import { syncUserTrades } from '@/lib/snaptrade-sync';
 
 export async function POST(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireOwner();
   if (authError) return authError;
 
   if (!isSnapTradeConfigured()) {

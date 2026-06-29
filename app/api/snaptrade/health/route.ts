@@ -7,11 +7,11 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireOwner } from '@/lib/auth-session';
 import { isSnapTradeConfigured, checkCredentials } from '@/lib/snaptrade';
 
 export async function GET(): Promise<NextResponse> {
-  const { error: authError } = await requireUserId();
+  const { error: authError } = await requireOwner();
   if (authError) return authError;
 
   const clientId = process.env.SNAPTRADE_CLIENT_ID;
