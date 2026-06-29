@@ -30,7 +30,8 @@ export const dynamic = 'force-dynamic';
  * Tickers seeded into Daily Favorites every weekday morning.
  * Edit this one line to change the set.
  */
-const SEED_TICKERS: string[] = ['SPY', 'FAC', 'NOW', 'QQQ', 'SPCX', 'BMNR', 'POET', 'QTEX', 'QBTS', 'TZA', 'NVD', 'EROC'];
+
+const SEED_TICKERS: string[] = ['SPY', 'FAC', 'NOW', 'QQQ', 'SPCX', 'BMNR', 'POET', 'QTEX', 'QBTS', 'TZA', 'NVD', 'EROC', 'SIDU'];
 
 // The account these favorites are seeded into. Resolved to a user id at runtime.
 const SEED_ACCOUNT_EMAIL = 'mschiumo18@gmail.com';
