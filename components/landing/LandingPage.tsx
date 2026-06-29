@@ -50,7 +50,7 @@ function BrokerMark({ logo, name, mark, color }: { logo: string; name: string; m
       <img
         src={logo}
         alt={`${name} logo`}
-        className="w-6 h-6 object-contain"
+        className="w-7 h-7 rounded-lg object-contain"
         loading="lazy"
         onError={() => setFailed(true)}
       />
