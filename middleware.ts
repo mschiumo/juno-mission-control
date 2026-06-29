@@ -66,7 +66,8 @@ export const config = {
     //     them sends the crawler to the login page and the share preview
     //     shows "no image found".
     //   robots.txt, sitemap.xml — public crawler conventions
-    //   *.svg — public SVG assets
-    '/((?!api/auth|_next/static|_next/image|favicon|opengraph-image|twitter-image|icon|apple-icon|robots\\.txt|sitemap\\.xml|.*\\.svg$).*)',
+    //   static image assets (svg/png/jpg/…) — must load without auth, e.g. the
+    //     broker logos in /public/brokers on the public landing page
+    '/((?!api/auth|_next/static|_next/image|favicon|opengraph-image|twitter-image|icon|apple-icon|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

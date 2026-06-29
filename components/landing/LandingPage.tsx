@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   TrendingUp, BarChart2, BookOpen, Target, Zap,
@@ -13,20 +14,49 @@ import {
 const SUPPORT_EMAIL = 'confluencetradingsupport@gmail.com';
 
 /* ─── Supported brokerages (via SnapTrade) ─── */
-// Brand-colored monogram marks (approx. official brand colors) — avoids
-// bundling/hotlinking trademarked logo assets while still being recognizable.
-const BROKERS: { name: string; mark: string; color: string }[] = [
-  { name: 'Robinhood', mark: 'R', color: '#00C805' },
-  { name: 'Charles Schwab', mark: 'S', color: '#009DDC' },
-  { name: 'thinkorswim', mark: 'to', color: '#E31837' },
-  { name: 'Fidelity', mark: 'F', color: '#368727' },
-  { name: 'Webull', mark: 'W', color: '#1F62FF' },
-  { name: 'E*TRADE', mark: 'E', color: '#6E2D91' },
-  { name: 'Interactive Brokers', mark: 'IB', color: '#D91F26' },
-  { name: 'Tastytrade', mark: 'tt', color: '#00A29B' },
-  { name: 'Coinbase', mark: 'C', color: '#0052FF' },
-  { name: 'Vanguard', mark: 'V', color: '#96151D' },
+// Real broker logos bundled in /public/brokers; `mark`/`color` are the
+// fallback monogram if a logo image ever fails to load.
+const BROKERS: { name: string; mark: string; color: string; logo: string }[] = [
+  { name: 'Robinhood', mark: 'R', color: '#00C805', logo: '/brokers/robinhood.png' },
+  { name: 'Charles Schwab', mark: 'S', color: '#009DDC', logo: '/brokers/schwab.png' },
+  { name: 'thinkorswim', mark: 'to', color: '#E31837', logo: '/brokers/thinkorswim.png' },
+  { name: 'Fidelity', mark: 'F', color: '#368727', logo: '/brokers/fidelity.png' },
+  { name: 'Webull', mark: 'W', color: '#1F62FF', logo: '/brokers/webull.png' },
+  { name: 'E*TRADE', mark: 'E', color: '#6E2D91', logo: '/brokers/etrade.png' },
+  { name: 'Interactive Brokers', mark: 'IB', color: '#D91F26', logo: '/brokers/interactive-brokers.png' },
+  { name: 'Tastytrade', mark: 'tt', color: '#00A29B', logo: '/brokers/tastytrade.png' },
+  { name: 'Coinbase', mark: 'C', color: '#0052FF', logo: '/brokers/coinbase.png' },
+  { name: 'Vanguard', mark: 'V', color: '#96151D', logo: '/brokers/vanguard.png' },
 ];
+
+// Renders a broker's real logo on a white tile, falling back to a brand-colored
+// monogram if the image fails to load.
+function BrokerMark({ logo, name, mark, color }: { logo: string; name: string; mark: string; color: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <span
+        className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold text-white tracking-tight flex-shrink-0"
+        style={{ backgroundColor: color }}
+        aria-hidden="true"
+      >
+        {mark}
+      </span>
+    );
+  }
+  return (
+    <span className="w-7 h-7 rounded-lg bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={logo}
+        alt={`${name} logo`}
+        className="w-5 h-5 object-contain"
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </span>
+  );
+}
 
 /* ─── Candlestick data (pre-calculated, trending upward) ─── */
 const CANDLES = [
@@ -941,13 +971,7 @@ export default function LandingPage() {
                 key={b.name}
                 className="flex items-center gap-2.5 pl-2 pr-4 py-2 rounded-xl border border-[#30363d] bg-[#161b22] text-sm text-[#c9d1d9] font-medium hover:border-[#F97316]/40 transition-colors"
               >
-                <span
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold text-white tracking-tight"
-                  style={{ backgroundColor: b.color }}
-                  aria-hidden="true"
-                >
-                  {b.mark}
-                </span>
+                <BrokerMark logo={b.logo} name={b.name} mark={b.mark} color={b.color} />
                 {b.name}
               </span>
             ))}
