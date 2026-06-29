@@ -27,6 +27,8 @@ export async function GET(): Promise<NextResponse> {
     configured,
     clientIdLength: clientId?.length ?? 0,
     consumerKeyLength: consumerKey?.length ?? 0,
+    // Names only (never values) — reveals a typo'd variable name instantly.
+    snaptradeEnvVarNames: Object.keys(process.env).filter(k => k.startsWith('SNAPTRADE')).sort(),
   };
 
   if (configured) {
