@@ -68,6 +68,23 @@ export async function registerUser(
   return { userId, userSecret };
 }
 
+/**
+ * Validate the partner credentials by making a lightweight authenticated call
+ * (listSnapTradeUsers needs only clientId + consumerKey). Distinguishes
+ * "vars missing" from "vars present but wrong/swapped".
+ */
+export async function checkCredentials(): Promise<{ valid: boolean; error?: string }> {
+  try {
+    const snaptrade = getSnapTradeClient();
+    await snaptrade.authentication.listSnapTradeUsers();
+    return { valid: true };
+  } catch (error) {
+    const raw = error instanceof Error ? error.message : String(error);
+    // Surface a short, non-sensitive reason (never echoes the keys).
+    return { valid: false, error: raw.slice(0, 200) };
+  }
+}
+
 /** Permanently deregister a user and disable all their brokerage links. */
 export async function deleteUser(snaptradeUserId: string): Promise<void> {
   const snaptrade = getSnapTradeClient();
