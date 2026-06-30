@@ -20,7 +20,8 @@ export interface PromptDef {
 export interface GoalReview {
   goalId: string;
   title: string;
-  madeProgress: boolean;
+  // true = made progress, false = no progress, null = neutral / N/A
+  madeProgress: boolean | null;
   note?: string;
 }
 
