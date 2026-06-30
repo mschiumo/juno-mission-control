@@ -86,12 +86,18 @@ export async function POST(): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, url });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const responseBody = (error as any)?.response?.data ?? null;
+    const e = error as any;
+    const detail = e instanceof Error ? e.message : String(e);
+    // Dump all top-level keys so we can find where the SDK hides the response body.
+    const errorKeys = e != null ? Object.getOwnPropertyNames(e) : [];
+    const errorDump: Record<string, unknown> = {};
+    for (const k of errorKeys) {
+      try { errorDump[k] = k === 'message' ? undefined : e[k]; } catch { /* skip */ }
+    }
     console.error('SnapTrade connect error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to start brokerage connection', detail, responseBody },
+      { success: false, error: 'Failed to start brokerage connection', detail, errorDump },
       { status: 500 }
     );
   }
