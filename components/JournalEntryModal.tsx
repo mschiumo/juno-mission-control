@@ -309,9 +309,18 @@ export default function JournalEntryModal({
                 <p className="text-xs font-medium text-[#F97316] mb-2 flex items-center gap-1.5">
                   <Target className="w-3.5 h-3.5" /> Goals Reviewed
                 </p>
-                <div className="space-y-2.5 pl-3 border-l-2 border-[#F97316]/30">
+                <div className="grid grid-cols-2 gap-2">
                   {viewReviews.map((r) => (
-                    <div key={r.goalId} className="flex items-start gap-2">
+                    <div
+                      key={r.goalId}
+                      className={`flex items-start gap-2 p-2.5 rounded-lg border ${
+                        r.madeProgress === true
+                          ? 'bg-[#3fb950]/5 border-[#3fb950]/20'
+                          : r.madeProgress === false
+                            ? 'bg-[#f85149]/5 border-[#f85149]/20'
+                            : 'bg-[#8b949e]/5 border-[#8b949e]/15'
+                      }`}
+                    >
                       <span
                         className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center ${
                           r.madeProgress === true
@@ -330,20 +339,9 @@ export default function JournalEntryModal({
                         )}
                       </span>
                       <div className="min-w-0">
-                        <p className="text-sm text-[#c9d1d9]">{r.title}</p>
-                        <p
-                          className={`text-[11px] font-medium ${
-                            r.madeProgress === true
-                              ? 'text-[#3fb950]'
-                              : r.madeProgress === false
-                                ? 'text-[#f85149]'
-                                : 'text-[#8b949e]'
-                          }`}
-                        >
-                          {r.madeProgress === true ? 'Made progress' : r.madeProgress === false ? 'No progress' : 'Neutral'}
-                        </p>
+                        <p className="text-xs font-medium text-[#c9d1d9] leading-snug">{r.title}</p>
                         {r.note && (
-                          <p className="text-xs text-[#8b949e] mt-0.5 whitespace-pre-wrap leading-relaxed">{r.note}</p>
+                          <p className="text-[11px] text-[#8b949e] mt-0.5 leading-relaxed">{r.note}</p>
                         )}
                       </div>
                     </div>
