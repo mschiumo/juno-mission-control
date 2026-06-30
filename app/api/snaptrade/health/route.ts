@@ -3,7 +3,7 @@ import { requireOwner } from '@/lib/auth-session';
 
 export async function GET() {
   const ownerCheck = await requireOwner();
-  if (ownerCheck) return ownerCheck;
+  if ('error' in ownerCheck) return ownerCheck.error;
 
   const clientId = process.env.SNAPTRADE_CLIENT_ID ?? '';
   const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY ?? '';
