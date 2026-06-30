@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Loader2, Trash2, Pencil, Target, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Loader2, Trash2, Pencil, Target, Check, Minus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
 import {
   MOODS, buildEntryPrompts, hasContent, moodOf, sleepOf,
@@ -19,8 +19,9 @@ function longLabel(date: string): string {
 
 // Minimal shape we need from a daily goal to review it.
 type GoalLite = { id: string; title: string };
-// In-flight answer for one goal card. madeProgress: null until the user picks.
-type ReviewAnswer = { madeProgress: boolean | null; note: string };
+// In-flight answer for one goal card.
+// madeProgress: undefined = not yet picked, null = neutral, true/false = explicit answer.
+type ReviewAnswer = { madeProgress: boolean | null | undefined; note: string };
 
 export default function JournalEntryModal({
   date,
@@ -109,13 +110,13 @@ export default function JournalEntryModal({
   const setReview = (goalId: string, patch: Partial<ReviewAnswer>) =>
     setReviews((prev) => ({
       ...prev,
-      [goalId]: { madeProgress: prev[goalId]?.madeProgress ?? null, note: prev[goalId]?.note ?? '', ...patch },
+      [goalId]: { madeProgress: prev[goalId]?.madeProgress, note: prev[goalId]?.note ?? '', ...patch },
     }));
 
   // The goals that gate today's submit.
   const reviewGoals = isToday ? goals ?? [] : [];
   const goalsLoading = isToday && goals === null;
-  const answeredCount = reviewGoals.filter((g) => reviews[g.id]?.madeProgress != null).length;
+  const answeredCount = reviewGoals.filter((g) => reviews[g.id]?.madeProgress !== undefined).length;
 
   // Snapshot the answers for persistence. When there's nothing to review, keep
   // whatever was already stored so an edit doesn't wipe past reviews.
@@ -127,7 +128,7 @@ export default function JournalEntryModal({
       return {
         goalId: g.id,
         title: g.title,
-        madeProgress: r?.madeProgress === true,
+        madeProgress: r?.madeProgress ?? null,
         ...(note ? { note } : {}),
       };
     });
@@ -229,7 +230,7 @@ export default function JournalEntryModal({
 
   const currentGoal = reviewGoals[goalIdx];
   const currentAnswer = currentGoal ? reviews[currentGoal.id] : undefined;
-  const currentAnswered = currentAnswer?.madeProgress != null;
+  const currentAnswered = currentAnswer?.madeProgress !== undefined;
   const isLastGoal = goalIdx === reviewGoals.length - 1;
 
   return createPortal(
@@ -238,7 +239,7 @@ export default function JournalEntryModal({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl flex flex-col">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-[#161b22] border-b border-[#30363d] px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -313,23 +314,33 @@ export default function JournalEntryModal({
                     <div key={r.goalId} className="flex items-start gap-2">
                       <span
                         className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center ${
-                          r.madeProgress ? 'bg-[#3fb950]/20 text-[#3fb950]' : 'bg-[#f85149]/20 text-[#f85149]'
+                          r.madeProgress === true
+                            ? 'bg-[#3fb950]/20 text-[#3fb950]'
+                            : r.madeProgress === false
+                              ? 'bg-[#f85149]/20 text-[#f85149]'
+                              : 'bg-[#8b949e]/20 text-[#8b949e]'
                         }`}
                       >
-                        {r.madeProgress ? (
+                        {r.madeProgress === true ? (
                           <Check className="w-3 h-3" strokeWidth={3} />
-                        ) : (
+                        ) : r.madeProgress === false ? (
                           <X className="w-3 h-3" strokeWidth={3} />
+                        ) : (
+                          <Minus className="w-3 h-3" strokeWidth={3} />
                         )}
                       </span>
                       <div className="min-w-0">
                         <p className="text-sm text-[#c9d1d9]">{r.title}</p>
                         <p
                           className={`text-[11px] font-medium ${
-                            r.madeProgress ? 'text-[#3fb950]' : 'text-[#f85149]'
+                            r.madeProgress === true
+                              ? 'text-[#3fb950]'
+                              : r.madeProgress === false
+                                ? 'text-[#f85149]'
+                                : 'text-[#8b949e]'
                           }`}
                         >
-                          {r.madeProgress ? 'Made progress' : 'No progress'}
+                          {r.madeProgress === true ? 'Made progress' : r.madeProgress === false ? 'No progress' : 'Neutral'}
                         </p>
                         {r.note && (
                           <p className="text-xs text-[#8b949e] mt-0.5 whitespace-pre-wrap leading-relaxed">{r.note}</p>
@@ -371,7 +382,7 @@ export default function JournalEntryModal({
             {currentGoal && (
               <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-4">
                 <p className="text-base font-medium text-white mb-4 leading-snug">{currentGoal.title}</p>
-                <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="grid grid-cols-3 gap-2 mb-3">
                   <button
                     onClick={() => setReview(currentGoal.id, { madeProgress: true })}
                     className={`flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
@@ -381,7 +392,18 @@ export default function JournalEntryModal({
                     }`}
                   >
                     <Check className="w-4 h-4" strokeWidth={2.5} />
-                    Made progress
+                    Progress
+                  </button>
+                  <button
+                    onClick={() => setReview(currentGoal.id, { madeProgress: null })}
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                      currentAnswer?.madeProgress === null
+                        ? 'bg-[#8b949e]/15 ring-1 ring-[#8b949e] text-[#c9d1d9]'
+                        : 'bg-[#161b22] border border-[#30363d] text-[#8b949e] hover:border-[#8b949e]/40 hover:text-[#c9d1d9]'
+                    }`}
+                  >
+                    <Minus className="w-4 h-4" strokeWidth={2.5} />
+                    Neutral
                   </button>
                   <button
                     onClick={() => setReview(currentGoal.id, { madeProgress: false })}
