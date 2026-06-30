@@ -137,7 +137,7 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-xl p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl p-8 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             <Link2 className="w-5 h-5 text-[#F97316]" />
