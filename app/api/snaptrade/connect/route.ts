@@ -87,9 +87,11 @@ export async function POST(): Promise<NextResponse> {
     return NextResponse.json({ success: true, url });
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const responseBody = (error as any)?.response?.data ?? null;
     console.error('SnapTrade connect error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to start brokerage connection', detail },
+      { success: false, error: 'Failed to start brokerage connection', detail, responseBody },
       { status: 500 }
     );
   }
