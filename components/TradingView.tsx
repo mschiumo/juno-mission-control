@@ -45,6 +45,7 @@ export default function TradingView() {
   }, [searchParams]);
 
   const [activeSubTab, setActiveSubTabState] = useState<TradingSubTab>(getSubTabFromUrl);
+  const [importKey, setImportKey] = useState(0);
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [showBriefingModal, setShowBriefingModal] = useState(false);
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
@@ -169,7 +170,7 @@ export default function TradingView() {
       </div>
 
       {/* Content */}
-      {activeSubTab === 'overview' && <CombinedCalendarView />}
+      {activeSubTab === 'overview' && <CombinedCalendarView onImportSuccess={() => setImportKey((k) => k + 1)} />}
 
       {activeSubTab === 'trade-management' && <TradeManagementView />}
 
@@ -189,9 +190,9 @@ export default function TradingView() {
 
       {activeSubTab === 'market-news' && <NewsScreenerCard />}
 
-      {activeSubTab === 'performance' && <PerformanceView />}
+      {activeSubTab === 'performance' && <PerformanceView refreshKey={importKey} />}
 
-      {activeSubTab === 'goals' && <GoalsView />}
+      {activeSubTab === 'goals' && <GoalsView refreshKey={importKey} />}
 
       {activeSubTab === 'projection' && (
         <div data-tour="profit-projection">

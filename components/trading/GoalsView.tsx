@@ -333,7 +333,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 /* ----------------------------- main view ----------------------------- */
 
-export default function GoalsView() {
+export default function GoalsView({ refreshKey }: { refreshKey?: number }) {
   const [goals, setGoals] = useState<GoalWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -353,7 +353,7 @@ export default function GoalsView() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   const openCreate = () => {
     setEditing(null);

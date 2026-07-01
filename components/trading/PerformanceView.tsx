@@ -310,7 +310,7 @@ function DayOfWeekTooltip({ active, payload }: { active?: boolean; payload?: Arr
 
 /* ----------- Main Component ----------- */
 
-export default function PerformanceView() {
+export default function PerformanceView({ refreshKey }: { refreshKey?: number }) {
   const [period, setPeriod] = useState<Period>('all');
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -349,7 +349,7 @@ export default function PerformanceView() {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, refreshKey]);
 
   const saveBalance = useCallback((val: number) => {
     setStartingBalance(val);
