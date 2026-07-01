@@ -105,7 +105,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       try {
         const redis = await getRedisClient();
         const now = new Date().toISOString();
-        const tradeDates = [...new Set(result.trades.map((t) => t.date))];
+        const tradeDates = [...new Set(result.trades.map((t) => t.entryDate.slice(0, 10)))];
         for (const date of tradeDates) {
           const key = `daily-journal:${userId}:${date}`;
           const existing = await redis.hGetAll(key);
