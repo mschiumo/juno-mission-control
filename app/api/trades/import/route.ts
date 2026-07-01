@@ -99,6 +99,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await saveTradesReplacingByDate(result.trades, userId);
     }
 
+    // Backfill empty daily-journal stubs for each imported trading date so
+    // those days appear as "journaled" on the calendar (user can fill in notes).
+    if (result.trades.length > 0) {
+      try {
+        const redis = await getRedisClient();
+        const now = new Date().toISOString();
+        const tradeDates = [...new Set(result.trades.map((t) => t.date))];
+        for (const date of tradeDates) {
+          const key = `daily-journal:${userId}:${date}`;
+          const existing = await redis.hGetAll(key);
+          if (!existing.id) {
+            await redis.hSet(key, {
+              id: key,
+              date,
+              prompts: '[]',
+              createdAt: now,
+              updatedAt: now,
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to backfill daily-journal stubs from import:', e);
+      }
+    }
+
     // Persist starting balance from account statement if available. Only
     // overwrite when the new file's anchor is *earlier* than what's stored —
     // daily uploads shouldn't keep ratcheting the baseline forward and
