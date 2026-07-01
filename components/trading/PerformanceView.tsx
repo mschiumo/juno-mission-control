@@ -404,7 +404,7 @@ export default function PerformanceView() {
       };
       const baselineCumPnL = tradePnlBefore(filteredBalances[0].date);
 
-      return filteredBalances.map(({ date, balance }) => {
+      const curve = filteredBalances.map(({ date, balance }) => {
         const dt = new Date(date + 'T12:00:00');
         // cumPnL in the visible window: balance delta from the period anchor.
         // This stays consistent with trade-based P&L when no deposits happen.
@@ -416,6 +416,25 @@ export default function PerformanceView() {
           nlv: Number(balance.toFixed(2)),
         };
       });
+
+      // If Trade Activity files were imported after the last Account Statement,
+      // there will be trades with dates beyond the last stored balance. Append a
+      // synthetic point so the curve and currentNLV reflect those realized gains/losses.
+      const lastBalanceDate = filteredBalances[filteredBalances.length - 1].date;
+      const lastBalance = filteredBalances[filteredBalances.length - 1].balance;
+      let postPnL = 0;
+      for (const [d, p] of pnlByDay) if (d > lastBalanceDate) postPnL += p;
+      if (postPnL !== 0) {
+        const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        curve.push({
+          date: 'today',
+          label: today,
+          cumPnL: Number((curve[curve.length - 1].cumPnL + postPnL).toFixed(2)),
+          nlv: Number((lastBalance + postPnL).toFixed(2)),
+        });
+      }
+
+      return curve;
     }
 
     // Fallback: derive NLV from starting balance + cumulative trade P&L
