@@ -45,11 +45,11 @@ export default function TradingView() {
   }, [searchParams]);
 
   const [activeSubTab, setActiveSubTabState] = useState<TradingSubTab>(getSubTabFromUrl);
+  const [importKey, setImportKey] = useState(0);
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [showBriefingModal, setShowBriefingModal] = useState(false);
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
-  const [importKey, setImportKey] = useState(0);
 
   useEffect(() => {
     fetch('/api/user/prefs')
