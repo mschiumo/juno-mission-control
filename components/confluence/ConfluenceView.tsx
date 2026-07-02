@@ -10,8 +10,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Inbox, Activity, ScrollText, SlidersHorizontal, Sparkles, FlaskConical } from 'lucide-react';
-import type { AuditEvent, ExecutionOrder, Proposal, SystemState } from '@/types/confluence';
+import { Inbox, Activity, ScrollText, SlidersHorizontal, Sparkles, FlaskConical, Play } from 'lucide-react';
+import type { AgentRun, AuditEvent, ExecutionOrder, Proposal, SystemState } from '@/types/confluence';
 import ProposalCard, { type EditState } from './ProposalCard';
 import OrdersMonitor from './OrdersMonitor';
 import AuditLog from './AuditLog';
@@ -32,22 +32,25 @@ export default function ConfluenceView() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [orders, setOrders] = useState<ExecutionOrder[]>([]);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
+  const [runs, setRuns] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<{ kind: 'error' | 'ok'; msg: string } | null>(null);
 
   const loadAll = useCallback(async () => {
     try {
-      const [s, p, o, a] = await Promise.all([
+      const [s, p, o, a, r] = await Promise.all([
         fetch('/api/confluence/system').then((r) => r.json()),
         fetch('/api/confluence/proposals').then((r) => r.json()),
         fetch('/api/confluence/orders').then((r) => r.json()),
         fetch('/api/confluence/audit').then((r) => r.json()),
+        fetch('/api/confluence/runs').then((r) => r.json()),
       ]);
       if (s.success) setState(s.state);
       if (p.success) setProposals(p.proposals);
       if (o.success) setOrders(o.orders);
       if (a.success) setAudit(a.events);
+      if (r.success) setRuns(r.runs);
     } catch (e) {
       console.error('Failed to load ConfluenceTrading data:', e);
       setBanner({ kind: 'error', msg: 'Failed to load data.' });
@@ -164,6 +167,28 @@ export default function ConfluenceView() {
     }
   }, [loadAll]);
 
+  const handleRunAgent = useCallback(async () => {
+    setBusy(true);
+    setBanner(null);
+    try {
+      const res = await fetch('/api/confluence/runs', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        const n = data.run?.proposalsGenerated ?? 0;
+        setBanner({ kind: 'ok', msg: `Agent run complete — ${n} new proposal${n === 1 ? '' : 's'}${data.expired ? `, ${data.expired} expired` : ''}.` });
+      } else {
+        setBanner({ kind: 'error', msg: data.error || 'Agent run failed.' });
+      }
+    } catch {
+      setBanner({ kind: 'error', msg: 'Agent run request failed.' });
+    } finally {
+      setBusy(false);
+      await loadAll();
+    }
+  }, [loadAll]);
+
+  const lastRun = runs[0];
+
   if (loading) {
     return <div className="p-8 text-center" style={{ color: 'var(--text-tertiary)' }}>Loading agents…</div>;
   }
@@ -238,13 +263,30 @@ export default function ConfluenceView() {
       {/* Panels */}
       {subTab === 'queue' && (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-              {pending.length} pending {pending.length === 1 ? 'proposal' : 'proposals'}
-            </span>
-            <button className="btn-ghost text-xs px-2.5 py-1.5 disabled:opacity-50" onClick={handleSeed} disabled={busy}>
-              + Seed demo proposals
-            </button>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex flex-col">
+              <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+                {pending.length} pending {pending.length === 1 ? 'proposal' : 'proposals'}
+              </span>
+              {lastRun && (
+                <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                  Last run {new Date(lastRun.startedAt).toLocaleString()} · {lastRun.cadence} · {lastRun.proposalsGenerated} proposed · {lastRun.status}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className="btn-primary flex items-center gap-1.5 text-xs px-3 py-1.5 disabled:opacity-50"
+                onClick={handleRunAgent}
+                disabled={busy}
+                title="Run the analysis agent now (produces pending proposals only)"
+              >
+                <Play className="w-3.5 h-3.5" /> Run agent
+              </button>
+              <button className="btn-ghost text-xs px-2.5 py-1.5 disabled:opacity-50" onClick={handleSeed} disabled={busy}>
+                + Seed demo
+              </button>
+            </div>
           </div>
           {pending.length === 0 ? (
             <div className="card text-center py-10">
