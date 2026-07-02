@@ -293,6 +293,7 @@ export interface CSVImportResult {
   trades: Trade[];
   startingBalance?: number;
   dailyBalances?: Array<{ date: string; balance: number }>;
+  dailyFees?: Array<{ date: string; amount: number }>;
 }
 
 export interface CSVImportError {

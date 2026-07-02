@@ -17,12 +17,18 @@ import type { BrokerAccount } from '@/lib/db/broker-connections';
 const ALL_ID = 'all';
 const MANUAL_ID = 'manual';
 
+interface DailyFee {
+  date: string;
+  amount: number;
+}
+
 export default function PerformanceView({ refreshKey }: { refreshKey?: number }) {
   const [period, setPeriod] = useState<Period>('all');
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [startingBalance, setStartingBalance] = useState(0);
   const [allDailyBalances, setAllDailyBalances] = useState<DailyBalance[]>([]);
+  const [allDailyFees, setAllDailyFees] = useState<DailyFee[]>([]);
   const [brokerAccounts, setBrokerAccounts] = useState<BrokerAccount[]>([]);
   const [accountSettings, setAccountSettings] = useState<AccountSettingsMap>({});
   const [selectedAccountId, setSelectedAccountId] = useState<string>(ALL_ID);
@@ -36,10 +42,11 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [tradesRes, prefsRes, balancesRes, accountsRes, settingsRes] = await Promise.all([
+      const [tradesRes, prefsRes, balancesRes, feesRes, accountsRes, settingsRes] = await Promise.all([
         fetch('/api/trades?userId=default&perPage=1000').then((r) => r.json()).catch(() => ({})),
         fetch('/api/user/prefs').then((r) => r.json()).catch(() => ({})),
         fetch('/api/user/daily-balances').then((r) => r.json()).catch(() => ({})),
+        fetch('/api/user/fees').then((r) => r.json()).catch(() => ({})),
         isOwner
           ? fetch('/api/snaptrade/accounts').then((r) => r.json()).catch(() => ({}))
           : Promise.resolve({}),
@@ -48,6 +55,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
       if (tradesRes.success && tradesRes.data) setAllTrades(tradesRes.data.trades || []);
       if (prefsRes.success && prefsRes.prefs) setStartingBalance(prefsRes.prefs.startingBalance || 0);
       if (balancesRes.success && Array.isArray(balancesRes.balances)) setAllDailyBalances(balancesRes.balances);
+      if (feesRes.success && Array.isArray(feesRes.fees)) setAllDailyFees(feesRes.fees);
       if (accountsRes.success && accountsRes.data?.accounts) setBrokerAccounts(accountsRes.data.accounts);
       else setBrokerAccounts([]);
       if (settingsRes.success && settingsRes.settings) setAccountSettings(settingsRes.settings);
@@ -105,6 +113,21 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
 
   // Daily balances are aggregate — only meaningful for the combined view.
   const accountBalances = selectedAccountId === ALL_ID ? allDailyBalances : [];
+
+  // Broker fees are aggregate (parsed from Account Statements, like daily
+  // balances) so they're only surfaced on the combined "All Accounts" view.
+  const totalFees = useMemo(() => {
+    if (selectedAccountId !== ALL_ID || !allDailyFees.length) return 0;
+    if (period === 'all') return allDailyFees.reduce((s, f) => s + f.amount, 0);
+    const cutoff = new Date();
+    switch (period) {
+      case 'week': cutoff.setDate(cutoff.getDate() - 7); break;
+      case 'month': cutoff.setMonth(cutoff.getMonth() - 1); break;
+      case 'year': cutoff.setFullYear(cutoff.getFullYear() - 1); break;
+    }
+    const cutoffDate = cutoff.toISOString().slice(0, 10);
+    return allDailyFees.filter((f) => f.date >= cutoffDate).reduce((s, f) => s + f.amount, 0);
+  }, [allDailyFees, period, selectedAccountId]);
 
   // Starting balance: combined + manual reuse the global prefs value (that's
   // where today's ToS statements set it); broker accounts store their own.
@@ -214,6 +237,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
           startingBalance={accountStartingBalance}
           onSaveStartingBalance={handleSaveStartingBalance}
           showJournalInsights={selectedAccountId === ALL_ID}
+          totalFees={totalFees}
         />
       )}
     </div>

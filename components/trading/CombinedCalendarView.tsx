@@ -461,7 +461,6 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
 
   // ===== IMPORT HANDLER =====
   const handleImportSuccess = () => {
-    console.log('Import success - refreshing data');
     fetchData();
     onImportSuccess?.();
   };

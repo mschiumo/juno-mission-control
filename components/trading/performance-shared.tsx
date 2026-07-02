@@ -88,6 +88,7 @@ export const METRIC_TOOLTIPS: Record<string, string> = {
   'Unrealized P&L': 'Paper gain/loss on currently open positions at the latest available price.',
   'Realized P&L': 'Booked gain/loss from closed positions in this period.',
   'Market Value': 'Current market value of open positions (shares × latest price).',
+  'Broker Fees': 'Total broker fees charged in this period: stock borrow fees, commissions, regulatory charges. Parsed from the Cash Balance section of imported Account Statements.',
 };
 
 export const PLACEHOLDER_CURVE = [

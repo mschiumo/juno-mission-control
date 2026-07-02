@@ -21,6 +21,8 @@ interface DayTradingPerformanceProps {
   onSaveStartingBalance: (val: number) => void;
   /** When true, show the cross-journal Journal Insights block (only for the combined view). */
   showJournalInsights?: boolean;
+  /** Aggregate broker fees for the period (only surfaced on the combined view). */
+  totalFees?: number;
 }
 
 export default function DayTradingPerformance({
@@ -30,6 +32,7 @@ export default function DayTradingPerformance({
   startingBalance,
   onSaveStartingBalance,
   showJournalInsights = true,
+  totalFees = 0,
 }: DayTradingPerformanceProps) {
   // balanceInput is only shown while editing; both edit entry-points below seed
   // it from the current startingBalance, so no syncing effect is needed.
@@ -205,7 +208,15 @@ export default function DayTradingPerformance({
                   )}
                 </div>
                 <div className="text-right">
-                  <p className="text-base font-bold num" style={{ color: 'var(--text-primary)' }}>{hasData ? formatNLV(currentNLV) : '$0'}</p>
+                  <div className="flex items-center justify-end gap-1">
+                    <p className="text-base font-bold num" style={{ color: 'var(--text-primary)' }}>{hasData ? formatNLV(currentNLV) : '$0'}</p>
+                    {hasData && totalFees > 0 && (
+                      <InfoTooltip
+                        text={`This value may differ slightly from your broker balance. Broker fees (${formatDollars(totalFees)} this period) are tracked separately and reduce your actual account value. The equity curve uses authoritative broker balances from imported Account Statements when available.`}
+                        align="right"
+                      />
+                    )}
+                  </div>
                   <p className="text-xs font-semibold num" style={{ color: isPositive ? 'var(--positive)' : 'var(--negative)' }}>
                     {hasData ? formatCurrency(totalPnL) : '+$0'}
                     {hasData && pnlPercent !== null && ` (${isPositive ? '+' : ''}${pnlPercent}%)`}
@@ -283,6 +294,20 @@ export default function DayTradingPerformance({
         <MetricCard icon={<TrendingDown className="w-4 h-4" style={{ color: 'var(--negative)' }} />} label="Max Drawdown" value={hasData ? formatDollars(metrics.maxDrawdown) : '--'} sub={hasData && metrics.maxDrawdownPercent > 0 ? `${metrics.maxDrawdownPercent.toFixed(1)}%` : undefined} tooltip={METRIC_TOOLTIPS['Max Drawdown']} />
         <MetricCard icon={<Trophy className="w-4 h-4" style={{ color: '#9B8FFF' }} />} label="Best Streak" value={hasData ? `${metrics.maxWinStreak} wins` : '--'} sub={hasData && metrics.currentWinStreak > 0 ? `Current: ${metrics.currentWinStreak}` : undefined} tooltip={METRIC_TOOLTIPS['Best Streak']} />
       </div>
+
+      {/* Broker Fees card — only shown when fee data is available */}
+      {totalFees > 0 && (
+        <div className="grid grid-cols-1 gap-3">
+          <MetricCard
+            icon={<DollarSign className="w-4 h-4" style={{ color: 'var(--negative)' }} />}
+            label="Broker Fees"
+            value={`-${formatDollars(totalFees)}`}
+            valueStyle={{ color: 'var(--negative)' }}
+            sub="Stock borrow, commissions & regulatory fees"
+            tooltip={METRIC_TOOLTIPS['Broker Fees']}
+          />
+        </div>
+      )}
 
       {/* Detailed Statistics + Day of Week */}
       <div className={`grid grid-cols-1 lg:grid-cols-2 gap-5${!hasData ? ' opacity-25' : ''}`}>

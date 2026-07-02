@@ -24,6 +24,7 @@ import type { Trade } from '@/types/trading';
 import { Strategy } from '@/types/trading';
 import { saveTradesReplacingByDate } from '@/lib/db/trades-v2';
 import { saveDailyBalances } from '@/lib/db/balances';
+import { saveDailyFees } from '@/lib/db/fees';
 import { parseFlexibleCSV, detectCSVFormat, validateCSVFormat, CSVFormat, getFormatSample } from '@/lib/parsers/flexible-csv-parser';
 import { getNowInEST } from '@/lib/date-utils';
 import { requireUserId } from '@/lib/auth-session';
@@ -156,6 +157,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         await saveDailyBalances(result.dailyBalances, userId);
       } catch (e) {
         console.error('Failed to save daily balances from import:', e);
+      }
+    }
+
+    if (result.dailyFees && result.dailyFees.length > 0) {
+      try {
+        await saveDailyFees(result.dailyFees, userId);
+      } catch (e) {
+        console.error('Failed to save daily fees from import:', e);
       }
     }
 
