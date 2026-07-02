@@ -5,10 +5,6 @@ function tradesKey(userId: string) {
   return `trades:v2:data:${userId}`;
 }
 
-function tradesBackupKey(userId: string) {
-  return `trades:v2:backup:${userId}`;
-}
-
 export async function getAllTrades(userId: string): Promise<Trade[]> {
   try {
     const redis = await getRedisClient();
@@ -81,51 +77,6 @@ export async function saveTradesReplacingByDate(trades: Trade[], userId: string)
     return trades.length;
   } catch (error) {
     console.error('Error saving trades to Redis:', error);
-    throw error;
-  }
-}
-
-/**
- * Replace the entire trade list (used by SnapTrade sync, where the broker is the
- * source of truth). Snapshots the current list to a backup key first so the
- * destructive replace is reversible via restoreTradesBackup().
- */
-export async function replaceAllTrades(
-  trades: Trade[],
-  userId: string,
-  opts: { backup?: boolean } = {}
-): Promise<{ written: number; backedUp: number }> {
-  const redis = await getRedisClient();
-  let backedUp = 0;
-  if (opts.backup) {
-    // Back up only if no backup exists yet, so the ORIGINAL pre-broker trade
-    // list is preserved permanently and not clobbered by later re-syncs.
-    const alreadyBackedUp = await redis.exists(tradesBackupKey(userId));
-    if (!alreadyBackedUp) {
-      const current = await getAllTrades(userId);
-      backedUp = current.length;
-      await redis.set(
-        tradesBackupKey(userId),
-        JSON.stringify({ trades: current, savedAt: new Date().toISOString() })
-      );
-    }
-  }
-  await redis.set(tradesKey(userId), JSON.stringify({ trades }));
-  return { written: trades.length, backedUp };
-}
-
-/** Restore the most recent pre-sync backup. Returns the restored count, or null if none. */
-export async function restoreTradesBackup(userId: string): Promise<number | null> {
-  try {
-    const redis = await getRedisClient();
-    const data = await redis.get(tradesBackupKey(userId));
-    if (!data) return null;
-    const parsed = JSON.parse(data);
-    const trades: Trade[] = parsed.trades || [];
-    await redis.set(tradesKey(userId), JSON.stringify({ trades }));
-    return trades.length;
-  } catch (error) {
-    console.error('Error restoring trades backup:', error);
     throw error;
   }
 }

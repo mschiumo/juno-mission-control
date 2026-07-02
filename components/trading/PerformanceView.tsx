@@ -27,7 +27,6 @@ import {
   Info,
 } from 'lucide-react';
 import JournalInsightsView from '@/components/trading/JournalInsightsView';
-import BrokerageSyncBar from '@/components/trading/BrokerageSyncBar';
 
 type Period = 'week' | 'month' | 'year' | 'all';
 
@@ -519,9 +518,6 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
 
   return (
     <div className="space-y-5">
-      {/* Brokerage connection + sync status (shared with the Journal tab) */}
-      <BrokerageSyncBar onSynced={loadData} />
-
       {/* Header with period selector */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
