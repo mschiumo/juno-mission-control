@@ -128,3 +128,26 @@ export async function getBuyingPower(accountNumber: string): Promise<number> {
   const n = Number(bp);
   return Number.isFinite(n) ? n : 0;
 }
+
+export interface LiveAccountSummary {
+  accountValue: number;
+  buyingPower: number;
+  cash: number;
+}
+
+/** The account's real total value / buying power / cash (for the Performance panel). */
+export async function getAccountSummary(accountNumber: string): Promise<LiveAccountSummary> {
+  const res = await callRobinhoodTool<{
+    data?: { total_value?: string; cash?: string; buying_power?: { buying_power?: string } };
+  }>('get_portfolio', { account_number: accountNumber });
+  const d = res?.data ?? {};
+  const n = (v: string | undefined) => {
+    const x = Number(v);
+    return Number.isFinite(x) ? x : 0;
+  };
+  return {
+    accountValue: n(d.total_value),
+    buyingPower: n(d.buying_power?.buying_power),
+    cash: n(d.cash),
+  };
+}

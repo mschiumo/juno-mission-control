@@ -227,6 +227,52 @@ export interface AuditEvent {
   note?: string;
 }
 
+/** A derived open position (netted from filled orders, or the live broker). */
+export interface Position {
+  symbol: string;
+  quantity: number;
+  avgCost: number;
+  /** Latest price when a quote was available. */
+  marketPrice?: number;
+  marketValue?: number;
+  unrealizedPnl?: number;
+  unrealizedPnlPct?: number;
+}
+
+/** One point on the account-value equity curve. */
+export interface BalancePoint {
+  date: string; // YYYY-MM-DD
+  value: number;
+}
+
+/** Performance snapshot for the Agents → Performance panel. */
+export interface PerformanceStats {
+  /** 'live' = real Robinhood portfolio; 'paper' = simulated from the order log. */
+  source: 'live' | 'paper';
+  accountValue: number;
+  buyingPower: number;
+  cash: number;
+  /** Cost basis currently deployed in open positions. */
+  investedCost: number;
+  /** Notional of active (non-terminal) orders. */
+  openExposure: number;
+  totalExposureCapUsd: number;
+  realizedPnl: number;
+  /** Present only when quotes were available to mark positions. */
+  unrealizedPnl?: number;
+  positionsCount: number;
+  /** Whether current quotes were fetched (mark-to-market available). */
+  quotesAvailable: boolean;
+  proposals: { pending: number; approved: number; rejected: number; expired: number; total: number };
+  orders: { filled: number; active: number; closed: number; total: number };
+}
+
+export interface PerformanceResponse {
+  stats: PerformanceStats;
+  positions: Position[];
+  history: BalancePoint[];
+}
+
 /** Result of the deterministic guardrail check run before any order is placed. */
 export interface GuardrailResult {
   ok: boolean;
