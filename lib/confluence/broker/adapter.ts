@@ -39,8 +39,9 @@ export interface BrokerAdapter {
   readonly name: string;
   /** Submit a limit order. Returns the broker's initial view of the order. */
   placeLimitOrder(req: PlaceLimitOrderRequest): Promise<BrokerOrderState>;
-  /** Poll current status of a previously-placed order. */
-  getOrderStatus(brokerOrderId: string): Promise<BrokerOrderState>;
+  /** Poll current status of a previously-placed order. `accountNumber` is the
+   * account the order lives in (the live broker requires it; paper ignores it). */
+  getOrderStatus(brokerOrderId: string, accountNumber: string): Promise<BrokerOrderState>;
   /** Best-effort cancel. Returns the resulting state. */
-  cancelOrder(brokerOrderId: string): Promise<BrokerOrderState>;
+  cancelOrder(brokerOrderId: string, accountNumber: string): Promise<BrokerOrderState>;
 }

@@ -74,7 +74,7 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
             <div>
               <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Execution mode</div>
               <p className="text-[12px] mt-0.5 max-w-md" style={{ color: 'var(--text-secondary)' }}>
-                <b>Paper</b> simulates fills with no money at risk. <b>Live</b> places real orders — unavailable until the Robinhood adapter ships (Milestone 3).
+                <b>Paper</b> simulates fills with no money at risk. <b>Live</b> places REAL orders in the pinned agentic account — requires the server flag <code>CONFLUENCE_ALLOW_LIVE</code> and a pinned account.
               </p>
             </div>
           </div>
@@ -89,9 +89,20 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
             </button>
             <button
               className="px-3.5 py-2 text-sm font-medium disabled:opacity-40"
-              style={{ background: !state.paperMode ? 'var(--negative)' : 'transparent', color: !state.paperMode ? '#fff' : 'var(--text-tertiary)' }}
-              disabled
-              title="Live execution ships in Milestone 3"
+              style={{ background: !state.paperMode ? 'var(--negative)' : 'transparent', color: !state.paperMode ? '#fff' : 'var(--text-secondary)' }}
+              disabled={busy}
+              title="Switch to LIVE — real orders in the pinned agentic account"
+              onClick={() => {
+                if (
+                  state.paperMode &&
+                  window.confirm(
+                    'Switch to LIVE mode?\n\nApproved proposals will place REAL orders with REAL money in the pinned agentic account. ' +
+                      'The server must have CONFLUENCE_ALLOW_LIVE=true and an account pinned, or this will be rejected.',
+                  )
+                ) {
+                  onSave({ paperMode: false });
+                }
+              }}
             >
               Live
             </button>

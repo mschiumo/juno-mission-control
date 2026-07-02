@@ -24,6 +24,7 @@ import {
 import { getSystemState } from '@/lib/db/confluence/system-state';
 import { checkGuardrails } from './guardrails';
 import { getBrokerAdapter } from './broker';
+import { getBuyingPower } from './broker/live-adapter';
 import type { ExecutionOrder, OrderParams, Proposal } from '@/types/confluence';
 import { isTerminalOrderStatus } from '@/types/confluence';
 
@@ -66,6 +67,26 @@ export async function executeApprovedProposal(
 
   // Invariant 4: pin the account (live must target the agentic account).
   const accountNumber = state.paperMode ? 'PAPER' : state.agenticAccount!;
+
+  // Live-only pre-trade check: block an order that can't fund before it reaches
+  // the broker (belt-and-suspenders with the exposure caps). Any failure here
+  // fails safe — nothing is staged.
+  if (!state.paperMode) {
+    const notional = params.limitPrice * params.quantity;
+    try {
+      const buyingPower = await getBuyingPower(accountNumber);
+      if (notional > buyingPower) {
+        return {
+          ok: false,
+          code: 'insufficient_buying_power',
+          reason: `Order notional $${notional.toLocaleString()} exceeds account buying power $${buyingPower.toLocaleString()}.`,
+        };
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return { ok: false, code: 'live_precheck_failed', reason: `Live pre-trade check failed: ${message}` };
+    }
+  }
 
   // Stage the order.
   const now = new Date().toISOString();
@@ -168,7 +189,7 @@ export async function refreshOrderStatus(orderId: string, userId: string): Promi
   if (!order.brokerOrderId || isTerminalOrderStatus(order.status)) return order;
 
   const adapter = getBrokerAdapter(order.isPaper);
-  const brokerState = await adapter.getOrderStatus(order.brokerOrderId);
+  const brokerState = await adapter.getOrderStatus(order.brokerOrderId, order.accountNumber);
   if (brokerState.status === order.status && brokerState.filledQuantity === order.filledQuantity) {
     return order; // no change
   }
@@ -213,7 +234,7 @@ export async function cancelOrder(orderId: string, actorId: string, userId: stri
   if (!order.brokerOrderId || isTerminalOrderStatus(order.status)) return order;
 
   const adapter = getBrokerAdapter(order.isPaper);
-  const brokerState = await adapter.cancelOrder(order.brokerOrderId);
+  const brokerState = await adapter.cancelOrder(order.brokerOrderId, order.accountNumber);
   const before = { status: order.status };
   const updated = await transitionOrder(orderId, userId, {
     status: brokerState.status,

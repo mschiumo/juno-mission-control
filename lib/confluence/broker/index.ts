@@ -1,27 +1,39 @@
 /**
  * Broker adapter factory.
  *
- * Resolves the {@link BrokerAdapter} for the current mode. Today only the
- * deterministic paper adapter exists; the live Robinhood-MCP adapter is added in
- * Milestone 3. Requesting a live adapter before then throws loudly rather than
- * silently falling back — a "live" approval must never quietly execute on paper,
- * or vice versa.
+ * Resolves the {@link BrokerAdapter} for the current mode. `paper` → the
+ * deterministic paper adapter. `live` → the real Robinhood-MCP adapter, but ONLY
+ * when the server-side kill flag CONFLUENCE_ALLOW_LIVE=true is set. That env gate
+ * is deliberate belt-and-suspenders: even if the UI is flipped to live mode, real
+ * orders cannot be placed unless an operator has also armed live at the server.
  */
 
 import type { BrokerAdapter } from './adapter';
 import { PaperBrokerAdapter } from './paper-adapter';
+import { LiveRobinhoodAdapter } from './live-adapter';
 
 let paperSingleton: PaperBrokerAdapter | null = null;
+let liveSingleton: LiveRobinhoodAdapter | null = null;
+
+/** Whether live execution is permitted at the server (deploy-level gate). */
+export function isLiveAllowed(): boolean {
+  return process.env.CONFLUENCE_ALLOW_LIVE === 'true';
+}
 
 export function getBrokerAdapter(paperMode: boolean): BrokerAdapter {
   if (paperMode) {
     if (!paperSingleton) paperSingleton = new PaperBrokerAdapter();
     return paperSingleton;
   }
-  throw new Error(
-    'Live execution is not available yet (Milestone 3). Keep ConfluenceTrading in paper mode until the ' +
-      'Robinhood MCP adapter is wired and exposure caps are verified.',
-  );
+  // Live mode.
+  if (!isLiveAllowed()) {
+    throw new Error(
+      'Live execution is disabled at the server. Set CONFLUENCE_ALLOW_LIVE=true to permit real orders ' +
+        '(and keep the kill switch, exposure caps, and a pinned agentic account in place).',
+    );
+  }
+  if (!liveSingleton) liveSingleton = new LiveRobinhoodAdapter();
+  return liveSingleton;
 }
 
 export type { BrokerAdapter } from './adapter';

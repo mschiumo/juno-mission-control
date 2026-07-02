@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireOwner } from '@/lib/auth-session';
 import { getSystemState, updateSystemState } from '@/lib/db/confluence/system-state';
 import { appendAudit } from '@/lib/db/confluence/audit';
+import { isLiveAllowed } from '@/lib/confluence/broker';
 import type { SystemState } from '@/types/confluence';
 
 export async function GET(): Promise<NextResponse> {
@@ -45,14 +46,23 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       updates.totalExposureCapUsd = coerceCap(body.totalExposureCapUsd, current.totalExposureCapUsd);
     }
 
-    // Refuse to enter live mode without a pinned agentic account (invariant 4).
+    // Refuse to enter live mode unless it's armed at the server AND an agentic
+    // account is pinned (invariant 4 + the deploy-level live gate).
     const nextPaper = updates.paperMode ?? current.paperMode;
     const nextAccount = updates.agenticAccount ?? current.agenticAccount;
-    if (nextPaper === false && !nextAccount) {
-      return NextResponse.json(
-        { success: false, error: 'Cannot switch to live mode without a pinned agentic account number.' },
-        { status: 422 },
-      );
+    if (nextPaper === false) {
+      if (!isLiveAllowed()) {
+        return NextResponse.json(
+          { success: false, error: 'Live execution is disabled on the server (set CONFLUENCE_ALLOW_LIVE=true).' },
+          { status: 422 },
+        );
+      }
+      if (!nextAccount) {
+        return NextResponse.json(
+          { success: false, error: 'Cannot switch to live mode without a pinned agentic account number.' },
+          { status: 422 },
+        );
+      }
     }
 
     const next = await updateSystemState(userId, updates, email);
