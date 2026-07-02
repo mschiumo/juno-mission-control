@@ -25,10 +25,11 @@ export default function AccountToggle({ accounts, selectedId, onSelect, onSave }
   const [draftType, setDraftType] = useState<AccountType>('day-trading');
   const [saving, setSaving] = useState(false);
 
-  // Only render the toggle when there's a genuine choice to make — a lone
-  // Manual/Imported account with no brokerages shouldn't add chrome.
-  const selectableCount = accounts.filter((a) => a.id !== 'all').length;
-  if (selectableCount < 2) return null;
+  // Render the toggle whenever there's at least one real account beyond the
+  // combined "All Accounts" view — that's the point at which switching, and
+  // classifying an account as long-term, becomes meaningful. (`accounts`
+  // always includes the 'all' entry, so length < 2 means nothing to toggle.)
+  if (accounts.length < 2) return null;
 
   function beginEdit(acct: PerfAccount) {
     setEditingId(acct.id);

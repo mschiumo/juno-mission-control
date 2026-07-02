@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
+import { isOwnerEmail } from '@/lib/owner';
 import BrokerageSyncBar from '@/components/trading/BrokerageSyncBar';
 import AccountToggle, { type PerfAccount } from '@/components/trading/AccountToggle';
 import DayTradingPerformance from '@/components/trading/DayTradingPerformance';
@@ -25,6 +27,12 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
   const [accountSettings, setAccountSettings] = useState<AccountSettingsMap>({});
   const [selectedAccountId, setSelectedAccountId] = useState<string>(ALL_ID);
 
+  // Brokerage connections are owner-only (billing protection). Only owners hit
+  // the owner-gated /api/snaptrade/accounts route — non-owners just see the
+  // Manual/Imported slot and never make a doomed 403 call.
+  const { data: session } = useSession();
+  const isOwner = isOwnerEmail(session?.user?.email);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -32,8 +40,9 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         fetch('/api/trades?userId=default&perPage=1000').then((r) => r.json()).catch(() => ({})),
         fetch('/api/user/prefs').then((r) => r.json()).catch(() => ({})),
         fetch('/api/user/daily-balances').then((r) => r.json()).catch(() => ({})),
-        // Owner-only; non-owners get 403 → treat as no connected brokerages.
-        fetch('/api/snaptrade/accounts').then((r) => r.json()).catch(() => ({})),
+        isOwner
+          ? fetch('/api/snaptrade/accounts').then((r) => r.json()).catch(() => ({}))
+          : Promise.resolve({}),
         fetch('/api/user/account-settings').then((r) => r.json()).catch(() => ({})),
       ]);
       if (tradesRes.success && tradesRes.data) setAllTrades(tradesRes.data.trades || []);
@@ -47,7 +56,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isOwner]);
 
   useEffect(() => { loadData(); }, [loadData, refreshKey]);
 
