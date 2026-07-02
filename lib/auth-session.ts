@@ -60,3 +60,26 @@ export function requireCronSecret(request: Request): NextResponse | null {
   }
   return null;
 }
+
+/**
+ * Verify the request carries a valid AGENT_SECRET bearer token. Used by the
+ * headless-agent endpoints (e.g. a scheduled Claude agent reporting proposals)
+ * that authenticate without a browser session. Mirrors the goals/agent pattern
+ * and is also enforced in middleware.ts. Returns null on success, or a 503/401
+ * NextResponse on failure.
+ */
+export function requireAgentSecret(request: Request): NextResponse | null {
+  const secret = process.env.AGENT_SECRET;
+  if (!secret) {
+    return NextResponse.json(
+      { success: false, error: 'Agent API not configured (set AGENT_SECRET)' },
+      { status: 503 },
+    );
+  }
+  const authHeader = request.headers.get('authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (token !== secret) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  return null;
+}
