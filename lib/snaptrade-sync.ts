@@ -2,10 +2,13 @@
  * SnapTrade sync orchestration
  *
  * Pulls each linked account's activities, transforms them into round-trip
- * Trades, and writes them as the user's trade list (broker = source of truth,
- * per the product decision). The destructive replace is backed up once
- * (original pre-broker trades) and user-authored journal fields are carried
- * across re-syncs so re-importing never wipes written reflections.
+ * Trades, and merges them into the user's trade list. The broker is the source
+ * of truth ONLY for broker-sourced trades: manually-imported (account-statement
+ * / CSV) trades are always preserved, and a sync that produces no broker trades
+ * (no linked accounts, or an empty/transient activities feed) skips the write
+ * entirely rather than blanking the list. User-authored journal fields are
+ * carried across re-syncs so re-importing never wipes written reflections, and
+ * the pre-sync list is backed up once for recovery.
  *
  * Shared by the manual sync route and the scheduled cron.
  */
@@ -85,8 +88,30 @@ export async function syncUserTrades(connection: BrokerConnection): Promise<Sync
     });
   }
 
-  // Carry user-authored journal fields forward (match by stable externalId).
   const existing = await getAllTrades(userId);
+
+  // SAFETY GUARD — never let a sync blank the trade list.
+  //
+  // A sync must be *additive* to broker data and must NEVER delete the user's
+  // manually-imported (account-statement / CSV) trades. Two empty-result cases
+  // used to fall straight through to a full-list wipe:
+  //   1. No linked accounts (e.g. a stale connection record whose brokerage
+  //      link was never completed) — the account loop never runs.
+  //   2. Accounts linked but the activities feed is transiently empty (SnapTrade
+  //      backfills brokerage history asynchronously after a link).
+  // In both cases the broker is NOT the source of truth for anything, so we skip
+  // the write entirely and leave existing trades untouched.
+  if (accounts.length === 0 || brokerTrades.length === 0) {
+    console.warn(
+      `syncUserTrades: no broker trades to write for user ${userId} ` +
+        `(accounts=${accounts.length}, brokerActivities=${perAccount.reduce((n, p) => n + p.activities, 0)}); ` +
+        `leaving ${existing.length} existing trades untouched.`
+    );
+    await setLastSyncedAt(userId, new Date().toISOString());
+    return { userId, accounts: accounts.length, tradesWritten: 0, backedUp: 0, perAccount };
+  }
+
+  // Carry user-authored journal fields forward (match by stable externalId).
   const byExternal = new Map(
     existing.filter(t => t.externalId).map(t => [t.externalId as string, t])
   );
@@ -102,8 +127,20 @@ export async function syncUserTrades(connection: BrokerConnection): Promise<Sync
     return { ...t, ...carry, createdAt: prev.createdAt ?? t.createdAt } as Trade;
   });
 
-  const { written, backedUp } = await replaceAllTrades(merged, userId, { backup: true });
+  // Broker owns only broker-sourced trades. Preserve everything the user brought
+  // in by hand (manual / CSV / account-statement imports have source !== 'broker')
+  // and swap out just the broker subset for the freshly-synced set.
+  const preserved = existing.filter(t => t.source !== 'broker');
+  const nextTrades = [...preserved, ...merged];
+
+  const { written, backedUp } = await replaceAllTrades(nextTrades, userId, { backup: true });
   await setLastSyncedAt(userId, new Date().toISOString());
 
-  return { userId, accounts: accounts.length, tradesWritten: written, backedUp, perAccount };
+  return {
+    userId,
+    accounts: accounts.length,
+    tradesWritten: merged.length,
+    backedUp,
+    perAccount,
+  };
 }
