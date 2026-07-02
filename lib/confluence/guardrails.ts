@@ -1,74 +1,82 @@
 /**
  * ConfluenceTrading guardrails — enforced in code, never in prompts.
  *
- * These run in the deterministic execution service *before* any order is
- * placed. The model is never trusted to respect a limit; if the numbers on an
- * approved proposal breach a cap or the kill switch is engaged, the order is
- * blocked here and the proposal fails safe.
+ * Run in the deterministic execution service *before* any order is staged, and
+ * again as a UX pre-check on approval. The model is never trusted to respect a
+ * limit; if the finalized order numbers breach a cap, the kill switch is
+ * engaged, or the account isn't pinned, the order is blocked and the proposal
+ * fails safe.
  */
 
-import type {
-  ConfluenceSettings,
-  ExecutionOrder,
-  GuardrailResult,
-  Proposal,
-} from '@/types/confluence';
+import type { ExecutionOrder, GuardrailResult, SystemState } from '@/types/confluence';
 
-/** Notional value of a proposed position. */
-export function positionNotional(limitPrice: number, shares: number): number {
-  return Math.max(0, limitPrice) * Math.max(0, shares);
+/** Notional value of an order. */
+export function orderNotional(limitPrice: number, quantity: number): number {
+  return Math.max(0, limitPrice) * Math.max(0, quantity);
 }
 
-/** Sum of notional across a set of (non-terminal) orders. */
-export function openExposure(orders: ExecutionOrder[]): number {
-  return orders.reduce((sum, o) => sum + positionNotional(o.limitPrice, o.shares), 0);
+/** Sum of notional across a set of (active) orders. */
+export function activeExposure(orders: ExecutionOrder[]): number {
+  return orders.reduce((sum, o) => sum + orderNotional(o.limitPrice, o.quantity), 0);
+}
+
+export interface GuardrailInput {
+  limitPrice: number;
+  quantity: number;
 }
 
 /**
  * The single gate every order must pass. Order of checks matters: kill switch
- * and enabled first (a halted system places nothing at all), then structural
- * validity, then the size/exposure caps.
+ * first (a disarmed system places nothing), then structural validity, then the
+ * account pin (live only), then the size/exposure caps.
  *
- * @param proposal   the approved proposal about to become an order
- * @param settings   the user's current caps + switches
- * @param openOrders existing non-terminal orders, for the total-exposure cap
+ * @param order         the finalized order numbers (proposal defaults + edits)
+ * @param state         current system_state (kill switch, paper mode, account, caps)
+ * @param activeOrders  existing non-terminal orders, for the total-exposure cap
  */
 export function checkGuardrails(
-  proposal: Proposal,
-  settings: ConfluenceSettings,
-  openOrders: ExecutionOrder[],
+  order: GuardrailInput,
+  state: SystemState,
+  activeOrders: ExecutionOrder[],
 ): GuardrailResult {
-  if (settings.killSwitch) {
-    return { ok: false, code: 'kill_switch', reason: 'Kill switch is engaged — execution halted.' };
-  }
-  if (!settings.enabled) {
-    return { ok: false, code: 'disabled', reason: 'ConfluenceTrading is disabled.' };
-  }
-
-  const { suggestedLimitPrice: price, suggestedShares: shares } = proposal;
-  if (!(price > 0) || !(shares > 0) || !Number.isFinite(price) || !Number.isFinite(shares)) {
+  // Invariant 6: a disarmed system submits nothing (paper or live).
+  if (!state.tradingEnabled) {
     return {
       ok: false,
-      code: 'invalid_order',
-      reason: 'Order must have a positive limit price and share count.',
+      code: 'kill_switch',
+      reason: 'Trading is disarmed (kill switch) — no orders will be placed. Arm execution in Settings.',
     };
   }
 
-  const notional = positionNotional(price, shares);
-  if (notional > settings.perPositionCapUsd) {
+  const { limitPrice: price, quantity } = order;
+  if (!(price > 0) || !(quantity > 0) || !Number.isFinite(price) || !Number.isFinite(quantity)) {
+    return { ok: false, code: 'invalid_order', reason: 'Order must have a positive limit price and quantity.' };
+  }
+
+  // Invariant 4: live orders must target the pinned agentic account.
+  if (!state.paperMode && !state.agenticAccount) {
+    return {
+      ok: false,
+      code: 'account_unset',
+      reason: 'Live mode requires a pinned agentic account number. Set it in Settings or stay in paper mode.',
+    };
+  }
+
+  const notional = orderNotional(price, quantity);
+  if (notional > state.perPositionCapUsd) {
     return {
       ok: false,
       code: 'per_position_cap',
-      reason: `Position notional $${notional.toLocaleString()} exceeds the per-position cap of $${settings.perPositionCapUsd.toLocaleString()}.`,
+      reason: `Position notional $${notional.toLocaleString()} exceeds the per-position cap of $${state.perPositionCapUsd.toLocaleString()}.`,
     };
   }
 
-  const projectedTotal = openExposure(openOrders) + notional;
-  if (projectedTotal > settings.totalExposureCapUsd) {
+  const projectedTotal = activeExposure(activeOrders) + notional;
+  if (projectedTotal > state.totalExposureCapUsd) {
     return {
       ok: false,
       code: 'total_exposure_cap',
-      reason: `Projected total exposure $${projectedTotal.toLocaleString()} exceeds the cap of $${settings.totalExposureCapUsd.toLocaleString()}.`,
+      reason: `Projected total exposure $${projectedTotal.toLocaleString()} exceeds the cap of $${state.totalExposureCapUsd.toLocaleString()}.`,
     };
   }
 

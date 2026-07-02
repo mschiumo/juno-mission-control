@@ -5,46 +5,42 @@
  * deterministic {@link PaperBrokerAdapter}; Milestone 3 swaps in a live adapter
  * backed by the Robinhood Trading MCP without the execution service changing.
  *
- * There is no LLM anywhere in this layer — an adapter is plain code reacting to
- * a validated, guardrail-checked order request.
+ * No LLM lives in this layer — an adapter is plain code reacting to a validated,
+ * guardrail-checked, account-pinned order request.
  */
 
-import type { OrderStatus, TradeDirection } from '@/types/confluence';
+import type { OrderStatus, TradeDirection, TimeInForce } from '@/types/confluence';
 
 export interface PlaceLimitOrderRequest {
-  /** Our internal order id, for correlation in logs/paper fills. */
+  /** Our internal order id, for correlation. */
   orderId: string;
-  ticker: string;
+  /** Idempotency key — the broker must dedupe re-sends by this. */
+  refId: string;
+  /** Account the order targets (the pinned agentic account, or 'PAPER'). */
+  accountNumber: string;
+  symbol: string;
   side: TradeDirection;
   limitPrice: number;
-  shares: number;
-  timeInForce: 'day' | 'gtc';
+  quantity: number;
+  timeInForce: TimeInForce;
 }
 
 export interface BrokerOrderState {
-  /** The broker's id for the order. */
   brokerOrderId: string;
   status: OrderStatus;
-  filledShares: number;
+  filledQuantity: number;
   avgFillPrice?: number;
   /** Populated on rejected/failed. */
   error?: string;
 }
 
-/**
- * Minimal surface the execution service needs. Kept deliberately small so the
- * live Robinhood MCP adapter is a thin translation, not a re-implementation.
- */
 export interface BrokerAdapter {
   /** Human label for the audit trail, e.g. "paper" or "robinhood-mcp". */
   readonly name: string;
-
   /** Submit a limit order. Returns the broker's initial view of the order. */
   placeLimitOrder(req: PlaceLimitOrderRequest): Promise<BrokerOrderState>;
-
   /** Poll current status of a previously-placed order. */
   getOrderStatus(brokerOrderId: string): Promise<BrokerOrderState>;
-
   /** Best-effort cancel. Returns the resulting state. */
   cancelOrder(brokerOrderId: string): Promise<BrokerOrderState>;
 }

@@ -1,10 +1,11 @@
 /**
- * Proposal storage for ConfluenceTrading.
+ * proposals storage — an IMMUTABLE snapshot of the agent's suggestion.
  *
- * One JSON blob per user under `confluence:proposals:${userId}`, mirroring the
- * userId-keyed pattern used by active-trades / trading-goals. Proposals are the
- * human gate: the agent only ever writes `pending` ones, and only the approval
- * API flips them to `approved` (which then stages an order elsewhere).
+ * One JSON blob per user under `confluence:proposals:${userId}`. The agent (and
+ * the manual/seed path) create `pending` proposals; the only mutation after
+ * creation is the decision (status + decidedAt/decidedBy). Edited order
+ * parameters are NOT written back here — they live on the order row and the diff
+ * is captured in the audit log.
  */
 
 import { getRedisClient } from '@/lib/redis';
@@ -19,18 +20,14 @@ export async function getAllProposals(userId: string): Promise<Proposal[]> {
     const redis = await getRedisClient();
     const data = await redis.get(proposalsKey(userId));
     if (!data) return [];
-    const parsed = JSON.parse(data);
-    return (parsed.proposals as Proposal[]) || [];
+    return (JSON.parse(data).proposals as Proposal[]) || [];
   } catch (error) {
     console.error('Error getting proposals from Redis:', error);
     return [];
   }
 }
 
-export async function getProposalsByStatus(
-  userId: string,
-  status: ProposalStatus,
-): Promise<Proposal[]> {
+export async function getProposalsByStatus(userId: string, status: ProposalStatus): Promise<Proposal[]> {
   const all = await getAllProposals(userId);
   return all.filter((p) => p.status === status);
 }
@@ -40,43 +37,40 @@ export async function getProposalById(id: string, userId: string): Promise<Propo
   return all.find((p) => p.id === id) || null;
 }
 
-/** Create or overwrite a single proposal (matched by id). */
+/** Create a proposal (or overwrite by id — used only at creation time). */
 export async function saveProposal(proposal: Proposal, userId: string): Promise<Proposal> {
   const redis = await getRedisClient();
   const existing = await getAllProposals(userId);
   const index = existing.findIndex((p) => p.id === proposal.id);
-  const withStamp = { ...proposal, updatedAt: new Date().toISOString() };
   if (index >= 0) {
-    existing[index] = withStamp;
+    existing[index] = proposal;
   } else {
-    existing.push(withStamp);
+    existing.push(proposal);
   }
   await redis.set(proposalsKey(userId), JSON.stringify({ proposals: existing }));
-  return withStamp;
+  return proposal;
 }
 
 /**
- * Patch a proposal in place. Never lets an update rewrite identity fields
- * (id/userId/createdAt/source), mirroring updateGoal's guard.
+ * Record a decision on a proposal. This is the ONLY post-creation mutation:
+ * it changes status and (for approve/reject) stamps decidedAt/decidedBy. The
+ * agent's suggested_* fields are never touched — they remain the immutable
+ * snapshot of what was proposed.
  */
-export async function updateProposal(
+export async function decideProposal(
   id: string,
-  updates: Partial<Proposal>,
   userId: string,
+  next: { status: ProposalStatus; decidedBy?: string; decidedAt?: string },
 ): Promise<Proposal | null> {
   const redis = await getRedisClient();
   const existing = await getAllProposals(userId);
   const index = existing.findIndex((p) => p.id === id);
   if (index === -1) return null;
-  const current = existing[index];
   existing[index] = {
-    ...current,
-    ...updates,
-    id: current.id,
-    userId: current.userId,
-    createdAt: current.createdAt,
-    source: current.source,
-    updatedAt: new Date().toISOString(),
+    ...existing[index],
+    status: next.status,
+    decidedAt: next.decidedAt ?? existing[index].decidedAt,
+    decidedBy: next.decidedBy ?? existing[index].decidedBy,
   };
   await redis.set(proposalsKey(userId), JSON.stringify({ proposals: existing }));
   return existing[index];

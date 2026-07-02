@@ -1,142 +1,155 @@
 /**
- * ConfluenceTrading — agentic swing-trading types.
+ * ConfluenceTrading — agentic swing-trading types (Milestone 1).
  *
- * The one non-negotiable design principle: the agent never has execution
- * authority. An LLM produces a {@link Proposal} and nothing more. A separate,
- * deterministic execution service turns an *approved* proposal into an
- * {@link ExecutionOrder} — and it only ever runs in response to an explicit
- * user approval. These types encode that one-directional flow:
+ * Translated from the canonical PostgreSQL schema into this repo's Redis-backed
+ * store. The DDL's invariants are enforced here in code (there are no DB
+ * triggers in Redis), and the field/enum vocabulary matches the schema so the
+ * two stay legible against each other.
  *
- *   agent run → Proposal(pending) → [user taps Approve] → ExecutionOrder → fills
+ * INVARIANTS (enforced by the execution service — see lib/confluence/*):
+ *   1. The agent writes ONLY proposals. It never creates orders.
+ *   2. An order may exist only for a proposal whose status = 'approved'
+ *      (the human gate: no order without an explicit user approval).
+ *   3. The audit log is append-only. Never updated or deleted.
+ *   4. Every equity order is a LIMIT order, in the dedicated agentic account only.
+ *   5. Exposure caps (per-position, total) are checked in CODE before an order
+ *      is staged — never trusted to the model.
+ *   6. When trading_enabled = false (kill switch) or paper_mode = true, the
+ *      execution service must not submit LIVE orders.
  *
- * Every state transition also appends an immutable {@link AuditEvent}.
+ * The one non-negotiable principle: the LLM's job ends at producing a proposal.
+ * A separate deterministic service turns an *approved* proposal into an order,
+ * and only ever in response to an explicit user approval.
  */
 
-/** Which system produced a proposal. The LLM path is `agent`; `manual` covers
- * hand-entered or seeded proposals (used to exercise the spine in paper mode). */
-export type ProposalSource = 'agent' | 'manual';
-
-/** Buy = open/add a long swing entry; sell = trim/close. Equities-only for now. */
 export type TradeDirection = 'buy' | 'sell';
 
-/**
- * Proposal lifecycle. This is the human gate:
- *  - `pending`  — awaiting the user's decision. The only state an agent creates.
- *  - `approved` — user approved; an ExecutionOrder has been (or is being) staged.
- *  - `rejected` — user rejected; terminal, no order is ever created.
- *  - `expired`  — the proposal aged out before a decision (staleness guard).
- */
-export type ProposalStatus = 'pending' | 'approved' | 'rejected' | 'expired';
+/** proposal_status enum. `superseded` = replaced by a newer run's proposal. */
+export type ProposalStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'superseded';
 
-/** A single fundamentals data point the agent cited in its thesis. Kept as a
- * flat labelled list so the review UI can render "the fundamentals behind it"
- * without the frontend knowing the shape of every metric. */
-export interface FundamentalMetric {
-  /** e.g. "P/E (TTM)", "Revenue growth YoY", "Free cash flow". */
-  label: string;
-  /** Display value; string so we can carry units/formatting ("18.4%", "$1.2B"). */
-  value: string | number;
-  /** Optional one-line context, e.g. "vs 22 sector median". */
-  hint?: string;
-}
+/** Limit-only for now (see invariant 4); widen later if ever needed. */
+export type OrderType = 'limit';
 
-/** Records how a proposal's numbers were changed before approval, so the audit
- * trail shows the human's edits distinct from the agent's original suggestion. */
-export interface ProposalEdit {
-  field: 'suggestedLimitPrice' | 'suggestedShares' | 'stopPrice' | 'targetPrice' | 'timeInForce';
-  from: string | number | undefined;
-  to: string | number | undefined;
-}
-
-export interface ProposalDecision {
-  action: 'approved' | 'rejected';
-  /** Owner email that made the call — the only actor allowed to decide. */
-  decidedBy: string;
-  decidedAt: string; // ISO
-  note?: string;
-}
-
-export interface Proposal {
-  id: string;
-  userId: string;
-  createdAt: string; // ISO
-  updatedAt: string; // ISO
-
-  source: ProposalSource;
-  /** The agent run that produced this proposal (set for source === 'agent'). */
-  runId?: string;
-
-  status: ProposalStatus;
-
-  ticker: string;
-  direction: TradeDirection;
-
-  /** Plain-language rationale — the agent's job ends here. */
-  thesis: string;
-  /** The fundamentals the thesis rests on, for the review screen. */
-  fundamentals: FundamentalMetric[];
-
-  /** Suggested LIMIT price for a staged swing entry (never market orders). */
-  suggestedLimitPrice: number;
-  /** Suggested position size in shares. */
-  suggestedShares: number;
-  stopPrice?: number;
-  targetPrice?: number;
-  timeInForce: 'day' | 'gtc';
-
-  /** Present once the user decides. */
-  decision?: ProposalDecision;
-  /** Human edits applied before approval (empty/absent if accepted as-is). */
-  edits?: ProposalEdit[];
-  /** The order staged when this proposal was approved. */
-  orderId?: string;
-}
-
-/** Fields the user may change while a proposal is still `pending`. */
-export interface ProposalPatch {
-  suggestedLimitPrice?: number;
-  suggestedShares?: number;
-  stopPrice?: number | null;
-  targetPrice?: number | null;
-  timeInForce?: 'day' | 'gtc';
-}
+/** time_in_force: good-for-day / good-till-cancelled. */
+export type TimeInForce = 'gfd' | 'gtc';
 
 /**
- * Execution-side order lifecycle. Distinct from ProposalStatus on purpose: the
- * proposal captures the *decision*, the order captures what the broker did.
- *  - `staged`           — created by the execution service, not yet sent.
- *  - `submitted`        — handed to the broker adapter.
- *  - `working`          — live/open at the broker, unfilled or partially filled.
- *  - `filled`           — fully filled. Terminal.
- *  - `partially_filled` — some shares filled, remainder still working.
- *  - `canceled`         — canceled before full fill. Terminal.
- *  - `rejected`         — broker rejected the order. Terminal.
- *  - `failed`           — a guardrail or adapter error stopped it. Terminal.
+ * order_status enum. No intermediate "working" state — a live-at-broker but
+ * unfilled order is `submitted`.
+ *  - staged            — created by the execution service, not yet sent.
+ *  - submitted         — sent to the broker, live, unfilled.
+ *  - partially_filled  — some quantity filled, remainder live.
+ *  - filled            — fully filled. Terminal.
+ *  - cancelled         — cancelled before full fill. Terminal.
+ *  - rejected          — broker rejected. Terminal.
+ *  - failed            — a guardrail/adapter error stopped it. Terminal.
  */
 export type OrderStatus =
   | 'staged'
   | 'submitted'
-  | 'working'
   | 'partially_filled'
   | 'filled'
-  | 'canceled'
+  | 'cancelled'
   | 'rejected'
   | 'failed';
 
-export const TERMINAL_ORDER_STATUSES: readonly OrderStatus[] = [
-  'filled',
-  'canceled',
-  'rejected',
-  'failed',
-];
+export type AuditActor = 'agent' | 'user' | 'system';
+
+export const TERMINAL_ORDER_STATUSES: readonly OrderStatus[] = ['filled', 'cancelled', 'rejected', 'failed'];
+export const ACTIVE_ORDER_STATUSES: readonly OrderStatus[] = ['staged', 'submitted', 'partially_filled'];
 
 export function isTerminalOrderStatus(s: OrderStatus): boolean {
   return TERMINAL_ORDER_STATUSES.includes(s);
 }
+export function isActiveOrderStatus(s: OrderStatus): boolean {
+  return ACTIVE_ORDER_STATUSES.includes(s);
+}
 
-/** `paper` = execution stubbed by the deterministic paper adapter (Milestone 1).
- * `live` = real Robinhood MCP order placement (Milestone 3, gated + capped). */
-export type ExecutionMode = 'paper' | 'live';
+/**
+ * system_state — the single global control record (kill switch + paper mode +
+ * pinned agentic account). Modelled as one owner-keyed Redis object since this
+ * feature is root-user-only. The exposure caps are operational config; the
+ * canonical DDL omits them (caps aren't "spendable" state) but they must be
+ * stored somewhere editable, and this record is their natural home.
+ */
+export interface SystemState {
+  /** Master kill switch. FALSE = disarmed; the execution service places nothing.
+   * Starts OFF — execution must be consciously armed. */
+  tradingEnabled: boolean;
+  /** TRUE = simulated fills, no live submission. Starts ON (M1/M2). */
+  paperMode: boolean;
+  /** The dedicated agentic account number; live orders must target only this. */
+  agenticAccount?: string;
+  /** Per-position notional cap (limitPrice * quantity). Enforced pre-order. */
+  perPositionCapUsd: number;
+  /** Total notional cap across all active orders. Enforced pre-order. */
+  totalExposureCapUsd: number;
+  updatedAt: string; // ISO
+  updatedBy?: string;
+}
+
+export const DEFAULT_SYSTEM_STATE: Omit<SystemState, 'updatedAt'> = {
+  tradingEnabled: false,
+  paperMode: true,
+  perPositionCapUsd: 2000,
+  totalExposureCapUsd: 10000,
+};
+
+/** agent_runs — observability for each scheduled scan (populated in Milestone 2). */
+export interface AgentRun {
+  id: string;
+  startedAt: string; // ISO
+  finishedAt?: string;
+  cadence?: string; // 'nightly' | 'weekly' | 'manual'
+  universeSize?: number;
+  proposalsGenerated: number;
+  status: 'running' | 'completed' | 'failed';
+  error?: string;
+  metadata: Record<string, unknown>;
+}
+
+/** A single fundamentals data point behind the thesis (fundamentals_snapshot). */
+export interface FundamentalMetric {
+  label: string;
+  value: string | number;
+  hint?: string;
+}
+
+/**
+ * proposals — an IMMUTABLE snapshot of the agent's suggestion. User edits are
+ * NOT written back here: the approved (possibly edited) parameters live on the
+ * order row, and the diff is captured in the audit log. Only `status` /
+ * `decided*` change after creation.
+ */
+export interface Proposal {
+  id: string;
+  runId?: string;
+  createdAt: string; // ISO
+  symbol: string;
+  direction: TradeDirection;
+  /** Plain-language rationale — the agent's job ends here. */
+  thesis: string;
+  suggestedLimitPrice?: number;
+  suggestedQuantity?: number; // shares (fractional allowed)
+  suggestedStopPrice?: number;
+  suggestedTargetPrice?: number;
+  /** The Massive data behind the call (fundamentals_snapshot). */
+  fundamentals: FundamentalMetric[];
+  status: ProposalStatus;
+  /** Stale proposals auto-expire on the swing horizon. */
+  expiresAt?: string;
+  decidedAt?: string;
+  decidedBy?: string;
+}
+
+/** The finalized order parameters at approval time (proposal defaults + edits). */
+export interface OrderParams {
+  limitPrice: number;
+  quantity: number;
+  timeInForce: TimeInForce;
+  stopPrice?: number;
+  targetPrice?: number;
+}
 
 export interface OrderStatusEvent {
   status: OrderStatus;
@@ -144,106 +157,86 @@ export interface OrderStatusEvent {
   detail?: string;
 }
 
+/**
+ * orders — created ONLY on approval, owned by the deterministic execution layer.
+ */
 export interface ExecutionOrder {
   id: string;
-  userId: string;
   proposalId: string;
   createdAt: string; // ISO
   updatedAt: string; // ISO
-
-  mode: ExecutionMode;
+  /** Denormalized from the proposal for display/audit (orders reference proposals). */
+  symbol: string;
+  /** Must equal system_state.agenticAccount for live orders ('PAPER' in paper mode). */
+  accountNumber: string;
   side: TradeDirection;
-  ticker: string;
-  orderType: 'limit'; // staged swing entries are always limit orders
+  type: OrderType;
   limitPrice: number;
-  shares: number;
-  timeInForce: 'day' | 'gtc';
-
-  status: OrderStatus;
-  filledShares: number;
-  avgFillPrice?: number;
-
-  /** Adapter/broker id, once submitted. */
+  quantity: number;
+  timeInForce: TimeInForce;
+  /** Idempotency key sent to the broker; re-sent verbatim on retry. */
+  refId: string;
+  /** Broker's order id once submitted. */
   brokerOrderId?: string;
-  /** Append-only status trail for this order. */
+  status: OrderStatus;
+  filledQuantity: number;
+  avgFillPrice?: number;
+  /** true = simulated, no live submission. */
+  isPaper: boolean;
+  submittedAt?: string;
+  filledAt?: string;
+  lastError?: string;
+  /** Local status trail (the audit log is the canonical, immutable record). */
   history: OrderStatusEvent[];
-  /** Set when status is `failed`/`rejected`. */
-  error?: string;
 }
 
-/** Who caused an audited event. */
-export type AuditActor = 'agent' | 'user' | 'system';
+export type AuditEntityType = 'proposal' | 'order' | 'system';
 
+/** event_type vocabulary the service emits (matches the canonical schema). */
 export type AuditEventType =
-  | 'proposal_created'
-  | 'proposal_edited'
-  | 'proposal_approved'
-  | 'proposal_rejected'
-  | 'proposal_expired'
-  | 'order_staged'
-  | 'order_submitted'
-  | 'order_status'
-  | 'order_filled'
-  | 'order_canceled'
-  | 'order_failed'
-  | 'guardrail_blocked'
-  | 'kill_switch'
-  | 'mode_changed'
-  | 'settings_changed';
+  | 'proposal.created'
+  | 'proposal.approved'
+  | 'proposal.rejected'
+  | 'proposal.edited'
+  | 'proposal.expired'
+  | 'order.staged'
+  | 'order.submitted'
+  | 'order.status_changed'
+  | 'order.filled'
+  | 'order.cancelled'
+  | 'order.failed'
+  | 'killswitch.activated'
+  | 'killswitch.deactivated'
+  | 'paper_mode.changed';
 
 /**
- * Immutable audit record. Every proposal → decision → order transition writes
- * one. Stored append-only (Redis list) so the trail can never be rewritten.
+ * audit_log — append-only, immutable. Every proposal → decision → order
+ * transition writes one, with before/after state for changes.
  */
 export interface AuditEvent {
   id: string;
-  userId: string;
-  ts: string; // ISO
+  occurredAt: string; // ISO
   actor: AuditActor;
-  type: AuditEventType;
-  /** Human-readable one-liner for the audit view. */
-  summary: string;
-  proposalId?: string;
-  orderId?: string;
-  /** Optional structured payload (edited fields, guardrail detail, etc.). */
-  data?: Record<string, unknown>;
+  /** user id, agent run id, or 'system'. */
+  actorId?: string;
+  eventType: AuditEventType;
+  entityType: AuditEntityType;
+  entityId?: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  note?: string;
 }
-
-/**
- * Per-user ConfluenceTrading configuration and the hard guardrails enforced in
- * code (never in prompts). The execution service reads these on every run.
- */
-export interface ConfluenceSettings {
-  userId: string;
-  /** Feature master switch for the UI/agent. */
-  enabled: boolean;
-  /** paper (stubbed) vs live (real MCP). Starts paper; flipping to live is the
-   * Milestone-3 gate. */
-  mode: ExecutionMode;
-  /**
-   * Kill switch. When true the execution service refuses to place any order,
-   * regardless of approvals. Disconnecting the agent / halting execution.
-   */
-  killSwitch: boolean;
-  /** Max notional (limitPrice * shares) for a single position. Enforced pre-order. */
-  perPositionCapUsd: number;
-  /** Max total notional across all non-terminal orders. Enforced pre-order. */
-  totalExposureCapUsd: number;
-  updatedAt: string; // ISO
-}
-
-export const DEFAULT_CONFLUENCE_SETTINGS: Omit<ConfluenceSettings, 'userId' | 'updatedAt'> = {
-  enabled: true,
-  mode: 'paper',
-  killSwitch: false,
-  perPositionCapUsd: 2000,
-  totalExposureCapUsd: 10000,
-};
 
 /** Result of the deterministic guardrail check run before any order is placed. */
 export interface GuardrailResult {
   ok: boolean;
-  /** Populated when ok === false; the reason the order was blocked. */
   reason?: string;
-  code?: 'kill_switch' | 'disabled' | 'per_position_cap' | 'total_exposure_cap' | 'invalid_order';
+  code?:
+    | 'kill_switch'
+    | 'per_position_cap'
+    | 'total_exposure_cap'
+    | 'invalid_order'
+    | 'account_unset'
+    | 'duplicate_active_order'
+    | 'proposal_not_approved';
 }

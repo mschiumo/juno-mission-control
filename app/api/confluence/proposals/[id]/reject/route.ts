@@ -3,13 +3,13 @@
  *
  * POST /api/confluence/proposals/:id/reject  body (optional): { note? }
  *
- * Terminal for the proposal. No order is ever created. This is the "worst case"
- * the design guarantees: a rejected proposal simply never touches money.
+ * Terminal for the proposal. No order is ever created — the guaranteed worst
+ * case: a rejected proposal simply never touches money.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireOwner } from '@/lib/auth-session';
-import { getProposalById, updateProposal } from '@/lib/db/confluence/proposals';
+import { getProposalById, decideProposal } from '@/lib/db/confluence/proposals';
 import { appendAudit } from '@/lib/db/confluence/audit';
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -19,15 +19,12 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
   if (error) return error;
   const { id } = await params;
 
-  const current = await getProposalById(id, userId);
-  if (!current) {
+  const proposal = await getProposalById(id, userId);
+  if (!proposal) {
     return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
   }
-  if (current.status !== 'pending') {
-    return NextResponse.json(
-      { success: false, error: `Proposal is already ${current.status}` },
-      { status: 409 },
-    );
+  if (proposal.status !== 'pending') {
+    return NextResponse.json({ success: false, error: `Proposal is already ${proposal.status}` }, { status: 409 });
   }
 
   let note: string | undefined;
@@ -39,16 +36,14 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
   }
 
   const now = new Date().toISOString();
-  const rejected = await updateProposal(
-    id,
-    { status: 'rejected', decision: { action: 'rejected', decidedBy: email, decidedAt: now, note } },
-    userId,
-  );
+  const rejected = await decideProposal(id, userId, { status: 'rejected', decidedBy: email, decidedAt: now });
   await appendAudit(userId, {
     actor: 'user',
-    type: 'proposal_rejected',
-    summary: `Rejected ${current.direction} ${current.ticker}${note ? ` — ${note}` : ''}`,
-    proposalId: id,
+    actorId: email,
+    eventType: 'proposal.rejected',
+    entityType: 'proposal',
+    entityId: id,
+    note: `Rejected ${proposal.direction} ${proposal.symbol}${note ? ` — ${note}` : ''}`,
   });
 
   return NextResponse.json({ success: true, proposal: rejected });

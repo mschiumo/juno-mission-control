@@ -2,209 +2,235 @@
  * ConfluenceTrading execution service — the deterministic bridge from an
  * approved proposal to a broker order. THIS FILE CONTAINS NO LLM CALLS.
  *
- * It is the only thing that stages/places orders, and it only ever runs because
- * a user tapped Approve. The flow for one approval:
+ * It is the only thing that stages/places orders, and it only runs because a
+ * user approved a proposal. It enforces, in code, the canonical schema's
+ * invariants (which Postgres backs with triggers/constraints):
+ *   - an order may exist only for an `approved` proposal (invariant 2);
+ *   - at most one active order per proposal (unique-index equivalent);
+ *   - exposure caps + kill switch checked BEFORE staging (invariant 5/6);
+ *   - live orders target only the pinned agentic account (invariant 4).
  *
- *   1. Load settings + open orders.
- *   2. Run guardrails (kill switch, caps). Block → fail-safe, no order.
- *   3. Stage an ExecutionOrder (status `staged`).
- *   4. Submit via the mode's BrokerAdapter (paper today, live in M3).
- *   5. Persist the returned state; audit every transition.
- *
- * Placing and polling are separate so status can be refreshed later (fills come
- * back asynchronously from a real broker).
+ * Staging/submitting and polling are separate so fills can be reflected later.
  */
 
 import { appendAudit } from '@/lib/db/confluence/audit';
-import { getOpenOrders, saveOrder, transitionOrder, getOrderById } from '@/lib/db/confluence/orders';
-import { getSettings } from '@/lib/db/confluence/settings';
-import { updateProposal } from '@/lib/db/confluence/proposals';
+import {
+  getActiveOrders,
+  getOrderById,
+  hasActiveOrderForProposal,
+  saveOrder,
+  transitionOrder,
+} from '@/lib/db/confluence/orders';
+import { getSystemState } from '@/lib/db/confluence/system-state';
 import { checkGuardrails } from './guardrails';
 import { getBrokerAdapter } from './broker';
-import type { ExecutionOrder, Proposal } from '@/types/confluence';
+import type { ExecutionOrder, OrderParams, Proposal } from '@/types/confluence';
+import { isTerminalOrderStatus } from '@/types/confluence';
 
 export interface ExecuteResult {
   ok: boolean;
   order?: ExecutionOrder;
-  /** Guardrail/validation reason when ok === false. */
   reason?: string;
+  code?: string;
 }
 
 /**
- * Turn an approved proposal into a placed order. Assumes the caller has already
- * flipped the proposal to `approved` and recorded the decision + audit for the
- * approval itself; this function owns everything order-side.
+ * Turn an approved proposal + finalized order params into a placed order.
+ * The caller (approve route) has already flipped the proposal to `approved`,
+ * recorded the decision, and audited the approval; this owns everything
+ * order-side.
  */
 export async function executeApprovedProposal(
   proposal: Proposal,
+  params: OrderParams,
+  actorId: string,
   userId: string,
 ): Promise<ExecuteResult> {
-  const settings = await getSettings(userId);
-  const openOrders = await getOpenOrders(userId);
-
-  // 1–2. Guardrails. Never trust the model to have respected the caps.
-  const guard = checkGuardrails(proposal, settings, openOrders);
-  if (!guard.ok) {
-    await appendAudit(userId, {
-      actor: 'system',
-      type: 'guardrail_blocked',
-      summary: `Order blocked for ${proposal.ticker}: ${guard.reason}`,
-      proposalId: proposal.id,
-      data: { code: guard.code },
-    });
-    return { ok: false, reason: guard.reason };
+  // Invariant 2: no order without an approved proposal.
+  if (proposal.status !== 'approved') {
+    return { ok: false, code: 'proposal_not_approved', reason: 'Proposal is not approved.' };
+  }
+  // At-most-one-active-order-per-proposal.
+  if (await hasActiveOrderForProposal(proposal.id, userId)) {
+    return { ok: false, code: 'duplicate_active_order', reason: 'Proposal already has an active order.' };
   }
 
-  // 3. Stage the order.
+  const state = await getSystemState(userId);
+  const activeOrders = await getActiveOrders(userId);
+
+  // Invariant 5/6: guardrails run BEFORE anything is staged. Never trust the model.
+  const guard = checkGuardrails({ limitPrice: params.limitPrice, quantity: params.quantity }, state, activeOrders);
+  if (!guard.ok) {
+    return { ok: false, code: guard.code, reason: guard.reason };
+  }
+
+  // Invariant 4: pin the account (live must target the agentic account).
+  const accountNumber = state.paperMode ? 'PAPER' : state.agenticAccount!;
+
+  // Stage the order.
   const now = new Date().toISOString();
   const staged: ExecutionOrder = {
     id: crypto.randomUUID(),
-    userId,
     proposalId: proposal.id,
     createdAt: now,
     updatedAt: now,
-    mode: settings.mode,
+    symbol: proposal.symbol,
+    accountNumber,
     side: proposal.direction,
-    ticker: proposal.ticker,
-    orderType: 'limit',
-    limitPrice: proposal.suggestedLimitPrice,
-    shares: proposal.suggestedShares,
-    timeInForce: proposal.timeInForce,
+    type: 'limit',
+    limitPrice: params.limitPrice,
+    quantity: params.quantity,
+    timeInForce: params.timeInForce,
+    refId: crypto.randomUUID(), // idempotency key, re-sent verbatim on retry
     status: 'staged',
-    filledShares: 0,
+    filledQuantity: 0,
+    isPaper: state.paperMode,
     history: [{ status: 'staged', ts: now }],
   };
   await saveOrder(staged, userId);
-  await updateProposal(proposal.id, { orderId: staged.id }, userId);
   await appendAudit(userId, {
     actor: 'system',
-    type: 'order_staged',
-    summary: `Staged ${staged.mode} limit ${staged.side} ${staged.shares} ${staged.ticker} @ $${staged.limitPrice}`,
-    proposalId: proposal.id,
-    orderId: staged.id,
-    data: { mode: staged.mode },
-  });
-
-  // 4. Submit via the adapter for the current mode.
-  const adapter = getBrokerAdapter(settings.mode);
-  try {
-    const state = await adapter.placeLimitOrder({
-      orderId: staged.id,
-      ticker: staged.ticker,
+    actorId: 'system',
+    eventType: 'order.staged',
+    entityType: 'order',
+    entityId: staged.id,
+    after: {
+      proposalId: proposal.id,
+      symbol: proposal.symbol,
       side: staged.side,
       limitPrice: staged.limitPrice,
-      shares: staged.shares,
+      quantity: staged.quantity,
+      isPaper: staged.isPaper,
+      account: accountNumber,
+    },
+    note: `Staged ${staged.isPaper ? 'paper' : 'live'} limit ${staged.side} ${staged.quantity} ${proposal.symbol} @ $${staged.limitPrice}`,
+  });
+
+  // Submit via the adapter for the current mode.
+  const adapter = getBrokerAdapter(state.paperMode);
+  try {
+    const brokerState = await adapter.placeLimitOrder({
+      orderId: staged.id,
+      refId: staged.refId,
+      accountNumber,
+      symbol: proposal.symbol,
+      side: staged.side,
+      limitPrice: staged.limitPrice,
+      quantity: staged.quantity,
       timeInForce: staged.timeInForce,
     });
     const submitted = await transitionOrder(staged.id, userId, {
-      status: state.status,
-      filledShares: state.filledShares,
-      avgFillPrice: state.avgFillPrice,
-      brokerOrderId: state.brokerOrderId,
-      error: state.error,
+      status: brokerState.status,
+      filledQuantity: brokerState.filledQuantity,
+      avgFillPrice: brokerState.avgFillPrice,
+      brokerOrderId: brokerState.brokerOrderId,
+      lastError: brokerState.error,
       detail: `submitted via ${adapter.name}`,
     });
     await appendAudit(userId, {
       actor: 'system',
-      type: 'order_submitted',
-      summary: `Submitted ${staged.ticker} order to ${adapter.name} (${state.status})`,
-      proposalId: proposal.id,
-      orderId: staged.id,
-      data: { brokerOrderId: state.brokerOrderId, status: state.status },
+      actorId: 'system',
+      eventType: 'order.submitted',
+      entityType: 'order',
+      entityId: staged.id,
+      after: { brokerOrderId: brokerState.brokerOrderId, status: brokerState.status },
+      note: `Submitted ${proposal.symbol} to ${adapter.name} (${brokerState.status})`,
     });
     return { ok: true, order: submitted ?? staged };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown execution error';
     const failed = await transitionOrder(staged.id, userId, {
       status: 'failed',
-      error: message,
+      lastError: message,
       detail: 'adapter placeLimitOrder threw',
     });
     await appendAudit(userId, {
       actor: 'system',
-      type: 'order_failed',
-      summary: `Order for ${staged.ticker} failed: ${message}`,
-      proposalId: proposal.id,
-      orderId: staged.id,
+      actorId: 'system',
+      eventType: 'order.failed',
+      entityType: 'order',
+      entityId: staged.id,
+      after: { lastError: message },
+      note: `Order for ${proposal.symbol} failed: ${message}`,
     });
-    return { ok: false, reason: message, order: failed ?? staged };
+    return { ok: false, code: 'failed', reason: message, order: failed ?? staged };
   }
 }
 
 /**
- * Poll the broker for the latest status of a non-terminal order and persist any
+ * Poll the broker for the latest status of an active order and persist any
  * change. Used by the monitoring UI's refresh and (later) a cron to reflect
  * fills. Returns the current order (unchanged if already terminal or missing).
  */
-export async function refreshOrderStatus(
-  orderId: string,
-  userId: string,
-): Promise<ExecutionOrder | null> {
+export async function refreshOrderStatus(orderId: string, userId: string): Promise<ExecutionOrder | null> {
   const order = await getOrderById(orderId, userId);
   if (!order) return null;
-  if (!order.brokerOrderId) return order; // never submitted (staged/failed)
-  if (['filled', 'canceled', 'rejected', 'failed'].includes(order.status)) return order;
+  if (!order.brokerOrderId || isTerminalOrderStatus(order.status)) return order;
 
-  const adapter = getBrokerAdapter(order.mode);
-  const state = await adapter.getOrderStatus(order.brokerOrderId);
-  if (state.status === order.status && state.filledShares === order.filledShares) {
+  const adapter = getBrokerAdapter(order.isPaper);
+  const brokerState = await adapter.getOrderStatus(order.brokerOrderId);
+  if (brokerState.status === order.status && brokerState.filledQuantity === order.filledQuantity) {
     return order; // no change
   }
 
+  const before = { status: order.status, filledQuantity: order.filledQuantity };
   const updated = await transitionOrder(orderId, userId, {
-    status: state.status,
-    filledShares: state.filledShares,
-    avgFillPrice: state.avgFillPrice,
-    error: state.error,
+    status: brokerState.status,
+    filledQuantity: brokerState.filledQuantity,
+    avgFillPrice: brokerState.avgFillPrice,
+    lastError: brokerState.error,
     detail: `polled ${adapter.name}`,
   });
 
   if (updated) {
-    const type =
-      state.status === 'filled'
-        ? 'order_filled'
-        : state.status === 'canceled'
-          ? 'order_canceled'
-          : 'order_status';
+    const eventType =
+      brokerState.status === 'filled'
+        ? 'order.filled'
+        : brokerState.status === 'cancelled'
+          ? 'order.cancelled'
+          : 'order.status_changed';
     await appendAudit(userId, {
       actor: 'system',
-      type,
-      summary: `${order.ticker} order → ${state.status}${
-        state.avgFillPrice ? ` @ $${state.avgFillPrice}` : ''
-      }`,
-      proposalId: order.proposalId,
-      orderId,
-      data: { status: state.status, filledShares: state.filledShares },
+      actorId: 'system',
+      eventType,
+      entityType: 'order',
+      entityId: orderId,
+      before,
+      after: { status: brokerState.status, filledQuantity: brokerState.filledQuantity, avgFillPrice: brokerState.avgFillPrice },
+      note: `${order.symbol ?? ''} order → ${brokerState.status}${brokerState.avgFillPrice ? ` @ $${brokerState.avgFillPrice}` : ''}`.trim(),
     });
   }
   return updated ?? order;
 }
 
 /**
- * Cancel a working order via the adapter and reflect the result. Used by the
+ * Cancel an active order via the adapter and reflect the result. Used by the
  * monitoring UI and as part of the kill-switch flow.
  */
-export async function cancelOrder(orderId: string, userId: string): Promise<ExecutionOrder | null> {
+export async function cancelOrder(orderId: string, actorId: string, userId: string): Promise<ExecutionOrder | null> {
   const order = await getOrderById(orderId, userId);
   if (!order) return null;
-  if (!order.brokerOrderId || ['filled', 'canceled', 'rejected', 'failed'].includes(order.status)) {
-    return order;
-  }
-  const adapter = getBrokerAdapter(order.mode);
-  const state = await adapter.cancelOrder(order.brokerOrderId);
+  if (!order.brokerOrderId || isTerminalOrderStatus(order.status)) return order;
+
+  const adapter = getBrokerAdapter(order.isPaper);
+  const brokerState = await adapter.cancelOrder(order.brokerOrderId);
+  const before = { status: order.status };
   const updated = await transitionOrder(orderId, userId, {
-    status: state.status,
-    filledShares: state.filledShares,
-    avgFillPrice: state.avgFillPrice,
-    error: state.error,
+    status: brokerState.status,
+    filledQuantity: brokerState.filledQuantity,
+    avgFillPrice: brokerState.avgFillPrice,
+    lastError: brokerState.error,
     detail: `cancel via ${adapter.name}`,
   });
   await appendAudit(userId, {
     actor: 'user',
-    type: 'order_canceled',
-    summary: `${order.ticker} order cancel requested → ${state.status}`,
-    proposalId: order.proposalId,
-    orderId,
+    actorId,
+    eventType: 'order.cancelled',
+    entityType: 'order',
+    entityId: orderId,
+    before,
+    after: { status: brokerState.status },
+    note: `${order.symbol ?? ''} order cancel requested → ${brokerState.status}`.trim(),
   });
   return updated ?? order;
 }

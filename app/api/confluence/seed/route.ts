@@ -4,11 +4,11 @@
  * POST /api/confluence/seed
  *
  * Milestone 1's acceptance test is "watch dummy proposals flow end to end".
- * This creates a few realistic `pending` proposals (source: manual) so the
- * queue → approve → paper order → fill loop can be exercised before the real
- * analysis agent (Milestone 2) exists. It places NO orders itself.
+ * This creates a few realistic `pending` proposals so the queue → approve →
+ * paper order → fill loop can be exercised before the real analysis agent
+ * (Milestone 2) exists. It places NO orders itself.
  *
- * The theses/fundamentals here are illustrative placeholders — the user's real
+ * The theses/fundamentals are illustrative placeholders — the user's real
  * fundamental criteria are an Open Item and are NOT invented by this feature.
  */
 
@@ -18,11 +18,21 @@ import { saveProposal } from '@/lib/db/confluence/proposals';
 import { appendAudit } from '@/lib/db/confluence/audit';
 import type { Proposal } from '@/types/confluence';
 
-type Seed = Omit<Proposal, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'status' | 'source'>;
+type Seed = Pick<
+  Proposal,
+  | 'symbol'
+  | 'direction'
+  | 'thesis'
+  | 'suggestedLimitPrice'
+  | 'suggestedQuantity'
+  | 'suggestedStopPrice'
+  | 'suggestedTargetPrice'
+  | 'fundamentals'
+>;
 
 const SEEDS: Seed[] = [
   {
-    ticker: 'AAPL',
+    symbol: 'AAPL',
     direction: 'buy',
     thesis:
       'Placeholder demo thesis — services margin expansion and a stable buyback support a staged swing entry on a pullback to support. (Illustrative only; not a real recommendation.)',
@@ -33,13 +43,12 @@ const SEEDS: Seed[] = [
       { label: 'Rev growth YoY', value: '4.9%' },
     ],
     suggestedLimitPrice: 182.5,
-    suggestedShares: 5,
-    stopPrice: 174,
-    targetPrice: 205,
-    timeInForce: 'gtc',
+    suggestedQuantity: 5,
+    suggestedStopPrice: 174,
+    suggestedTargetPrice: 205,
   },
   {
-    ticker: 'MSFT',
+    symbol: 'MSFT',
     direction: 'buy',
     thesis:
       'Placeholder demo thesis — cloud/AI backlog growth with durable operating leverage; scale into a limit below the recent breakout. (Illustrative only.)',
@@ -50,13 +59,12 @@ const SEEDS: Seed[] = [
       { label: 'Net cash', value: '$70B' },
     ],
     suggestedLimitPrice: 405,
-    suggestedShares: 2,
-    stopPrice: 388,
-    targetPrice: 460,
-    timeInForce: 'gtc',
+    suggestedQuantity: 2,
+    suggestedStopPrice: 388,
+    suggestedTargetPrice: 460,
   },
   {
-    ticker: 'KO',
+    symbol: 'KO',
     direction: 'buy',
     thesis:
       'Placeholder demo thesis — defensive dividend compounder; small starter position on valuation reset. (Illustrative only.)',
@@ -67,10 +75,9 @@ const SEEDS: Seed[] = [
       { label: 'Rev growth YoY', value: '3.2%' },
     ],
     suggestedLimitPrice: 60,
-    suggestedShares: 10,
-    stopPrice: 56,
-    targetPrice: 70,
-    timeInForce: 'day',
+    suggestedQuantity: 10,
+    suggestedStopPrice: 56,
+    suggestedTargetPrice: 70,
   },
 ];
 
@@ -83,20 +90,19 @@ export async function POST(): Promise<NextResponse> {
   for (const seed of SEEDS) {
     const proposal: Proposal = {
       id: crypto.randomUUID(),
-      userId,
       createdAt: now,
-      updatedAt: now,
-      source: 'manual',
       status: 'pending',
       ...seed,
     };
     await saveProposal(proposal, userId);
     await appendAudit(userId, {
       actor: 'system',
-      type: 'proposal_created',
-      summary: `Seeded demo proposal: ${proposal.direction} ${proposal.ticker} @ $${proposal.suggestedLimitPrice}`,
-      proposalId: proposal.id,
-      data: { seed: true },
+      actorId: 'system',
+      eventType: 'proposal.created',
+      entityType: 'proposal',
+      entityId: proposal.id,
+      after: { symbol: proposal.symbol, direction: proposal.direction, limitPrice: proposal.suggestedLimitPrice, seed: true },
+      note: `Seeded demo proposal: ${proposal.direction} ${proposal.symbol} @ $${proposal.suggestedLimitPrice}`,
     });
     created.push(proposal);
   }

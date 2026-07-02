@@ -1,5 +1,5 @@
 /**
- * Cancel a working order (owner-only).
+ * Cancel an active order (owner-only).
  *
  * POST /api/confluence/orders/:id/cancel
  */
@@ -11,11 +11,11 @@ import { cancelOrder } from '@/lib/confluence/execution';
 type RouteParams = { params: Promise<{ id: string }> };
 
 export async function POST(_req: NextRequest, { params }: RouteParams): Promise<NextResponse> {
-  const { userId, error } = await requireOwner();
+  const { userId, email, error } = await requireOwner();
   if (error) return error;
   const { id } = await params;
 
-  const order = await cancelOrder(id, userId);
+  const order = await cancelOrder(id, email, userId);
   if (!order) {
     return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
   }

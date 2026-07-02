@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { isOwnerEmail } from '@/lib/owner';
 import {
   LayoutDashboard,
   TrendingUp,
@@ -11,6 +13,7 @@ import {
   Target,
   BookOpen,
   Newspaper,
+  Sparkles,
   Menu,
   X,
 } from 'lucide-react';
@@ -27,22 +30,27 @@ import TradeManagementView from '@/components/trading/TradeManagementView';
 import PerformanceView from '@/components/trading/PerformanceView';
 import GoalsView from '@/components/trading/GoalsView';
 import TradingTour from '@/components/trading/TradingTour';
+import AgentsView from '@/components/confluence/ConfluenceView';
 
-type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management' | 'agents';
 
 export default function TradingView() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  // The Agents sub-tab is owner-only (agentic execution is billing/safety-sensitive).
+  const isOwner = isOwnerEmail(session?.user?.email);
 
   // Get subtab from URL or default to 'overview'
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
     const subtab = searchParams.get('subtab');
+    if (subtab === 'agents') return isOwner ? 'agents' : 'overview';
     if (subtab === 'market' || subtab === 'market-news' || subtab === 'performance' || subtab === 'goals' || subtab === 'projection' || subtab === 'trade-management') {
       return subtab;
     }
     return 'overview';
-  }, [searchParams]);
+  }, [searchParams, isOwner]);
 
   const [activeSubTab, setActiveSubTabState] = useState<TradingSubTab>(getSubTabFromUrl);
   const [importKey, setImportKey] = useState(0);
@@ -78,6 +86,13 @@ export default function TradingView() {
     [pathname, router, searchParams],
   );
 
+  // Session loads async; if a non-owner is on the Agents sub-tab, bounce them.
+  useEffect(() => {
+    if (!isOwner && activeSubTab === 'agents') {
+      setActiveSubTabState('overview');
+    }
+  }, [isOwner, activeSubTab]);
+
   function handleTourComplete() {
     setShowTour(false);
     fetch('/api/user/prefs', {
@@ -95,6 +110,8 @@ export default function TradingView() {
     { id: 'goals' as const, label: 'Goals', icon: Target },
     { id: 'performance' as const, label: 'Performance', icon: BarChart3 },
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
+    // Agents (agentic swing-trading) is owner-only.
+    ...(isOwner ? [{ id: 'agents' as const, label: 'Agents', icon: Sparkles }] : []),
   ];
 
   const activeTabLabel = subTabs.find((t) => t.id === activeSubTab)?.label || 'Journal';
@@ -194,6 +211,8 @@ export default function TradingView() {
 
       {activeSubTab === 'goals' && <GoalsView refreshKey={importKey} />}
 
+      {activeSubTab === 'agents' && isOwner && <AgentsView />}
+
       {activeSubTab === 'projection' && (
         <div data-tour="profit-projection">
           <ProfitProjectionView />
@@ -212,7 +231,9 @@ export default function TradingView() {
       {/* First-time onboarding tour */}
       {showTour && (
         <TradingTour
-          activeSubTab={activeSubTab}
+          // The onboarding tour only covers the standard sub-tabs; 'agents' (owner-only)
+          // isn't part of it, so present it as 'overview' to the tour's narrower type.
+          activeSubTab={activeSubTab === 'agents' ? 'overview' : activeSubTab}
           onNavigate={setActiveSubTab}
           onComplete={handleTourComplete}
         />

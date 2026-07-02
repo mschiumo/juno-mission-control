@@ -12,14 +12,13 @@ import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
-import ConfluenceView from "@/components/confluence/ConfluenceView";
 import LandingPage from "@/components/landing/LandingPage";
 import Link from 'next/link';
-import { LayoutDashboard, Target, TrendingUp, Sparkles, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, Target, TrendingUp, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
 
-type TabId = 'dashboard' | 'trading' | 'goals' | 'confluence';
+type TabId = 'dashboard' | 'trading' | 'goals';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -35,7 +34,6 @@ function DashboardContent() {
     const tab = searchParams.get('tab');
     if (tab === 'trading') return 'trading';
     if (tab === 'goals' && isOwner) return 'goals';
-    if (tab === 'confluence' && isOwner) return 'confluence';
     if (isOwner) return 'dashboard';
     return 'trading';
   }, [searchParams, isOwner]);
@@ -45,7 +43,7 @@ function DashboardContent() {
 
   // Redirect non-owners away from owner-only tabs (dashboard, goals)
   useEffect(() => {
-    if (!isOwner && (activeTab === 'dashboard' || activeTab === 'goals' || activeTab === 'confluence')) {
+    if (!isOwner && (activeTab === 'dashboard' || activeTab === 'goals')) {
       setActiveTab('trading');
     }
   }, [isOwner, activeTab]);
@@ -66,7 +64,6 @@ function DashboardContent() {
     ? [
         { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
         { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
-        { id: 'confluence' as const, label: 'Confluence', icon: Sparkles },
         { id: 'goals' as const, label: 'Goals', icon: Target },
       ]
     : [];
@@ -227,11 +224,6 @@ function DashboardContent() {
           /* Trading View */
           <div className="max-w-[1600px] mx-auto">
             <TradingView />
-          </div>
-        ) : activeTab === 'confluence' ? (
-          /* ConfluenceTrading View */
-          <div className="max-w-[1600px] mx-auto">
-            <ConfluenceView />
           </div>
         ) : activeTab === 'goals' ? (
           /* Goals View */

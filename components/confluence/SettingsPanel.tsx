@@ -1,20 +1,21 @@
 'use client';
 
 /**
- * Guardrail & safety controls. This panel is where the hard rules live in the
- * UI: the kill switch, the paper/live mode gate, and the per-position / total
- * exposure caps. The caps and switches are enforced server-side in the
- * execution service — this panel just edits them.
+ * Guardrail & safety controls (system_state). This panel is where the hard rules
+ * live in the UI: the kill switch (trading_enabled), the paper/live mode gate,
+ * the pinned agentic account, and the per-position / total exposure caps. All of
+ * these are enforced server-side in the execution service — this panel just
+ * edits them.
  */
 
 import { useState } from 'react';
 import { ShieldAlert, Power, FlaskConical, Save } from 'lucide-react';
-import type { ConfluenceSettings } from '@/types/confluence';
+import type { SystemState } from '@/types/confluence';
 
 interface Props {
-  settings: ConfluenceSettings;
+  state: SystemState;
   busy: boolean;
-  onSave: (updates: Partial<ConfluenceSettings>) => void;
+  onSave: (updates: Partial<SystemState>) => void;
 }
 
 const field = {
@@ -22,45 +23,48 @@ const field = {
   border: '1px solid var(--border-default)',
 } as const;
 
-export default function SettingsPanel({ settings, busy, onSave }: Props) {
-  const [perPosition, setPerPosition] = useState(String(settings.perPositionCapUsd));
-  const [totalCap, setTotalCap] = useState(String(settings.totalExposureCapUsd));
+export default function SettingsPanel({ state, busy, onSave }: Props) {
+  const [perPosition, setPerPosition] = useState(String(state.perPositionCapUsd));
+  const [totalCap, setTotalCap] = useState(String(state.totalExposureCapUsd));
+  const [account, setAccount] = useState(state.agenticAccount ?? '');
 
   const capsDirty =
-    Number(perPosition) !== settings.perPositionCapUsd ||
-    Number(totalCap) !== settings.totalExposureCapUsd;
+    Number(perPosition) !== state.perPositionCapUsd || Number(totalCap) !== state.totalExposureCapUsd;
+  const accountDirty = account.trim() !== (state.agenticAccount ?? '');
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Kill switch */}
-      <div className="card" style={{ borderColor: settings.killSwitch ? 'var(--negative)' : 'var(--border-default)' }}>
+      {/* Kill switch / arm execution */}
+      <div className="card" style={{ borderColor: state.tradingEnabled ? 'var(--border-default)' : 'var(--negative)' }}>
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--negative-dim)' }}>
               <ShieldAlert className="w-4.5 h-4.5" style={{ color: 'var(--negative)' }} />
             </div>
             <div>
-              <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Kill switch</div>
+              <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Execution {state.tradingEnabled ? 'armed' : 'disarmed (kill switch)'}
+              </div>
               <p className="text-[12px] mt-0.5 max-w-md" style={{ color: 'var(--text-secondary)' }}>
-                When engaged, the execution service refuses to place any order regardless of approvals.
+                When disarmed, the execution service refuses to place any order regardless of approvals. Ships disarmed.
               </p>
             </div>
           </div>
           <button
             className="px-3.5 py-2 rounded-lg text-sm font-medium flex-shrink-0 disabled:opacity-50"
             style={{
-              background: settings.killSwitch ? 'var(--negative)' : 'var(--surface-3)',
-              color: settings.killSwitch ? '#fff' : 'var(--text-secondary)',
+              background: state.tradingEnabled ? 'var(--negative)' : 'var(--positive-dim)',
+              color: state.tradingEnabled ? '#fff' : 'var(--positive)',
             }}
             disabled={busy}
-            onClick={() => onSave({ killSwitch: !settings.killSwitch })}
+            onClick={() => onSave({ tradingEnabled: !state.tradingEnabled })}
           >
-            {settings.killSwitch ? 'ENGAGED — release' : 'Engage'}
+            {state.tradingEnabled ? 'Engage kill switch' : 'Arm execution'}
           </button>
         </div>
       </div>
 
-      {/* Mode + enabled */}
+      {/* Mode + agentic account */}
       <div className="card">
         <div className="flex items-center justify-between gap-4 mb-4 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-start gap-3">
@@ -77,15 +81,15 @@ export default function SettingsPanel({ settings, busy, onSave }: Props) {
           <div className="flex rounded-lg overflow-hidden flex-shrink-0" style={{ border: '1px solid var(--border-default)' }}>
             <button
               className="px-3.5 py-2 text-sm font-medium"
-              style={{ background: settings.mode === 'paper' ? 'var(--accent)' : 'transparent', color: settings.mode === 'paper' ? '#fff' : 'var(--text-secondary)' }}
+              style={{ background: state.paperMode ? 'var(--accent)' : 'transparent', color: state.paperMode ? '#fff' : 'var(--text-secondary)' }}
               disabled={busy}
-              onClick={() => onSave({ mode: 'paper' })}
+              onClick={() => onSave({ paperMode: true })}
             >
               Paper
             </button>
             <button
               className="px-3.5 py-2 text-sm font-medium disabled:opacity-40"
-              style={{ background: settings.mode === 'live' ? 'var(--negative)' : 'transparent', color: settings.mode === 'live' ? '#fff' : 'var(--text-tertiary)' }}
+              style={{ background: !state.paperMode ? 'var(--negative)' : 'transparent', color: !state.paperMode ? '#fff' : 'var(--text-tertiary)' }}
               disabled
               title="Live execution ships in Milestone 3"
             >
@@ -94,27 +98,29 @@ export default function SettingsPanel({ settings, busy, onSave }: Props) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--surface-3)' }}>
-              <Power className="w-4.5 h-4.5" style={{ color: settings.enabled ? 'var(--positive)' : 'var(--text-tertiary)' }} />
-            </div>
-            <div>
-              <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Feature enabled</div>
-              <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                Master switch for proposal execution.
-              </p>
-            </div>
-          </div>
+        <div className="flex items-end gap-3">
+          <label className="text-[12px] flex-1" style={{ color: 'var(--text-tertiary)' }}>
+            Pinned agentic account number
+            <input
+              type="text"
+              className="w-full mt-1 px-3 py-2 rounded-lg text-sm"
+              style={field}
+              placeholder="e.g. RH-AGENTIC-1234"
+              value={account}
+              onChange={(e) => setAccount(e.target.value)}
+            />
+          </label>
           <button
-            className="px-3.5 py-2 rounded-lg text-sm font-medium flex-shrink-0"
-            style={{ background: settings.enabled ? 'var(--positive-dim)' : 'var(--surface-3)', color: settings.enabled ? 'var(--positive)' : 'var(--text-secondary)' }}
-            disabled={busy}
-            onClick={() => onSave({ enabled: !settings.enabled })}
+            className="btn-ghost flex items-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-50"
+            disabled={busy || !accountDirty}
+            onClick={() => onSave({ agenticAccount: account.trim() })}
           >
-            {settings.enabled ? 'Enabled' : 'Disabled'}
+            <Save className="w-4 h-4" /> Save
           </button>
         </div>
+        <p className="text-[11px] mt-2" style={{ color: 'var(--text-tertiary)' }}>
+          Live orders may target only this account. Required before leaving paper mode.
+        </p>
       </div>
 
       {/* Exposure caps */}
@@ -142,6 +148,12 @@ export default function SettingsPanel({ settings, busy, onSave }: Props) {
         >
           <Save className="w-4 h-4" /> Save caps
         </button>
+      </div>
+
+      {/* Kill switch icon reference kept for a11y parity */}
+      <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+        <Power className="w-3.5 h-3.5" /> Last updated {new Date(state.updatedAt).toLocaleString()}
+        {state.updatedBy ? ` by ${state.updatedBy}` : ''}
       </div>
     </div>
   );
