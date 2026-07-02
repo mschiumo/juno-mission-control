@@ -28,7 +28,6 @@ import {
   MessageSquare,
   Upload
 } from 'lucide-react';
-import BrokerageSyncBar from './BrokerageSyncBar';
 import { getTodayInEST } from '@/lib/date-utils';
 
 // ============================================================================
@@ -515,9 +514,6 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
 
   return (
     <div className="space-y-4">
-      {/* Brokerage connection + sync status */}
-      <BrokerageSyncBar onSynced={fetchData} onOpenImport={() => setShowImportModal(true)} />
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">

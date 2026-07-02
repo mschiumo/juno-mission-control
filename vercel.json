@@ -22,9 +22,6 @@
     },
     "app/api/cron-jobs/intraday-alerts/route.ts": {
       "maxDuration": 120
-    },
-    "app/api/cron-jobs/snaptrade-sync/route.ts": {
-      "maxDuration": 300
     }
   },
   "crons": [
@@ -55,10 +52,6 @@
     {
       "path": "/api/cron-jobs/reset-recurring-goals",
       "schedule": "5 5 * * *"
-    },
-    {
-      "path": "/api/cron-jobs/snaptrade-sync",
-      "schedule": "0 1 * * *"
     }
   ]
 }
