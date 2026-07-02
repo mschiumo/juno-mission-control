@@ -27,7 +27,8 @@
     "recharts": "^3.8.1",
     "redis": "^4.7.0",
     "resend": "^6.9.4",
-    "rrule": "^2.8.1"
+    "rrule": "^2.8.1",
+    "snaptrade-typescript-sdk": "^10.0.17"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
