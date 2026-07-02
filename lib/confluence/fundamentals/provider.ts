@@ -22,11 +22,22 @@ export interface Fundamentals {
   price?: number;
   peTtm?: number;
   forwardPe?: number;
+  pbRatio?: number;
+  psRatio?: number;
   grossMargin?: number; // 0..1
   operatingMargin?: number; // 0..1
+  returnOnEquity?: number; // 0..1
+  returnOnAssets?: number; // 0..1
+  debtToEquity?: number;
+  currentRatio?: number;
   revenueGrowthYoY?: number; // 0..1
   freeCashFlow?: number; // absolute USD
-  dividendYield?: number; // 0..1
+  marketCap?: number; // absolute USD
+  dividendYield?: number; // 0..1 (fraction, not percent)
+  sector?: string;
+  industry?: string;
+  high52w?: number;
+  low52w?: number;
   /** Anything else the provider returned, verbatim. */
   raw?: Record<string, unknown>;
 }
