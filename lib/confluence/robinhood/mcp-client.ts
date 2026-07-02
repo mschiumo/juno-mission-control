@@ -4,27 +4,22 @@
  * ⚠️ TRANSPORT NOT YET VERIFIED END-TO-END. The in-session Robinhood MCP that was
  * used to verify connectivity is authenticated by the Claude harness, which is
  * NOT the same as the deployed app being able to reach Robinhood. To use this in
- * the app you must provision a server-side agent token and confirm the auth
- * handshake. Until ROBINHOOD_MCP_TOKEN is set, callers throw ConfluenceNotConfigured
- * and the app falls back to the mock provider — nothing here runs by default.
+ * the app you must configure the OAuth flow (see lib/confluence/robinhood/oauth.ts
+ * + docs/CONFLUENCE_ROBINHOOD_TOKEN.md) and confirm the auth handshake. Until
+ * then callers throw ConfluenceNotConfigured and the app falls back to paper /
+ * the mock provider — nothing here runs by default.
  *
  * Implements the standard flow: initialize → notifications/initialized → tools/call,
  * over a single Streamable-HTTP session, tolerating either application/json or
- * text/event-stream responses.
+ * text/event-stream responses. The bearer token is resolved (and auto-refreshed)
+ * by the OAuth helper, so this module never touches expiry.
  */
 
-export class ConfluenceNotConfigured extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ConfluenceNotConfigured';
-  }
-}
+import { getRobinhoodAccessToken } from './oauth';
+
+export { ConfluenceNotConfigured, isRobinhoodConfigured } from './oauth';
 
 const DEFAULT_URL = 'https://agent.robinhood.com/mcp/trading';
-
-export function isRobinhoodConfigured(): boolean {
-  return Boolean(process.env.ROBINHOOD_MCP_TOKEN);
-}
 
 interface JsonRpcResponse {
   result?: unknown;
@@ -63,12 +58,9 @@ export async function callRobinhoodTool<T = unknown>(
   toolName: string,
   args: Record<string, unknown>,
 ): Promise<T> {
-  const token = process.env.ROBINHOOD_MCP_TOKEN;
-  if (!token) {
-    throw new ConfluenceNotConfigured(
-      'Robinhood MCP is not configured (ROBINHOOD_MCP_TOKEN unset). Provision a server-side agent token to enable live fundamentals/execution.',
-    );
-  }
+  // Resolves the current access token (refreshing/caching as needed), or throws
+  // ConfluenceNotConfigured when nothing is set.
+  const token = await getRobinhoodAccessToken();
   const url = process.env.ROBINHOOD_MCP_URL || DEFAULT_URL;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

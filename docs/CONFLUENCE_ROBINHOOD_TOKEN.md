@@ -118,13 +118,28 @@ curl -s -X POST https://api.robinhood.com/oauth2/token/ \
 Update `ROBINHOOD_MCP_TOKEN` with the new `access_token`; if a new
 `refresh_token` is returned, replace the stored one (rotation).
 
-**Durable options (so you're not pasting tokens):**
-- **In-app auto-refresh** — store `refresh_token` + `client_id` as env/secret;
-  a small helper exchanges for a fresh access token and caches it in Redis with
-  the `expires_in` TTL, and the live adapter reads the cached token. (Ask and
-  I'll wire this — `lib/confluence/robinhood/oauth.ts`.)
-- **Anthropic Managed Agents + Vault** — seed the `mcp_oauth` credential
-  (access + refresh + `token_endpoint` + `client_id`); Anthropic auto-refreshes.
+**Durable option — in-app auto-refresh (BUILT).** Instead of pasting an access
+token, set:
+
+```
+ROBINHOOD_OAUTH_CLIENT_ID=<client_id from step 1>
+ROBINHOOD_OAUTH_REFRESH_TOKEN=<refresh_token from step 4>
+# ROBINHOOD_OAUTH_TOKEN_URL=https://api.robinhood.com/oauth2/token/   # default
+```
+
+`lib/confluence/robinhood/oauth.ts` then trades the refresh token for access
+tokens on demand, caches them in Redis until ~60s before expiry, and **persists a
+rotated refresh token** (in Redis) so it survives across serverless invocations —
+you never touch an access token again. If a refresh fails (`invalid_grant` — the
+refresh token expired or was rotated away), the app surfaces a clear error and
+you re-run steps 1–4 to re-seed `ROBINHOOD_OAUTH_REFRESH_TOKEN`.
+
+> Precedence: if the OAuth vars above are set they win; otherwise a static
+> `ROBINHOOD_MCP_TOKEN` is used. Set one or the other.
+
+**Alternative — Anthropic Managed Agents + Vault** — seed the `mcp_oauth`
+credential (access + refresh + `token_endpoint` + `client_id`); Anthropic
+auto-refreshes.
 
 ---
 

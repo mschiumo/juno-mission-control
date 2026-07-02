@@ -20,7 +20,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { ConfluenceNotConfigured } from '@/lib/confluence/robinhood/mcp-client';
+import { ConfluenceNotConfigured, getRobinhoodAccessToken } from '@/lib/confluence/robinhood/oauth';
 import { getAgentUniverse } from './universe';
 import type { Candidate } from './strategy';
 import type { FundamentalMetric } from '@/types/confluence';
@@ -127,15 +127,12 @@ export interface ClaudeAnalystOptions {
 
 export async function analyzeWithClaude(opts: ClaudeAnalystOptions): Promise<Candidate[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  const rhToken = process.env.ROBINHOOD_MCP_TOKEN;
   if (!apiKey) {
     throw new ConfluenceNotConfigured('ANTHROPIC_API_KEY unset — required for the Claude analyst.');
   }
-  if (!rhToken) {
-    throw new ConfluenceNotConfigured(
-      'ROBINHOOD_MCP_TOKEN unset — the Claude analyst needs a server-side Robinhood MCP OAuth token for the read-only connector.',
-    );
-  }
+  // Resolves (and auto-refreshes) the read-only connector's access token, or
+  // throws ConfluenceNotConfigured when Robinhood auth isn't set up.
+  const rhToken = await getRobinhoodAccessToken();
 
   const client = new Anthropic({ apiKey });
   const model = process.env.CONFLUENCE_AGENT_MODEL || DEFAULT_MODEL;
