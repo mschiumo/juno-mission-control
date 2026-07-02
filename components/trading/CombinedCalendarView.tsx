@@ -140,7 +140,7 @@ const isWeekday = (dateStr: string): boolean => {
 // Main Component
 // ============================================================================
 
-export default function CombinedCalendarView() {
+export default function CombinedCalendarView({ onImportSuccess }: { onImportSuccess?: () => void }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dailyStats, setDailyStats] = useState<DayData[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
@@ -461,8 +461,8 @@ export default function CombinedCalendarView() {
 
   // ===== IMPORT HANDLER =====
   const handleImportSuccess = () => {
-    console.log('Import success - refreshing data');
     fetchData();
+    onImportSuccess?.();
   };
 
   if (isLoading) {

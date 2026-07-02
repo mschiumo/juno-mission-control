@@ -292,6 +292,7 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
   let rawAdjustments: RawPositionAdjustment[] = [];
   let startingBalance: number | undefined;
   let dailyBalances: Array<{ date: string; balance: number }> | undefined;
+  let dailyFees: Array<{ date: string; amount: number }> | undefined;
 
   if (isAccountStatement) {
     const result = parseTOSAccountStatementFull(csvText);
@@ -299,6 +300,7 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
     rawAdjustments = result.positionAdjustments;
     startingBalance = result.startingBalance;
     dailyBalances = result.dailyBalances;
+    dailyFees = result.dailyFees.length > 0 ? result.dailyFees : undefined;
   } else {
     tosTrades = parseTOSCSV(csvText);
   }
@@ -595,6 +597,7 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
     trades,
     startingBalance,
     dailyBalances,
+    dailyFees,
   };
 }
 
