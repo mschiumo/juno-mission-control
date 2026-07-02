@@ -15,7 +15,7 @@
 
 import { callRobinhoodTool } from '@/lib/confluence/robinhood/mcp-client';
 import type { BrokerAdapter, BrokerOrderState, PlaceLimitOrderRequest } from './adapter';
-import type { OrderStatus } from '@/types/confluence';
+import type { OrderStatus, TradeDirection } from '@/types/confluence';
 
 /** Map a Robinhood order state string to our OrderStatus. */
 function mapState(state: string | undefined): OrderStatus {
@@ -127,6 +127,32 @@ export async function getBuyingPower(accountNumber: string): Promise<number> {
   const bp = res?.data?.buying_power?.buying_power;
   const n = Number(bp);
   return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Simulate a limit order via Robinhood's review_equity_order — returns the quote
+ * and pre-trade alerts WITHOUT placing anything. Used by the dry-run to validate
+ * the order-parameter mapping before any real order. Returns the raw review
+ * payload so the caller can inspect estimated cost / alerts.
+ */
+export async function reviewLimitOrder(params: {
+  accountNumber: string;
+  symbol: string;
+  side: TradeDirection;
+  limitPrice: number;
+  quantity: number;
+  timeInForce: 'gfd' | 'gtc';
+}): Promise<unknown> {
+  return callRobinhoodTool('review_equity_order', {
+    account_number: params.accountNumber,
+    symbol: params.symbol,
+    side: params.side,
+    type: 'limit',
+    limit_price: String(params.limitPrice),
+    quantity: String(params.quantity),
+    time_in_force: params.timeInForce,
+    market_hours: 'regular_hours',
+  });
 }
 
 export interface LiveAccountSummary {
