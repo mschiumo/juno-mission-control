@@ -52,6 +52,7 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   'Max Win Streak': 'Longest consecutive run of winning trades.',
   'Max Loss Streak': 'Longest consecutive run of losing trades.',
   'Current Streak': 'Your current run — W for consecutive wins, L for consecutive losses.',
+  'Broker Fees': 'Total broker fees charged in this period: stock borrow fees, commissions, regulatory charges. Parsed from the Cash Balance section of imported Account Statements.',
 };
 
 interface Trade {
@@ -310,6 +311,11 @@ function DayOfWeekTooltip({ active, payload }: { active?: boolean; payload?: Arr
 
 /* ----------- Main Component ----------- */
 
+interface DailyFee {
+  date: string;
+  amount: number;
+}
+
 export default function PerformanceView({ refreshKey }: { refreshKey?: number }) {
   const [period, setPeriod] = useState<Period>('all');
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
@@ -318,16 +324,18 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
   const [balanceInput, setBalanceInput] = useState('');
   const [editingBalance, setEditingBalance] = useState(false);
   const [allDailyBalances, setAllDailyBalances] = useState<DailyBalance[]>([]);
+  const [allDailyFees, setAllDailyFees] = useState<DailyFee[]>([]);
 
-  // Fetch trades, prefs, and daily balances in parallel. Extracted so the
+  // Fetch trades, prefs, daily balances, and fees in parallel. Extracted so the
   // brokerage sync bar can re-pull after a sync.
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [tradesRes, prefsRes, balancesRes] = await Promise.all([
+      const [tradesRes, prefsRes, balancesRes, feesRes] = await Promise.all([
         fetch('/api/trades?userId=default&perPage=1000').then((r) => r.json()),
         fetch('/api/user/prefs').then((r) => r.json()),
         fetch('/api/user/daily-balances').then((r) => r.json()),
+        fetch('/api/user/fees').then((r) => r.json()),
       ]);
       if (tradesRes.success && tradesRes.data) {
         setAllTrades(tradesRes.data.trades || []);
@@ -339,6 +347,9 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
       }
       if (balancesRes.success && Array.isArray(balancesRes.balances)) {
         setAllDailyBalances(balancesRes.balances);
+      }
+      if (feesRes.success && Array.isArray(feesRes.fees)) {
+        setAllDailyFees(feesRes.fees);
       }
     } catch (e) {
       console.error(e);
@@ -383,6 +394,19 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     [allDailyBalances, period],
   );
 
+  const totalFees = useMemo(() => {
+    if (!allDailyFees.length) return 0;
+    if (period === 'all') return allDailyFees.reduce((s, f) => s + f.amount, 0);
+    const cutoff = new Date();
+    switch (period) {
+      case 'week': cutoff.setDate(cutoff.getDate() - 7); break;
+      case 'month': cutoff.setMonth(cutoff.getMonth() - 1); break;
+      case 'year': cutoff.setFullYear(cutoff.getFullYear() - 1); break;
+    }
+    const cutoffDate = cutoff.toISOString().slice(0, 10);
+    return allDailyFees.filter(f => f.date >= cutoffDate).reduce((s, f) => s + f.amount, 0);
+  }, [allDailyFees, period]);
+
   // Build equity curve. Prefer the broker's authoritative daily balances —
   // these handle deposits, withdrawals, interest, fees automatically. Fall
   // back to "starting balance + cumulative P&L" only when no balances are
@@ -406,8 +430,6 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
 
       const curve = filteredBalances.map(({ date, balance }) => {
         const dt = new Date(date + 'T12:00:00');
-        // cumPnL in the visible window: balance delta from the period anchor.
-        // This stays consistent with trade-based P&L when no deposits happen.
         const cumPnL = balance - anchorBalance + baselineCumPnL;
         return {
           date,
@@ -417,9 +439,8 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         };
       });
 
-      // If Trade Activity files were imported after the last Account Statement,
-      // there will be trades with dates beyond the last stored balance. Append a
-      // synthetic point so the curve and currentNLV reflect those realized gains/losses.
+      // Append a synthetic "today" point for trades executed after the last
+      // Account Statement balance date so the curve reflects recent activity.
       const lastBalanceDate = filteredBalances[filteredBalances.length - 1].date;
       const lastBalance = filteredBalances[filteredBalances.length - 1].balance;
       let postPnL = 0;
@@ -586,7 +607,15 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
                 </div>
                 {/* NLV + P&L */}
                 <div className="text-right">
-                  <p className="text-base font-bold num" style={{ color: 'var(--text-primary)' }}>{hasData ? formatNLV(currentNLV) : '$0'}</p>
+                  <div className="flex items-center justify-end gap-1">
+                    <p className="text-base font-bold num" style={{ color: 'var(--text-primary)' }}>{hasData ? formatNLV(currentNLV) : '$0'}</p>
+                    {hasData && totalFees > 0 && (
+                      <InfoTooltip
+                        text={`This value may differ slightly from your broker balance. Broker fees (${formatDollars(totalFees)} this period) are tracked separately and reduce your actual account value. The equity curve uses authoritative broker balances from imported Account Statements when available.`}
+                        align="right"
+                      />
+                    )}
+                  </div>
                   <p className="text-xs font-semibold num" style={{ color: isPositive ? 'var(--positive)' : 'var(--negative)' }}>
                     {hasData ? formatCurrency(totalPnL) : '+$0'}
                     {hasData && pnlPercent !== null && ` (${isPositive ? '+' : ''}${pnlPercent}%)`}
@@ -724,6 +753,20 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
           tooltip={METRIC_TOOLTIPS['Best Streak']}
         />
       </div>
+
+      {/* Broker Fees card — only shown when fee data is available */}
+      {totalFees > 0 && (
+        <div className="grid grid-cols-1 gap-3">
+          <MetricCard
+            icon={<DollarSign className="w-4 h-4" style={{ color: 'var(--negative)' }} />}
+            label="Broker Fees"
+            value={`-${formatDollars(totalFees)}`}
+            valueStyle={{ color: 'var(--negative)' }}
+            sub="Stock borrow, commissions & regulatory fees"
+            tooltip={METRIC_TOOLTIPS['Broker Fees']}
+          />
+        </div>
+      )}
 
       {/* Detailed Statistics + Day of Week side by side */}
       <div className={`grid grid-cols-1 lg:grid-cols-2 gap-5${!hasData ? ' opacity-25' : ''}`}>

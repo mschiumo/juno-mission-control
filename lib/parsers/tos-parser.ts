@@ -23,11 +23,17 @@ export interface DailyBalance {
   balance: number; // End-of-day balance (latest BALANCE column value on that ET date)
 }
 
+export interface DailyFee {
+  date: string;   // YYYY-MM-DD (ET local)
+  amount: number; // Total fees charged on this date (positive = cost to account)
+}
+
 export interface TOSAccountStatementResult {
   trades: TOSTrade[];
   positionAdjustments: RawPositionAdjustment[];
   startingBalance?: number;
   dailyBalances: DailyBalance[];
+  dailyFees: DailyFee[];
 }
 
 export interface DayData {
@@ -126,7 +132,8 @@ export function parseTOSAccountStatementFull(csvText: string): TOSAccountStateme
   const positionAdjustments = parseCashBalanceAdjustments(csvText);
   const startingBalance = parseCashBalanceStartingBalance(csvText);
   const dailyBalances = parseDailyBalances(csvText);
-  return { trades, positionAdjustments, startingBalance, dailyBalances };
+  const dailyFees = parseDailyFees(csvText);
+  return { trades, positionAdjustments, startingBalance, dailyBalances, dailyFees };
 }
 
 export function parseTOSCSV(csvText: string): TOSTrade[] {
@@ -415,6 +422,67 @@ function parseCashBalanceStartingBalance(csvText: string): number | undefined {
     }
   }
   return earliestBalance;
+}
+
+/**
+ * Parse broker fees from the Cash Balance section. Captures two sources:
+ *  - TRD rows where the "Commissions & Fees" column (index 6) is non-zero
+ *  - JRN rows with a negative AMOUNT that look like fee charges (borrow fees,
+ *    regulatory fees, etc.)
+ * Returns per-ET-date fee totals (positive = cost to the account).
+ */
+export function parseDailyFees(csvText: string): DailyFee[] {
+  const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const SECTION_HEADERS = [
+    'Futures Statements', 'Forex Statements', 'Account Order History',
+    'Account Trade History', 'Profits and Losses', 'Crypto',
+  ];
+  let inCashBalance = false;
+  let headerFound = false;
+  const byDate = new Map<string, number>();
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === 'Cash Balance') { inCashBalance = true; headerFound = false; continue; }
+    if (inCashBalance && !headerFound && trimmed.includes('DATE') && trimmed.includes('TYPE')) {
+      headerFound = true;
+      continue;
+    }
+    if (inCashBalance && headerFound && SECTION_HEADERS.some(h => trimmed.startsWith(h))) break;
+    if (!inCashBalance || !headerFound) continue;
+
+    const parts = splitCSVLine(line);
+    if (parts.length < 8) continue;
+
+    const dateStr = parts[0].trim();
+    const timeStr = parts[1].trim();
+    const type = parts[2].trim();
+    if (!dateStr || !dateStr.includes('/') || !timeStr) continue;
+
+    const { date: isoDate } = convertUTCDateTimeToET(dateStr, timeStr);
+    if (!isoDate) continue;
+
+    let fee = 0;
+
+    if (type === 'TRD') {
+      // Commission on the trade (options, futures legs, etc.)
+      const commStr = parts[6]?.trim();
+      if (commStr) fee = Math.abs(parseQuotedAmount(commStr));
+    } else if (type === 'JRN') {
+      // Journal charges: stock borrow fees, regulatory fees, etc.
+      const amountStr = parts[7]?.trim();
+      const amount = parseQuotedAmount(amountStr);
+      if (amount < 0) fee = Math.abs(amount); // Only debit journal entries count as fees
+    }
+
+    if (fee > 0) {
+      byDate.set(isoDate, (byDate.get(isoDate) || 0) + fee);
+    }
+  }
+
+  return [...byDate.entries()]
+    .map(([date, amount]) => ({ date, amount: Math.round(amount * 100) / 100 }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function splitCSVLine(line: string): string[] {
