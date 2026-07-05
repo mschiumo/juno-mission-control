@@ -129,8 +129,9 @@ export function splitCsvLine(line: string): string[] {
 
 function cleanCell(raw: string): string {
   let s = raw.trim();
-  // ="1234567890" — Excel's keep-as-text escape around ref numbers.
-  const excel = s.match(/^="(.*)"$/);
+  // ="1234567890" — Excel's keep-as-text escape around ref numbers. The
+  // splitter consumes the quotes, leaving `=1234567890`; unwrap either form.
+  const excel = s.match(/^="(.*)"$/) ?? s.match(/^=(.+)$/);
   if (excel) s = excel[1];
   return s.trim();
 }

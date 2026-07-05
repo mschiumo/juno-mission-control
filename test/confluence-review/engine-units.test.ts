@@ -225,7 +225,7 @@ describe('parser primitives', () => {
   });
 
   it('splitCsvLine respects quotes and unwraps Excel ="…" escapes', () => {
-    expect(splitCsvLine('a,"1,234.56",=\"9876543210\",b')).toEqual(['a', '1,234.56', '9876543210', 'b']);
+    expect(splitCsvLine('a,"1,234.56",="9876543210",b')).toEqual(['a', '1,234.56', '9876543210', 'b']);
   });
 
   it('converts TOS UTC exec times to ET session dates (incl. the after-hours rollover)', () => {
