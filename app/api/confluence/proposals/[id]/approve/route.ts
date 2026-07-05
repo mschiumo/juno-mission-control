@@ -24,6 +24,8 @@ import { getSystemState } from '@/lib/db/confluence/system-state';
 import { getActiveOrders, hasActiveOrderForProposal } from '@/lib/db/confluence/orders';
 import { appendAudit } from '@/lib/db/confluence/audit';
 import { checkGuardrails } from '@/lib/confluence/guardrails';
+import { checkPreTradeReviewRules } from '@/lib/confluence/review/rules';
+import { getRiskConfig, getRoundTrips } from '@/lib/db/confluence/review';
 import { executeApprovedProposal } from '@/lib/confluence/execution';
 import type { OrderParams, TimeInForce } from '@/types/confluence';
 
@@ -85,6 +87,23 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
   if (!guard.ok) {
     return NextResponse.json(
       { success: false, error: guard.reason, code: guard.code, guardrail: true },
+      { status: 422 },
+    );
+  }
+  // Milestone R review rules (stop bound / probation / breadth) — same UX
+  // pre-check so a blocked proposal stays pending; the execution service
+  // re-checks authoritatively.
+  const reviewCheck = checkPreTradeReviewRules(
+    { symbol: proposal.symbol, side: proposal.direction, limitPrice, quantity, stopPrice: params2.stopPrice },
+    {
+      config: await getRiskConfig(userId),
+      agenticTrades: await getRoundTrips(userId, 'agentic_rh'),
+      activeOrderSymbols: activeOrders.map((o) => o.symbol),
+    },
+  );
+  if (!reviewCheck.ok) {
+    return NextResponse.json(
+      { success: false, error: reviewCheck.reason, code: reviewCheck.code, guardrail: true },
       { status: 422 },
     );
   }

@@ -22,7 +22,9 @@ import {
   transitionOrder,
 } from '@/lib/db/confluence/orders';
 import { getSystemState } from '@/lib/db/confluence/system-state';
+import { getRiskConfig, getRoundTrips } from '@/lib/db/confluence/review';
 import { checkGuardrails } from './guardrails';
+import { checkPreTradeReviewRules } from './review/rules';
 import { getBrokerAdapter } from './broker';
 import { getBuyingPower } from './broker/live-adapter';
 import type { ExecutionOrder, OrderParams, Proposal } from '@/types/confluence';
@@ -63,6 +65,28 @@ export async function executeApprovedProposal(
   const guard = checkGuardrails({ limitPrice: params.limitPrice, quantity: params.quantity }, state, activeOrders);
   if (!guard.ok) {
     return { ok: false, code: guard.code, reason: guard.reason };
+  }
+
+  // Milestone R review rules — ADDITIVE pre-trade checks (the guardrails
+  // above and the human-approval gate are untouched): stop bounded by
+  // maxR × risk unit, no probation symbols, symbol-breadth cap. Enforced in
+  // code, never in prompts.
+  const reviewCheck = checkPreTradeReviewRules(
+    {
+      symbol: proposal.symbol,
+      side: proposal.direction,
+      limitPrice: params.limitPrice,
+      quantity: params.quantity,
+      stopPrice: params.stopPrice,
+    },
+    {
+      config: await getRiskConfig(userId),
+      agenticTrades: await getRoundTrips(userId, 'agentic_rh'),
+      activeOrderSymbols: activeOrders.map((o) => o.symbol),
+    },
+  );
+  if (!reviewCheck.ok) {
+    return { ok: false, code: reviewCheck.code, reason: reviewCheck.reason };
   }
 
   // Invariant 4: pin the account (live must target the agentic account).
