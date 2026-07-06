@@ -14,27 +14,20 @@
  *   2. Re-adds the full SEED_TICKERS set as ticker-only favorites,
  *      skipping any ticker already present (manual favorite or promoted trade).
  *
+ * The seed list lives in lib/daily-favorites-seed.ts, shared with the
+ * after-close reset cron (reset-watchlist-after-close).
+ *
  * Auth: /api/cron-jobs/* is gated by CRON_SECRET in middleware.ts; Vercel sends
  * "Authorization: Bearer <CRON_SECRET>" automatically. No in-route check needed.
  */
 
 import { NextResponse } from 'next/server';
-import { WatchlistItem } from '@/types/watchlist';
 import { getWatchlist, replaceWatchlist } from '@/lib/db/watchlist';
 import { getUserByEmail } from '@/lib/db/users';
 import { isMarketOpenToday, logToActivityLog, postToCronResults } from '@/lib/cron-helpers';
+import { SEED_TICKERS, SEED_ACCOUNT_EMAIL, buildSeedItems } from '@/lib/daily-favorites-seed';
 
 export const dynamic = 'force-dynamic';
-
-/**
- * Tickers seeded into Daily Favorites every weekday morning.
- * Edit this one line to change the set.
- */
-
-const SEED_TICKERS: string[] = ['SPY', 'FAC', 'NOW', 'QQQ', 'SPCX', 'BMNR', 'POET', 'QTEX', 'QBTS', 'TZA', 'NVD', 'EROC', 'SIDU'];
-
-// The account these favorites are seeded into. Resolved to a user id at runtime.
-const SEED_ACCOUNT_EMAIL = 'mschiumo18@gmail.com';
 
 export async function GET() {
   const startTime = Date.now();
@@ -73,27 +66,7 @@ export async function GET() {
 
     // 2) Add today's set, skipping tickers already present (manual favorite or promoted trade).
     const present = new Set(kept.map((i) => i.ticker.toUpperCase()));
-    const nowIso = new Date().toISOString();
-    const toAdd: WatchlistItem[] = SEED_TICKERS
-      .map((t) => t.trim().toUpperCase())
-      .filter((t) => t.length > 0)
-      .filter((t, i, arr) => arr.indexOf(t) === i) // de-dupe the seed list itself
-      .filter((t) => !present.has(t))
-      .map((ticker) => ({
-        id: crypto.randomUUID(),
-        ticker,
-        entryPrice: 0,
-        stopPrice: 0,
-        targetPrice: 0,
-        riskRatio: 2,
-        stopSize: 0,
-        shareSize: 0,
-        potentialReward: 0,
-        positionValue: 0,
-        createdAt: nowIso,
-        isFavorite: false,
-        autoSeeded: true,
-      }));
+    const toAdd = buildSeedItems().filter((item) => !present.has(item.ticker));
 
     const finalItems = [...toAdd, ...kept];
     const removed = existing.length - kept.length;
