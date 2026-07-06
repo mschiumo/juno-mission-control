@@ -19,7 +19,9 @@ import { saveProposal } from '@/lib/db/confluence/proposals';
 import { getSystemState } from '@/lib/db/confluence/system-state';
 import { appendAudit } from '@/lib/db/confluence/audit';
 import { getFundamentalsProvider } from '@/lib/confluence/fundamentals';
-import { defaultStrategy, type Candidate } from './strategy';
+import { getTechnicalsProvider } from '@/lib/confluence/technicals';
+import type { Candidate, StrategyContext } from './strategy';
+import { getStrategy, type StrategyDefinition } from './strategies';
 import { analyzeWithClaude } from './claude-analyst';
 import { getAgentUniverse } from './universe';
 import type { AgentRun, Proposal } from '@/types/confluence';
@@ -37,23 +39,50 @@ function agentMode(): 'deterministic' | 'claude' {
     : 'deterministic';
 }
 
-/** Deterministic path: provider fundamentals → code strategy → candidates. */
+/** Deterministic path: provider fundamentals (+ technicals) → code strategy → candidates. */
 async function deterministicCandidates(
-  perPositionBudgetUsd: number,
-  max: number,
-): Promise<{ candidates: Candidate[]; providerName: string; universeSize: number }> {
+  strat: StrategyDefinition,
+  ctx: StrategyContext,
+): Promise<{
+  candidates: Candidate[];
+  providerName: string;
+  technicalsProviderName?: string;
+  universeSize: number;
+  skippedSymbols: string[];
+}> {
   const provider = getFundamentalsProvider();
+  const technicalsProvider = strat.needsTechnicals ? getTechnicalsProvider() : null;
   const universe = await provider.getUniverse();
-  const ctx = { perPositionBudgetUsd };
   const candidates: Candidate[] = [];
+  const skippedSymbols: string[] = [];
+  // Evaluate the whole universe, then rank — the best-scored setups win the
+  // run's proposal budget, not the first alphabetical passers.
   for (const symbol of universe) {
-    if (candidates.length >= max) break;
-    const data = await provider.getFundamentals(symbol);
-    if (!data) continue;
-    const c = defaultStrategy(data, ctx);
-    if (c) candidates.push(c);
+    // One symbol's transient provider failure must not abort the run and
+    // discard candidates already found — skip it and record the skip.
+    try {
+      const data = await provider.getFundamentals(symbol);
+      if (!data) continue;
+      const technicals = technicalsProvider ? await technicalsProvider.getTechnicals(symbol) : null;
+      const c = strat.evaluate(data, technicals, ctx);
+      if (c) candidates.push(c);
+    } catch {
+      skippedSymbols.push(symbol);
+    }
   }
-  return { candidates, providerName: provider.name, universeSize: universe.length };
+  // Every symbol failing is systemic (dead token, provider outage) — that must
+  // surface as a failed run, not a quiet zero-proposal success.
+  if (universe.length > 0 && skippedSymbols.length === universe.length) {
+    throw new Error(`All ${universe.length} universe symbols failed to load from ${provider.name} — check provider config/token.`);
+  }
+  candidates.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  return {
+    candidates,
+    providerName: provider.name,
+    technicalsProviderName: technicalsProvider?.name,
+    universeSize: universe.length,
+    skippedSymbols,
+  };
 }
 
 export async function runAgent(userId: string, opts: RunOptions): Promise<AgentRun> {
@@ -72,6 +101,13 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
     const state = await getSystemState(userId);
     // Keep sizing comfortably under the per-position cap.
     const perPositionBudgetUsd = Math.min(state.perPositionCapUsd, 1000);
+    // Risk-based sizing budget: default 1% of the total exposure cap per trade,
+    // overridable with CONFLUENCE_RISK_PER_TRADE_USD.
+    const riskOverride = Number(process.env.CONFLUENCE_RISK_PER_TRADE_USD);
+    const maxRiskPerTradeUsd =
+      Number.isFinite(riskOverride) && riskOverride > 0
+        ? riskOverride
+        : state.totalExposureCapUsd * 0.01;
     const max = opts.maxProposals ?? 10;
     const ttlDays = opts.proposalTtlDays ?? 7;
     const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000).toISOString();
@@ -81,16 +117,28 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
     let metaSource: Record<string, unknown>;
     let universeSize: number;
 
+    const strat = getStrategy();
     if (mode === 'claude') {
       candidates = await analyzeWithClaude({ perPositionBudgetUsd });
       const uni = getAgentUniverse();
       universeSize = uni.length;
-      metaSource = { mode: 'claude', model: process.env.CONFLUENCE_AGENT_MODEL || 'claude-opus-4-8' };
+      metaSource = {
+        mode: 'claude',
+        model: process.env.CONFLUENCE_AGENT_MODEL || 'claude-opus-4-8',
+        strategy: strat.id,
+      };
     } else {
-      const det = await deterministicCandidates(perPositionBudgetUsd, max);
+      const ctx: StrategyContext = { perPositionBudgetUsd, maxRiskPerTradeUsd };
+      const det = await deterministicCandidates(strat, ctx);
       candidates = det.candidates;
       universeSize = det.universeSize;
-      metaSource = { mode: 'deterministic', provider: det.providerName, strategy: 'placeholder' };
+      metaSource = {
+        mode: 'deterministic',
+        provider: det.providerName,
+        technicalsProvider: det.technicalsProviderName,
+        strategy: strat.id,
+        ...(det.skippedSymbols.length ? { skippedSymbols: det.skippedSymbols } : {}),
+      };
     }
 
     let generated = 0;

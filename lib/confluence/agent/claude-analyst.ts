@@ -22,6 +22,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ConfluenceNotConfigured, getRobinhoodAccessToken } from '@/lib/confluence/robinhood/oauth';
 import { getAgentUniverse } from './universe';
+import { getStrategy } from './strategies';
 import type { Candidate } from './strategy';
 import type { FundamentalMetric } from '@/types/confluence';
 
@@ -46,16 +47,21 @@ const ROBINHOOD_READ_ONLY_TOOLS = [
 ];
 
 /**
- * ═══════════════════════════════════════════════════════════════════════════
- *  PLACEHOLDER CRITERIA — NOT the user's fundamental rules.
- * ═══════════════════════════════════════════════════════════════════════════
- * The fundamental criteria / thesis rules are the user's edge and the user's
- * call (an Open Item). Replace the <criteria> block with the real rules; the
- * operating rules around it (read-only, propose-only, output shape) stay.
+ * The <criteria> block comes from the selected strategy's criteriaPrompt (see
+ * lib/confluence/agent/strategies), so the deterministic path and this Claude
+ * path apply the SAME rules. Strategies without a criteriaPrompt fall back to
+ * a conservative generic screen. The operating rules around the block
+ * (read-only, propose-only, output shape) are fixed here regardless.
  */
 function buildSystemPrompt(perPositionBudgetUsd: number): string {
+  const criteria =
+    getStrategy().criteriaPrompt ??
+    [
+      'No strategy-specific criteria configured. Apply a conservative screen: prefer',
+      'reasonably-valued, growing, cash-generative names; skip anything you are unsure about.',
+    ].join('\n');
   return [
-    'You are a swing-trade fundamentals analyst. You PROPOSE candidate trades; you never execute them.',
+    'You are a swing-trade analyst combining value investing with technical analysis. You PROPOSE candidate trades; you never execute them.',
     '',
     'HARD RULES (do not violate):',
     '- You may ONLY read data with the Robinhood tools. You have no order tools and must not attempt to place, modify, or cancel any order.',
@@ -64,9 +70,7 @@ function buildSystemPrompt(perPositionBudgetUsd: number): string {
     '- Every entry is a LIMIT order idea. Include a plain-language thesis and the fundamentals behind it.',
     '',
     '<criteria>',
-    'PLACEHOLDER — replace with the owner\'s real fundamental criteria. Until then, apply a',
-    'conservative illustrative screen: prefer reasonably-valued, growing, cash-generative names;',
-    'skip anything you are unsure about. These picks are illustrative, not investment advice.',
+    criteria,
     '</criteria>',
     '',
     'When done reading, respond with ONLY a JSON object (no prose, no code fences) of the form:',
@@ -162,7 +166,8 @@ export async function analyzeWithClaude(opts: ClaudeAnalystOptions): Promise<Can
         role: 'user',
         content:
           `Analyze these symbols on a swing-trade horizon and propose candidate trades: ${universe.join(', ')}. ` +
-          'Read fundamentals, quotes, and current positions/buying power with the Robinhood tools. ' +
+          'Read fundamentals, quotes, and current positions/buying power with the Robinhood tools, and pull ' +
+          'daily bars with get_equity_historicals (≥200 bars) to compute the technical gate (SMA50/200, RSI14, ATR14). ' +
           'Do not place any orders. Return proposals in the required JSON format.',
       },
     ],
