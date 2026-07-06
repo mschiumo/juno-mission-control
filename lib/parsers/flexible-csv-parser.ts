@@ -334,7 +334,11 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
   };
 
   if (isPositionStatement) {
-    tosTrades.forEach(t => {
+    // Only record P/L for positions fully closed on the statement date
+    // (posEffect 'CLOSED', qty 0). Still-held positions report unrealized
+    // mark-to-market "P/L Day", which must not enter the journal as
+    // realized P&L.
+    tosTrades.filter(t => t.posEffect !== 'OPEN').forEach(t => {
       const entryDate = buildETISO(t.date, t.time);
 
       trades.push({

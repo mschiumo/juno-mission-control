@@ -49,8 +49,10 @@ export async function GET() {
         const longs = symbolTrades.filter(t => t.side === 'LONG');
         const shorts = symbolTrades.filter(t => t.side === 'SHORT');
         
-        // Calculate based on netPnL if available
-        const symbolPnL = symbolTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
+        // Realized P&L only: open positions must not contribute to daily stats
+        const symbolPnL = symbolTrades
+          .filter(t => t.status === 'CLOSED')
+          .reduce((sum, t) => sum + (t.netPnL || 0), 0);
         totalPnL += symbolPnL;
         
         if (symbolPnL > 0) wins++;
