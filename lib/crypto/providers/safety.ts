@@ -38,6 +38,7 @@ const unavailable = (): SafetyReport => ({
 
 interface RugCheckReport {
   score_normalised?: number; // 0–100, higher = RISKIER
+  rugged?: boolean;
   risks?: { name: string; level?: string; description?: string }[];
   token?: { mintAuthority?: string | null; freezeAuthority?: string | null };
   markets?: { lp?: { lpLockedPct?: number } }[];
@@ -53,6 +54,7 @@ async function checkSolana(tokenAddress: string): Promise<SafetyReport> {
   const hardFails: string[] = [];
   const warnings: string[] = [];
 
+  if (report.rugged) hardFails.push('RugCheck marks this token as rugged');
   if (report.token?.mintAuthority) hardFails.push('Mint authority not revoked');
   if (report.token?.freezeAuthority) hardFails.push('Freeze authority not revoked');
 

@@ -167,6 +167,15 @@ export async function executeApprovedProposal(
   order.updatedAt = now;
   order.history.push({ status: 'filled', at: now });
 
+  // The proposal's stop is a price relative to its (possibly stale) entry quote.
+  // Rescale the stop DISTANCE onto the actual fill price — a memecoin can move
+  // materially between proposal and approval, and an absolute stale stop can
+  // land above the fill (instant stop-out) or uselessly far below it.
+  const stopFraction =
+    proposal.entryPriceUsd > 0 && proposal.stopPriceUsd > 0 && proposal.stopPriceUsd < proposal.entryPriceUsd
+      ? proposal.stopPriceUsd / proposal.entryPriceUsd
+      : 0.55; // default 45% stop
+
   const position: CryptoPosition = {
     id: newId('pos'),
     proposalId: proposal.id,
@@ -180,7 +189,7 @@ export async function executeApprovedProposal(
     initialQtyTokens: result.filledQtyTokens,
     avgEntryPriceUsd: result.filledPriceUsd,
     costUsd: proposal.notionalUsd,
-    stopPriceUsd: proposal.stopPriceUsd,
+    stopPriceUsd: result.filledPriceUsd * stopFraction,
     takeProfitLadder: proposal.takeProfitLadder,
     laddersFilled: [],
     trailingStopPct: proposal.trailingStopPct,

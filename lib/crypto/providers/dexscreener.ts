@@ -80,7 +80,9 @@ function normalizePair(pair: DexScreenerPair): ScreenerToken | null {
     liquidityUsd: pair.liquidity?.usd ?? 0,
     marketCapUsd: pair.marketCap ?? 0,
     fdvUsd: pair.fdv ?? 0,
-    ageHours: createdAt ? (Date.now() - createdAt) / 3600000 : 0,
+    // Missing pairCreatedAt means an older indexed pair, not a brand-new one —
+    // treat as ~1 year so the min-age filter doesn't discard established tokens.
+    ageHours: createdAt ? (Date.now() - createdAt) / 3600000 : 24 * 365,
     boosted: (pair.boosts?.active ?? 0) > 0,
     url: pair.url ?? `https://dexscreener.com/${pair.chainId}/${pair.pairAddress}`,
   };
