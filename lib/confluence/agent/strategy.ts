@@ -29,11 +29,15 @@ export interface Candidate {
   suggestedStopPrice?: number;
   suggestedTargetPrice?: number;
   fundamentals: FundamentalMetric[];
+  /** Optional 0–100 ranking score; the runner keeps the best-scored candidates. */
+  score?: number;
 }
 
 export interface StrategyContext {
   /** Rough per-position budget so the toy sizing stays under the caps. */
   perPositionBudgetUsd: number;
+  /** Max dollars a single trade may lose at its stop (risk-based sizing). */
+  maxRiskPerTradeUsd?: number;
 }
 
 export type Strategy = (data: Fundamentals, ctx: StrategyContext) => Candidate | null;
