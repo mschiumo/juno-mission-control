@@ -48,19 +48,32 @@ async function deterministicCandidates(
   providerName: string;
   technicalsProviderName?: string;
   universeSize: number;
+  skippedSymbols: string[];
 }> {
   const provider = getFundamentalsProvider();
   const technicalsProvider = strat.needsTechnicals ? getTechnicalsProvider() : null;
   const universe = await provider.getUniverse();
   const candidates: Candidate[] = [];
+  const skippedSymbols: string[] = [];
   // Evaluate the whole universe, then rank — the best-scored setups win the
   // run's proposal budget, not the first alphabetical passers.
   for (const symbol of universe) {
-    const data = await provider.getFundamentals(symbol);
-    if (!data) continue;
-    const technicals = technicalsProvider ? await technicalsProvider.getTechnicals(symbol) : null;
-    const c = strat.evaluate(data, technicals, ctx);
-    if (c) candidates.push(c);
+    // One symbol's transient provider failure must not abort the run and
+    // discard candidates already found — skip it and record the skip.
+    try {
+      const data = await provider.getFundamentals(symbol);
+      if (!data) continue;
+      const technicals = technicalsProvider ? await technicalsProvider.getTechnicals(symbol) : null;
+      const c = strat.evaluate(data, technicals, ctx);
+      if (c) candidates.push(c);
+    } catch {
+      skippedSymbols.push(symbol);
+    }
+  }
+  // Every symbol failing is systemic (dead token, provider outage) — that must
+  // surface as a failed run, not a quiet zero-proposal success.
+  if (universe.length > 0 && skippedSymbols.length === universe.length) {
+    throw new Error(`All ${universe.length} universe symbols failed to load from ${provider.name} — check provider config/token.`);
   }
   candidates.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   return {
@@ -68,6 +81,7 @@ async function deterministicCandidates(
     providerName: provider.name,
     technicalsProviderName: technicalsProvider?.name,
     universeSize: universe.length,
+    skippedSymbols,
   };
 }
 
@@ -123,6 +137,7 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
         provider: det.providerName,
         technicalsProvider: det.technicalsProviderName,
         strategy: strat.id,
+        ...(det.skippedSymbols.length ? { skippedSymbols: det.skippedSymbols } : {}),
       };
     }
 
