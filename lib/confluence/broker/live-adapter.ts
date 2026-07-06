@@ -103,7 +103,15 @@ export class LiveRobinhoodAdapter implements BrokerAdapter {
     const data = unwrap<{ orders?: RhOrder[] }>(res);
     const order = data.orders?.[0];
     if (!order) {
-      return { brokerOrderId, status: 'failed', filledQuantity: 0, error: 'Order not found at broker' };
+      // Not-found can be broker-side propagation lag right after placement.
+      // Stay non-terminal (`submitted`) so polling continues — marking it
+      // `failed` here would permanently orphan a possibly-live order.
+      return {
+        brokerOrderId,
+        status: 'submitted',
+        filledQuantity: 0,
+        error: 'Order not found at broker yet — will keep polling',
+      };
     }
     return { ...toState(order), brokerOrderId };
   }

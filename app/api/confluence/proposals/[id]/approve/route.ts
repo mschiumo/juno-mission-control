@@ -19,6 +19,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireOwner } from '@/lib/auth-session';
+import { getRedisClient } from '@/lib/redis';
 import { getProposalById, decideProposal } from '@/lib/db/confluence/proposals';
 import { getSystemState } from '@/lib/db/confluence/system-state';
 import { getActiveOrders, hasActiveOrderForProposal } from '@/lib/db/confluence/orders';
@@ -45,6 +46,34 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
   if (error) return error;
   const { id } = await params;
 
+  // Per-proposal mutex: the whole approve→execute path must run at most once
+  // concurrently. Without it, two rapid taps landing on two serverless
+  // instances each pass the `pending` + no-active-order checks and place TWO
+  // real orders (each staged order mints its own refId, so broker-side ref_id
+  // dedupe can't catch this). SET NX + TTL; released in `finally`, TTL is the
+  // crash backstop.
+  const lockKey = `confluence:approve-lock:${userId}:${id}`;
+  const redis = await getRedisClient();
+  const acquired = await redis.set(lockKey, '1', { NX: true, EX: 60 });
+  if (acquired !== 'OK') {
+    return NextResponse.json(
+      { success: false, error: 'This proposal is already being approved — check Orders before retrying.' },
+      { status: 409 },
+    );
+  }
+  try {
+    return await approveLocked(request, id, userId, email);
+  } finally {
+    await redis.del(lockKey).catch(() => {});
+  }
+}
+
+async function approveLocked(
+  request: NextRequest,
+  id: string,
+  userId: string,
+  email: string,
+): Promise<NextResponse> {
   const proposal = await getProposalById(id, userId);
   if (!proposal) {
     return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
@@ -68,6 +97,22 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
   }
   if (!(typeof quantity === 'number' && quantity > 0)) {
     return NextResponse.json({ success: false, error: 'A positive quantity is required to approve' }, { status: 400 });
+  }
+  // Robinhood allows fractional shares only on MARKET orders; every order here
+  // is a limit order, so a fractional quantity would be rejected at the broker.
+  if (!Number.isInteger(quantity)) {
+    return NextResponse.json(
+      { success: false, error: 'Quantity must be a whole number of shares (fractional is not supported on limit orders)' },
+      { status: 400 },
+    );
+  }
+  // Sub-penny limit prices are rejected at the broker; catch them here.
+  // Epsilon comparison — 60.3 * 100 is 6030.000000000001 in floating point.
+  if (Math.abs(limitPrice * 100 - Math.round(limitPrice * 100)) > 1e-6) {
+    return NextResponse.json(
+      { success: false, error: 'Limit price must have at most 2 decimal places' },
+      { status: 400 },
+    );
   }
   const params2: OrderParams = {
     limitPrice,
@@ -143,8 +188,26 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
   // 5. Deterministic execution. No LLM beyond this point.
   const result = await executeApprovedProposal(approved!, params2, email, userId);
   if (!result.ok) {
+    // Blocked BEFORE anything was staged (guardrail re-check, buying power…):
+    // put the proposal back to `pending` so it can be adjusted and re-approved.
+    // If an order record exists the attempt reached the broker path — the
+    // proposal stays `approved` and the order carries the failure detail.
+    let proposal2 = approved;
+    if (!result.order) {
+      proposal2 = await decideProposal(id, userId, { status: 'pending' });
+      await appendAudit(userId, {
+        actor: 'system',
+        actorId: 'system',
+        eventType: 'proposal.reverted',
+        entityType: 'proposal',
+        entityId: id,
+        before: { status: 'approved' },
+        after: { status: 'pending' },
+        note: `Approval blocked before staging (${result.code}) — proposal returned to pending`,
+      });
+    }
     return NextResponse.json(
-      { success: false, error: result.reason, code: result.code, proposal: approved, order: result.order },
+      { success: false, error: result.reason, code: result.code, proposal: proposal2, order: result.order },
       { status: 422 },
     );
   }

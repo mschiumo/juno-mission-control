@@ -94,8 +94,8 @@ export async function executeApprovedProposal(
 
   // Live-only pre-trade check: block an order that can't fund before it reaches
   // the broker (belt-and-suspenders with the exposure caps). Any failure here
-  // fails safe — nothing is staged.
-  if (!state.paperMode) {
+  // fails safe — nothing is staged. Sells don't consume buying power.
+  if (!state.paperMode && proposal.direction === 'buy') {
     const notional = params.limitPrice * params.quantity;
     try {
       const buyingPower = await getBuyingPower(accountNumber);
