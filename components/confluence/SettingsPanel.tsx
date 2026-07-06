@@ -21,6 +21,7 @@ interface Props {
 const field = {
   background: 'var(--surface-2)',
   border: '1px solid var(--border-default)',
+  color: 'var(--text-primary)',
 } as const;
 
 export default function SettingsPanel({ state, busy, onSave }: Props) {
@@ -110,7 +111,7 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
         </div>
 
         <div className="flex items-end gap-3">
-          <label className="text-[12px] flex-1" style={{ color: 'var(--text-tertiary)' }}>
+          <label className="text-[12px] flex-1" style={{ color: 'var(--text-secondary)' }}>
             Pinned agentic account number
             <input
               type="text"
@@ -129,7 +130,7 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
             <Save className="w-4 h-4" /> Save
           </button>
         </div>
-        <p className="text-[11px] mt-2" style={{ color: 'var(--text-tertiary)' }}>
+        <p className="text-[11px] mt-2" style={{ color: 'var(--text-secondary)' }}>
           Live orders may target only this account. Required before leaving paper mode.
         </p>
       </div>
@@ -141,12 +142,12 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
           Enforced in the execution service before any order is placed — never relies on the model.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-          <label className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+          <label className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
             Per-position cap ($)
             <input type="number" min="0" step="100" className="w-full mt-1 px-3 py-2 rounded-lg text-sm" style={field}
               value={perPosition} onChange={(e) => setPerPosition(e.target.value)} />
           </label>
-          <label className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+          <label className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
             Total exposure cap ($)
             <input type="number" min="0" step="100" className="w-full mt-1 px-3 py-2 rounded-lg text-sm" style={field}
               value={totalCap} onChange={(e) => setTotalCap(e.target.value)} />
@@ -162,7 +163,7 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
       </div>
 
       {/* Kill switch icon reference kept for a11y parity */}
-      <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+      <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
         <Power className="w-3.5 h-3.5" /> Last updated {new Date(state.updatedAt).toLocaleString()}
         {state.updatedBy ? ` by ${state.updatedBy}` : ''}
       </div>
