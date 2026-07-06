@@ -25,6 +25,8 @@ import { getSystemState } from '@/lib/db/confluence/system-state';
 import { getActiveOrders, hasActiveOrderForProposal } from '@/lib/db/confluence/orders';
 import { appendAudit } from '@/lib/db/confluence/audit';
 import { checkGuardrails } from '@/lib/confluence/guardrails';
+import { checkPreTradeReviewRules } from '@/lib/confluence/review/rules';
+import { getRiskConfig, getRoundTrips } from '@/lib/db/confluence/review';
 import { executeApprovedProposal } from '@/lib/confluence/execution';
 import type { OrderParams, TimeInForce } from '@/types/confluence';
 
@@ -112,6 +114,14 @@ async function approveLocked(
       { status: 400 },
     );
   }
+  // Stop/target: null clears, undefined falls back to the agent's suggestion.
+  // Anything else must be a positive finite number — same hygiene as
+  // limitPrice/quantity above (the stop feeds the max-loss rule check).
+  for (const [label, v] of [['stopPrice', body.stopPrice], ['targetPrice', body.targetPrice]] as const) {
+    if (v !== undefined && v !== null && !(typeof v === 'number' && Number.isFinite(v) && v > 0)) {
+      return NextResponse.json({ success: false, error: `${label} must be a positive number (or null to clear)` }, { status: 400 });
+    }
+  }
   const params2: OrderParams = {
     limitPrice,
     quantity,
@@ -130,6 +140,23 @@ async function approveLocked(
   if (!guard.ok) {
     return NextResponse.json(
       { success: false, error: guard.reason, code: guard.code, guardrail: true },
+      { status: 422 },
+    );
+  }
+  // Milestone R review rules (stop bound / probation / breadth) — same UX
+  // pre-check so a blocked proposal stays pending; the execution service
+  // re-checks authoritatively.
+  const reviewCheck = checkPreTradeReviewRules(
+    { symbol: proposal.symbol, side: proposal.direction, limitPrice, quantity, stopPrice: params2.stopPrice },
+    {
+      config: await getRiskConfig(userId),
+      agenticTrades: await getRoundTrips(userId, 'agentic_rh'),
+      activeOrderSymbols: activeOrders.map((o) => o.symbol),
+    },
+  );
+  if (!reviewCheck.ok) {
+    return NextResponse.json(
+      { success: false, error: reviewCheck.reason, code: reviewCheck.code, guardrail: true },
       { status: 422 },
     );
   }

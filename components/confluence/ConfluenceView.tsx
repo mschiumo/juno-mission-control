@@ -10,20 +10,22 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Inbox, Activity, ScrollText, SlidersHorizontal, Sparkles, FlaskConical, Play, LineChart } from 'lucide-react';
+import { Inbox, Activity, ScrollText, SlidersHorizontal, Sparkles, FlaskConical, Play, LineChart, ClipboardCheck } from 'lucide-react';
 import type { AgentRun, AuditEvent, ExecutionOrder, Proposal, SystemState } from '@/types/confluence';
 import ProposalCard, { type EditState } from './ProposalCard';
 import OrdersMonitor from './OrdersMonitor';
 import AuditLog from './AuditLog';
 import SettingsPanel from './SettingsPanel';
 import PerformancePanel from './PerformancePanel';
+import ReviewPanel from './ReviewPanel';
 
-type SubTab = 'queue' | 'orders' | 'performance' | 'audit' | 'settings';
+type SubTab = 'queue' | 'orders' | 'performance' | 'review' | 'audit' | 'settings';
 
 const SUBTABS: { id: SubTab; label: string; icon: typeof Inbox }[] = [
   { id: 'queue', label: 'Proposals', icon: Inbox },
   { id: 'orders', label: 'Orders', icon: Activity },
   { id: 'performance', label: 'Performance', icon: LineChart },
+  { id: 'review', label: 'Review', icon: ClipboardCheck },
   { id: 'audit', label: 'Audit', icon: ScrollText },
   { id: 'settings', label: 'Settings', icon: SlidersHorizontal },
 ];
@@ -318,6 +320,8 @@ export default function ConfluenceView() {
       )}
 
       {subTab === 'performance' && <PerformancePanel />}
+
+      {subTab === 'review' && <ReviewPanel />}
 
       {subTab === 'audit' && <AuditLog events={audit} />}
 
