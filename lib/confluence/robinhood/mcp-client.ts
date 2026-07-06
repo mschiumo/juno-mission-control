@@ -1,13 +1,11 @@
 /**
  * Minimal server-side MCP (Streamable HTTP) client for the Robinhood Trading MCP.
  *
- * ⚠️ TRANSPORT NOT YET VERIFIED END-TO-END. The in-session Robinhood MCP that was
- * used to verify connectivity is authenticated by the Claude harness, which is
- * NOT the same as the deployed app being able to reach Robinhood. To use this in
- * the app you must configure the OAuth flow (see lib/confluence/robinhood/oauth.ts
- * + docs/CONFLUENCE_ROBINHOOD_TOKEN.md) and confirm the auth handshake. Until
- * then callers throw ConfluenceNotConfigured and the app falls back to paper /
- * the mock provider — nothing here runs by default.
+ * Transport verified live (read tools + review_equity_order dry-run) through the
+ * OAuth refresh flow — see docs/CONFLUENCE_GO_LIVE.md. Requires the OAuth setup in
+ * lib/confluence/robinhood/oauth.ts + docs/CONFLUENCE_ROBINHOOD_TOKEN.md; when
+ * unconfigured, callers throw ConfluenceNotConfigured and the app falls back to
+ * paper / the mock provider — nothing here runs by default.
  *
  * Implements the standard flow: initialize → notifications/initialized → tools/call,
  * over a single Streamable-HTTP session, tolerating either application/json or
@@ -20,6 +18,9 @@ import { getRobinhoodAccessToken } from './oauth';
 export { ConfluenceNotConfigured, isRobinhoodConfigured } from './oauth';
 
 const DEFAULT_URL = 'https://agent.robinhood.com/mcp/trading';
+// Per-request cap. An unbounded hang here would leave an order stuck `staged`
+// with no broker id — bounded failure is strictly better than an open socket.
+const REQUEST_TIMEOUT_MS = 30_000;
 
 interface JsonRpcResponse {
   result?: unknown;
@@ -73,6 +74,7 @@ export async function callRobinhoodTool<T = unknown>(
       method: 'POST',
       headers: sessionId ? { ...headers, 'Mcp-Session-Id': sessionId } : headers,
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
   // 1. initialize
@@ -104,8 +106,13 @@ export async function callRobinhoodTool<T = unknown>(
   }
 
   // MCP tool results come back as { content: [{ type:'text', text: '<json>' }] }.
-  const result = parsed.result as { content?: Array<{ type: string; text?: string }> };
+  const result = parsed.result as { content?: Array<{ type: string; text?: string }>; isError?: boolean };
   const textPart = result?.content?.find((c) => c.type === 'text')?.text;
+  // Tool-level failures set isError with a plain-text message — surface it
+  // instead of letting JSON.parse turn it into a confusing SyntaxError.
+  if (result?.isError) {
+    throw new Error(`Robinhood MCP tool ${toolName} failed: ${textPart ?? 'no error detail'}`);
+  }
   if (!textPart) throw new Error(`Robinhood MCP tool ${toolName} returned no text content`);
   return JSON.parse(textPart) as T;
 }

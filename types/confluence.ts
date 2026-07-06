@@ -199,6 +199,7 @@ export type AuditEventType =
   | 'proposal.rejected'
   | 'proposal.edited'
   | 'proposal.expired'
+  | 'proposal.reverted'
   | 'order.staged'
   | 'order.submitted'
   | 'order.status_changed'
