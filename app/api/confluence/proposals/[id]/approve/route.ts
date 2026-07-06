@@ -114,6 +114,14 @@ async function approveLocked(
       { status: 400 },
     );
   }
+  // Stop/target: null clears, undefined falls back to the agent's suggestion.
+  // Anything else must be a positive finite number — same hygiene as
+  // limitPrice/quantity above (the stop feeds the max-loss rule check).
+  for (const [label, v] of [['stopPrice', body.stopPrice], ['targetPrice', body.targetPrice]] as const) {
+    if (v !== undefined && v !== null && !(typeof v === 'number' && Number.isFinite(v) && v > 0)) {
+      return NextResponse.json({ success: false, error: `${label} must be a positive number (or null to clear)` }, { status: 400 });
+    }
+  }
   const params2: OrderParams = {
     limitPrice,
     quantity,

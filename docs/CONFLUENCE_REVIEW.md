@@ -59,6 +59,12 @@ inside `executeApprovedProposal` after the existing guardrails —
    `probationWindowSessions` AND churn above `churnThreshold`) are rejected;
 3. symbol-breadth cap over open (active-order) symbols.
 
+⚠️ The stop is a **pre-trade gate, not broker-side protection**: no stop
+order is placed with Robinhood after the entry fills, and nothing monitors
+the position against the recorded stop. The "max loss ≤ $75" line holds only
+if the stop is honored — until stop placement is automated, **manually place
+the stop in the Robinhood app after every live fill.**
+
 ⚠️ Consequence: **approving a proposal without a stop now fails** with
 `stop_required`. The Value-TA strategy always proposes stops; seeded/manual
 proposals need one entered at approval. Sizing must also fit the $75 max-loss

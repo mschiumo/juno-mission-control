@@ -174,6 +174,10 @@ export async function syncAgenticFills(userId: string): Promise<{ added: number;
   const executions: ReviewExecution[] = [];
 
   for (const order of orders) {
+    // Paper fills must never grade (or gate) the live account: paper-era churn
+    // would put symbols on probation and blend simulated P&L into the agentic
+    // scorecard. The review source is live fills only.
+    if (order.isPaper) continue;
     const qty = order.filledQuantity;
     const price = order.avgFillPrice;
     if (!(qty > 0) || price === undefined || !(price > 0)) continue;
