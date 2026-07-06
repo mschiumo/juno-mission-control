@@ -13,6 +13,7 @@ import {
   Newspaper,
   Menu,
   X,
+  Bitcoin,
 } from 'lucide-react';
 import MarketEventsCard from '@/components/MarketEventsCard';
 import GapScannerCard from '@/components/GapScannerCard';
@@ -27,8 +28,9 @@ import TradeManagementView from '@/components/trading/TradeManagementView';
 import PerformanceView from '@/components/trading/PerformanceView';
 import GoalsView from '@/components/trading/GoalsView';
 import TradingTour from '@/components/trading/TradingTour';
+import CryptoView from '@/components/crypto/CryptoView';
 
-type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'market' | 'market-news' | 'crypto' | 'performance' | 'goals' | 'projection' | 'trade-management';
 
 export default function TradingView() {
   const router = useRouter();
@@ -38,7 +40,7 @@ export default function TradingView() {
   // Get subtab from URL or default to 'overview'
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
     const subtab = searchParams.get('subtab');
-    if (subtab === 'market' || subtab === 'market-news' || subtab === 'performance' || subtab === 'goals' || subtab === 'projection' || subtab === 'trade-management') {
+    if (subtab === 'market' || subtab === 'market-news' || subtab === 'crypto' || subtab === 'performance' || subtab === 'goals' || subtab === 'projection' || subtab === 'trade-management') {
       return subtab;
     }
     return 'overview';
@@ -91,6 +93,7 @@ export default function TradingView() {
     { id: 'overview' as const, label: 'Journal', icon: BookOpen },
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
     { id: 'market-news' as const, label: 'Market News', icon: Newspaper },
+    { id: 'crypto' as const, label: 'Crypto', icon: Bitcoin },
     { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
     { id: 'goals' as const, label: 'Goals', icon: Target },
     { id: 'performance' as const, label: 'Performance', icon: BarChart3 },
@@ -189,6 +192,8 @@ export default function TradingView() {
       )}
 
       {activeSubTab === 'market-news' && <NewsScreenerCard />}
+
+      {activeSubTab === 'crypto' && <CryptoView />}
 
       {activeSubTab === 'performance' && <PerformanceView refreshKey={importKey} />}
 

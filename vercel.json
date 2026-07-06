@@ -22,6 +22,15 @@
     },
     "app/api/cron-jobs/intraday-alerts/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/cron-jobs/crypto-agent/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/crypto/runs/route.ts": {
+      "maxDuration": 120
+    },
+    "app/api/crypto/screener/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -52,6 +61,10 @@
     {
       "path": "/api/cron-jobs/reset-recurring-goals",
       "schedule": "5 5 * * *"
+    },
+    {
+      "path": "/api/cron-jobs/crypto-agent",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

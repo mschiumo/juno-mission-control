@@ -20,7 +20,7 @@ import {
   ArrowDownRight,
 } from 'lucide-react';
 
-type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'market' | 'market-news' | 'crypto' | 'performance' | 'goals' | 'projection' | 'trade-management';
 type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
 
 /** Mini visual mockup shown alongside the step description */
