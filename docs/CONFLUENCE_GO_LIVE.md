@@ -64,6 +64,20 @@ allow fractional shares**. So the test order's `limit_price × quantity` must be
 7. **Approve** the proposal → a REAL limit order is placed. Watch it in
    **Orders** (staged → submitted → filled) and verify in the Robinhood app.
 
+## ⚠️ Two things the app does NOT do (yet)
+
+- **The stop is never sent to the broker.** The stop price on a proposal is a
+  pre-trade risk bound (and, with the Review module, a max-loss gate) — but no
+  stop order is placed after the fill, and nothing monitors the position.
+  **After the entry fills, manually place the stop in the Robinhood app** at
+  the approved stop price.
+- **A `failed` order status is not ground truth.** If the MCP call times out
+  or returns an unexpected shape *after* Robinhood accepted the order, the app
+  can record `failed` while the order is live at the broker. Before retrying
+  anything, check the Robinhood app for a working order — cancel it there if
+  it exists. (Approve is single-flight per proposal, so a double tap cannot
+  place two orders, but a timeout can still desync app state from the broker.)
+
 ## Safety & rollback
 - **Kill switch**: Agents → Settings → "Engage kill switch" (disarms; the
   execution service refuses to place anything).
