@@ -52,6 +52,10 @@
       "schedule": "0 12 * * 1-5"
     },
     {
+      "path": "/api/cron-jobs/reset-watchlist-after-close",
+      "schedule": "30 21 * * 1-5"
+    },
+    {
       "path": "/api/cron-jobs/intraday-alerts",
       "schedule": "*/30 14-21 * * 1-5"
     },
