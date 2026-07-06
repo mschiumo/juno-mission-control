@@ -426,7 +426,8 @@ function parseCashBalanceStartingBalance(csvText: string): number | undefined {
 
 /**
  * Parse broker fees from the Cash Balance section. Captures two sources:
- *  - TRD rows where the "Commissions & Fees" column (index 6) is non-zero
+ *  - TRD rows: "Misc Fees" (index 5, regulatory/exchange fees) plus
+ *    "Commissions & Fees" (index 6)
  *  - JRN rows with a negative AMOUNT that look like fee charges (borrow fees,
  *    regulatory fees, etc.)
  * Returns per-ET-date fee totals (positive = cost to the account).
@@ -465,9 +466,11 @@ export function parseDailyFees(csvText: string): DailyFee[] {
     let fee = 0;
 
     if (type === 'TRD') {
-      // Commission on the trade (options, futures legs, etc.)
+      // Misc Fees (regulatory/exchange fees) + Commissions & Fees
+      const miscStr = parts[5]?.trim();
       const commStr = parts[6]?.trim();
-      if (commStr) fee = Math.abs(parseQuotedAmount(commStr));
+      if (miscStr) fee += Math.abs(parseQuotedAmount(miscStr));
+      if (commStr) fee += Math.abs(parseQuotedAmount(commStr));
     } else if (type === 'JRN') {
       // Journal charges: stock borrow fees, regulatory fees, etc.
       const amountStr = parts[7]?.trim();
