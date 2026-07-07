@@ -51,6 +51,7 @@ function countdownText(days: number): { text: string; color: string } {
   if (days < 0) return { text: `${Math.abs(days)}d ago`, color: '#8b949e' };
   if (days === 0) return { text: 'Today', color: '#F97316' };
   if (days === 1) return { text: 'Tomorrow', color: '#F97316' };
+  if (days <= 7) return { text: `${days} days`, color: '#d29922' }; // inside a week — heads up
   return { text: `${days} days`, color: '#c9d1d9' };
 }
 
