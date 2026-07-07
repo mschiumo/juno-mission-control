@@ -115,12 +115,23 @@ function activityBarTooltip(a: ActivitySummary): string {
   return `${a.name} — ${parts.join(' · ')}`;
 }
 
-// Native-tooltip text for an aggregated day bar in the Week/Month views.
+// Tooltip text for an aggregated day bar in the Week/Month views.
 function dayBarTooltip(d: { date: string; meters: number; seconds: number }): string {
-  if (d.meters <= 0) return `${d.date}: no distance`;
+  const day = new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  if (d.meters <= 0) return `${day} — no distance`;
   const parts = [fmtMiles(d.meters)];
   if (d.seconds > 0) parts.push(`${fmtPace(d.seconds / metersToMiles(d.meters))} avg`);
-  return `${d.date}: ${parts.join(' · ')}`;
+  return `${day} — ${parts.join(' · ')}`;
+}
+
+// Instant styled tooltip shown above a chart bar on hover (native title
+// tooltips are too slow/subtle to discover).
+function BarTooltip({ text }: { text: string }) {
+  return (
+    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-[#0d1117] border border-[#30363d] rounded-md text-[10px] text-white whitespace-nowrap opacity-0 group-hover/bar:opacity-100 transition-opacity pointer-events-none z-20 shadow-lg">
+      {text}
+    </span>
+  );
 }
 
 function hourLabel(dateLocal: string): string {
@@ -497,9 +508,10 @@ export default function FitnessCard() {
                           {metrics.todays.map((a) => {
                             const pct = a.distance > 0 ? Math.max((a.distance / maxTodayMeters) * 100, 14) : 14;
                             return (
-                              <div key={a.id} className="flex-1 max-w-14 flex flex-col items-center justify-end h-full" title={activityBarTooltip(a)}>
+                              <div key={a.id} className="relative group/bar flex-1 max-w-14 flex flex-col items-center justify-end h-full">
+                                <BarTooltip text={activityBarTooltip(a)} />
                                 <div
-                                  className="w-full rounded-t-sm transition-all duration-500"
+                                  className="w-full rounded-t-sm transition-all duration-500 group-hover/bar:brightness-125"
                                   style={{
                                     height: `${pct}%`,
                                     minHeight: '5px',
@@ -528,9 +540,10 @@ export default function FitnessCard() {
                           const isToday = d.date === metrics.today;
                           const pct = d.meters > 0 ? Math.max((d.meters / maxChartMeters) * 100, 12) : 0;
                           return (
-                            <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full" title={dayBarTooltip(d)}>
+                            <div key={d.date} className="relative group/bar flex-1 flex flex-col items-center justify-end h-full">
+                              <BarTooltip text={dayBarTooltip(d)} />
                               <div
-                                className={`w-full transition-all duration-500 ${period === 'month' ? 'rounded-t-[2px]' : 'rounded-t-sm'}`}
+                                className={`w-full transition-all duration-500 group-hover/bar:brightness-125 ${period === 'month' ? 'rounded-t-[2px]' : 'rounded-t-sm'}`}
                                 style={{
                                   height: `${pct}%`,
                                   minHeight: d.meters > 0 ? '4px' : '2px',
