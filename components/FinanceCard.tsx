@@ -43,6 +43,7 @@ import {
 } from '@/lib/finance/types';
 import DebtSection from '@/components/finance/DebtSection';
 import AssetSection from '@/components/finance/AssetSection';
+import { TellerConnectButton, BrokerageSyncButton } from '@/components/finance/ConnectButtons';
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -210,18 +211,21 @@ export default function FinanceCard() {
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setSheetPanelOpen(!sheetPanelOpen)}
-          title="Sync balances from a Google Sheet"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-          style={{
-            border: `1px solid ${sheetLink ? 'var(--positive)' : 'var(--border-default)'}`,
-            color: sheetLink ? 'var(--positive)' : 'var(--text-secondary)',
-          }}
-        >
-          <FileSpreadsheet className="w-3.5 h-3.5" />
-          {sheetLink ? 'Sheet linked' : 'Link Google Sheet'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <TellerConnectButton onChanged={bumpRefresh} />
+          <button
+            onClick={() => setSheetPanelOpen(!sheetPanelOpen)}
+            title="Sync balances from a Google Sheet"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{
+              border: `1px solid ${sheetLink ? 'var(--positive)' : 'var(--border-default)'}`,
+              color: sheetLink ? 'var(--positive)' : 'var(--text-secondary)',
+            }}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            {sheetLink ? 'Sheet linked' : 'Link Google Sheet'}
+          </button>
+        </div>
       </div>
 
       {/* Google Sheet link panel */}
@@ -282,6 +286,7 @@ export default function FinanceCard() {
           refreshKey={refreshKey}
           onChanged={bumpRefresh}
           emptyHint="No investment accounts yet. Add your 401(k), IRA, or brokerage — or put a row typed “401k” / “Brokerage” in your linked sheet."
+          actions={<BrokerageSyncButton onChanged={bumpRefresh} />}
         />
       )}
       {section === 'debt' && (

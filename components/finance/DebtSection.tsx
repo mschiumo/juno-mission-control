@@ -23,7 +23,6 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
-  Landmark,
   Upload,
   Receipt,
 } from 'lucide-react';
@@ -38,6 +37,7 @@ import {
   HistoryPoint,
 } from '@/lib/finance/types';
 import { DebtProjectionChart } from './charts';
+import { SourceBadge } from './SourceBadge';
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const usd0 = new Intl.NumberFormat('en-US', {
@@ -303,16 +303,7 @@ export default function DebtSection({
               <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Debt Accounts</h2>
             </div>
             <div className="flex items-center gap-2">
-              {/* NEXT STEP: swap for Teller Connect (lib/finance/types.ts). */}
-              <button
-                disabled
-                title="Coming soon — Teller/Plaid bank connection"
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium opacity-40 cursor-not-allowed"
-                style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
-              >
-                <Landmark className="w-3.5 h-3.5" />
-                Connect bank
-              </button>
+              {/* Bank connection (Teller) lives in the tab header next to the sheet link. */}
               <button
                 onClick={() => {
                   setForm(EMPTY_FORM);
@@ -446,11 +437,7 @@ export default function DebtSection({
                     <tr key={a.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
                       <td className="py-2.5 pr-4 font-medium" style={{ color: 'var(--text-primary)' }}>
                         {a.name}
-                        {a.source === 'gsheet' && (
-                          <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold align-middle" style={{ background: 'rgba(0,200,150,0.12)', color: 'var(--positive)' }}>
-                            sheet
-                          </span>
-                        )}
+                        <SourceBadge source={a.source} />
                       </td>
                       <td className="py-2.5 pr-4" style={{ color: 'var(--text-secondary)' }}>{TYPE_LABELS[a.type]}</td>
                       <td className="py-2.5 pr-4 text-right num" style={{ color: a.balance > 0 ? 'var(--negative)' : 'var(--positive)' }}>

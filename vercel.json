@@ -28,6 +28,9 @@
     },
     "app/api/cron-jobs/confluence-weekly-review/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/cron-jobs/finance-refresh/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
@@ -70,6 +73,10 @@
     {
       "path": "/api/cron-jobs/confluence-weekly-review",
       "schedule": "0 13 * * 6"
+    },
+    {
+      "path": "/api/cron-jobs/finance-refresh",
+      "schedule": "0 10 * * *"
     }
   ]
 }

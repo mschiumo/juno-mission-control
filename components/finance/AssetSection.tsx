@@ -16,10 +16,11 @@
  * steps). The subtitle makes this honest in the UI.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, ReactNode } from 'react';
 import { Plus, Pencil, Trash2, LucideIcon } from 'lucide-react';
 import { BalanceAccount, BalanceKind, HistoryPoint } from '@/lib/finance/types';
 import { BalanceTrendChart } from './charts';
+import { SourceBadge } from './SourceBadge';
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -57,6 +58,7 @@ export default function AssetSection({
   refreshKey,
   onChanged,
   emptyHint,
+  actions,
 }: {
   title: string;
   subtitle: string;
@@ -68,6 +70,7 @@ export default function AssetSection({
   refreshKey: number;
   onChanged: () => void;
   emptyHint: string;
+  actions?: ReactNode;
 }) {
   const [accounts, setAccounts] = useState<BalanceAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,18 +158,21 @@ export default function AssetSection({
                 <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{subtitle}</p>
               </div>
             </div>
-            <button
-              onClick={() => {
-                setForm(emptyForm);
-                setFormError(null);
-                setShowForm(!showForm);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-              style={{ background: 'var(--accent-dim)', color: 'var(--accent-light)' }}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add account
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {actions}
+              <button
+                onClick={() => {
+                  setForm(emptyForm);
+                  setFormError(null);
+                  setShowForm(!showForm);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{ background: 'var(--accent-dim)', color: 'var(--accent-light)' }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add account
+              </button>
+            </div>
           </div>
 
           {/* Stats row */}
@@ -276,11 +282,7 @@ export default function AssetSection({
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                       {a.name}
-                      {a.source === 'gsheet' && (
-                        <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold align-middle" style={{ background: 'rgba(0,200,150,0.12)', color: 'var(--positive)' }}>
-                          sheet
-                        </span>
-                      )}
+                      <SourceBadge source={a.source} />
                     </p>
                     <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
                       {KIND_LABELS[a.kind]}{a.institution ? ` · ${a.institution}` : ''}

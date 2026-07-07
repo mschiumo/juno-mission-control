@@ -7,43 +7,44 @@
  * aggregator support; FinanceKit is iOS-native only). The `source`/`externalId`
  * fields are the integration seam for live aggregator data.
  *
- * NEXT STEPS — connecting live account data (in rough priority order):
+ * LIVE DATA STATUS (per institution):
+ * - Robinhood → LIVE via the existing ConfluenceTrading OAuth connection
+ *   (lib/finance/investing-sync.ts). No new credentials needed.
+ * - Chase, Capital One (and most major US banks) → LIVE via Teller
+ *   (lib/finance/teller.ts) once TELLER_* env vars are set — free signup,
+ *   setup steps in that file's header.
+ * - Apple Card → statement CSV import (no aggregator supports it;
+ *   FinanceKit is iOS-native only).
+ * - Affirm, Synchrony → NOT on Teller; wait for the Plaid integration
+ *   (below) or track via sheet/manual meanwhile.
+ * - Everything refreshes nightly via app/api/cron-jobs/finance-refresh.
  *
- * 1. Teller (https://teller.io) — recommended first integration.
- *    - Free developer tier (100 live enrollments), no sales process.
- *    - Flow mirrors the existing SnapTrade integration (app/api/snaptrade/*):
- *      a. New routes: app/api/finance/teller/connect, /accounts, /sync, /disconnect
- *      b. Client opens Teller Connect (https://teller.io/docs/guides/connect),
- *         which returns an accessToken on enrollment.
- *      c. Store the token per-user in Redis (`finance:{userId}:teller`) —
- *         ENCRYPT AT REST (aggregator tokens are bank credentials; see
- *         lib/crypto pattern or add AES-GCM with a KMS-style env secret).
- *      d. Sync pulls GET /accounts, /accounts/{id}/balances,
- *         /accounts/{id}/transactions and upserts DebtAccount records with
- *         source: 'teller' + externalId. Manual fields (apr, minPayment,
- *         dueDay) stay user-editable — Teller doesn't expose card APRs.
- *      e. Nightly refresh via the existing cron infra (app/api/run-cron).
+ * NEXT STEPS:
  *
- * 2. Plaid (https://plaid.com/docs) — broader coverage, adds the Liabilities
- *    product which DOES return APR, minimum payment, and due date for credit
- *    cards (so steps here replace the manual apr/minPayment/dueDay entry).
- *    Production access is sales-led and Transactions/Liabilities bill
- *    per-item monthly — fine for a single owner, but gate connect behind
- *    requireOwner() exactly like SnapTrade billing protection.
+ * 1. Plaid (https://plaid.com/docs) — adds Affirm + Synchrony coverage and
+ *    the Liabilities product, which returns APR, minimum payment, and due
+ *    date for credit cards (replacing manual entry of card terms — Teller
+ *    doesn't expose them). Production access is sales-led and bills
+ *    per-item monthly; keep it owner-gated. Reuse lib/finance/crypto.ts for
+ *    token storage.
  *
- * 3. SimpleFIN Bridge (https://beta-bridge.simplefin.org) — $15/yr, read-only,
- *    daily refresh. User pays directly and pastes a setup token, so there is
- *    zero billing exposure in the app. Good fallback for institutions Teller
- *    misses.
+ * 2. SimpleFIN Bridge (https://beta-bridge.simplefin.org) — $15/yr,
+ *    read-only. User pays directly and pastes a setup token; fallback for
+ *    institutions Teller/Plaid miss.
  *
- * 4. Sheet sync upgrades — nightly cron refresh (run-cron pattern) and
- *    private-sheet access via the lib/google-calendar.ts service-account JWT
- *    flow (share the sheet with GOOGLE_SERVICE_ACCOUNT_EMAIL, scope
- *    spreadsheets.readonly) so the link needn't be viewable by anyone.
+ * 3. Sheet sync: private-sheet access via the lib/google-calendar.ts
+ *    service-account JWT flow (share the sheet with
+ *    GOOGLE_SERVICE_ACCOUNT_EMAIL, scope spreadsheets.readonly) so the link
+ *    needn't be viewable by anyone with the URL.
  *
- * 5. Expense tracking depth — category budgets and month-over-month trends
- *    on top of imported/synced transactions, and feed actual spending into
- *    the payoff planner's monthlyBudget.
+ * 4. Expense tracking depth — category budgets and month-over-month trends
+ *    on top of imported/synced transactions (Teller /transactions is
+ *    available once enrolled), and feed actual spending into the payoff
+ *    planner's monthlyBudget.
+ *
+ * 5. True investment returns — needs contribution history to separate
+ *    deposits from market growth; Teller/brokerage transactions unlock a
+ *    time-weighted return calc for the Investing section.
  */
 
 export type DebtType =
@@ -54,7 +55,7 @@ export type DebtType =
   | 'mortgage'
   | 'other';
 
-export type AccountSource = 'manual' | 'gsheet' | 'teller' | 'plaid' | 'simplefin';
+export type AccountSource = 'manual' | 'gsheet' | 'teller' | 'plaid' | 'simplefin' | 'brokerage';
 
 export interface DebtAccount {
   id: string;
@@ -112,6 +113,7 @@ export interface BalanceAccount {
   balance: number;
   institution?: string;
   source: AccountSource;
+  externalId?: string; // aggregator/brokerage account id once connected
   createdAt: string;
   updatedAt: string;
 }
