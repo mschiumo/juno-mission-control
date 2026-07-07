@@ -138,9 +138,22 @@ export default function OrdersMonitor({ orders, positions, positionsNote, busy, 
                 const cancelable = ACTIVE_ORDER_STATUSES.includes(o.status);
                 return (
                   <tr key={o.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <td className="py-2.5 pr-3 font-semibold" style={{ color: 'var(--text-primary)' }}>{o.symbol}</td>
+                    <td className="py-2.5 pr-3 font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {o.symbol}
+                      {o.kind === 'protective_stop' ? (
+                        <span
+                          className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold align-middle"
+                          style={{ background: 'var(--info-dim)', color: 'var(--info)' }}
+                          title="Protective stop — placed automatically at the approved stop price after the entry filled"
+                        >
+                          STOP
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="py-2.5 pr-3 uppercase" style={{ color: o.side === 'buy' ? 'var(--positive)' : 'var(--negative)' }}>{o.side}</td>
-                    <td className="py-2.5 pr-3 tabular-nums" style={{ color: 'var(--text-secondary)' }}>${o.limitPrice}</td>
+                    <td className="py-2.5 pr-3 tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                      {o.kind === 'protective_stop' ? `stop $${o.stopPrice ?? o.limitPrice}` : `$${o.limitPrice}`}
+                    </td>
                     <td className="py-2.5 pr-3 tabular-nums" style={{ color: 'var(--text-secondary)' }}>{o.quantity}</td>
                     <td className="py-2.5 pr-3 tabular-nums" style={{ color: 'var(--text-secondary)' }}>{o.filledQuantity}</td>
                     <td className="py-2.5 pr-3 tabular-nums" style={{ color: 'var(--text-secondary)' }}>{o.avgFillPrice != null ? `$${o.avgFillPrice}` : '—'}</td>
