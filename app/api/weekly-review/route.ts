@@ -5,6 +5,7 @@ import { fetchRecentActivities } from '@/lib/strava';
 import { getAllTrades } from '@/lib/db/trades-v2';
 import { getESTDateFromTimestamp } from '@/lib/date-utils';
 import { pctPaid, projectDebtFreeDate, paceStatus, DEBT_TARGET, type BalanceEntry } from '@/lib/debt-math';
+import { isTrainingHabit } from '@/lib/habit-sync';
 
 // Weekly Scoreboard — the "four numbers" from MJ's plan (card balance,
 // trades journaled, training sessions, posts published) plus the debt
@@ -85,9 +86,31 @@ async function loadDebtPlan(userId: string): Promise<DebtPlan | null> {
   }
 }
 
-/** Distinct training days this week: Strava activity days ∪ workout-split completions. */
+/**
+ * Distinct training days this week: any day with a Lift/Cardio-style habit
+ * checked off ∪ Strava activity days ∪ workout-split completions.
+ */
 async function trainingDays(userId: string, weekStart: string, today: string): Promise<number> {
   const days = new Set<string>();
+
+  // Lift / Cardio / Exercise habit check-offs, per day.
+  try {
+    const redis = await getRedisClient();
+    for (let i = 0; i < 7; i++) {
+      const date = shiftDate(weekStart, i);
+      if (date > today) break;
+      const raw = await redis.get(`habits_data:${userId}:${date}`);
+      if (!raw) continue;
+      try {
+        const habits = JSON.parse(raw) as { id: string; name: string; completedToday: boolean }[];
+        if (habits.some((h) => h.completedToday && isTrainingHabit(h))) days.add(date);
+      } catch {
+        /* malformed day — skip */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
 
   // Workout split completions (local Redis, always available).
   try {

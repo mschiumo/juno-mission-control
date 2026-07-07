@@ -26,6 +26,15 @@ export function isExerciseHabit(h: HabitData): boolean {
   return h.id === 'exercise' || /exercise|work\s?out|lift|gym|train/i.test(h.name);
 }
 
+// Anything that counts as a training session for the Weekly Scoreboard:
+// Lift / Cardio / Exercise / Run-style habits, by id or name.
+export function isTrainingHabit(h: Pick<HabitData, 'id' | 'name'>): boolean {
+  return (
+    ['exercise', 'lift', 'cardio', 'run'].includes(h.id) ||
+    /lift|cardio|exercise|work\s?out|gym|train|\brun/i.test(h.name)
+  );
+}
+
 export function streakWith(completed: boolean, history: boolean[]): number {
   let streak = completed ? 1 : 0;
   for (let i = history.length - 1; i >= 0; i--) {
