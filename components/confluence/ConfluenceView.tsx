@@ -192,6 +192,12 @@ export default function ConfluenceView() {
   }, [loadAll]);
 
   const lastRun = runs[0];
+  // Gate-passing candidates the last run dropped only because sizing rounded
+  // to zero shares — surfaced so a too-small risk budget doesn't read as
+  // "no setups found".
+  const lastRunSizedOut = Array.isArray(lastRun?.metadata?.sizedOutSymbols)
+    ? (lastRun.metadata.sizedOutSymbols as { symbol: string; riskPerShare: number; riskBudgetUsd: number }[])
+    : [];
 
   if (loading) {
     return <div className="p-8 text-center" style={{ color: 'var(--text-tertiary)' }}>Loading agents…</div>;
@@ -275,6 +281,22 @@ export default function ConfluenceView() {
               {lastRun && (
                 <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
                   Last run {new Date(lastRun.startedAt).toLocaleString()} · {lastRun.cadence} · {lastRun.proposalsGenerated} proposed · {lastRun.status}
+                  {lastRunSizedOut.length > 0 && (
+                    <>
+                      {' · '}
+                      <span
+                        style={{ color: 'var(--warning)', cursor: 'help' }}
+                        title={
+                          'Passed all gates but the risk budget was too small for 1 share:\n' +
+                          lastRunSizedOut
+                            .map((s) => `${s.symbol} — $${s.riskPerShare}/share risk vs $${s.riskBudgetUsd} budget`)
+                            .join('\n')
+                        }
+                      >
+                        {lastRunSizedOut.length} sized out (risk budget too small)
+                      </span>
+                    </>
+                  )}
                 </span>
               )}
             </div>

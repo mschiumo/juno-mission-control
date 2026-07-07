@@ -22,7 +22,7 @@ import { getFundamentalsProvider, type Fundamentals } from '@/lib/confluence/fun
 import { getTechnicalsProvider, type Technicals } from '@/lib/confluence/technicals';
 import { chunk, formatSkip, MCP_SYMBOL_BATCH_SIZE } from '@/lib/confluence/batching';
 import { ConfluenceNotConfigured } from '@/lib/confluence/robinhood/mcp-client';
-import type { Candidate, StrategyContext } from './strategy';
+import type { Candidate, SizedOutCandidate, StrategyContext } from './strategy';
 import { getStrategy, type StrategyDefinition } from './strategies';
 import { analyzeWithClaude } from './claude-analyst';
 import { resolveUniverse, type ResolvedUniverse } from '@/lib/confluence/universe';
@@ -65,6 +65,8 @@ async function deterministicCandidates(
   skippedSymbols: string[];
   /** Count of fundamentals-holders that cleared the prefilter (when the strategy has one). */
   valueGatePassed?: number;
+  /** Gate-passers dropped only because sizing rounded to zero shares. */
+  sizedOut: SizedOutCandidate[];
 }> {
   const provider = getFundamentalsProvider();
   const technicalsProvider = strat.needsTechnicals ? getTechnicalsProvider() : null;
@@ -144,12 +146,16 @@ async function deterministicCandidates(
   // ── Stage 4: evaluate the survivors, then rank — the best-scored setups win
   // the run's proposal budget, not the first alphabetical passers.
   const candidates: Candidate[] = [];
+  // Gate-passers whose sizing rounded to zero shares — recorded so a too-small
+  // risk budget doesn't masquerade as "no setups found".
+  const sizedOut: SizedOutCandidate[] = [];
+  const evalCtx: StrategyContext = { ...ctx, onSizedOut: (info) => sizedOut.push(info) };
   for (const symbol of valuePassers) {
     if (skipped.has(symbol)) continue;
     // One symbol's failure must not abort the run and discard candidates
     // already found — skip it and record the skip.
     try {
-      const c = strat.evaluate(fundamentals.get(symbol)!, technicals.get(symbol) ?? null, ctx);
+      const c = strat.evaluate(fundamentals.get(symbol)!, technicals.get(symbol) ?? null, evalCtx);
       if (c) candidates.push(c);
     } catch {
       skip(symbol, 'evaluate_failed');
@@ -169,6 +175,7 @@ async function deterministicCandidates(
     universeSize: universe.length,
     skippedSymbols,
     valueGatePassed,
+    sizedOut,
   };
 }
 
@@ -236,6 +243,7 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
         ...universeMeta,
         ...(det.skippedSymbols.length ? { skippedSymbols: det.skippedSymbols } : {}),
         ...(det.valueGatePassed != null ? { valueGatePassed: det.valueGatePassed } : {}),
+        ...(det.sizedOut.length ? { sizedOutSymbols: det.sizedOut } : {}),
       };
     }
 

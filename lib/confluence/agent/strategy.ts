@@ -33,11 +33,34 @@ export interface Candidate {
   score?: number;
 }
 
+/**
+ * A candidate that cleared every strategy gate but sized to zero shares —
+ * the risk budget (or per-position budget) couldn't fit one share's risk.
+ * Recorded in run metadata so a too-small budget is distinguishable from
+ * "no setups found".
+ */
+export interface SizedOutCandidate {
+  symbol: string;
+  /** Intended limit entry at evaluation time. */
+  entry: number;
+  /** Dollar risk of one share (entry − stop). */
+  riskPerShare: number;
+  /** The risk budget the sizing divided by (maxRiskPerTradeUsd or its fallback). */
+  riskBudgetUsd: number;
+  perPositionBudgetUsd: number;
+}
+
 export interface StrategyContext {
   /** Rough per-position budget so the toy sizing stays under the caps. */
   perPositionBudgetUsd: number;
   /** Max dollars a single trade may lose at its stop (risk-based sizing). */
   maxRiskPerTradeUsd?: number;
+  /**
+   * Observability hook: a strategy calls this when a candidate passed all its
+   * gates and is dropped ONLY because sizing produced < 1 share. Purely
+   * additive — never changes what gets proposed.
+   */
+  onSizedOut?(info: SizedOutCandidate): void;
 }
 
 export type Strategy = (data: Fundamentals, ctx: StrategyContext) => Candidate | null;
