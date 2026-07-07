@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Inbox, Activity, ScrollText, SlidersHorizontal, Sparkles, FlaskConical, Play, LineChart, ClipboardCheck } from 'lucide-react';
 import type { AgentRun, AuditEvent, ExecutionOrder, Proposal, SystemState } from '@/types/confluence';
 import ProposalCard, { type EditState } from './ProposalCard';
-import OrdersMonitor from './OrdersMonitor';
+import OrdersMonitor, { type LivePosition } from './OrdersMonitor';
 import AuditLog from './AuditLog';
 import SettingsPanel from './SettingsPanel';
 import PerformancePanel from './PerformancePanel';
@@ -35,6 +35,9 @@ export default function ConfluenceView() {
   const [state, setState] = useState<SystemState | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [orders, setOrders] = useState<ExecutionOrder[]>([]);
+  const [positions, setPositions] = useState<LivePosition[]>([]);
+  const [quotes, setQuotes] = useState<Record<string, { last: number; asOf?: string }>>({});
+  const [positionsNote, setPositionsNote] = useState<string | undefined>(undefined);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,18 +46,26 @@ export default function ConfluenceView() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [s, p, o, a, r] = await Promise.all([
+      const [s, p, o, a, r, pos] = await Promise.all([
         fetch('/api/confluence/system').then((r) => r.json()),
         fetch('/api/confluence/proposals').then((r) => r.json()),
         fetch('/api/confluence/orders').then((r) => r.json()),
         fetch('/api/confluence/audit').then((r) => r.json()),
         fetch('/api/confluence/runs').then((r) => r.json()),
+        fetch('/api/confluence/positions').then((r) => r.json()),
       ]);
       if (s.success) setState(s.state);
       if (p.success) setProposals(p.proposals);
       if (o.success) setOrders(o.orders);
       if (a.success) setAudit(a.events);
       if (r.success) setRuns(r.runs);
+      if (pos.success) {
+        setPositions(pos.positions ?? []);
+        setPositionsNote(pos.reason);
+      } else if (pos.error) {
+        setPositions([]);
+        setPositionsNote(`Positions unavailable: ${pos.error}`);
+      }
     } catch (e) {
       console.error('Failed to load ConfluenceTrading data:', e);
       setBanner({ kind: 'error', msg: 'Failed to load data.' });
@@ -66,6 +77,22 @@ export default function ConfluenceView() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // Live quotes for the pending symbols — advisory context for review (the
+  // agent priced off the prior close). Refreshes whenever the queue changes.
+  useEffect(() => {
+    const symbols = [...new Set(proposals.filter((p) => p.status === 'pending').map((p) => p.symbol))];
+    if (symbols.length === 0) {
+      setQuotes({});
+      return;
+    }
+    fetch(`/api/confluence/quotes?symbols=${symbols.join(',')}`)
+      .then((r) => r.json())
+      .then((q) => {
+        if (q.success) setQuotes(q.quotes ?? {});
+      })
+      .catch(() => {});
+  }, [proposals]);
 
   const pending = proposals.filter((p) => p.status === 'pending');
 
@@ -120,8 +147,15 @@ export default function ConfluenceView() {
       const res = await fetch('/api/confluence/orders?refresh=1');
       const data = await res.json();
       if (data.success) setOrders(data.orders);
-      const a = await fetch('/api/confluence/audit').then((r) => r.json());
+      const [a, pos] = await Promise.all([
+        fetch('/api/confluence/audit').then((r) => r.json()),
+        fetch('/api/confluence/positions').then((r) => r.json()),
+      ]);
       if (a.success) setAudit(a.events);
+      if (pos.success) {
+        setPositions(pos.positions ?? []);
+        setPositionsNote(pos.reason);
+      }
     } finally {
       setBusy(false);
     }
@@ -307,6 +341,7 @@ export default function ConfluenceView() {
                 perPositionCapUsd={state?.perPositionCapUsd ?? 0}
                 tradingEnabled={state?.tradingEnabled ?? false}
                 busy={busy}
+                liveQuote={quotes[p.symbol.toUpperCase()]}
                 onApprove={handleApprove}
                 onReject={handleReject}
               />
@@ -316,7 +351,14 @@ export default function ConfluenceView() {
       )}
 
       {subTab === 'orders' && (
-        <OrdersMonitor orders={orders} busy={busy} onRefresh={handleRefreshOrders} onCancel={handleCancel} />
+        <OrdersMonitor
+          orders={orders}
+          positions={positions}
+          positionsNote={positionsNote}
+          busy={busy}
+          onRefresh={handleRefreshOrders}
+          onCancel={handleCancel}
+        />
       )}
 
       {subTab === 'performance' && <PerformancePanel />}

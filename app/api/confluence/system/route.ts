@@ -42,6 +42,11 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     if (body.perPositionCapUsd !== undefined) {
       updates.perPositionCapUsd = coerceCap(body.perPositionCapUsd, current.perPositionCapUsd);
     }
+    if (body.entryOrderMaxAgeDays !== undefined) {
+      // 0 is not allowed — that would cancel entries the moment they're placed.
+      const days = coerceCap(body.entryOrderMaxAgeDays, current.entryOrderMaxAgeDays);
+      updates.entryOrderMaxAgeDays = days > 0 ? Math.floor(days) : current.entryOrderMaxAgeDays;
+    }
     if (body.totalExposureCapUsd !== undefined) {
       updates.totalExposureCapUsd = coerceCap(body.totalExposureCapUsd, current.totalExposureCapUsd);
     }

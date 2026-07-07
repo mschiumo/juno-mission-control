@@ -15,7 +15,8 @@
  */
 
 import { saveRun } from '@/lib/db/confluence/agent-runs';
-import { saveProposal } from '@/lib/db/confluence/proposals';
+import { getProposalsByStatus, saveProposal } from '@/lib/db/confluence/proposals';
+import { getActiveOrders, getAllOrders } from '@/lib/db/confluence/orders';
 import { getSystemState } from '@/lib/db/confluence/system-state';
 import { appendAudit } from '@/lib/db/confluence/audit';
 import { getFundamentalsProvider, type Fundamentals } from '@/lib/confluence/fundamentals';
@@ -172,6 +173,28 @@ async function deterministicCandidates(
   };
 }
 
+/**
+ * Symbols the agent must not re-propose right now: anything with a pending
+ * proposal, an active order, or an open position (net filled shares in the
+ * order log). Expired/rejected proposals deliberately DON'T block — a setup
+ * that's still valid after its old proposal died should come back.
+ */
+async function symbolsInPlay(userId: string): Promise<Set<string>> {
+  const inPlay = new Set<string>();
+  for (const p of await getProposalsByStatus(userId, 'pending')) inPlay.add(p.symbol.toUpperCase());
+  for (const o of await getActiveOrders(userId)) inPlay.add(o.symbol.toUpperCase());
+  // Open positions = non-zero net filled quantity per symbol.
+  const net = new Map<string, number>();
+  for (const o of await getAllOrders(userId)) {
+    if (!(o.filledQuantity > 0)) continue;
+    const sign = o.side === 'buy' ? 1 : -1;
+    const sym = o.symbol.toUpperCase();
+    net.set(sym, (net.get(sym) ?? 0) + sign * o.filledQuantity);
+  }
+  for (const [sym, qty] of net) if (qty !== 0) inPlay.add(sym);
+  return inPlay;
+}
+
 export async function runAgent(userId: string, opts: RunOptions): Promise<AgentRun> {
   const startedAt = new Date().toISOString();
   const run: AgentRun = {
@@ -239,8 +262,18 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
       };
     }
 
+    // Don't re-propose what's already in play (pending / working / held).
+    const inPlay = await symbolsInPlay(userId);
+    const skippedInPlay = candidates
+      .filter((c) => inPlay.has(c.symbol.toUpperCase()))
+      .map((c) => c.symbol.toUpperCase());
+    const fresh = candidates.filter((c) => !inPlay.has(c.symbol.toUpperCase()));
+    if (skippedInPlay.length > 0) {
+      metaSource = { ...metaSource, alreadyInPlay: skippedInPlay };
+    }
+
     let generated = 0;
-    for (const candidate of candidates.slice(0, max)) {
+    for (const candidate of fresh.slice(0, max)) {
       const proposal: Proposal = {
         id: crypto.randomUUID(),
         runId: run.id,

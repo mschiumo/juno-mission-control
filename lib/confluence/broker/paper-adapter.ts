@@ -10,18 +10,27 @@
  * same refId is deduped rather than double-placed. Behaviour is predictable:
  *   - placeLimitOrder  → order goes `submitted` (live at the paper broker).
  *   - getOrderStatus   → first poll fills it completely at the limit price.
+ *   - placeStopOrder   → protective stop goes `submitted` and RESTS. The
+ *     simulated price model is "the market trades at the order's price" (which
+ *     is why limits fill at their limit); a protective stop sits on the adverse
+ *     side of that price by construction, so it never crosses and stays
+ *     `submitted` — a deterministic resting stop, cancellable like the real thing.
  *   - cancelOrder      → cancels iff not yet filled.
  */
 
 import { getRedisClient } from '@/lib/redis';
-import type { BrokerAdapter, BrokerOrderState, PlaceLimitOrderRequest } from './adapter';
+import type { BrokerAdapter, BrokerOrderState, PlaceLimitOrderRequest, PlaceStopOrderRequest } from './adapter';
 
 interface PaperOrderRecord {
   brokerOrderId: string;
   refId: string;
   symbol: string;
   side: 'buy' | 'sell';
+  /** Absent = 'limit' (legacy records predate the field). */
+  type?: 'limit' | 'stop_market';
   limitPrice: number;
+  /** Trigger price when type = 'stop_market'. */
+  stopPrice?: number;
   quantity: number;
   status: 'submitted' | 'filled' | 'cancelled';
   filledQuantity: number;
@@ -89,17 +98,48 @@ export class PaperBrokerAdapter implements BrokerAdapter {
     return toState(rec);
   }
 
+  async placeStopOrder(req: PlaceStopOrderRequest): Promise<BrokerOrderState> {
+    // Idempotency: a re-send with the same refId returns the existing order.
+    const existing = await readByRef(req.refId);
+    if (existing) return toState(existing);
+
+    const rec: PaperOrderRecord = {
+      brokerOrderId: `paper-${req.orderId}`,
+      refId: req.refId,
+      symbol: req.symbol,
+      side: req.side,
+      type: 'stop_market',
+      // No limit leg on a stop_market; carry the trigger in both fields so
+      // legacy readers of limitPrice see a sane number.
+      limitPrice: req.stopPrice,
+      stopPrice: req.stopPrice,
+      quantity: req.quantity,
+      status: 'submitted',
+      filledQuantity: 0,
+      submittedAt: new Date().toISOString(),
+    };
+    await write(rec);
+    return toState(rec);
+  }
+
   async getOrderStatus(brokerOrderId: string): Promise<BrokerOrderState> {
     const rec = await readByBrokerId(brokerOrderId);
     if (!rec) {
       return { brokerOrderId, status: 'failed', filledQuantity: 0, error: 'Paper order not found' };
     }
-    // A submitted paper order fills completely at its limit on the next poll.
     if (rec.status === 'submitted') {
-      rec.status = 'filled';
-      rec.filledQuantity = rec.quantity;
-      rec.avgFillPrice = rec.limitPrice;
-      await write(rec);
+      if ((rec.type ?? 'limit') === 'limit') {
+        // A submitted paper limit order fills completely at its limit on the next poll.
+        rec.status = 'filled';
+        rec.filledQuantity = rec.quantity;
+        rec.avgFillPrice = rec.limitPrice;
+        await write(rec);
+      }
+      // A stop_market would fill (at its stop) only if the simulated price
+      // crossed it adversely (sell stop: price <= stopPrice). The paper price
+      // model pins the market at the entry's fill price, which is on the safe
+      // side of the stop by construction — so the stop deterministically RESTS
+      // `submitted`, mirroring a live protective stop that hasn't triggered.
     }
     return toState(rec);
   }

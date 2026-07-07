@@ -10,8 +10,20 @@ import { RefreshCw, XCircle } from 'lucide-react';
 import type { ExecutionOrder, OrderStatus } from '@/types/confluence';
 import { ACTIVE_ORDER_STATUSES } from '@/types/confluence';
 
+export interface LivePosition {
+  symbol: string;
+  quantity: number;
+  avgCost?: number;
+  /** Active protective-stop coverage from the app's ledger (null = uncovered). */
+  stop: { stopPrice?: number; quantity: number } | null;
+}
+
 interface Props {
   orders: ExecutionOrder[];
+  /** Live from Robinhood on every load — not a cached copy. */
+  positions: LivePosition[];
+  /** Why positions are empty (paper mode, no account, not configured). */
+  positionsNote?: string;
   busy: boolean;
   onRefresh: () => void;
   onCancel: (id: string) => void;
@@ -31,9 +43,63 @@ function statusStyle(status: OrderStatus): { bg: string; color: string } {
   }
 }
 
-export default function OrdersMonitor({ orders, busy, onRefresh, onCancel }: Props) {
+export default function OrdersMonitor({ orders, positions, positionsNote, busy, onRefresh, onCancel }: Props) {
   return (
-    <div className="card">
+    <div className="flex flex-col gap-4">
+      {/* Live positions straight from the broker for the pinned account. */}
+      <div className="card">
+        <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+          Positions <span className="font-normal" style={{ color: 'var(--text-secondary)' }}>(live from Robinhood)</span>
+        </h3>
+        {positions.length === 0 ? (
+          <p className="text-[13px] py-3 text-center" style={{ color: 'var(--text-secondary)' }}>
+            {positionsNote ?? 'No open positions in the agentic account.'}
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12px]" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ color: 'var(--text-secondary)' }} className="text-left">
+                  <th className="py-2 pr-3 font-medium">Symbol</th>
+                  <th className="py-2 pr-3 font-medium">Qty</th>
+                  <th className="py-2 pr-3 font-medium">Avg cost</th>
+                  <th className="py-2 pr-3 font-medium">Protective stop</th>
+                </tr>
+              </thead>
+              <tbody>
+                {positions.map((p) => (
+                  <tr key={p.symbol} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <td className="py-2 pr-3 font-semibold" style={{ color: 'var(--text-primary)' }}>{p.symbol}</td>
+                    <td className="py-2 pr-3" style={{ color: 'var(--text-primary)' }}>{p.quantity}</td>
+                    <td className="py-2 pr-3" style={{ color: 'var(--text-primary)' }}>
+                      {p.avgCost != null ? `$${p.avgCost.toFixed(2)}` : '—'}
+                    </td>
+                    <td className="py-2 pr-3">
+                      {p.stop ? (
+                        <span
+                          className="px-2 py-0.5 rounded text-[11px] font-medium"
+                          style={{ background: 'var(--positive-dim)', color: 'var(--positive)' }}
+                        >
+                          stop ${p.stop.stopPrice?.toFixed(2) ?? '?'} × {p.stop.quantity}
+                        </span>
+                      ) : (
+                        <span
+                          className="px-2 py-0.5 rounded text-[11px] font-semibold"
+                          style={{ background: 'var(--negative-dim)', color: 'var(--negative)' }}
+                        >
+                          NO STOP
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
       <div className="flex items-center justify-between gap-3 mb-4">
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Orders &amp; Positions</h3>
         <button
@@ -106,6 +172,7 @@ export default function OrdersMonitor({ orders, busy, onRefresh, onCancel }: Pro
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -27,8 +27,12 @@ export type TradeDirection = 'buy' | 'sell';
 /** proposal_status enum. `superseded` = replaced by a newer run's proposal. */
 export type ProposalStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'superseded';
 
-/** Limit-only for now (see invariant 4); widen later if ever needed. */
-export type OrderType = 'limit';
+/**
+ * Entry orders are limit-only (see invariant 4). `stop_market` exists solely
+ * for the protective-stop child placed after an entry fills — an exit that can
+ * only reduce exposure, at the stop price the human approved.
+ */
+export type OrderType = 'limit' | 'stop_market';
 
 /** time_in_force: good-for-day / good-till-cancelled. */
 export type TimeInForce = 'gfd' | 'gtc';
@@ -84,6 +88,12 @@ export interface SystemState {
   perPositionCapUsd: number;
   /** Total notional cap across all active orders. Enforced pre-order. */
   totalExposureCapUsd: number;
+  /**
+   * Auto-cancel unfilled ENTRY orders older than this (calendar days) — a
+   * resting swing limit shouldn't outlive the setup that justified it.
+   * Protective stops are NEVER auto-cancelled (they guard a live position).
+   */
+  entryOrderMaxAgeDays: number;
   updatedAt: string; // ISO
   updatedBy?: string;
 }
@@ -93,6 +103,7 @@ export const DEFAULT_SYSTEM_STATE: Omit<SystemState, 'updatedAt'> = {
   paperMode: true,
   perPositionCapUsd: 2000,
   totalExposureCapUsd: 10000,
+  entryOrderMaxAgeDays: 5,
 };
 
 /** agent_runs — observability for each scheduled scan (populated in Milestone 2). */
@@ -174,6 +185,19 @@ export interface ExecutionOrder {
   limitPrice: number;
   quantity: number;
   timeInForce: TimeInForce;
+  /**
+   * What this order is. Absent = 'entry' (legacy records predate the field).
+   * A 'protective_stop' is the stop_market exit staged automatically after its
+   * entry fills — deterministic completion of the plan the human approved.
+   */
+  kind?: 'entry' | 'protective_stop';
+  /** The approved plan's stop, denormalized onto the ENTRY order at staging
+   * (and the trigger price on the protective_stop child). */
+  stopPrice?: number;
+  /** The approved plan's target, denormalized onto the ENTRY order at staging. */
+  targetPrice?: number;
+  /** On a protective_stop: the entry order it protects. */
+  protectsOrderId?: string;
   /** Idempotency key sent to the broker; re-sent verbatim on retry. */
   refId: string;
   /** Broker's order id once submitted. */
@@ -206,6 +230,8 @@ export type AuditEventType =
   | 'order.filled'
   | 'order.cancelled'
   | 'order.failed'
+  | 'order.protective_stop_placed'
+  | 'order.protective_stop_skipped'
   | 'killswitch.activated'
   | 'killswitch.deactivated'
   | 'paper_mode.changed';

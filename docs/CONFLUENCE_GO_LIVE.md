@@ -64,13 +64,25 @@ allow fractional shares**. So the test order's `limit_price × quantity` must be
 7. **Approve** the proposal → a REAL limit order is placed. Watch it in
    **Orders** (staged → submitted → filled) and verify in the Robinhood app.
 
-## ⚠️ Two things the app does NOT do (yet)
+## Protective stops & order lifecycle (automated)
 
-- **The stop is never sent to the broker.** The stop price on a proposal is a
-  pre-trade risk bound (and, with the Review module, a max-loss gate) — but no
-  stop order is placed after the fill, and nothing monitors the position.
-  **After the entry fills, manually place the stop in the Robinhood app** at
-  the approved stop price.
+- **The stop IS placed automatically now:** when an entry order fills while
+  execution is armed, the service places a sell `stop_market`, GTC, at the
+  approved stop price for the filled quantity (partial fills included — a
+  cancelled entry with a partial fill still gets its stop). Fills are detected
+  by the market-hours poll cron (every 30 min, weekdays) or any manual refresh.
+- **Disarmed-at-fill caveat:** the kill switch is absolute — if trading is
+  disarmed when the fill lands, the stop is NOT placed. You get a loud
+  `order.protective_stop_skipped` audit event and a **NO STOP** flag on the
+  Positions card. Arm execution and hit refresh on the order to place it.
+- **Stale entries auto-cancel:** unfilled entry orders older than
+  `entryOrderMaxAgeDays` (Settings, default 5) are cancelled by the poll cron.
+  Protective stops are never auto-cancelled.
+- **Gap caveat:** a `stop_market` exit can fill below the stop on a gap; the
+  max-loss line is a normal-conditions bound, not a guarantee.
+
+## ⚠️ Still true
+
 - **A `failed` order status is not ground truth.** If the MCP call times out
   or returns an unexpected shape *after* Robinhood accepted the order, the app
   can record `failed` while the order is live at the broker. Before retrying

@@ -14,7 +14,7 @@
  */
 
 import { callRobinhoodTool, payloadSnippet } from '@/lib/confluence/robinhood/mcp-client';
-import type { BrokerAdapter, BrokerOrderState, PlaceLimitOrderRequest } from './adapter';
+import type { BrokerAdapter, BrokerOrderState, PlaceLimitOrderRequest, PlaceStopOrderRequest } from './adapter';
 import type { OrderStatus, TradeDirection } from '@/types/confluence';
 
 /** Map a Robinhood order state string to our OrderStatus. */
@@ -104,6 +104,40 @@ export class LiveRobinhoodAdapter implements BrokerAdapter {
       limit_price: String(req.limitPrice),
       quantity: String(req.quantity),
       time_in_force: req.timeInForce, // 'gfd' | 'gtc'
+      market_hours: 'regular_hours',
+      ref_id: req.refId,
+    });
+    const order = unwrapOrder(res);
+    if (!order) {
+      // ⚠️ Robinhood may have ACCEPTED the order even though we couldn't read
+      // the response — include the raw payload so the mismatch is diagnosable,
+      // and say loudly that the broker must be checked before any retry.
+      return {
+        brokerOrderId: '',
+        status: 'failed',
+        filledQuantity: 0,
+        error:
+          `place_equity_order response had no recognizable order object — the order MAY STILL BE LIVE at ` +
+          `Robinhood; check the Robinhood app before retrying. Raw response: ${payloadSnippet(res)}`,
+      };
+    }
+    return toState(order);
+  }
+
+  async placeStopOrder(req: PlaceStopOrderRequest): Promise<BrokerOrderState> {
+    // The protective stop is part of the trade plan the HUMAN approved (the
+    // stopPrice came through the approve route); placing it after the entry
+    // fills is deterministic completion of that plan, and it can only reduce
+    // exposure. NO retries — this is the order path, and a call that timed out
+    // may still have reached the broker.
+    const res = await callRobinhoodTool<{ data?: RhOrder } | RhOrder>('place_equity_order', {
+      account_number: req.accountNumber,
+      symbol: req.symbol,
+      side: req.side,
+      type: 'stop_market',
+      stop_price: String(req.stopPrice),
+      quantity: String(req.quantity),
+      time_in_force: req.timeInForce, // 'gtc' — the stop rests until hit or cancelled
       market_hours: 'regular_hours',
       ref_id: req.refId,
     });

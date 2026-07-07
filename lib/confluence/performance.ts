@@ -118,7 +118,10 @@ export async function computePerformance(userId: string): Promise<PerformanceRes
   });
 
   const investedCost = positions.reduce((s, p) => s + p.avgCost * p.quantity, 0);
-  const openExposure = orders.filter((o) => isActiveOrderStatus(o.status)).reduce((s, o) => s + orderNotional(o.limitPrice, o.quantity), 0);
+  // Protective stops are resting exits — they don't add exposure.
+  const openExposure = orders
+    .filter((o) => isActiveOrderStatus(o.status) && (o.kind ?? 'entry') === 'entry')
+    .reduce((s, o) => s + orderNotional(o.limitPrice, o.quantity), 0);
 
   // Account top-line: real portfolio in live mode, else the paper model.
   let source: 'live' | 'paper' = 'paper';
