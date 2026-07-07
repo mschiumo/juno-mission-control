@@ -1501,7 +1501,7 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: 
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; count?: number } | null>(null);
+  const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; count?: number; warning?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (selectedFile: File) => {
@@ -1539,11 +1539,13 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: 
       const result = await response.json();
       
       if (result.success) {
-        setUploadResult({ 
-          success: true, 
+        setUploadResult({
+          success: true,
           message: `Successfully imported ${result.count || 0} trades`,
-          count: result.count 
+          count: result.count,
+          warning: result.warning,
         });
+        // Give the user longer to read a warning before the modal auto-closes.
         setTimeout(() => {
           onClose();
           if (onSuccess) {
@@ -1551,7 +1553,7 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: 
           } else {
             window.location.reload();
           }
-        }, 1500);
+        }, result.warning ? 6000 : 1500);
       } else {
         setUploadResult({ success: false, message: result.error || 'Import failed' });
       }
@@ -1612,6 +1614,12 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: 
         {uploadResult && (
           <div className={`p-3 rounded-lg mb-4 ${uploadResult.success ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#da3633]/20 text-[#f85149]'}`}>
             {uploadResult.message}
+          </div>
+        )}
+
+        {uploadResult?.warning && (
+          <div className="p-3 rounded-lg mb-4 bg-[#9e6a03]/20 text-[#e3b341]">
+            {uploadResult.warning}
           </div>
         )}
         

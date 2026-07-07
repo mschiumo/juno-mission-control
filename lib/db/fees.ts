@@ -24,12 +24,13 @@ export async function saveDailyFees(incoming: DailyFee[], userId: string): Promi
     const redis = await getRedisClient();
     const existing = await getDailyFees(userId);
 
-    const merged = new Map<string, number>();
-    existing.forEach(f => merged.set(f.date, f.amount));
-    incoming.forEach(f => merged.set(f.date, f.amount));
+    // Replace each date's record wholesale (a re-import supersedes the prior
+    // value for that day) while preserving the commissions/borrow breakdown.
+    const merged = new Map<string, DailyFee>();
+    existing.forEach(f => merged.set(f.date, f));
+    incoming.forEach(f => merged.set(f.date, f));
 
-    const result: DailyFee[] = [...merged.entries()]
-      .map(([date, amount]) => ({ date, amount }))
+    const result: DailyFee[] = [...merged.values()]
       .sort((a, b) => a.date.localeCompare(b.date));
 
     await redis.set(feesKey(userId), JSON.stringify(result));

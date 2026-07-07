@@ -1176,7 +1176,7 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; count?: number } | null>(null);
+  const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; count?: number; warning?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (selectedFile: File) => {
@@ -1214,11 +1214,13 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
       const result = await response.json();
       
       if (result.success) {
-        setUploadResult({ 
-          success: true, 
+        setUploadResult({
+          success: true,
           message: `Successfully imported ${result.count || 0} trades`,
-          count: result.count 
+          count: result.count,
+          warning: result.warning,
         });
+        // Give the user longer to read a warning before the modal auto-closes.
         setTimeout(() => {
           onClose();
           if (onSuccess) {
@@ -1226,7 +1228,7 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
           } else {
             window.location.reload();
           }
-        }, 1500);
+        }, result.warning ? 6000 : 1500);
       } else {
         setUploadResult({ success: false, message: result.error || 'Import failed' });
       }
@@ -1289,7 +1291,13 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
             {uploadResult.message}
           </div>
         )}
-        
+
+        {uploadResult?.warning && (
+          <div className="p-3 rounded-lg mb-4 bg-[#9e6a03]/20 text-[#e3b341]">
+            {uploadResult.warning}
+          </div>
+        )}
+
         <div className="flex items-center gap-2 text-sm text-[#8b949e] mb-6">
           <span>Need a template?</span>
           <a href="/templates/trades_import_template.csv" download className="text-[#F97316] hover:underline">
