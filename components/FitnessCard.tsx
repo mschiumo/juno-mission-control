@@ -9,7 +9,7 @@ import { getTodayInEST } from '@/lib/date-utils';
 import {
   type ActivitySummary, RUN_SPORTS,
   fmtMiles, fmtDuration, fmtPace, paceSecPerMile, speedMph, metersToMiles,
-  distanceTotals, runRecords, weekDailyDistance,
+  distanceTotals, runRecords, weekDailyDistance, monthDailyDistance, activityDate,
 } from '@/lib/strava-metrics';
 
 type StravaActivity = ActivitySummary;
@@ -47,26 +47,71 @@ function fmtDay(dateLocal: string): string {
   });
 }
 
-// Inline stat line for one activity: runs get pace, rides get mph, everything
-// else just duration.
-function activityStats(a: StravaActivity): string {
-  const parts: string[] = [];
-  if (a.distance > 0) parts.push(fmtMiles(a.distance));
-  if (RUN_SPORTS.has(a.sport_type)) {
-    const pace = paceSecPerMile(a);
-    if (pace !== null) parts.push(fmtPace(pace));
-  } else if (a.sport_type.includes('Ride')) {
-    const mph = speedMph(a);
-    if (mph !== null) parts.push(`${mph.toFixed(1)} mph`);
+const DOT = <span className="text-[#30363d]"> · </span>;
+
+// Inline stat line for one activity: runs get pace (emphasized), rides get
+// mph, everything else just duration.
+function ActivityStatLine({ a }: { a: StravaActivity }) {
+  const pace = RUN_SPORTS.has(a.sport_type) ? paceSecPerMile(a) : null;
+  const mph = pace === null && a.sport_type.includes('Ride') ? speedMph(a) : null;
+  return (
+    <p className="text-[10px] text-[#8b949e] tabular-nums pl-6">
+      {a.distance > 0 && <>{fmtMiles(a.distance)}{DOT}</>}
+      {pace !== null && <><span className="text-[#FC4C02] font-semibold">{fmtPace(pace)}</span>{DOT}</>}
+      {mph !== null && <>{mph.toFixed(1)} mph{DOT}</>}
+      {fmtDuration(a.moving_time)}
+    </p>
+  );
+}
+
+// Strava-style achievement badges: PRs (best efforts) take precedence, other
+// achievements (segments etc.) get a medal count.
+function AchievementBadge({ a }: { a: StravaActivity }) {
+  const prs = a.pr_count ?? 0;
+  const achievements = a.achievement_count ?? 0;
+  if (prs > 0) {
+    return (
+      <span
+        className="flex-shrink-0 text-[9px] font-bold px-1.5 py-px rounded-full bg-gradient-to-r from-[#FC4C02] to-[#f59e0b] text-white"
+        title={`${prs} personal record${prs > 1 ? 's' : ''} (best effort) on this activity`}
+      >
+        PR{prs > 1 ? ` ×${prs}` : ''}
+      </span>
+    );
   }
-  parts.push(fmtDuration(a.moving_time));
-  return parts.join(' · ');
+  if (achievements > 0) {
+    return (
+      <span
+        className="flex-shrink-0 text-[9px] font-semibold px-1 py-px rounded-full bg-[#d29922]/15 text-[#d29922]"
+        title={`${achievements} achievement${achievements > 1 ? 's' : ''} on this activity`}
+      >
+        🏅{achievements > 1 ? ` ${achievements}` : ''}
+      </span>
+    );
+  }
+  return null;
+}
+
+const PERIODS = [
+  { id: 'day' as const, label: 'Day' },
+  { id: 'week' as const, label: 'Week' },
+  { id: 'month' as const, label: 'Month' },
+];
+
+function hourLabel(dateLocal: string): string {
+  const h = parseInt(dateLocal.slice(11, 13), 10);
+  if (Number.isNaN(h)) return '';
+  const twelve = h % 12 === 0 ? 12 : h % 12;
+  return `${twelve}${h < 12 ? 'a' : 'p'}`;
 }
 
 export default function FitnessCard() {
   // Workout split state
   const [workout, setWorkout] = useState<WorkoutSchedule | null>(null);
   const [workoutBusy, setWorkoutBusy] = useState(false);
+
+  // Distance panel period toggle
+  const [period, setPeriod] = useState<'day' | 'week' | 'month'>('week');
 
   // Strava state
   const [stravaLoading, setStravaLoading] = useState(true);
@@ -196,7 +241,7 @@ export default function FitnessCard() {
     }
   }
 
-  // Distance totals, run records, and the week's daily mileage.
+  // Distance totals, run records, and per-day mileage for the charts.
   const metrics = useMemo(() => {
     if (activities.length === 0) return null;
     const todayEST = getTodayInEST();
@@ -205,10 +250,10 @@ export default function FitnessCard() {
       totals: distanceTotals(activities, todayEST),
       records: runRecords(activities),
       week: weekDailyDistance(activities, todayEST),
+      month: monthDailyDistance(activities, todayEST),
+      todays: activities.filter((a) => activityDate(a) === todayEST).slice().reverse(), // chronological
     };
   }, [activities]);
-
-  const maxDayMeters = metrics ? Math.max(...metrics.week.map((d) => d.meters), 1) : 1;
 
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
@@ -364,7 +409,19 @@ export default function FitnessCard() {
             }}
           >
             <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] uppercase tracking-wider text-[#FC4C02] font-semibold">This Week</p>
+              <div className="flex items-center gap-0.5 bg-[#0d1117]/60 border border-white/5 rounded-lg p-0.5">
+                {PERIODS.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setPeriod(p.id)}
+                    className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md transition-colors ${
+                      period === p.id ? 'bg-[#FC4C02]/25 text-[#FC4C02]' : 'text-[#8b949e] hover:text-white'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
               <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 opacity-80" fill="#FC4C02" aria-hidden>
                 <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
               </svg>
@@ -373,76 +430,134 @@ export default function FitnessCard() {
               <p className="text-xs text-[#8b949e] leading-relaxed">
                 {stravaLoading ? 'Loading…' : connected ? 'No activities yet this month.' : 'Connect Strava to track distance and pace here.'}
               </p>
-            ) : (
-              <>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-extrabold text-white tabular-nums tracking-tight">
-                    {metersToMiles(metrics.totals.week).toFixed(1)}
-                  </span>
-                  <span className="text-sm font-semibold text-[#FC4C02]">mi</span>
-                  <span className="ml-auto text-[10px] text-[#8b949e] tabular-nums text-right leading-tight">
-                    today {fmtMiles(metrics.totals.today)}
-                    <br />
-                    month {fmtMiles(metrics.totals.month)}
-                  </span>
-                </div>
+            ) : (() => {
+              const heroMeters = period === 'day' ? metrics.totals.today : period === 'week' ? metrics.totals.week : metrics.totals.month;
+              const subStats = period === 'day'
+                ? [['week', metrics.totals.week], ['month', metrics.totals.month]] as const
+                : period === 'week'
+                  ? [['today', metrics.totals.today], ['month', metrics.totals.month]] as const
+                  : [['today', metrics.totals.today], ['week', metrics.totals.week]] as const;
+              const chartDays = period === 'month' ? metrics.month : metrics.week;
+              const maxChartMeters = Math.max(...chartDays.map((d) => d.meters), 1);
+              const maxTodayMeters = Math.max(...metrics.todays.map((a) => a.distance), 1);
+              return (
+                <>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-3xl font-extrabold text-white tabular-nums tracking-tight">
+                      {metersToMiles(heroMeters).toFixed(1)}
+                    </span>
+                    <span className="text-sm font-semibold text-[#FC4C02]">mi</span>
+                    <span className="ml-auto text-[10px] text-[#8b949e] tabular-nums text-right leading-tight">
+                      {subStats[0][0]} {fmtMiles(subStats[0][1])}
+                      <br />
+                      {subStats[1][0]} {fmtMiles(subStats[1][1])}
+                    </span>
+                  </div>
 
-                {/* Week mileage bars */}
-                <div className="flex items-end gap-1 h-12 mt-2">
-                  {metrics.week.map((d) => {
-                    const isToday = d.date === metrics.today;
-                    const pct = d.meters > 0 ? Math.max((d.meters / maxDayMeters) * 100, 12) : 0;
-                    return (
-                      <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full" title={`${d.date}: ${fmtMiles(d.meters)}`}>
-                        <div
-                          className="w-full rounded-t-sm transition-all duration-500"
-                          style={{
-                            height: `${pct}%`,
-                            minHeight: d.meters > 0 ? '4px' : '2px',
-                            background: d.meters > 0
-                              ? 'linear-gradient(180deg, #FC4C02 0%, #b23502 100%)'
-                              : '#21262d',
-                            boxShadow: isToday && d.meters > 0 ? '0 0 8px rgba(252,76,2,0.6)' : 'none',
-                            opacity: d.date > metrics.today ? 0.35 : 1,
-                          }}
-                        />
+                  {period === 'day' ? (
+                    /* Today's activities as bars */
+                    metrics.todays.length === 0 ? (
+                      <div className="flex items-center justify-center h-[70px] mt-2 rounded-md border border-dashed border-white/10">
+                        <p className="text-[10px] text-[#8b949e]">No activity yet today.</p>
                       </div>
-                    );
-                  })}
-                </div>
-                <div className="flex gap-1 mt-1">
-                  {DAY_LETTERS.map((l, i) => (
-                    <span
-                      key={i}
-                      className={`flex-1 text-center text-[9px] font-medium ${
-                        metrics.week[i]?.date === metrics.today ? 'text-[#FC4C02]' : 'text-[#484f58]'
-                      }`}
-                    >
-                      {l}
-                    </span>
-                  ))}
-                </div>
+                    ) : (
+                      <>
+                        <div className="flex items-end gap-1.5 h-12 mt-2 px-2">
+                          {metrics.todays.map((a) => {
+                            const pct = a.distance > 0 ? Math.max((a.distance / maxTodayMeters) * 100, 14) : 14;
+                            return (
+                              <div key={a.id} className="flex-1 max-w-14 flex flex-col items-center justify-end h-full" title={`${a.name}: ${fmtMiles(a.distance)}`}>
+                                <div
+                                  className="w-full rounded-t-sm transition-all duration-500"
+                                  style={{
+                                    height: `${pct}%`,
+                                    minHeight: '5px',
+                                    background: 'linear-gradient(180deg, #FC4C02 0%, #b23502 100%)',
+                                    boxShadow: '0 0 8px rgba(252,76,2,0.4)',
+                                  }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="flex gap-1.5 mt-1 px-2">
+                          {metrics.todays.map((a) => (
+                            <span key={a.id} className="flex-1 max-w-14 text-center text-[9px] font-medium text-[#484f58]">
+                              {sportIcon(a.sport_type)} {hourLabel(a.start_date_local)}
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    )
+                  ) : (
+                    /* Daily mileage bars for the week or month */
+                    <>
+                      <div className={`flex items-end h-12 mt-2 ${period === 'month' ? 'gap-px' : 'gap-1'}`}>
+                        {chartDays.map((d) => {
+                          const isToday = d.date === metrics.today;
+                          const pct = d.meters > 0 ? Math.max((d.meters / maxChartMeters) * 100, 12) : 0;
+                          return (
+                            <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full" title={`${d.date}: ${fmtMiles(d.meters)}`}>
+                              <div
+                                className={`w-full transition-all duration-500 ${period === 'month' ? 'rounded-t-[2px]' : 'rounded-t-sm'}`}
+                                style={{
+                                  height: `${pct}%`,
+                                  minHeight: d.meters > 0 ? '4px' : '2px',
+                                  background: d.meters > 0
+                                    ? 'linear-gradient(180deg, #FC4C02 0%, #b23502 100%)'
+                                    : '#21262d',
+                                  boxShadow: isToday && d.meters > 0 ? '0 0 8px rgba(252,76,2,0.6)' : 'none',
+                                  opacity: d.date > metrics.today ? 0.35 : 1,
+                                }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {period === 'week' ? (
+                        <div className="flex gap-1 mt-1">
+                          {DAY_LETTERS.map((l, i) => (
+                            <span
+                              key={i}
+                              className={`flex-1 text-center text-[9px] font-medium ${
+                                metrics.week[i]?.date === metrics.today ? 'text-[#FC4C02]' : 'text-[#484f58]'
+                              }`}
+                            >
+                              {l}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex justify-between mt-1 text-[9px] font-medium text-[#484f58]">
+                          <span>1</span>
+                          <span className="text-[#FC4C02]">{parseInt(metrics.today.slice(8), 10)}</span>
+                          <span>{chartDays.length}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
 
-                {/* Records */}
-                <div className="flex items-center gap-3 mt-2.5 pt-2 border-t border-white/5 text-[11px]">
-                  {metrics.records.bestPace && (
-                    <span className="flex items-center gap-1 text-[#c9d1d9]" title={`Fastest avg pace: ${metrics.records.bestPace.activity.name}`}>
-                      <Zap className="w-3 h-3 text-[#FC4C02]" />
-                      {fmtPace(metrics.records.bestPace.secPerMile)}
-                    </span>
-                  )}
-                  {metrics.records.longest && (
-                    <span className="flex items-center gap-1 text-[#c9d1d9]" title={`Longest run: ${metrics.records.longest.name}`}>
-                      <Trophy className="w-3 h-3 text-[#FC4C02]" />
-                      {fmtMiles(metrics.records.longest.distance)}
-                    </span>
-                  )}
-                  {!metrics.records.bestPace && !metrics.records.longest && (
-                    <span className="text-[#8b949e]">No runs in the window yet.</span>
-                  )}
-                </div>
-              </>
-            )}
+                  {/* Records (30-day window) */}
+                  <div className="flex items-center gap-3 mt-2.5 pt-2 border-t border-white/5 text-[11px]">
+                    {metrics.records.bestPace && (
+                      <span className="flex items-center gap-1 text-[#c9d1d9]" title={`Fastest avg pace (30d): ${metrics.records.bestPace.activity.name}`}>
+                        <Zap className="w-3 h-3 text-[#FC4C02]" />
+                        {fmtPace(metrics.records.bestPace.secPerMile)}
+                      </span>
+                    )}
+                    {metrics.records.longest && (
+                      <span className="flex items-center gap-1 text-[#c9d1d9]" title={`Longest run (30d): ${metrics.records.longest.name}`}>
+                        <Trophy className="w-3 h-3 text-[#FC4C02]" />
+                        {fmtMiles(metrics.records.longest.distance)}
+                      </span>
+                    )}
+                    {!metrics.records.bestPace && !metrics.records.longest && (
+                      <span className="text-[#8b949e]">No runs in the window yet.</span>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
           {/* Recent activity — compact, inline stats per entry */}
@@ -473,9 +588,10 @@ export default function FitnessCard() {
                       >
                         {a.name}
                       </a>
+                      <AchievementBadge a={a} />
                       <span className="text-[10px] text-[#484f58] flex-shrink-0">{fmtDay(a.start_date_local)}</span>
                     </div>
-                    <p className="text-[10px] text-[#8b949e] tabular-nums pl-6">{activityStats(a)}</p>
+                    <ActivityStatLine a={a} />
                   </li>
                 ))}
               </ul>

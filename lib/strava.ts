@@ -27,6 +27,8 @@ export interface StravaActivity {
   moving_time: number; // seconds
   total_elevation_gain: number; // meters
   start_date_local: string; // ISO, athlete-local wall time
+  achievement_count: number; // segment + best-effort achievements on this activity
+  pr_count: number; // personal records set on this activity
 }
 
 function tokenKey(userId: string) {
@@ -179,5 +181,7 @@ export async function fetchRecentActivities(userId: string, afterUnixSec: number
     moving_time: a.moving_time,
     total_elevation_gain: a.total_elevation_gain,
     start_date_local: a.start_date_local,
+    achievement_count: a.achievement_count ?? 0,
+    pr_count: a.pr_count ?? 0,
   }));
 }
