@@ -47,4 +47,11 @@ export interface TechnicalsProvider {
   readonly name: string;
   /** Technical snapshot for one symbol, or null if bars are unavailable. */
   getTechnicals(symbol: string): Promise<Technicals | null>;
+  /**
+   * Snapshots for many symbols at once, keyed by symbol. Optional — the runner
+   * falls back to per-symbol getTechnicals when absent. Symbols missing from
+   * the Map simply had no bars (not an error). Chunking to the upstream API's
+   * max batch size is the provider's concern, not the caller's.
+   */
+  getTechnicalsBatch?(symbols: string[]): Promise<Map<string, Technicals>>;
 }

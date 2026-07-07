@@ -16,6 +16,7 @@
 import type { OhlcvBar, Technicals, TechnicalsProvider } from './provider';
 import { computeTechnicals } from './indicators';
 import { callRobinhoodTool } from '@/lib/confluence/robinhood/mcp-client';
+import { chunk, MCP_SYMBOL_BATCH_SIZE } from '@/lib/confluence/batching';
 
 /** 14 months of calendar days ≈ 290+ trading bars — enough for SMA200. */
 const LOOKBACK_DAYS = 430;
@@ -86,31 +87,59 @@ function toBar(raw: RhBar): OhlcvBar | null {
   return { date: ts.slice(0, 10), open, high, low, close, volume };
 }
 
+/** Filter/settle one result's bars and compute the snapshot, or null if empty. */
+function snapshotFromResult(symbol: string, result: RhHistoricalsResult): Technicals | null {
+  const rawBars = result?.historicals ?? result?.bars;
+  if (!rawBars?.length) return null;
+
+  const bars = rawBars
+    // Interpolated bars are flat gap-fill — they deflate ATR and distort RSI.
+    .filter((raw) => raw.interpolated !== true)
+    .map(toBar)
+    .filter((b): b is OhlcvBar => b !== null)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  // The most recent bar is not settled until the session ends; an intraday
+  // run would otherwise compute daily indicators over a partial bar.
+  if (bars.length && bars[bars.length - 1].date === etToday() && isEtSessionLikelyOpen()) {
+    bars.pop();
+  }
+  if (!bars.length) return null;
+  return computeTechnicals(symbol.toUpperCase(), bars);
+}
+
 export class RobinhoodTechnicalsProvider implements TechnicalsProvider {
   readonly name = 'robinhood';
 
   async getTechnicals(symbol: string): Promise<Technicals | null> {
-    const startTime = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const res = await callRobinhoodTool<{ data?: { results?: RhHistoricalsResult[] } }>(
-      'get_equity_historicals',
-      { symbols: [symbol], start_time: startTime, interval: 'day' },
-    );
-    const result = res?.data?.results?.[0];
-    const rawBars = result?.historicals ?? result?.bars;
-    if (!rawBars?.length) return null;
+    const map = await this.getTechnicalsBatch([symbol]);
+    return map.get(symbol.toUpperCase()) ?? null;
+  }
 
-    const bars = rawBars
-      // Interpolated bars are flat gap-fill — they deflate ATR and distort RSI.
-      .filter((raw) => raw.interpolated !== true)
-      .map(toBar)
-      .filter((b): b is OhlcvBar => b !== null)
-      .sort((a, b) => a.date.localeCompare(b.date));
-    // The most recent bar is not settled until the session ends; an intraday
-    // run would otherwise compute daily indicators over a partial bar.
-    if (bars.length && bars[bars.length - 1].date === etToday() && isEtSessionLikelyOpen()) {
-      bars.pop();
+  /**
+   * Batched fetch — the tool natively accepts up to 10 symbols and returns one
+   * results entry per symbol. Reads are idempotent, so transient failures
+   * (timeout/429/5xx) retry with backoff.
+   */
+  async getTechnicalsBatch(symbols: string[]): Promise<Map<string, Technicals>> {
+    const startTime = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const out = new Map<string, Technicals>();
+    for (const batch of chunk(symbols, MCP_SYMBOL_BATCH_SIZE)) {
+      const res = await callRobinhoodTool<{ data?: { results?: RhHistoricalsResult[] } }>(
+        'get_equity_historicals',
+        { symbols: batch, start_time: startTime, interval: 'day' },
+        { retries: 2 },
+      );
+      const results = res?.data?.results ?? [];
+      // Each result carries its own `symbol`; positional association is only
+      // safe when the counts line up exactly, otherwise skip the stray entry.
+      const positionalOk = results.length === batch.length;
+      results.forEach((result, i) => {
+        const symbol = result?.symbol ?? (positionalOk ? batch[i] : undefined);
+        if (!symbol) return;
+        const snap = snapshotFromResult(symbol, result);
+        if (snap) out.set(symbol.toUpperCase(), snap);
+      });
     }
-    if (!bars.length) return null;
-    return computeTechnicals(symbol.toUpperCase(), bars);
+    return out;
   }
 }

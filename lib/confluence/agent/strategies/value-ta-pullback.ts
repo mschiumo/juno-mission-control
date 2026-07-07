@@ -160,6 +160,15 @@ function confluenceScore(f: Fundamentals, t: Technicals, peUsed: number): number
 }
 
 /**
+ * Fundamentals-only prefilter for the runner — lets it skip the technicals
+ * fetch for names the value gate already rejects (in a broad universe the vast
+ * majority). evaluate() re-checks the gate and remains the authority.
+ */
+export function valueTaPrefilter(f: Fundamentals): boolean {
+  return passesValueGate(f).ok;
+}
+
+/**
  * Evaluate one symbol. Returns a sized, stop/target-annotated long candidate
  * when both gates pass and at least one share fits the risk budget; else null.
  * Long-only by design — "steady returns" does not short.
