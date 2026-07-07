@@ -19,11 +19,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireOwner } from '@/lib/auth-session';
 import { getNowInEST } from '@/lib/date-utils';
-import { sheetCsvUrl, parseSheetCsv, mergeSheetRows } from '@/lib/finance/sheet-sync';
-import { DebtAccount, SheetLink } from '@/lib/finance/types';
+import { sheetCsvUrl, parseSheetCsv, mergeSheetRows, mergeSheetAssetRows } from '@/lib/finance/sheet-sync';
+import { recordSnapshots } from '@/lib/finance/history';
+import { BalanceAccount, DebtAccount, SheetLink } from '@/lib/finance/types';
 
 const sheetKey = (userId: string) => `finance:${userId}:sheet`;
 const accountsKey = (userId: string) => `finance:${userId}:accounts`;
+const balanceAccountsKey = (userId: string) => `finance:${userId}:balance-accounts`;
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_SHEET_BYTES = 2_000_000;
 
@@ -80,19 +82,39 @@ async function syncFromSheet(userId: string, link: SheetLink) {
   if (typeof parsed === 'string') return { error: parsed };
 
   const now = getNowInEST();
+  const redis = await getRedisClient();
+
+  // Debt rows → debt accounts
   const existing = await loadAccounts(userId);
   const { accounts, created, updated } = mergeSheetRows(existing, parsed.rows, now);
-
-  const redis = await getRedisClient();
   await redis.set(accountsKey(userId), JSON.stringify(accounts));
 
+  // Asset rows (savings/checking/investment types) → balance accounts
+  const rawBalances = await redis.get(balanceAccountsKey(userId));
+  let existingBalances: BalanceAccount[] = [];
+  try {
+    const p = rawBalances ? JSON.parse(rawBalances) : [];
+    existingBalances = Array.isArray(p) ? p : [];
+  } catch {
+    existingBalances = [];
+  }
+  const assetMerge = mergeSheetAssetRows(existingBalances, parsed.assetRows, now);
+  await redis.set(balanceAccountsKey(userId), JSON.stringify(assetMerge.accounts));
+
+  await recordSnapshots(userId);
+
+  const totalRows = parsed.rows.length + parsed.assetRows.length;
+  const totalCreated = created + assetMerge.created;
+  const totalUpdated = updated + assetMerge.updated;
   const summary =
-    `Synced ${parsed.rows.length} rows (${created} added, ${updated} updated)` +
+    `Synced ${totalRows} rows (${totalCreated} added, ${totalUpdated} updated` +
+    (parsed.assetRows.length ? `; ${parsed.assetRows.length} asset` : '') +
+    `)` +
     (parsed.errors.length ? `; ${parsed.errors.length} row issue(s)` : '');
   const updatedLink: SheetLink = { url: link.url, lastSyncedAt: now, lastResult: summary };
   await redis.set(sheetKey(userId), JSON.stringify(updatedLink));
 
-  return { link: updatedLink, created, updated, rowErrors: parsed.errors };
+  return { link: updatedLink, created: totalCreated, updated: totalUpdated, rowErrors: parsed.errors };
 }
 
 // GET — link status
@@ -163,6 +185,21 @@ export async function DELETE() {
       a.source === 'gsheet' ? { ...a, source: 'manual' as const, updatedAt: now } : a,
     );
     await redis.set(accountsKey(userId), JSON.stringify(reverted));
+
+    const rawBalances = await redis.get(balanceAccountsKey(userId));
+    if (rawBalances) {
+      try {
+        const balances: BalanceAccount[] = JSON.parse(rawBalances);
+        if (Array.isArray(balances)) {
+          const revertedBalances = balances.map((a) =>
+            a.source === 'gsheet' ? { ...a, source: 'manual' as const, updatedAt: now } : a,
+          );
+          await redis.set(balanceAccountsKey(userId), JSON.stringify(revertedBalances));
+        }
+      } catch {
+        // leave balance accounts untouched if the key is corrupt
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (e) {

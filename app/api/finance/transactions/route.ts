@@ -17,6 +17,7 @@ import { getRedisClient } from '@/lib/redis';
 import { requireOwner } from '@/lib/auth-session';
 import { getNowInEST } from '@/lib/date-utils';
 import { parseStatementCsv } from '@/lib/finance/apple-card-csv';
+import { recordSnapshots } from '@/lib/finance/history';
 import { DebtAccount, FinanceTransaction, MonthlySpendSummary } from '@/lib/finance/types';
 
 const txnsKey = (userId: string, accountId: string) => `finance:${userId}:txns:${accountId}`;
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
       const idx = accounts.findIndex((a) => a.id === accountId);
       accounts[idx] = { ...accounts[idx], balance: Math.round(newBalance * 100) / 100, updatedAt: now };
       await redis.set(accountsKey(userId), JSON.stringify(accounts));
+      await recordSnapshots(userId);
       balanceUpdated = true;
     }
 

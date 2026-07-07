@@ -102,6 +102,37 @@ export interface SheetLink {
   lastResult: string | null; // human-readable outcome of the last sync
 }
 
+/** Asset-side accounts: investments and cash (savings/checking). */
+export type BalanceKind = 'investment' | 'savings' | 'checking' | 'other';
+
+export interface BalanceAccount {
+  id: string;
+  name: string; // e.g. "Fidelity 401(k)", "Ally HYSA"
+  kind: BalanceKind;
+  balance: number;
+  institution?: string;
+  source: AccountSource;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One point in a balance-over-time series (per-day totals). */
+export interface HistoryPoint {
+  date: string; // YYYY-MM-DD
+  value: number;
+}
+
+/**
+ * The three tracked series for the Finances charts. Snapshots are appended
+ * server-side on every mutation (see lib/finance/history.ts), so progress
+ * accrues automatically as balances get updated/synced over time.
+ */
+export interface FinanceHistory {
+  debt: HistoryPoint[];
+  investment: HistoryPoint[];
+  savings: HistoryPoint[]; // savings + checking + other combined
+}
+
 export type PayoffStrategy = 'avalanche' | 'snowball' | 'minimum-only';
 
 export interface FinanceSettings {

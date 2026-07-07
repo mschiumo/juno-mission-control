@@ -68,7 +68,7 @@ function DashboardContent() {
         { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
         { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
         { id: 'goals' as const, label: 'Goals', icon: Target },
-        { id: 'finance' as const, label: 'Finance', icon: Wallet },
+        { id: 'finance' as const, label: 'Finances', icon: Wallet },
       ]
     : [];
 

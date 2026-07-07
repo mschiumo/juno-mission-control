@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireOwner } from '@/lib/auth-session';
 import { getNowInEST } from '@/lib/date-utils';
+import { recordSnapshots } from '@/lib/finance/history';
 import { DebtAccount, DebtType } from '@/lib/finance/types';
 
 const accountsKey = (userId: string) => `finance:${userId}:accounts`;
@@ -112,6 +113,7 @@ export async function POST(request: NextRequest) {
       }
       accounts[idx] = { ...accounts[idx], ...parsed, updatedAt: now };
       await saveAccounts(userId, accounts);
+      await recordSnapshots(userId);
       return NextResponse.json({ success: true, account: accounts[idx] });
     }
 
@@ -124,6 +126,7 @@ export async function POST(request: NextRequest) {
     };
     accounts.push(account);
     await saveAccounts(userId, accounts);
+    await recordSnapshots(userId);
     return NextResponse.json({ success: true, account });
   } catch (e) {
     console.error('[finance/accounts] POST failed:', e);
@@ -148,6 +151,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
     }
     await saveAccounts(userId, next);
+    await recordSnapshots(userId);
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error('[finance/accounts] DELETE failed:', e);
