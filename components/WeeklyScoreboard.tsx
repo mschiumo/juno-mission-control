@@ -145,18 +145,15 @@ export default function WeeklyScoreboard() {
   );
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-gradient-to-r from-[#F97316]/10 to-transparent">
-        <div className="flex items-center gap-2">
-          <ClipboardCheck className="w-4 h-4 text-[#F97316]" />
-          <h2 className="text-sm font-semibold text-white">Weekly Scoreboard</h2>
-          {data && <span className="text-[10px] text-[#8b949e]">week of {weekLabel(data.week.start)}</span>}
-        </div>
+    <div className="p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="flex items-center gap-1.5 text-[10px] text-[#8b949e]">
+          <ClipboardCheck className="w-3 h-3 text-[#F97316]" />
+          {data ? `Week of ${weekLabel(data.week.start)}` : 'Weekly review'}
+        </span>
         <span className="text-[10px] text-[#484f58]">card balance · trades · training · posts</span>
       </div>
-
-      <div className="p-4">
+      <div>
         {loading && !data ? (
           <div className="flex items-center justify-center py-6 text-[#8b949e]">
             <Loader2 className="w-5 h-5 animate-spin" />
