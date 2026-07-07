@@ -30,6 +30,7 @@ import { getProposalsByStatus, saveProposal } from '@/lib/db/confluence/proposal
 import { saveRun } from '@/lib/db/confluence/agent-runs';
 import { appendAudit } from '@/lib/db/confluence/audit';
 import { resolveUniverse } from '@/lib/confluence/universe';
+import { getStrategy } from '@/lib/confluence/agent/strategies';
 import type { AgentRun, FundamentalMetric, Proposal, TradeDirection } from '@/types/confluence';
 
 async function ownerUserId(): Promise<string | null> {
@@ -126,6 +127,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       symbol: p.symbol!.trim().toUpperCase(),
       direction: p.direction!,
       thesis: p.thesis!.trim(),
+      // Scheduled agents run the active strategy's criteria prompt — tag
+      // their proposals with the same provenance as deterministic runs.
+      strategyId: getStrategy().id,
       suggestedLimitPrice: p.suggestedLimitPrice,
       suggestedQuantity: p.suggestedQuantity,
       suggestedStopPrice: typeof p.suggestedStopPrice === 'number' ? p.suggestedStopPrice : undefined,

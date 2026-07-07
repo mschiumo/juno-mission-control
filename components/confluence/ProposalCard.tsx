@@ -13,6 +13,7 @@
 import { useState } from 'react';
 import { Check, X, Pencil, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 import type { Proposal, TimeInForce } from '@/types/confluence';
+import { StrategyBadge } from './StrategyPanel';
 
 export interface EditState {
   limitPrice: number;
@@ -94,6 +95,7 @@ export default function ProposalCard({ proposal, perPositionCapUsd, tradingEnabl
                 {proposal.direction.toUpperCase()}
               </span>
               {proposal.runId && <span className="badge badge-info">AGENT</span>}
+              <StrategyBadge id={proposal.strategyId} />
             </div>
             <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
               {new Date(proposal.createdAt).toLocaleString()}

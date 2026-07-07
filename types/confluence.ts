@@ -140,6 +140,8 @@ export interface Proposal {
   direction: TradeDirection;
   /** Plain-language rationale — the agent's job ends here. */
   thesis: string;
+  /** Which strategy produced this (registry id) — display + provenance. */
+  strategyId?: string;
   suggestedLimitPrice?: number;
   suggestedQuantity?: number; // shares (fractional allowed)
   suggestedStopPrice?: number;

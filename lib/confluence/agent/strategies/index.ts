@@ -52,6 +52,11 @@ const STRATEGIES: Record<string, StrategyDefinition> = {
 
 export const DEFAULT_STRATEGY_ID = 'value-ta-pullback';
 
+/** All registered strategies (for the Strategy tab / future toggling). */
+export function listStrategies(): StrategyDefinition[] {
+  return Object.values(STRATEGIES);
+}
+
 export function getStrategy(): StrategyDefinition {
   const id = (process.env.CONFLUENCE_STRATEGY || DEFAULT_STRATEGY_ID).toLowerCase();
   return STRATEGIES[id] ?? STRATEGIES[DEFAULT_STRATEGY_ID];

@@ -76,9 +76,17 @@ export default function TradingView() {
     };
     check();
     const interval = setInterval(check, 5 * 60 * 1000);
+    // Instant sync: the Agents view broadcasts the pending count whenever
+    // proposals change, so approve/reject clears the badge immediately.
+    const onCount = (e: Event) => {
+      const detail = (e as CustomEvent<number>).detail;
+      if (typeof detail === 'number') setPendingProposals(detail);
+    };
+    window.addEventListener('confluence:pending-count', onCount);
     return () => {
       cancelled = true;
       clearInterval(interval);
+      window.removeEventListener('confluence:pending-count', onCount);
     };
   }, [isOwner]);
   const [showTour, setShowTour] = useState(false);

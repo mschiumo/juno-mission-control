@@ -289,6 +289,7 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
         symbol: candidate.symbol,
         direction: candidate.direction,
         thesis: candidate.thesis,
+        strategyId: strat.id,
         suggestedLimitPrice: candidate.suggestedLimitPrice,
         suggestedQuantity: candidate.suggestedQuantity,
         suggestedStopPrice: candidate.suggestedStopPrice,
