@@ -57,8 +57,8 @@ function ActivityStatLine({ a }: { a: StravaActivity }) {
   return (
     <p className="text-[10px] text-[#8b949e] tabular-nums pl-6">
       {a.distance > 0 && <>{fmtMiles(a.distance)}{DOT}</>}
-      {pace !== null && <><span className="text-[#FC4C02] font-semibold">{fmtPace(pace)}</span>{DOT}</>}
-      {mph !== null && <>{mph.toFixed(1)} mph{DOT}</>}
+      {pace !== null && <><span className="text-[#FC4C02] font-semibold cursor-help" title="Avg. Pace">{fmtPace(pace)}</span>{DOT}</>}
+      {mph !== null && <><span className="cursor-help" title="Avg. Speed">{mph.toFixed(1)} mph</span>{DOT}</>}
       {fmtDuration(a.moving_time)}
     </p>
   );
