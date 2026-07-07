@@ -1,13 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
 
 // Discipline HQ — derives a daily discipline score from data the dashboard
-// already records (habits_data + personal-journal) and layers a per-day
-// "Today's #1 Focus" on top. History is computed on read, so past scores stay
-// truthful to what was actually logged each day.
+// already records (habits_data + personal-journal). History is computed on
+// read, so past scores stay truthful to what was actually logged each day.
 
-const FOCUS_KEY_PREFIX = 'discipline_focus';
 const HISTORY_DAYS = 30;
 
 type HabitFrequency = 'daily' | 'weekdays' | '3x' | '4x' | '5x' | '6x';
@@ -22,22 +20,11 @@ interface StoredHabit {
   history: boolean[]; // trailing 7 days, oldest → newest
 }
 
-interface DayFocus {
-  text: string;
-  done: boolean;
-  updatedAt: string;
-}
-
 export interface DisciplineDay {
   date: string;
   score: number | null; // null = no data logged that day
   habitScore: number | null;
   journaled: boolean;
-  focus: DayFocus | null;
-}
-
-function focusKey(userId: string, date: string) {
-  return `${FOCUS_KEY_PREFIX}:${userId}:${date}`;
 }
 
 function habitsKey(userId: string, date: string) {
@@ -121,24 +108,14 @@ function habitDayScore(habits: StoredHabit[], date: string): number | null {
 }
 
 /**
- * Blend the day's components into a 0–100 score.
- * Habits carry most of the weight; journaling and the #1 focus keep the
- * reflective and priority-setting muscles honest. Weights redistribute when a
- * component wasn't in play that day (e.g. no focus was ever set).
+ * Blend the day's components into a 0–100 score: habits carry most of the
+ * weight (70%), journaling the rest (30%) — skipping the journal is itself a
+ * discipline signal.
  */
-function blendScore(habitScore: number | null, journaled: boolean, focus: DayFocus | null): number | null {
-  const parts: { value: number; weight: number }[] = [];
-  if (habitScore !== null) parts.push({ value: habitScore, weight: 0.6 });
-  if (focus?.text) parts.push({ value: focus.done ? 1 : 0, weight: 0.15 });
-  // Journal always participates once any other signal exists for the day —
-  // skipping the journal is itself a discipline signal.
-  if (parts.length > 0) parts.push({ value: journaled ? 1 : 0, weight: 0.25 });
-  else if (journaled) parts.push({ value: 1, weight: 1 });
-
-  if (parts.length === 0) return null;
-  const totalWeight = parts.reduce((acc, p) => acc + p.weight, 0);
-  const weighted = parts.reduce((acc, p) => acc + p.value * p.weight, 0);
-  return Math.round((weighted / totalWeight) * 100);
+function blendScore(habitScore: number | null, journaled: boolean): number | null {
+  if (habitScore === null) return journaled ? 100 : null;
+  const weighted = habitScore * 0.7 + (journaled ? 1 : 0) * 0.3;
+  return Math.round(weighted * 100);
 }
 
 async function readDay(
@@ -146,10 +123,9 @@ async function readDay(
   userId: string,
   date: string
 ): Promise<DisciplineDay> {
-  const [habitsRaw, journalHash, focusRaw] = await Promise.all([
+  const [habitsRaw, journalHash] = await Promise.all([
     redis.get(habitsKey(userId, date)),
     redis.hGetAll(journalKey(userId, date)),
-    redis.get(focusKey(userId, date)),
   ]);
 
   let habitScore: number | null = null;
@@ -171,16 +147,7 @@ async function readDay(
     }
   }
 
-  let focus: DayFocus | null = null;
-  if (focusRaw) {
-    try {
-      focus = JSON.parse(focusRaw) as DayFocus;
-    } catch {
-      focus = null;
-    }
-  }
-
-  return { date, score: blendScore(habitScore, journaled, focus), habitScore, journaled, focus };
+  return { date, score: blendScore(habitScore, journaled), habitScore, journaled };
 }
 
 export async function GET() {
@@ -194,70 +161,9 @@ export async function GET() {
     const dates = Array.from({ length: HISTORY_DAYS }, (_, i) => shiftDate(today, -(HISTORY_DAYS - 1 - i)));
     const days = await Promise.all(dates.map((d) => readDay(redis, userId, d)));
 
-    // Streaks at risk: habits with a live streak that haven't been logged today.
-    let atRisk: { id: string; name: string; icon: string; streak: number }[] = [];
-    const todayHabitsRaw = await redis.get(habitsKey(userId, today));
-    if (todayHabitsRaw) {
-      try {
-        const habits = JSON.parse(todayHabitsRaw) as StoredHabit[];
-        atRisk = habits
-          .filter((h) => !h.completedToday && (h.streak ?? 0) >= 2)
-          .map((h) => ({ id: h.id, name: h.name, icon: h.icon, streak: h.streak }))
-          .sort((a, b) => b.streak - a.streak);
-      } catch {
-        atRisk = [];
-      }
-    }
-
-    return NextResponse.json({ success: true, today, days, atRisk });
+    return NextResponse.json({ success: true, today, days });
   } catch (err) {
     console.error('Discipline GET error:', err);
     return NextResponse.json({ success: false, error: 'Failed to load discipline data' }, { status: 500 });
-  }
-}
-
-export async function POST(request: NextRequest) {
-  const { userId, error } = await requireUserId();
-  if (error) return error;
-
-  try {
-    const body = await request.json();
-    const { text, done } = body as { text?: string; done?: boolean };
-
-    if (text === undefined && done === undefined) {
-      return NextResponse.json({ success: false, error: 'text or done is required' }, { status: 400 });
-    }
-    if (text !== undefined && (typeof text !== 'string' || text.length > 200)) {
-      return NextResponse.json({ success: false, error: 'text must be a string of at most 200 chars' }, { status: 400 });
-    }
-
-    const redis = await getRedisClient();
-    const today = getTodayEST();
-    const key = focusKey(userId, today);
-
-    const existingRaw = await redis.get(key);
-    let existing: DayFocus | null = null;
-    if (existingRaw) {
-      try { existing = JSON.parse(existingRaw) as DayFocus; } catch { existing = null; }
-    }
-
-    const focus: DayFocus = {
-      text: text !== undefined ? text.trim() : existing?.text ?? '',
-      done: done !== undefined ? !!done : existing?.done ?? false,
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (!focus.text) {
-      // Clearing the text clears the focus for the day entirely.
-      await redis.del(key);
-      return NextResponse.json({ success: true, focus: null });
-    }
-
-    // Keep focus entries around long enough for the 30-day history window.
-    await redis.set(key, JSON.stringify(focus), { EX: 60 * 60 * 24 * 45 });
-    return NextResponse.json({ success: true, focus });
-  } catch (err) {
-    console.error('Discipline POST error:', err);
-    return NextResponse.json({ success: false, error: 'Failed to save focus' }, { status: 500 });
   }
 }

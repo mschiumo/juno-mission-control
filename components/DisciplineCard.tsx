@@ -1,30 +1,61 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  ShieldCheck, Crosshair, Flame, RefreshCw, Check, Pencil,
-  TrendingUp, TrendingDown, Minus, Loader2, ShieldAlert,
+  ShieldCheck, RefreshCw, Link2, Unlink, Loader2,
+  TrendingUp, TrendingDown, Minus, CheckCircle2, AlertTriangle,
 } from 'lucide-react';
-
-interface DayFocus {
-  text: string;
-  done: boolean;
-  updatedAt: string;
-}
 
 interface DisciplineDay {
   date: string;
   score: number | null;
   habitScore: number | null;
   journaled: boolean;
-  focus: DayFocus | null;
 }
 
-interface AtRiskHabit {
+interface StravaActivity {
+  id: number;
+  name: string;
+  sport_type: string;
+  distance: number; // meters
+  moving_time: number; // seconds
+  total_elevation_gain: number;
+  start_date_local: string;
+}
+
+interface CompletedHabit {
   id: string;
   name: string;
   icon: string;
-  streak: number;
+}
+
+const SPORT_ICONS: Record<string, string> = {
+  Run: '🏃', TrailRun: '🏃', VirtualRun: '🏃',
+  Ride: '🚴', MountainBikeRide: '🚵', VirtualRide: '🚴', GravelRide: '🚴',
+  WeightTraining: '🏋️', Workout: '💪', Crossfit: '💪', HighIntensityIntervalTraining: '💪',
+  Swim: '🏊', Walk: '🚶', Hike: '🥾', Yoga: '🧘', Golf: '⛳', Tennis: '🎾',
+};
+
+function sportIcon(sport: string): string {
+  return SPORT_ICONS[sport] || '⚡';
+}
+
+function fmtDistance(meters: number): string {
+  if (!meters) return '';
+  const miles = meters / 1609.344;
+  return `${miles.toFixed(miles >= 10 ? 0 : 1)} mi`;
+}
+
+function fmtDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function fmtDay(dateLocal: string): string {
+  return new Date(dateLocal.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  });
 }
 
 function scoreColor(score: number | null): string {
@@ -52,23 +83,22 @@ function avg(values: number[]): number | null {
 
 export default function DisciplineCard() {
   const [days, setDays] = useState<DisciplineDay[]>([]);
-  const [atRisk, setAtRisk] = useState<AtRiskHabit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [savingFocus, setSavingFocus] = useState(false);
-  const [protecting, setProtecting] = useState<string | null>(null);
 
-  // Focus editor state
-  const [editingFocus, setEditingFocus] = useState(false);
-  const [focusDraft, setFocusDraft] = useState('');
+  // Strava state
+  const [stravaLoading, setStravaLoading] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [athleteName, setAthleteName] = useState('');
+  const [activities, setActivities] = useState<StravaActivity[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [banner, setBanner] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const syncedOnce = useRef(false);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/discipline?_t=${Date.now()}`);
       const data = await res.json();
-      if (data.success) {
-        setDays(data.days || []);
-        setAtRisk(data.atRisk || []);
-      }
+      if (data.success) setDays(data.days || []);
     } catch {
       // keep whatever we have
     } finally {
@@ -76,13 +106,75 @@ export default function DisciplineCard() {
     }
   }, []);
 
+  const sync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/strava/sync', { method: 'POST' });
+      const data = await res.json();
+      if (!data.success) {
+        setBanner({ kind: 'error', text: 'Strava sync failed — try again shortly.' });
+        return;
+      }
+      if (!data.connected) {
+        setConnected(false);
+        return;
+      }
+      setActivities(data.activities || []);
+      const done: CompletedHabit[] = data.completedHabits || [];
+      if (done.length > 0) {
+        setBanner({
+          kind: 'success',
+          text: `Auto-completed from Strava: ${done.map((h) => `${h.icon} ${h.name}`).join(', ')}`,
+        });
+        window.dispatchEvent(new Event('ct:habits-updated'));
+      }
+    } catch {
+      setBanner({ kind: 'error', text: 'Strava sync failed — network error.' });
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
+
+  const loadStravaStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/strava/status?_t=${Date.now()}`);
+      const data = await res.json();
+      if (data.success && data.connected) {
+        setConnected(true);
+        setAthleteName(data.athlete?.name || '');
+        if (!syncedOnce.current) {
+          syncedOnce.current = true;
+          sync();
+        }
+      } else {
+        setConnected(false);
+      }
+    } catch {
+      // leave disconnected
+    } finally {
+      setStravaLoading(false);
+    }
+  }, [sync]);
+
   useEffect(() => {
+    // Surface the OAuth result if we just came back from Strava.
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('strava');
+    if (result) {
+      if (result === 'connected') setBanner({ kind: 'success', text: 'Strava connected.' });
+      if (result === 'denied') setBanner({ kind: 'error', text: 'Strava authorization was denied.' });
+      if (result === 'error') setBanner({ kind: 'error', text: 'Strava connection failed — check server logs.' });
+      params.delete('strava');
+      const qs = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+    }
     load();
+    loadStravaStatus();
     const interval = setInterval(load, 300000); // 5 minutes
     return () => clearInterval(interval);
-  }, [load]);
+  }, [load, loadStravaStatus]);
 
-  // Refresh when habits or the journal change elsewhere on the dashboard.
+  // Refresh the score when habits or the journal change elsewhere on the dashboard.
   useEffect(() => {
     window.addEventListener('ct:habits-updated', load);
     window.addEventListener('ct:discipline-updated', load);
@@ -92,9 +184,21 @@ export default function DisciplineCard() {
     };
   }, [load]);
 
+  async function disconnect() {
+    if (!confirm('Disconnect Strava? Habit auto-complete will stop.')) return;
+    try {
+      await fetch('/api/strava/status', { method: 'DELETE' });
+      setConnected(false);
+      setActivities([]);
+      setAthleteName('');
+      syncedOnce.current = false;
+    } catch {
+      /* leave state */
+    }
+  }
+
   const today = days.length > 0 ? days[days.length - 1] : null;
   const todayScore = today?.score ?? null;
-  const focus = today?.focus ?? null;
 
   // 7-day momentum: this week's average vs the prior week's.
   const momentum = useMemo(() => {
@@ -107,57 +211,20 @@ export default function DisciplineCard() {
     return Math.round(a - b);
   }, [days]);
 
-  async function saveFocus(payload: { text?: string; done?: boolean }) {
-    setSavingFocus(true);
-    try {
-      const res = await fetch('/api/discipline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) await load();
-    } catch {
-      // score view will show the old state; user can retry
-    } finally {
-      setSavingFocus(false);
-      setEditingFocus(false);
-    }
-  }
-
-  // One-tap streak protection: mark the habit done right from this card.
-  async function protectStreak(habitId: string) {
-    setProtecting(habitId);
-    try {
-      const res = await fetch('/api/habit-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ habitId, completed: true }),
-      });
-      if (res.ok) {
-        window.dispatchEvent(new Event('ct:habits-updated'));
-        await load();
-      }
-    } catch {
-      // leave as-is; HabitCard remains the source of truth
-    } finally {
-      setProtecting(null);
-    }
-  }
-
   const ringColor = scoreColor(todayScore);
   const circumference = 2 * Math.PI * 26;
   const dashOffset = todayScore === null ? circumference : circumference * (1 - todayScore / 100);
 
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-gradient-to-r from-[#F97316]/10 to-transparent">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-[#F97316]" />
+      {/* Header — title, momentum, Strava connection */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-[#30363d] bg-gradient-to-r from-[#F97316]/10 to-transparent">
+        <div className="flex items-center gap-2 min-w-0">
+          <ShieldCheck className="w-4 h-4 text-[#F97316] flex-shrink-0" />
           <h2 className="text-sm font-semibold text-white">Discipline</h2>
           {momentum !== null && (
             <span
-              className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+              className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0"
               style={{
                 background: momentum > 2 ? 'rgba(34,197,94,0.12)' : momentum < -2 ? 'rgba(239,68,68,0.12)' : 'rgba(139,148,158,0.12)',
                 color: momentum > 2 ? '#22c55e' : momentum < -2 ? '#ef4444' : '#8b949e',
@@ -169,15 +236,70 @@ export default function DisciplineCard() {
             </span>
           )}
         </div>
-        <button
-          onClick={() => { setLoading(true); load(); }}
-          disabled={loading}
-          className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
-          title="Refresh"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
-        </button>
+
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Strava connection */}
+          {!stravaLoading && (connected ? (
+            <div className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#0d1117] border border-[#30363d]">
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="#FC4C02" aria-hidden>
+                  <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
+                </svg>
+                <span className="text-[10px] text-[#c9d1d9] font-medium truncate max-w-[120px]">
+                  {athleteName || 'Strava'}
+                </span>
+              </span>
+              <button
+                onClick={sync}
+                disabled={syncing}
+                className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+                title="Sync Strava now"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] hover:text-[#FC4C02] ${syncing ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={disconnect}
+                className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors"
+                title="Disconnect Strava"
+              >
+                <Unlink className="w-3.5 h-3.5 text-[#8b949e] hover:text-[#da3633]" />
+              </button>
+            </div>
+          ) : (
+            <a
+              href="/api/strava/auth"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-white transition-opacity hover:opacity-90"
+              style={{ background: '#FC4C02' }}
+              title="Connect Strava to auto-complete Exercise / Run habits"
+            >
+              <Link2 className="w-3 h-3" />
+              Connect Strava
+            </a>
+          ))}
+          <button
+            onClick={() => { setLoading(true); load(); }}
+            disabled={loading}
+            className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+            title="Refresh score"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#8b949e] hover:text-[#F97316] ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
+
+      {banner && (
+        <div
+          className={`flex items-start gap-2 px-4 py-2 text-xs border-b border-[#30363d] ${
+            banner.kind === 'success' ? 'bg-[#22c55e]/10 text-[#22c55e]' : 'bg-[#ef4444]/10 text-[#ef4444]'
+          }`}
+        >
+          {banner.kind === 'success'
+            ? <CheckCircle2 className="w-3.5 h-3.5 mt-px flex-shrink-0" />
+            : <AlertTriangle className="w-3.5 h-3.5 mt-px flex-shrink-0" />}
+          <span className="flex-1">{banner.text}</span>
+          <button onClick={() => setBanner(null)} className="text-[10px] opacity-70 hover:opacity-100">dismiss</button>
+        </div>
+      )}
 
       <div className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -202,103 +324,47 @@ export default function DisciplineCard() {
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wider text-[#8b949e] font-medium">Today&apos;s Score</p>
               <p className="text-sm font-semibold text-white">{scoreLabel(todayScore)}</p>
-              <p className="text-[10px] text-[#8b949e] mt-0.5 leading-relaxed">
-                Habits · journal · #1 focus
-              </p>
+              <p className="text-[10px] text-[#8b949e] mt-0.5 leading-relaxed">Habits · journal</p>
             </div>
           </div>
 
-          {/* Today's #1 focus */}
-          <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3 flex flex-col">
-            <div className="flex items-center gap-1.5 mb-2">
-              <Crosshair className="w-3.5 h-3.5 text-[#F97316]" />
-              <span className="text-[10px] uppercase tracking-wider text-[#8b949e] font-medium">Today&apos;s #1 Focus</span>
-            </div>
-            {editingFocus || !focus?.text ? (
-              <div className="flex gap-2 flex-1 items-start">
-                <input
-                  type="text"
-                  value={focusDraft}
-                  maxLength={200}
-                  onChange={(e) => setFocusDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && focusDraft.trim()) saveFocus({ text: focusDraft }); }}
-                  placeholder="The one thing that matters most today…"
-                  className="flex-1 min-w-0 px-3 py-2 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#484f58] focus:outline-none focus:border-[#F97316]"
-                />
-                <button
-                  onClick={() => saveFocus({ text: focusDraft })}
-                  disabled={savingFocus || !focusDraft.trim()}
-                  className="px-3 py-2 bg-[#F97316] hover:bg-[#ff8c5a] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
-                >
-                  {savingFocus ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Set'}
-                </button>
+          {/* Recent Strava activity */}
+          <div className="md:col-span-2 bg-[#0d1117] border border-[#30363d] rounded-lg p-3">
+            <p className="text-[10px] uppercase tracking-wider text-[#8b949e] font-medium mb-2">Recent Activity</p>
+            {stravaLoading ? (
+              <div className="flex items-center justify-center py-4 text-[#8b949e]">
+                <Loader2 className="w-4 h-4 animate-spin" />
               </div>
-            ) : (
-              <div className="flex items-start gap-2.5 flex-1">
-                <button
-                  onClick={() => saveFocus({ done: !focus.done })}
-                  disabled={savingFocus}
-                  className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded-full border-2 transition-all flex items-center justify-center disabled:opacity-50 ${
-                    focus.done ? 'bg-[#22c55e] border-[#22c55e]' : 'border-[#737373] hover:border-[#F97316]'
-                  }`}
-                  title={focus.done ? 'Mark not done' : 'Mark done'}
-                >
-                  {focus.done && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                </button>
-                <p className={`flex-1 text-sm leading-snug ${focus.done ? 'text-[#737373] line-through' : 'text-white'}`}>
-                  {focus.text}
-                </p>
-                <button
-                  onClick={() => { setFocusDraft(focus.text); setEditingFocus(true); }}
-                  className="p-1 hover:bg-[#30363d] rounded-md transition-colors flex-shrink-0"
-                  title="Edit focus"
-                >
-                  <Pencil className="w-3 h-3 text-[#737373] hover:text-[#F97316]" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Streaks at risk */}
-          <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3">
-            <div className="flex items-center gap-1.5 mb-2">
-              {atRisk.length > 0
-                ? <ShieldAlert className="w-3.5 h-3.5 text-[#d29922]" />
-                : <ShieldCheck className="w-3.5 h-3.5 text-[#22c55e]" />}
-              <span className="text-[10px] uppercase tracking-wider text-[#8b949e] font-medium">Streaks at Risk</span>
-              {atRisk.length > 0 && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#d29922]/15 text-[#d29922] font-semibold">{atRisk.length}</span>
-              )}
-            </div>
-            {atRisk.length === 0 ? (
-              <p className="text-xs text-[#8b949e]">
-                {loading ? 'Checking…' : 'All live streaks are safe today. Keep stacking.'}
+            ) : !connected ? (
+              <p className="text-xs text-[#8b949e] leading-relaxed">
+                Connect Strava (top right) and your Exercise / Run habits auto-complete when an
+                activity syncs — no manual check-off, the score just moves.
               </p>
+            ) : activities.length === 0 ? (
+              <p className="text-xs text-[#8b949e]">No activities in the last 7 days. Log a workout and it&apos;ll appear here.</p>
             ) : (
-              <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
-                {atRisk.map((h) => (
-                  <div key={h.id} className="flex items-center gap-2">
-                    <span className="text-sm flex-shrink-0">{h.icon}</span>
-                    <span className="flex-1 min-w-0 text-xs text-white truncate">{h.name}</span>
-                    <span className="flex items-center gap-0.5 text-[10px] text-[#d29922] font-semibold flex-shrink-0">
-                      <Flame className="w-3 h-3" />
-                      {h.streak}d
-                    </span>
-                    <button
-                      onClick={() => protectStreak(h.id)}
-                      disabled={protecting !== null}
-                      className="flex-shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-md bg-[#22c55e]/10 text-[#22c55e] hover:bg-[#22c55e]/25 transition-colors disabled:opacity-50"
-                      title="Mark done now"
+              <ul className="divide-y divide-[#21262d] max-h-28 overflow-y-auto pr-1">
+                {activities.map((a) => (
+                  <li key={a.id} className="flex items-center gap-2.5 py-1.5 first:pt-0 last:pb-0">
+                    <span className="text-sm flex-shrink-0">{sportIcon(a.sport_type)}</span>
+                    <a
+                      href={`https://www.strava.com/activities/${a.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 min-w-0 text-xs font-medium text-white truncate hover:text-[#FC4C02] transition-colors"
                     >
-                      {protecting === h.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Done'}
-                    </button>
-                  </div>
+                      {a.name}
+                    </a>
+                    <span className="text-[10px] text-[#8b949e] flex-shrink-0">{fmtDay(a.start_date_local)}</span>
+                    <span className="text-[10px] text-[#8b949e] tabular-nums flex-shrink-0 w-20 text-right">
+                      {a.distance > 0 ? `${fmtDistance(a.distance)} · ` : ''}{fmtDuration(a.moving_time)}
+                    </span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
         </div>
-
       </div>
     </div>
   );
