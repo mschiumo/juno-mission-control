@@ -49,4 +49,11 @@ export interface FundamentalsProvider {
   getUniverse(): Promise<string[]>;
   /** Fundamentals for one symbol, or null if unavailable. */
   getFundamentals(symbol: string): Promise<Fundamentals | null>;
+  /**
+   * Fundamentals for many symbols at once, keyed by symbol. Optional — the
+   * runner falls back to per-symbol getFundamentals when absent. Symbols
+   * missing from the Map simply had no data (not an error). Chunking to the
+   * upstream API's max batch size is the provider's concern, not the caller's.
+   */
+  getFundamentalsBatch?(symbols: string[]): Promise<Map<string, Fundamentals>>;
 }

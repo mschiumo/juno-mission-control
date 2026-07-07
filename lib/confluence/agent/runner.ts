@@ -18,8 +18,10 @@ import { saveRun } from '@/lib/db/confluence/agent-runs';
 import { saveProposal } from '@/lib/db/confluence/proposals';
 import { getSystemState } from '@/lib/db/confluence/system-state';
 import { appendAudit } from '@/lib/db/confluence/audit';
-import { getFundamentalsProvider } from '@/lib/confluence/fundamentals';
-import { getTechnicalsProvider } from '@/lib/confluence/technicals';
+import { getFundamentalsProvider, type Fundamentals } from '@/lib/confluence/fundamentals';
+import { getTechnicalsProvider, type Technicals } from '@/lib/confluence/technicals';
+import { chunk, formatSkip, MCP_SYMBOL_BATCH_SIZE } from '@/lib/confluence/batching';
+import { ConfluenceNotConfigured } from '@/lib/confluence/robinhood/mcp-client';
 import type { Candidate, StrategyContext } from './strategy';
 import { getStrategy, type StrategyDefinition } from './strategies';
 import { analyzeWithClaude } from './claude-analyst';
@@ -39,7 +41,18 @@ function agentMode(): 'deterministic' | 'claude' {
     : 'deterministic';
 }
 
-/** Deterministic path: provider fundamentals (+ technicals) → code strategy → candidates. */
+/**
+ * Deterministic path: a screening funnel, not a per-symbol pipeline.
+ *
+ *   fundamentals (batched, whole universe) → strategy prefilter (value gate)
+ *   → technicals (batched, value-passers only) → evaluate → rank.
+ *
+ * Batching (10 symbols/MCP call) plus the prefilter is what lets a ~250-name
+ * universe finish without rate-limiting: most names fail the value gate on
+ * fundamentals alone, so their technicals are never fetched. A failed chunk
+ * skips only its own symbols — never the run — and every skip is recorded as
+ * 'SYM:reason' (a plain string, so existing metadata consumers keep working).
+ */
 async function deterministicCandidates(
   strat: StrategyDefinition,
   ctx: StrategyContext,
@@ -50,30 +63,102 @@ async function deterministicCandidates(
   technicalsProviderName?: string;
   universeSize: number;
   skippedSymbols: string[];
+  /** Count of fundamentals-holders that cleared the prefilter (when the strategy has one). */
+  valueGatePassed?: number;
 }> {
   const provider = getFundamentalsProvider();
   const technicalsProvider = strat.needsTechnicals ? getTechnicalsProvider() : null;
   const universe = resolved.symbols;
-  const candidates: Candidate[] = [];
   const skippedSymbols: string[] = [];
-  // Evaluate the whole universe, then rank — the best-scored setups win the
-  // run's proposal budget, not the first alphabetical passers.
-  for (const symbol of universe) {
-    // One symbol's transient provider failure must not abort the run and
-    // discard candidates already found — skip it and record the skip.
-    try {
-      const data = await provider.getFundamentals(symbol);
-      if (!data) continue;
-      const technicals = technicalsProvider ? await technicalsProvider.getTechnicals(symbol) : null;
-      const c = strat.evaluate(data, technicals, ctx);
-      if (c) candidates.push(c);
-    } catch {
-      skippedSymbols.push(symbol);
+  const skipped = new Set<string>();
+  const skip = (symbol: string, reason: string) => {
+    skipped.add(symbol);
+    skippedSymbols.push(formatSkip(symbol, reason));
+  };
+
+  // ── Stage 1: fundamentals for the whole universe, batched when supported.
+  const fundamentals = new Map<string, Fundamentals>();
+  if (provider.getFundamentalsBatch) {
+    for (const batch of chunk(universe, MCP_SYMBOL_BATCH_SIZE)) {
+      try {
+        const got = await provider.getFundamentalsBatch(batch);
+        // Re-key by the universe's own symbol strings so later lookups match.
+        for (const symbol of batch) {
+          const f = got.get(symbol) ?? got.get(symbol.toUpperCase());
+          if (f) fundamentals.set(symbol, f);
+        }
+      } catch (err) {
+        // Misconfiguration is systemic — fail the run with the crisp message
+        // instead of grinding through every chunk to fail generically.
+        if (err instanceof ConfluenceNotConfigured) throw err;
+        for (const symbol of batch) skip(symbol, 'fundamentals_failed');
+      }
+    }
+  } else {
+    for (const symbol of universe) {
+      try {
+        const f = await provider.getFundamentals(symbol);
+        if (f) fundamentals.set(symbol, f);
+      } catch {
+        skip(symbol, 'fundamentals_failed');
+      }
     }
   }
+
+  // ── Stage 2: value-gate prefilter. Symbols with no fundamentals data, and
+  // names the cheap gate rejects, are simply not candidates — not "skipped".
+  const holders = universe.filter((s) => fundamentals.has(s));
+  const valuePassers = strat.prefilter
+    ? holders.filter((s) => strat.prefilter!(fundamentals.get(s)!))
+    : holders;
+  const valueGatePassed = strat.prefilter ? valuePassers.length : undefined;
+
+  // ── Stage 3: technicals, only for the value-passers.
+  const technicals = new Map<string, Technicals>();
+  if (technicalsProvider) {
+    if (technicalsProvider.getTechnicalsBatch) {
+      for (const batch of chunk(valuePassers, MCP_SYMBOL_BATCH_SIZE)) {
+        try {
+          const got = await technicalsProvider.getTechnicalsBatch(batch);
+          for (const symbol of batch) {
+            const t = got.get(symbol) ?? got.get(symbol.toUpperCase());
+            if (t) technicals.set(symbol, t);
+          }
+        } catch (err) {
+          if (err instanceof ConfluenceNotConfigured) throw err;
+          for (const symbol of batch) skip(symbol, 'technicals_failed');
+        }
+      }
+    } else {
+      for (const symbol of valuePassers) {
+        try {
+          const t = await technicalsProvider.getTechnicals(symbol);
+          if (t) technicals.set(symbol, t);
+        } catch {
+          skip(symbol, 'technicals_failed');
+        }
+      }
+    }
+  }
+
+  // ── Stage 4: evaluate the survivors, then rank — the best-scored setups win
+  // the run's proposal budget, not the first alphabetical passers.
+  const candidates: Candidate[] = [];
+  for (const symbol of valuePassers) {
+    if (skipped.has(symbol)) continue;
+    // One symbol's failure must not abort the run and discard candidates
+    // already found — skip it and record the skip.
+    try {
+      const c = strat.evaluate(fundamentals.get(symbol)!, technicals.get(symbol) ?? null, ctx);
+      if (c) candidates.push(c);
+    } catch {
+      skip(symbol, 'evaluate_failed');
+    }
+  }
+
   // Every symbol failing is systemic (dead token, provider outage) — that must
   // surface as a failed run, not a quiet zero-proposal success.
-  if (universe.length > 0 && skippedSymbols.length === universe.length) {
+  if (universe.length > 0 && skipped.size === universe.length) {
     throw new Error(`All ${universe.length} universe symbols failed to load from ${provider.name} — check provider config/token.`);
   }
   candidates.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
@@ -83,6 +168,7 @@ async function deterministicCandidates(
     technicalsProviderName: technicalsProvider?.name,
     universeSize: universe.length,
     skippedSymbols,
+    valueGatePassed,
   };
 }
 
@@ -149,6 +235,7 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
         strategy: strat.id,
         ...universeMeta,
         ...(det.skippedSymbols.length ? { skippedSymbols: det.skippedSymbols } : {}),
+        ...(det.valueGatePassed != null ? { valueGatePassed: det.valueGatePassed } : {}),
       };
     }
 

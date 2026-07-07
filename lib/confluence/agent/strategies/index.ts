@@ -15,7 +15,7 @@
 import type { Fundamentals } from '@/lib/confluence/fundamentals';
 import type { Technicals } from '@/lib/confluence/technicals';
 import { defaultStrategy, type Candidate, type StrategyContext } from '../strategy';
-import { evaluateValueTaPullback, VALUE_TA_CRITERIA_PROMPT } from './value-ta-pullback';
+import { evaluateValueTaPullback, valueTaPrefilter, VALUE_TA_CRITERIA_PROMPT } from './value-ta-pullback';
 
 export interface StrategyDefinition {
   /** Stable id — recorded in run metadata and selected via CONFLUENCE_STRATEGY. */
@@ -23,6 +23,11 @@ export interface StrategyDefinition {
   label: string;
   /** When true the runner fetches a technicals snapshot per symbol. */
   needsTechnicals: boolean;
+  /**
+   * Cheap fundamentals-only gate. When present and false for a symbol, the
+   * runner skips fetching technicals for it; evaluate() remains the authority.
+   */
+  prefilter?(f: Fundamentals): boolean;
   evaluate(f: Fundamentals, t: Technicals | null, ctx: StrategyContext): Candidate | null;
   /** Rules for the Claude/MCP analyst's <criteria> block, when this strategy drives it. */
   criteriaPrompt?: string;
@@ -33,6 +38,7 @@ const STRATEGIES: Record<string, StrategyDefinition> = {
     id: 'value-ta-pullback',
     label: 'Value-TA Pullback (value + technicals, low-risk)',
     needsTechnicals: true,
+    prefilter: valueTaPrefilter,
     evaluate: evaluateValueTaPullback,
     criteriaPrompt: VALUE_TA_CRITERIA_PROMPT,
   },
