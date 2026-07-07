@@ -15,9 +15,13 @@ export function orderNotional(limitPrice: number, quantity: number): number {
   return Math.max(0, limitPrice) * Math.max(0, quantity);
 }
 
-/** Sum of notional across a set of (active) orders. */
+/** Sum of notional across a set of (active) orders. Protective stops are
+ * excluded: a resting exit can only REDUCE exposure, so counting it would
+ * double-charge the position it protects against the caps. */
 export function activeExposure(orders: ExecutionOrder[]): number {
-  return orders.reduce((sum, o) => sum + orderNotional(o.limitPrice, o.quantity), 0);
+  return orders
+    .filter((o) => (o.kind ?? 'entry') === 'entry')
+    .reduce((sum, o) => sum + orderNotional(o.limitPrice, o.quantity), 0);
 }
 
 export interface GuardrailInput {

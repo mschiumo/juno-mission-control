@@ -27,6 +27,8 @@ interface Props {
   perPositionCapUsd: number;
   tradingEnabled: boolean;
   busy: boolean;
+  /** Live last trade — the agent priced off the prior close, so show the drift. */
+  liveQuote?: { last: number; asOf?: string };
   onApprove: (id: string, edits: EditState) => void;
   onReject: (id: string) => void;
 }
@@ -42,7 +44,7 @@ function numOrUndef(v: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-export default function ProposalCard({ proposal, perPositionCapUsd, tradingEnabled, busy, onApprove, onReject }: Props) {
+export default function ProposalCard({ proposal, perPositionCapUsd, tradingEnabled, busy, onApprove, onReject, liveQuote }: Props) {
   const [editing, setEditing] = useState(false);
   const [edit, setEdit] = useState<EditState>({
     limitPrice: proposal.suggestedLimitPrice ?? 0,
@@ -126,6 +128,20 @@ export default function ProposalCard({ proposal, perPositionCapUsd, tradingEnabl
       {!editing ? (
         <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] mb-3" style={{ color: 'var(--text-secondary)' }}>
           <span>Limit <b style={{ color: 'var(--text-primary)' }}>${proposal.suggestedLimitPrice}</b></span>
+          {liveQuote && proposal.suggestedLimitPrice ? (
+            <span>
+              Last{' '}
+              <b style={{ color: 'var(--text-primary)' }}>${liveQuote.last.toFixed(2)}</b>{' '}
+              <span
+                style={{
+                  color:
+                    liveQuote.last <= proposal.suggestedLimitPrice ? 'var(--positive)' : 'var(--text-secondary)',
+                }}
+              >
+                ({liveQuote.last <= proposal.suggestedLimitPrice ? 'at/below limit — fills now' : `+${(((liveQuote.last - proposal.suggestedLimitPrice) / proposal.suggestedLimitPrice) * 100).toFixed(1)}% above limit`})
+              </span>
+            </span>
+          ) : null}
           <span>Qty <b style={{ color: 'var(--text-primary)' }}>{proposal.suggestedQuantity}</b></span>
           {proposal.suggestedStopPrice != null && <span>Stop <b style={{ color: 'var(--negative)' }}>${proposal.suggestedStopPrice}</b></span>}
           {proposal.suggestedTargetPrice != null && <span>Target <b style={{ color: 'var(--positive)' }}>${proposal.suggestedTargetPrice}</b></span>}

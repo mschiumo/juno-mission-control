@@ -27,10 +27,13 @@ const field = {
 export default function SettingsPanel({ state, busy, onSave }: Props) {
   const [perPosition, setPerPosition] = useState(String(state.perPositionCapUsd));
   const [totalCap, setTotalCap] = useState(String(state.totalExposureCapUsd));
+  const [maxAgeDays, setMaxAgeDays] = useState(String(state.entryOrderMaxAgeDays));
   const [account, setAccount] = useState(state.agenticAccount ?? '');
 
   const capsDirty =
-    Number(perPosition) !== state.perPositionCapUsd || Number(totalCap) !== state.totalExposureCapUsd;
+    Number(perPosition) !== state.perPositionCapUsd ||
+    Number(totalCap) !== state.totalExposureCapUsd ||
+    Number(maxAgeDays) !== state.entryOrderMaxAgeDays;
   const accountDirty = account.trim() !== (state.agenticAccount ?? '');
 
   return (
@@ -152,11 +155,25 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
             <input type="number" min="0" step="100" className="w-full mt-1 px-3 py-2 rounded-lg text-sm" style={field}
               value={totalCap} onChange={(e) => setTotalCap(e.target.value)} />
           </label>
+          <label className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+            Entry order max age (days)
+            <input type="number" min="1" step="1" className="w-full mt-1 px-3 py-2 rounded-lg text-sm" style={field}
+              value={maxAgeDays} onChange={(e) => setMaxAgeDays(e.target.value)} />
+            <span className="block mt-1 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+              Unfilled entries older than this are auto-cancelled by the market-hours poll. Protective stops are never auto-cancelled.
+            </span>
+          </label>
         </div>
         <button
           className="btn-primary flex items-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-50"
           disabled={busy || !capsDirty}
-          onClick={() => onSave({ perPositionCapUsd: Number(perPosition), totalExposureCapUsd: Number(totalCap) })}
+          onClick={() =>
+            onSave({
+              perPositionCapUsd: Number(perPosition),
+              totalExposureCapUsd: Number(totalCap),
+              entryOrderMaxAgeDays: Number(maxAgeDays),
+            })
+          }
         >
           <Save className="w-4 h-4" /> Save caps
         </button>

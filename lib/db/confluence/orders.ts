@@ -35,12 +35,26 @@ export async function getActiveOrders(userId: string): Promise<ExecutionOrder[]>
 }
 
 /**
- * Whether the proposal already has a live (non-terminal) order. Backs the
- * canonical "at most one active order per proposal" unique index.
+ * Whether the proposal already has a live (non-terminal) ENTRY order. Backs the
+ * canonical "at most one active order per proposal" unique index. Protective
+ * stops share the proposalId but are exits of an already-filled entry — they
+ * must not make approval-time duplicate detection think the entry is still live.
  */
 export async function hasActiveOrderForProposal(proposalId: string, userId: string): Promise<boolean> {
   const all = await getAllOrders(userId);
-  return all.some((o) => o.proposalId === proposalId && isActiveOrderStatus(o.status));
+  return all.some(
+    (o) => o.proposalId === proposalId && (o.kind ?? 'entry') === 'entry' && isActiveOrderStatus(o.status),
+  );
+}
+
+/**
+ * Protective-stop children of an entry order, any status. The caller decides
+ * which statuses block a re-place (failed children are ignored so a failed
+ * placement can be re-attempted by the poll cron).
+ */
+export async function getProtectiveStopsForEntry(entryOrderId: string, userId: string): Promise<ExecutionOrder[]> {
+  const all = await getAllOrders(userId);
+  return all.filter((o) => o.kind === 'protective_stop' && o.protectsOrderId === entryOrderId);
 }
 
 export async function saveOrder(order: ExecutionOrder, userId: string): Promise<ExecutionOrder> {
