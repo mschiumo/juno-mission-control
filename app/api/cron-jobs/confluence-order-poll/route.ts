@@ -22,6 +22,7 @@ import { postToCronResults } from '@/lib/cron-helpers';
 import { getActiveOrders } from '@/lib/db/confluence/orders';
 import { getSystemState } from '@/lib/db/confluence/system-state';
 import { cancelOrder, refreshOrderStatus } from '@/lib/confluence/execution';
+import { reconcileOrders } from '@/lib/confluence/reconcile';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,8 +34,20 @@ export async function GET() {
     }
     const userId = owner.id;
 
+    // Heal desyncs first (orphaned failed/staged records that exist at the
+    // broker) so the refresh pass below can poll them like any other order.
+    // Cheap no-op when nothing is desynced; never throws the poll over.
+    const events: string[] = [];
+    try {
+      const rec = await reconcileOrders(userId);
+      for (const l of rec.linked) events.push(`reconciled ${l}`);
+      for (const c of rec.corrected) events.push(`corrected ${c}`);
+    } catch (err) {
+      events.push(`reconcile failed: ${err instanceof Error ? err.message : 'unknown'}`);
+    }
+
     const active = await getActiveOrders(userId);
-    if (active.length === 0) {
+    if (active.length === 0 && events.length === 0) {
       return NextResponse.json({ success: true, refreshed: 0, note: 'no active orders' });
     }
 
@@ -42,7 +55,6 @@ export async function GET() {
     const maxAgeMs = state.entryOrderMaxAgeDays * 24 * 60 * 60 * 1000;
     const now = Date.now();
 
-    const events: string[] = [];
     let refreshed = 0;
     let expired = 0;
 

@@ -232,6 +232,7 @@ export type AuditEventType =
   | 'order.failed'
   | 'order.protective_stop_placed'
   | 'order.protective_stop_skipped'
+  | 'order.reconciled'
   | 'killswitch.activated'
   | 'killswitch.deactivated'
   | 'paper_mode.changed';
