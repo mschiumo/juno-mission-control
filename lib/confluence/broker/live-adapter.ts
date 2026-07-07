@@ -13,7 +13,7 @@
  * against the small funded account with tiny caps and the kill switch handy.
  */
 
-import { callRobinhoodTool } from '@/lib/confluence/robinhood/mcp-client';
+import { callRobinhoodTool, payloadSnippet } from '@/lib/confluence/robinhood/mcp-client';
 import type { BrokerAdapter, BrokerOrderState, PlaceLimitOrderRequest } from './adapter';
 import type { OrderStatus, TradeDirection } from '@/types/confluence';
 
@@ -38,7 +38,7 @@ function mapState(state: string | undefined): OrderStatus {
   }
 }
 
-interface RhOrder {
+export interface RhOrder {
   id?: string;
   order_id?: string;
   state?: string;
@@ -52,6 +52,26 @@ interface RhOrder {
 function unwrap<T>(res: unknown): T {
   const r = res as { data?: T } | T;
   return (r && typeof r === 'object' && 'data' in (r as object) ? (r as { data: T }).data : (r as T));
+}
+
+/**
+ * Find the order object in a place_equity_order response, whatever the
+ * wrapping: the order directly, `{data: order}`, `{order}`, or `{data: {order}}`.
+ * An object counts as the order only if it carries an id.
+ */
+export function unwrapOrder(res: unknown): RhOrder | null {
+  const isOrder = (v: unknown): v is RhOrder =>
+    !!v && typeof v === 'object' && (!!(v as RhOrder).id || !!(v as RhOrder).order_id);
+  const root = res as { data?: unknown; order?: unknown };
+  for (const candidate of [
+    res,
+    root?.data,
+    root?.order,
+    (root?.data as { order?: unknown } | undefined)?.order,
+  ]) {
+    if (isOrder(candidate)) return candidate;
+  }
+  return null;
 }
 
 function num(v: string | undefined): number | undefined {
@@ -87,12 +107,21 @@ export class LiveRobinhoodAdapter implements BrokerAdapter {
       market_hours: 'regular_hours',
       ref_id: req.refId,
     });
-    const order = unwrap<RhOrder>(res);
-    const state = toState(order);
-    if (!state.brokerOrderId) {
-      return { brokerOrderId: '', status: 'failed', filledQuantity: 0, error: 'Robinhood did not return an order id' };
+    const order = unwrapOrder(res);
+    if (!order) {
+      // ⚠️ Robinhood may have ACCEPTED the order even though we couldn't read
+      // the response — include the raw payload so the mismatch is diagnosable,
+      // and say loudly that the broker must be checked before any retry.
+      return {
+        brokerOrderId: '',
+        status: 'failed',
+        filledQuantity: 0,
+        error:
+          `place_equity_order response had no recognizable order object — the order MAY STILL BE LIVE at ` +
+          `Robinhood; check the Robinhood app before retrying. Raw response: ${payloadSnippet(res)}`,
+      };
     }
-    return state;
+    return toState(order);
   }
 
   async getOrderStatus(brokerOrderId: string, accountNumber: string): Promise<BrokerOrderState> {
@@ -134,7 +163,15 @@ export async function getBuyingPower(accountNumber: string): Promise<number> {
   });
   const bp = res?.data?.buying_power?.buying_power;
   const n = Number(bp);
-  return Number.isFinite(n) ? n : 0;
+  if (!Number.isFinite(n)) {
+    // A shape mismatch used to fail closed to $0, which surfaced as a
+    // misleading `insufficient_buying_power`. Throw the real story instead —
+    // the execution service fails safe either way (nothing staged).
+    throw new Error(
+      `get_portfolio response had no readable buying_power — raw response: ${payloadSnippet(res)}`,
+    );
+  }
+  return n;
 }
 
 /**

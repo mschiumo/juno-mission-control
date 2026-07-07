@@ -60,13 +60,22 @@ interface JsonRpcResponse {
   error?: { code: number; message: string };
 }
 
-/** Parse a fetch Response that may be JSON or an SSE stream carrying JSON-RPC. */
-async function parseMcpResponse(res: Response): Promise<JsonRpcResponse | null> {
-  const contentType = res.headers.get('content-type') || '';
-  const body = await res.text();
+/** Bounded excerpt of an arbitrary payload for error messages. */
+export function payloadSnippet(v: unknown, max = 400): string {
+  const s = typeof v === 'string' ? v : (() => { try { return JSON.stringify(v); } catch { return String(v); } })();
+  if (!s) return '(empty)';
+  return s.length > max ? `${s.slice(0, max)}… (${s.length} chars)` : s;
+}
+
+/** Parse a JSON or SSE body carrying JSON-RPC. Returns null when unrecognizable. */
+function parseMcpBody(contentType: string, body: string): JsonRpcResponse | null {
   if (!body) return null;
   if (contentType.includes('application/json')) {
-    return JSON.parse(body) as JsonRpcResponse;
+    try {
+      return JSON.parse(body) as JsonRpcResponse;
+    } catch {
+      return null;
+    }
   }
   // text/event-stream: take the last `data:` line that parses as JSON-RPC.
   const dataLines = body
@@ -144,7 +153,11 @@ async function callRobinhoodToolOnce<T>(
     },
   });
   if (!initRes.ok) {
-    throw new McpHttpError(initRes.status, `Robinhood MCP initialize failed: ${initRes.status}`);
+    const body = await initRes.text().catch(() => '');
+    throw new McpHttpError(
+      initRes.status,
+      `Robinhood MCP initialize failed (HTTP ${initRes.status}) for ${toolName}: ${payloadSnippet(body)}`,
+    );
   }
   const sessionId = initRes.headers.get('mcp-session-id') || undefined;
 
@@ -156,12 +169,20 @@ async function callRobinhoodToolOnce<T>(
     { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: toolName, arguments: args } },
     sessionId,
   );
+  const contentType = callRes.headers.get('content-type') || '';
+  const rawBody = await callRes.text().catch(() => '');
   if (!callRes.ok) {
-    throw new McpHttpError(callRes.status, `Robinhood MCP tools/call failed: ${callRes.status}`);
+    throw new McpHttpError(
+      callRes.status,
+      `Robinhood MCP tools/call ${toolName} failed (HTTP ${callRes.status}): ${payloadSnippet(rawBody)}`,
+    );
   }
-  const parsed = await parseMcpResponse(callRes);
+  const parsed = parseMcpBody(contentType, rawBody);
   if (!parsed || parsed.error) {
-    throw new Error(`Robinhood MCP tool ${toolName} error: ${parsed?.error?.message ?? 'no result'}`);
+    throw new Error(
+      `Robinhood MCP tool ${toolName} error: ${parsed?.error?.message ?? 'unparseable response'} — ` +
+        `content-type ${contentType || '(none)'}, body: ${payloadSnippet(rawBody)}`,
+    );
   }
 
   // MCP tool results come back as { content: [{ type:'text', text: '<json>' }] }.
@@ -172,6 +193,14 @@ async function callRobinhoodToolOnce<T>(
   if (result?.isError) {
     throw new Error(`Robinhood MCP tool ${toolName} failed: ${textPart ?? 'no error detail'}`);
   }
-  if (!textPart) throw new Error(`Robinhood MCP tool ${toolName} returned no text content`);
-  return JSON.parse(textPart) as T;
+  if (!textPart) {
+    throw new Error(
+      `Robinhood MCP tool ${toolName} returned no text content — result: ${payloadSnippet(parsed.result)}`,
+    );
+  }
+  try {
+    return JSON.parse(textPart) as T;
+  } catch {
+    throw new Error(`Robinhood MCP tool ${toolName} returned non-JSON text: ${payloadSnippet(textPart)}`);
+  }
 }
