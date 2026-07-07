@@ -9,6 +9,8 @@ export interface ActivitySummary {
   moving_time: number; // seconds
   total_elevation_gain: number;
   start_date_local: string; // ISO, athlete-local wall time
+  achievement_count?: number; // segment + best-effort achievements
+  pr_count?: number; // personal records set on this activity
 }
 
 export const RUN_SPORTS = new Set(['Run', 'TrailRun', 'VirtualRun']);
@@ -98,6 +100,25 @@ export function weekDailyDistance(activities: ActivitySummary[], today: string):
     const date = new Date(y, m - 1, d + i, 12);
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     days.push({ date: key, meters: 0 });
+  }
+  const byDate = new Map(days.map((day) => [day.date, day]));
+  for (const a of activities) {
+    const entry = byDate.get(activityDate(a));
+    if (entry) entry.meters += a.distance;
+  }
+  return days;
+}
+
+/**
+ * Meters per day for the calendar month containing `today` (1st → last day,
+ * in order) — feeds the monthly mileage mini-chart.
+ */
+export function monthDailyDistance(activities: ActivitySummary[], today: string): { date: string; meters: number }[] {
+  const [y, m] = today.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const days: { date: string; meters: number }[] = [];
+  for (let i = 1; i <= daysInMonth; i++) {
+    days.push({ date: `${today.slice(0, 7)}-${String(i).padStart(2, '0')}`, meters: 0 });
   }
   const byDate = new Map(days.map((day) => [day.date, day]));
   for (const a of activities) {

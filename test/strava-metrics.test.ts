@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   distanceTotals, runRecords, paceSecPerMile, speedMph,
-  fmtPace, fmtMiles, mondayOf, weekDailyDistance,
+  fmtPace, fmtMiles, mondayOf, weekDailyDistance, monthDailyDistance,
   type ActivitySummary,
 } from '../lib/strava-metrics';
 
@@ -101,5 +101,21 @@ describe('weekDailyDistance', () => {
     expect(buckets[1].meters / MI).toBeCloseTo(3); // 2 + 1
     expect(buckets[6].date).toBe('2026-07-12');
     expect(buckets.slice(2).every((b) => b.meters === 0)).toBe(true);
+  });
+});
+
+describe('monthDailyDistance', () => {
+  it('returns one bucket per calendar day with summed meters', () => {
+    const days = [
+      act({ distance: 4 * MI, start_date_local: '2026-07-01T06:00:00Z' }),
+      act({ distance: 6 * MI, start_date_local: '2026-07-07T06:00:00Z' }),
+      act({ distance: 9 * MI, start_date_local: '2026-06-30T06:00:00Z' }), // prior month
+    ];
+    const buckets = monthDailyDistance(days, '2026-07-07');
+    expect(buckets).toHaveLength(31);
+    expect(buckets[0].date).toBe('2026-07-01');
+    expect(buckets[0].meters / MI).toBeCloseTo(4);
+    expect(buckets[6].meters / MI).toBeCloseTo(6);
+    expect(buckets[30].date).toBe('2026-07-31');
   });
 });
