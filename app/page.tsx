@@ -7,7 +7,7 @@ import HabitCard from "@/components/HabitCard";
 import GapScannerCard from "@/components/GapScannerCard";
 import DailyJournalCard from "@/components/DailyJournalCard";
 import CountdownCard from "@/components/CountdownCard";
-import DisciplineCard from "@/components/DisciplineCard";
+import FitnessCard from "@/components/FitnessCard";
 import GoalsCard from "@/components/GoalsCard";
 import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
@@ -208,7 +208,7 @@ function DashboardContent() {
           <div className="space-y-5 animate-fade-up">
             <MotivationalBanner compact variant="orange" />
             <EveningCheckinReminder />
-            <DisciplineCard />
+            <FitnessCard />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 md:gap-6 xl:items-start">
               <div>
                 <HabitCard />
