@@ -45,20 +45,6 @@ function scoreLabel(score: number | null): string {
   return 'Off track';
 }
 
-function heatmapTitle(day: DisciplineDay): string {
-  const date = new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-  });
-  if (day.score === null) return `${date} — no data`;
-  const parts = [
-    `score ${day.score}`,
-    day.habitScore !== null ? `habits ${Math.round(day.habitScore * 100)}%` : null,
-    day.journaled ? 'journaled' : 'no journal',
-    day.focus?.text ? (day.focus.done ? 'focus done' : 'focus missed') : null,
-  ].filter(Boolean);
-  return `${date} — ${parts.join(' · ')}`;
-}
-
 function avg(values: number[]): number | null {
   if (values.length === 0) return null;
   return values.reduce((a, b) => a + b, 0) / values.length;
@@ -313,32 +299,6 @@ export default function DisciplineCard() {
           </div>
         </div>
 
-        {/* 30-day heatmap */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] uppercase tracking-wider text-[#8b949e] font-medium">Last 30 Days</span>
-            <div className="flex items-center gap-2 text-[10px] text-[#8b949e]">
-              <span>Low</span>
-              {['#ef4444', '#F97316', '#d29922', '#84cc16', '#22c55e'].map((c) => (
-                <span key={c} className="w-2.5 h-2.5 rounded-sm" style={{ background: c }} />
-              ))}
-              <span>High</span>
-            </div>
-          </div>
-          <div className="flex gap-[3px]">
-            {days.map((day, i) => (
-              <div
-                key={day.date}
-                className={`flex-1 h-7 rounded-sm transition-colors min-w-0 ${i === days.length - 1 ? 'ring-1 ring-[#F97316]/70' : ''}`}
-                style={{ background: scoreColor(day.score) }}
-                title={heatmapTitle(day)}
-              />
-            ))}
-            {days.length === 0 && (
-              <div className="flex-1 h-7 rounded-sm bg-[#21262d] animate-pulse" />
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );
