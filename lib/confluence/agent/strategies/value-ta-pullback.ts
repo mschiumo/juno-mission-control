@@ -171,7 +171,9 @@ export function valueTaPrefilter(f: Fundamentals): boolean {
 /**
  * Evaluate one symbol. Returns a sized, stop/target-annotated long candidate
  * when both gates pass and at least one share fits the risk budget; else null.
- * Long-only by design — "steady returns" does not short.
+ * A gate-passing name whose sizing rounds to zero shares is reported via
+ * ctx.onSizedOut before returning null. Long-only by design — "steady
+ * returns" does not short.
  */
 export function evaluateValueTaPullback(
   f: Fundamentals,
@@ -213,7 +215,18 @@ export function evaluateValueTaPullback(
   const qtyByRisk = Math.floor(riskUsd / riskPerShare);
   const qtyByBudget = Math.floor(ctx.perPositionBudgetUsd / entry);
   const quantity = Math.min(qtyByRisk, qtyByBudget);
-  if (quantity < 1) return null;
+  if (quantity < 1) {
+    // Both gates passed — the budget just can't fit one share's risk. Report
+    // it so the run doesn't look identical to "no setups found".
+    ctx.onSizedOut?.({
+      symbol: f.symbol,
+      entry,
+      riskPerShare: round2(riskPerShare),
+      riskBudgetUsd: round2(riskUsd),
+      perPositionBudgetUsd: ctx.perPositionBudgetUsd,
+    });
+    return null;
+  }
 
   const score = confluenceScore(f, t, value.peUsed);
   const stopPct = (riskPerShare / entry) * 100;
