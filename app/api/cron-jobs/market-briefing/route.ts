@@ -20,6 +20,7 @@ import {
   getCachedGapScanResults,
 } from '@/lib/cron-helpers';
 import { getRedisClient } from '@/lib/redis';
+import { fetchCryptoBrief, type CryptoBriefData } from '@/lib/crypto-brief';
 
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
@@ -63,6 +64,7 @@ const SYMBOL_NAMES: Record<string, string> = {
   META: 'Meta',
   BTC: 'Bitcoin',
   ETH: 'Ethereum',
+  SOL: 'Solana',
 };
 
 // Yahoo continuous front-month futures — overnight read on equity index risk,
@@ -171,7 +173,7 @@ async function fetchPolygonSnapshots(symbols: string[]): Promise<MarketItem[]> {
 async function fetchCoinGeckoPrices(): Promise<MarketItem[]> {
   try {
     const res = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true',
+      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true',
       { headers: { Accept: 'application/json' }, cache: 'no-store' },
     );
     if (!res.ok) {
@@ -183,6 +185,7 @@ async function fetchCoinGeckoPrices(): Promise<MarketItem[]> {
     const coins = [
       { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin' },
       { id: 'ethereum', symbol: 'ETH', name: 'Ethereum' },
+      { id: 'solana', symbol: 'SOL', name: 'Solana' },
     ];
     for (const coin of coins) {
       const d = data[coin.id];
@@ -225,6 +228,7 @@ const MARKET_KEYWORDS = [
   'nvidia', 'semiconductor', 'chips act', 'ai chip',
   // Crypto
   'bitcoin', 'btc', 'ethereum', 'eth', 'crypto', 'blockchain', 'defi', 'etf',
+  'solana', 'stablecoin', 'digital asset', 'clarity act', 'genius act', 'market structure', 'cftc',
 ];
 
 function isMarketRelevant(article: FinnhubNewsItem): boolean {
@@ -343,12 +347,17 @@ export interface BriefingData {
   stocks: MarketItem[];
   crypto: MarketItem[];
   futures: MarketItem[];
+  cryptoBrief?: CryptoBriefData;
   aiSummary: {
     marketOverview: string;
     bigMovers: { symbol: string; move: string; reason: string }[];
     newsHighlights: { headline: string; url: string }[];
     upcomingEvents: string[];
     sentiment: 'bullish' | 'bearish' | 'neutral' | 'mixed';
+    cryptoWatch?: {
+      summary: string;
+      regulatory: string;
+    };
   };
 }
 
@@ -360,6 +369,7 @@ async function generateAIBriefing(
   news: FinnhubNewsItem[],
   calendarEvents: string[],
   earningsEvents: string[],
+  cryptoBrief: CryptoBriefData,
 ): Promise<BriefingData['aiSummary']> {
   if (!ANTHROPIC_API_KEY) {
     return {
@@ -399,6 +409,27 @@ async function generateAIBriefing(
     ),
   ].join('\n');
 
+  const fmtMover = (m: { name: string; symbol: string; changePct24h: number }) =>
+    `${m.name} (${m.symbol}): ${m.changePct24h >= 0 ? '+' : ''}${m.changePct24h.toFixed(1)}% 24h`;
+  const cryptoContext = [
+    '## Crypto Big Movers (top-250 by market cap, 24h)',
+    ...(cryptoBrief.globalLine ? [cryptoBrief.globalLine] : []),
+    ...cryptoBrief.gainers.map(fmtMover),
+    ...cryptoBrief.losers.map(fmtMover),
+    ...(cryptoBrief.trending.length > 0
+      ? ['', '## Trending Crypto Searches (retail attention)', cryptoBrief.trending.join(', ')]
+      : []),
+    ...(cryptoBrief.memecoins.length > 0
+      ? [
+          '',
+          '## Memecoin Movers (Solana DEX, liquid pairs)',
+          ...cryptoBrief.memecoins.map(
+            (m) => `${m.name} (${m.symbol}): ${m.changePct24h >= 0 ? '+' : ''}${m.changePct24h.toFixed(0)}% 24h, $${Math.round(m.volumeH24Usd / 1000)}k volume`,
+          ),
+        ]
+      : []),
+  ].join('\n');
+
   const newsContext = news
     .slice(0, 15)
     .map((n, i) => `${i + 1}. [${n.source}] ${n.headline}\n   URL: ${n.url}\n   ${n.summary.slice(0, 200)}`)
@@ -424,7 +455,7 @@ async function generateAIBriefing(
 
   const message = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
+    max_tokens: 2500,
     messages: [
       {
         role: 'user',
@@ -433,6 +464,8 @@ async function generateAIBriefing(
 Given the market data, news, and scheduled events below, produce a structured morning briefing as JSON.
 
 ${priceContext}
+
+${cryptoContext}
 
 ## Recent News Headlines
 ${newsContext}
@@ -445,13 +478,19 @@ Return ONLY valid JSON with this exact structure:
   "bigMovers": [{"symbol": "TICKER", "move": "+X.X%", "reason": "brief reason"}],
   "newsHighlights": [{"headline": "rewritten headline", "url": "original article URL from source"}],
   "upcomingEvents": ["event that could move markets today or this week"],
-  "sentiment": "bullish" | "bearish" | "neutral" | "mixed"
+  "sentiment": "bullish" | "bearish" | "neutral" | "mixed",
+  "cryptoWatch": {
+    "summary": "1-2 sentences on what is moving in crypto and why (majors + notable movers from the Crypto sections above)",
+    "regulatory": "1-2 sentences on crypto regulation developments from today's headlines, with specific attention to the CLARITY Act"
+  }
 }
 
 Rules:
 - bigMovers: 3-5 stocks/assets with the most notable moves. Include the percentage move and a short reason.
 - newsHighlights: Top 3-5 headlines that DIRECTLY affect financial markets, stock prices, or the economy (e.g. earnings, Fed policy, trade/tariffs, sector moves, M&A, economic data). Exclude general news, politics, sports, entertainment, or human-interest stories unless they have a clear market impact. Rewrite each headline concisely and include the "url" field copied exactly from the corresponding source article above.
 - upcomingEvents: ONLY include events from the Economic Calendar and Upcoming Earnings sections provided above. Do NOT invent or guess at events, speaker schedules, or data releases that are not explicitly listed. If no events are provided, return an empty array.
+- cryptoWatch.summary: ground it in the Crypto Big Movers / Trending / Memecoin data above; tie moves to news headlines when a connection exists. No hype.
+- cryptoWatch.regulatory: context — the CLARITY Act (Digital Asset Market Clarity Act, H.R. 3633) is the US crypto market-structure bill splitting SEC/CFTC jurisdiction; it passed the House in July 2025 and Senate action has been pending since. Related terms in headlines: "market structure bill", "GENIUS Act" (stablecoins, already law), SEC/CFTC digital-asset rulemaking. Report ONLY developments present in today's headlines. If none of today's headlines touch crypto regulation, use exactly: "No new developments today."
 - Be specific with numbers. No generic filler.
 - Return ONLY valid JSON, no markdown, no preamble.`,
       },
@@ -517,7 +556,7 @@ export async function GET(request: Request) {
     }
 
     // Fetch all data in parallel
-    const [indices, stocks, crypto, futures, news, calendarEvents, earningsEvents] = await Promise.all([
+    const [indices, stocks, crypto, futures, news, calendarEvents, earningsEvents, cryptoBrief] = await Promise.all([
       fetchPolygonSnapshots(['SPY', 'QQQ', 'DIA', 'VIX']),
       fetchPolygonSnapshots(['AAPL', 'NVDA', 'MSFT', 'TSLA', 'META', 'AMZN', 'GOOGL']),
       fetchCoinGeckoPrices(),
@@ -525,10 +564,11 @@ export async function GET(request: Request) {
       fetchMarketNews(),
       fetchEconomicCalendar(),
       fetchUpcomingEarnings(),
+      fetchCryptoBrief(),
     ]);
 
     // Generate AI summary
-    const aiSummary = await generateAIBriefing(indices, stocks, crypto, futures, news, calendarEvents, earningsEvents);
+    const aiSummary = await generateAIBriefing(indices, stocks, crypto, futures, news, calendarEvents, earningsEvents, cryptoBrief);
 
     const today = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' });
     const briefing: BriefingData = {
@@ -538,6 +578,7 @@ export async function GET(request: Request) {
       stocks,
       crypto,
       futures,
+      cryptoBrief,
       aiSummary,
     };
 
@@ -587,6 +628,7 @@ export async function GET(request: Request) {
             stocks: briefing.stocks,
             crypto: briefing.crypto,
             futures: briefing.futures,
+            cryptoBrief: briefing.cryptoBrief,
             aiSummary: briefing.aiSummary,
             gapData,
           });
