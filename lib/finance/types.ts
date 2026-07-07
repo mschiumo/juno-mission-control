@@ -1,8 +1,11 @@
 /**
  * Finance tracker types — owner-only Dashboard feature.
  *
- * Accounts are entered manually for now. The `source`/`externalId` fields are
- * the integration seam for live data from a bank aggregator.
+ * Data sources today: manual entry, Google Sheet sync (lib/finance/sheet-sync.ts
+ * — edit numbers in a link-shared sheet, sync into the dashboard), and
+ * statement CSV import (lib/finance/apple-card-csv.ts — Apple Card has no
+ * aggregator support; FinanceKit is iOS-native only). The `source`/`externalId`
+ * fields are the integration seam for live aggregator data.
  *
  * NEXT STEPS — connecting live account data (in rough priority order):
  *
@@ -33,9 +36,14 @@
  *    zero billing exposure in the app. Good fallback for institutions Teller
  *    misses.
  *
- * 4. Expense tracking — once transactions sync, add
- *    `finance:{userId}:transactions:{month}` storage + a category budget UI,
- *    and feed actual spending into the payoff planner's monthlyBudget.
+ * 4. Sheet sync upgrades — nightly cron refresh (run-cron pattern) and
+ *    private-sheet access via the lib/google-calendar.ts service-account JWT
+ *    flow (share the sheet with GOOGLE_SERVICE_ACCOUNT_EMAIL, scope
+ *    spreadsheets.readonly) so the link needn't be viewable by anyone.
+ *
+ * 5. Expense tracking depth — category budgets and month-over-month trends
+ *    on top of imported/synced transactions, and feed actual spending into
+ *    the payoff planner's monthlyBudget.
  */
 
 export type DebtType =
@@ -46,7 +54,7 @@ export type DebtType =
   | 'mortgage'
   | 'other';
 
-export type AccountSource = 'manual' | 'teller' | 'plaid' | 'simplefin';
+export type AccountSource = 'manual' | 'gsheet' | 'teller' | 'plaid' | 'simplefin';
 
 export interface DebtAccount {
   id: string;
@@ -60,6 +68,38 @@ export interface DebtAccount {
   externalId?: string; // aggregator account id once connected
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * A single imported card/loan transaction (currently from Apple Card
+ * statement CSV exports; later from aggregator sync).
+ * Sign convention: positive = charge/purchase, negative = payment/credit.
+ */
+export interface FinanceTransaction {
+  id: string; // dedupe key derived from date+description+amount
+  accountId: string;
+  date: string; // YYYY-MM-DD
+  description: string;
+  category: string;
+  amount: number;
+  type: string; // raw Type column from the statement (Purchase/Payment/…)
+  importedAt: string;
+}
+
+/** Per-month spending rollup for the UI. */
+export interface MonthlySpendSummary {
+  month: string; // YYYY-MM
+  charges: number; // sum of positive amounts
+  payments: number; // abs sum of negative amounts
+  byCategory: Record<string, number>; // charges only
+  count: number;
+}
+
+/** Saved Google Sheet link for account sync. */
+export interface SheetLink {
+  url: string; // as pasted by the user
+  lastSyncedAt: string | null;
+  lastResult: string | null; // human-readable outcome of the last sync
 }
 
 export type PayoffStrategy = 'avalanche' | 'snowball' | 'minimum-only';

@@ -7,6 +7,11 @@
  * (avalanche / snowball / minimum-only) with an exact month-by-month payment
  * schedule (amount + due date per account).
  *
+ * Data sources today: manual entry, Google Sheet sync (link-shared sheet →
+ * balances/APR/minimums update from the sheet), and statement CSV import per
+ * account (Apple Card exports — Apple Card has no aggregator support, so
+ * CSV/manual is the path for it).
+ *
  * NEXT STEPS (UI side) — full integration plan in lib/finance/types.ts:
  * - Replace the disabled "Connect bank" button with Teller Connect
  *   (https://teller.io/docs/guides/connect): load the Teller Connect JS,
@@ -14,11 +19,13 @@
  *   enrollment accessToken back, then re-fetch accounts (source:'teller').
  * - Once Plaid Liabilities is wired, auto-fill APR / min payment / due day
  *   for connected cards and show a "synced" badge instead of edit fields.
- * - Expense tracking: monthly spend by category from synced transactions,
- *   which also informs how much budget is realistically available here.
+ * - Sheet sync: nightly cron refresh (run-cron pattern) + private-sheet
+ *   support via the lib/google-calendar.ts service-account flow.
+ * - Spending: category budgets + month-over-month trend once a few
+ *   statements are imported.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Wallet,
   Plus,
@@ -30,6 +37,11 @@ import {
   ChevronDown,
   ChevronUp,
   Landmark,
+  FileSpreadsheet,
+  Upload,
+  RefreshCw,
+  Unlink,
+  Receipt,
 } from 'lucide-react';
 import {
   DebtAccount,
@@ -38,6 +50,8 @@ import {
   PayoffPlan,
   PayoffComparison,
   FinanceSettings,
+  SheetLink,
+  MonthlySpendSummary,
 } from '@/lib/finance/types';
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -101,14 +115,36 @@ export default function FinanceCard() {
   const [budgetInput, setBudgetInput] = useState('');
   const [monthsShown, setMonthsShown] = useState(6);
 
+  // Google Sheet link
+  const [sheetLink, setSheetLink] = useState<SheetLink | null>(null);
+  const [sheetPanelOpen, setSheetPanelOpen] = useState(false);
+  const [sheetUrlInput, setSheetUrlInput] = useState('');
+  const [sheetSyncing, setSheetSyncing] = useState(false);
+  const [sheetError, setSheetError] = useState<string | null>(null);
+
+  // Statement CSV import
+  const [importTarget, setImportTarget] = useState<DebtAccount | null>(null);
+  const [importCsvText, setImportCsvText] = useState<string | null>(null);
+  const [importFileName, setImportFileName] = useState('');
+  const [importNewBalance, setImportNewBalance] = useState('');
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Spending rollups from imported transactions
+  const [spendSummaries, setSpendSummaries] = useState<MonthlySpendSummary[]>([]);
+
   const fetchAll = useCallback(async () => {
     try {
-      const [accountsRes, planRes] = await Promise.all([
+      const [accountsRes, planRes, sheetRes, spendRes] = await Promise.all([
         fetch('/api/finance/accounts'),
         fetch('/api/finance/payoff-plan'),
+        fetch('/api/finance/sheet-sync'),
+        fetch('/api/finance/transactions?months=6'),
       ]);
       const accountsJson = await accountsRes.json();
       const planJson = await planRes.json();
+      const sheetJson = await sheetRes.json();
+      const spendJson = await spendRes.json();
       if (accountsJson.success) setAccounts(accountsJson.accounts);
       if (planJson.success) {
         setSettings(planJson.settings);
@@ -116,6 +152,11 @@ export default function FinanceCard() {
         setTotalMinPayment(planJson.totalMinPayment ?? 0);
         setBudgetInput((prev) => prev || (planJson.settings.monthlyBudget || '').toString());
       }
+      if (sheetJson.success) {
+        setSheetLink(sheetJson.sheetLink);
+        setSheetUrlInput((prev) => prev || sheetJson.sheetLink?.url || '');
+      }
+      if (spendJson.success) setSpendSummaries(spendJson.summaries);
     } catch (e) {
       console.error('Finance fetch error:', e);
     } finally {
@@ -126,6 +167,86 @@ export default function FinanceCard() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  const syncSheet = async (sheetUrl?: string) => {
+    setSheetSyncing(true);
+    setSheetError(null);
+    try {
+      const res = await fetch('/api/finance/sheet-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sheetUrl ? { sheetUrl } : {}),
+      });
+      const json = await res.json();
+      if (json.sheetLink) setSheetLink(json.sheetLink);
+      if (!json.success) {
+        setSheetError(json.error || 'Sync failed');
+      } else {
+        await fetchAll();
+      }
+    } catch (e) {
+      console.error('Sheet sync error:', e);
+      setSheetError('Sync failed');
+    } finally {
+      setSheetSyncing(false);
+    }
+  };
+
+  const unlinkSheet = async () => {
+    if (!confirm('Unlink the Google Sheet? Accounts keep their current numbers and become manually editable.')) return;
+    try {
+      await fetch('/api/finance/sheet-sync', { method: 'DELETE' });
+      setSheetLink(null);
+      setSheetUrlInput('');
+      setSheetPanelOpen(false);
+      await fetchAll();
+    } catch (e) {
+      console.error('Sheet unlink error:', e);
+    }
+  };
+
+  const onCsvFileChosen = (file: File) => {
+    setImportFileName(file.name);
+    setImportResult(null);
+    const reader = new FileReader();
+    reader.onload = () => setImportCsvText(typeof reader.result === 'string' ? reader.result : null);
+    reader.readAsText(file);
+  };
+
+  const submitCsvImport = async () => {
+    if (!importTarget || !importCsvText) return;
+    setSaving(true);
+    setImportResult(null);
+    try {
+      const res = await fetch('/api/finance/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: importTarget.id,
+          csv: importCsvText,
+          newBalance: importNewBalance.trim() === '' ? undefined : parseFloat(importNewBalance),
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setImportResult(`Error: ${json.error}`);
+        return;
+      }
+      setImportResult(
+        `Imported ${json.imported} transactions (${json.duplicatesSkipped} duplicates skipped)` +
+          (json.balanceUpdated ? ' — balance updated' : ''),
+      );
+      setImportCsvText(null);
+      setImportFileName('');
+      setImportNewBalance('');
+      await fetchAll();
+    } catch (e) {
+      console.error('CSV import error:', e);
+      setImportResult('Error: import failed');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const savePlanSettings = async (monthlyBudget: number, strategy: PayoffStrategy) => {
     setSaving(true);
@@ -259,11 +380,23 @@ export default function FinanceCard() {
               <button
                 disabled
                 title="Coming soon — Teller/Plaid bank connection"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium opacity-40 cursor-not-allowed"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium opacity-40 cursor-not-allowed"
                 style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
               >
                 <Landmark className="w-3.5 h-3.5" />
                 Connect bank
+              </button>
+              <button
+                onClick={() => setSheetPanelOpen(!sheetPanelOpen)}
+                title="Sync balances from a Google Sheet"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{
+                  border: `1px solid ${sheetLink ? 'var(--positive)' : 'var(--border-default)'}`,
+                  color: sheetLink ? 'var(--positive)' : 'var(--text-secondary)',
+                }}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                {sheetLink ? 'Sheet linked' : 'Link Google Sheet'}
               </button>
               <button
                 onClick={() => {
@@ -279,6 +412,52 @@ export default function FinanceCard() {
               </button>
             </div>
           </div>
+
+          {/* Google Sheet link panel */}
+          {sheetPanelOpen && (
+            <div className="mt-4 p-4 rounded-lg" style={{ background: 'var(--bg-base)', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                Keep balances in a Google Sheet and sync them here. Columns: <span className="font-semibold">Name, Type, Balance, APR, Min Payment, Due Day</span> (header row required).
+                Share the sheet as <span className="font-semibold">“Anyone with the link — Viewer”</span>, then paste its URL.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <input
+                  value={sheetUrlInput}
+                  onChange={(e) => setSheetUrlInput(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/d/…"
+                  className="flex-1 min-w-[260px] px-2.5 py-1.5 rounded-md text-sm outline-none"
+                  style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+                />
+                <button
+                  onClick={() => syncSheet(sheetUrlInput)}
+                  disabled={sheetSyncing || !sheetUrlInput.trim()}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #FF6B00, #cc4e00)' }}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${sheetSyncing ? 'animate-spin' : ''}`} />
+                  {sheetLink ? 'Sync now' : 'Link & sync'}
+                </button>
+                {sheetLink && (
+                  <button
+                    onClick={unlinkSheet}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    style={{ border: '1px solid var(--border-default)', color: 'var(--text-tertiary)' }}
+                  >
+                    <Unlink className="w-3.5 h-3.5" />
+                    Unlink
+                  </button>
+                )}
+              </div>
+              {sheetError && (
+                <p className="mt-2 text-xs" style={{ color: 'var(--negative)' }}>{sheetError}</p>
+              )}
+              {sheetLink?.lastSyncedAt && !sheetError && (
+                <p className="mt-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Last synced {fmtDate(sheetLink.lastSyncedAt.slice(0, 10))} — {sheetLink.lastResult}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Add / edit form */}
           {showForm && (
@@ -396,7 +575,14 @@ export default function FinanceCard() {
                 <tbody>
                   {accounts.map((a) => (
                     <tr key={a.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <td className="py-2.5 pr-4 font-medium" style={{ color: 'var(--text-primary)' }}>{a.name}</td>
+                      <td className="py-2.5 pr-4 font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {a.name}
+                        {a.source === 'gsheet' && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold align-middle" style={{ background: 'rgba(0,200,150,0.12)', color: 'var(--positive)' }}>
+                            sheet
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2.5 pr-4" style={{ color: 'var(--text-secondary)' }}>{TYPE_LABELS[a.type]}</td>
                       <td className="py-2.5 pr-4 text-right num" style={{ color: a.balance > 0 ? 'var(--negative)' : 'var(--positive)' }}>
                         {usd.format(a.balance)}
@@ -405,6 +591,20 @@ export default function FinanceCard() {
                       <td className="py-2.5 pr-4 text-right num" style={{ color: 'var(--text-secondary)' }}>{usd.format(a.minPayment)}</td>
                       <td className="py-2.5 pr-4 text-right num" style={{ color: 'var(--text-secondary)' }}>{a.dueDay}</td>
                       <td className="py-2.5 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => {
+                            setImportTarget(importTarget?.id === a.id ? null : a);
+                            setImportCsvText(null);
+                            setImportFileName('');
+                            setImportNewBalance('');
+                            setImportResult(null);
+                          }}
+                          className="p-1.5 rounded-md transition-colors"
+                          style={{ color: importTarget?.id === a.id ? 'var(--accent-light)' : 'var(--text-tertiary)' }}
+                          title="Import statement CSV (Apple Card export)"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                        </button>
                         <button onClick={() => startEdit(a)} className="p-1.5 rounded-md transition-colors" style={{ color: 'var(--text-tertiary)' }} title="Edit">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -416,6 +616,66 @@ export default function FinanceCard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Statement CSV import panel */}
+          {importTarget && (
+            <div className="mt-4 p-4 rounded-lg" style={{ background: 'var(--bg-base)', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Import statement CSV → {importTarget.name}
+              </p>
+              <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                Apple Card: Wallet → Apple Card → statement → Export Transactions (CSV). Re-importing overlapping months is safe — duplicates are skipped.
+              </p>
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && onCsvFileChosen(e.target.files[0])}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  {importFileName || 'Choose CSV file'}
+                </button>
+                <label className="flex flex-col gap-1 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                  New balance from statement ($, optional)
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={importNewBalance}
+                    onChange={(e) => setImportNewBalance(e.target.value)}
+                    placeholder={importTarget.balance.toFixed(2)}
+                    className="w-44 px-2.5 py-1.5 rounded-md text-sm outline-none num"
+                    style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+                  />
+                </label>
+                <button
+                  onClick={submitCsvImport}
+                  disabled={saving || !importCsvText}
+                  className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #FF6B00, #cc4e00)' }}
+                >
+                  Import
+                </button>
+                <button
+                  onClick={() => setImportTarget(null)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Close
+                </button>
+              </div>
+              {importResult && (
+                <p className="mt-2 text-xs" style={{ color: importResult.startsWith('Error') ? 'var(--negative)' : 'var(--positive)' }}>
+                  {importResult}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -584,6 +844,44 @@ export default function FinanceCard() {
           )}
         </div>
       </div>
+
+      {/* ── Spending (from imported statements) ───────────────────────── */}
+      {spendSummaries.length > 0 && (
+        <div className="rounded-lg border" style={{ background: 'var(--surface-1)', borderColor: 'var(--border-default)' }}>
+          <div className="p-4 md:p-6">
+            <div className="flex items-center gap-2">
+              <Receipt className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+              <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Spending</h2>
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>from imported statements</span>
+            </div>
+            <div className="mt-4 space-y-2">
+              {spendSummaries.map((s) => {
+                const topCategories = Object.entries(s.byCategory)
+                  .sort((a, b) => b[1] - a[1])
+                  .slice(0, 4);
+                return (
+                  <div key={s.month} className="p-3 rounded-lg flex flex-wrap items-center gap-x-4 gap-y-2" style={{ background: 'var(--bg-base)', border: '1px solid var(--border-subtle)' }}>
+                    <span className="text-xs font-semibold w-28" style={{ color: 'var(--text-primary)' }}>{fmtMonth(s.month)}</span>
+                    <span className="text-xs num" style={{ color: 'var(--negative)' }}>
+                      {usd.format(s.charges)} spent
+                    </span>
+                    <span className="text-xs num" style={{ color: 'var(--positive)' }}>
+                      {usd.format(s.payments)} paid
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 ml-auto">
+                      {topCategories.map(([cat, amt]) => (
+                        <span key={cat} className="px-2 py-0.5 rounded-full text-[10px] num" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                          {cat} {usd0.format(amt)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
