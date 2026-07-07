@@ -23,7 +23,7 @@ import { getTechnicalsProvider } from '@/lib/confluence/technicals';
 import type { Candidate, StrategyContext } from './strategy';
 import { getStrategy, type StrategyDefinition } from './strategies';
 import { analyzeWithClaude } from './claude-analyst';
-import { getAgentUniverse } from './universe';
+import { resolveUniverse, type ResolvedUniverse } from '@/lib/confluence/universe';
 import type { AgentRun, Proposal } from '@/types/confluence';
 
 export interface RunOptions {
@@ -43,6 +43,7 @@ function agentMode(): 'deterministic' | 'claude' {
 async function deterministicCandidates(
   strat: StrategyDefinition,
   ctx: StrategyContext,
+  resolved: ResolvedUniverse,
 ): Promise<{
   candidates: Candidate[];
   providerName: string;
@@ -52,7 +53,7 @@ async function deterministicCandidates(
 }> {
   const provider = getFundamentalsProvider();
   const technicalsProvider = strat.needsTechnicals ? getTechnicalsProvider() : null;
-  const universe = await provider.getUniverse();
+  const universe = resolved.symbols;
   const candidates: Candidate[] = [];
   const skippedSymbols: string[] = [];
   // Evaluate the whole universe, then rank — the best-scored setups win the
@@ -117,19 +118,28 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
     let metaSource: Record<string, unknown>;
     let universeSize: number;
 
+    // Which symbols this run screens — env list or the Massive-built universe.
+    // Recorded in metadata (incl. any fallback) so a run is always auditable.
+    const resolved = await resolveUniverse();
+    const universeMeta = {
+      universeSource: resolved.source,
+      ...(resolved.builtAt ? { universeBuiltAt: resolved.builtAt } : {}),
+      ...(resolved.fallbackReason ? { universeFallbackReason: resolved.fallbackReason } : {}),
+    };
+
     const strat = getStrategy();
     if (mode === 'claude') {
       candidates = await analyzeWithClaude({ perPositionBudgetUsd });
-      const uni = getAgentUniverse();
-      universeSize = uni.length;
+      universeSize = resolved.symbols.length;
       metaSource = {
         mode: 'claude',
         model: process.env.CONFLUENCE_AGENT_MODEL || 'claude-opus-4-8',
         strategy: strat.id,
+        ...universeMeta,
       };
     } else {
       const ctx: StrategyContext = { perPositionBudgetUsd, maxRiskPerTradeUsd };
-      const det = await deterministicCandidates(strat, ctx);
+      const det = await deterministicCandidates(strat, ctx, resolved);
       candidates = det.candidates;
       universeSize = det.universeSize;
       metaSource = {
@@ -137,6 +147,7 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
         provider: det.providerName,
         technicalsProvider: det.technicalsProviderName,
         strategy: strat.id,
+        ...universeMeta,
         ...(det.skippedSymbols.length ? { skippedSymbols: det.skippedSymbols } : {}),
       };
     }

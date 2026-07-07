@@ -144,7 +144,15 @@ Run it on a swing cadence (nightly, weekdays — not intraday). Either:
 - `POST /api/confluence/agent/proposals` → ingest proposals; opens an
   `agent_run` and writes them as `pending`. Auth: `Bearer AGENT_SECRET`.
 
-Configure the universe with `CONFLUENCE_UNIVERSE` (comma-separated tickers).
+Configure the universe with `CONFLUENCE_UNIVERSE` (comma-separated tickers) —
+or set `CONFLUENCE_UNIVERSE_SOURCE=massive` to build it dynamically from the
+whole US market: a Massive full-market snapshot filtered to liquid ($20M+
+dollar volume) large caps ($10B+), capped at `CONFLUENCE_UNIVERSE_MAX`
+(default 250), cached in Redis and rebuilt Sundays by the
+`confluence-universe-refresh` cron (rebuild on demand:
+`POST /api/confluence/universe`; inspect: `GET /api/confluence/universe`).
+Requires `MASSIVE_API_KEY`. If Massive is unreachable the run falls back to
+the env list and records `universeSource: env-fallback` in its metadata.
 
 ---
 
