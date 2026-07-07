@@ -25,7 +25,8 @@ export default auth((req) => {
 
   // Agent API: token-authenticated (AGENT_SECRET) so headless Claude agents can
   // pull/report on handed-off Collaborative goals without a user session.
-  if (nextUrl.pathname.startsWith('/api/goals/agent')) {
+  // /api/mcp/* is the MCP server surface (crypto trading tools) — same secret.
+  if (nextUrl.pathname.startsWith('/api/goals/agent') || nextUrl.pathname.startsWith('/api/mcp/')) {
     const agentSecret = process.env.AGENT_SECRET;
     if (!agentSecret) {
       return NextResponse.json({ error: 'Agent API not configured' }, { status: 503 });

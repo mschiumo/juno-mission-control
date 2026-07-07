@@ -27,11 +27,11 @@ import { acquireLock, newId, releaseLock } from '@/lib/db/crypto/store';
 const PROPOSAL_TTL_MINUTES = 60;
 
 /** Practitioner-standard memecoin ladder: recover principal at 2x, ride the rest. */
-const DEFAULT_LADDER: TakeProfitRung[] = [
+export const DEFAULT_LADDER: TakeProfitRung[] = [
   { multiple: 2, sellPct: 50 },
   { multiple: 5, sellPct: 25 },
 ];
-const DEFAULT_TRAILING_STOP_PCT = 50;
+export const DEFAULT_TRAILING_STOP_PCT = 50;
 
 export async function runCryptoAgent(
   userId: string,

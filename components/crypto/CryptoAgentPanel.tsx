@@ -9,7 +9,9 @@ import {
   CircleDollarSign,
   OctagonX,
   Play,
+  Plug,
   Power,
+  Wallet,
   X,
 } from 'lucide-react';
 import type {
@@ -22,6 +24,15 @@ import type {
 } from '@/types/crypto-trader';
 import { fmtPrice, fmtUsd, pctColor } from './format';
 
+interface WalletStatus {
+  configured: boolean;
+  liveAllowed: boolean;
+  address?: string;
+  solBalance?: number;
+  usdcBalance?: number;
+  error?: string;
+}
+
 type PositionRow = CryptoPosition & { markPriceUsd: number | null; unrealizedPnlUsd: number | null };
 
 /**
@@ -31,6 +42,7 @@ type PositionRow = CryptoPosition & { markPriceUsd: number | null; unrealizedPnl
 export default function CryptoAgentPanel() {
   const [state, setState] = useState<CryptoSystemState | null>(null);
   const [liveAllowed, setLiveAllowed] = useState(false);
+  const [wallet, setWallet] = useState<WalletStatus | null>(null);
   const [risk, setRisk] = useState<RiskState | null>(null);
   const [proposals, setProposals] = useState<CryptoProposal[]>([]);
   const [positions, setPositions] = useState<PositionRow[]>([]);
@@ -43,17 +55,19 @@ export default function CryptoAgentPanel() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [sysRes, propRes, posRes, ordRes, auditRes] = await Promise.all([
+      const [sysRes, propRes, posRes, ordRes, auditRes, walletRes] = await Promise.all([
         fetch('/api/crypto/system').then((r) => r.json()),
         fetch('/api/crypto/proposals').then((r) => r.json()),
         fetch('/api/crypto/positions').then((r) => r.json()),
         fetch('/api/crypto/orders').then((r) => r.json()),
         fetch('/api/crypto/audit').then((r) => r.json()),
+        fetch('/api/crypto/wallet').then((r) => r.json()),
       ]);
       if (sysRes.success) {
         setState(sysRes.state);
         setLiveAllowed(sysRes.liveAllowed);
       }
+      if (walletRes.success) setWallet(walletRes.wallet);
       if (propRes.success) setProposals(propRes.proposals);
       if (posRes.success) setPositions(posRes.positions);
       if (ordRes.success) setOrders(ordRes.orders);
@@ -223,6 +237,20 @@ export default function CryptoAgentPanel() {
               AUTO-TRADE {state.autoTrade ? 'ON' : 'OFF'}
             </button>
 
+            {/* MCP trading — lets external Claude agents execute through guardrails */}
+            <button
+              onClick={() => updateSystem({ mcpTradingEnabled: !state.mcpTradingEnabled })}
+              title="Allow connected MCP agents to execute/close (still fully guardrailed). Off = they can only propose."
+              className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                state.mcpTradingEnabled
+                  ? 'bg-[#a371f7]/15 text-[#a371f7] border border-[#a371f7]/40'
+                  : 'bg-[#0d1117] text-[#8b949e] border border-[#30363d]'
+              }`}
+            >
+              <Plug className="w-3.5 h-3.5" />
+              MCP {state.mcpTradingEnabled ? 'ON' : 'OFF'}
+            </button>
+
             <button
               onClick={runAgent}
               disabled={running}
@@ -264,6 +292,33 @@ export default function CryptoAgentPanel() {
           <div className="bg-[#0d1117] rounded-lg p-3">
             <div className="text-[10px] text-[#8b949e] uppercase tracking-wide">Consecutive Losses</div>
             <div className="text-sm font-mono font-semibold text-white">{risk?.consecutiveLosses ?? 0}</div>
+          </div>
+        </div>
+
+        {/* Wallet + MCP connectivity */}
+        <div className="mt-3 flex items-center gap-4 flex-wrap text-xs">
+          <div className="flex items-center gap-2">
+            <Wallet className="w-3.5 h-3.5 text-[#8b949e]" />
+            {wallet?.configured ? (
+              <span className="text-[#c9d1d9]">
+                <span className="font-mono">{wallet.address ? `${wallet.address.slice(0, 4)}…${wallet.address.slice(-4)}` : 'wallet'}</span>
+                {' · '}
+                <span className="font-mono">{wallet.solBalance !== undefined ? `${wallet.solBalance.toFixed(3)} SOL` : '— SOL'}</span>
+                {' · '}
+                <span className="font-mono">{wallet.usdcBalance !== undefined ? `$${wallet.usdcBalance.toFixed(2)} USDC` : '— USDC'}</span>
+              </span>
+            ) : (
+              <span className="text-[#8b949e]">No trading wallet configured (paper only)</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Plug className="w-3.5 h-3.5 text-[#8b949e]" />
+            <span className="text-[#8b949e]">
+              MCP:{' '}
+              <span style={{ color: state.mcpTradingEnabled ? '#a371f7' : '#8b949e' }}>
+                {state.mcpTradingEnabled ? 'agents can execute' : 'observe & propose only'}
+              </span>
+            </span>
           </div>
         </div>
 

@@ -14,7 +14,7 @@ export async function GET() {
   return NextResponse.json({ success: true, state, liveAllowed: isLiveAllowed() });
 }
 
-const EDITABLE_BOOLEANS = ['tradingEnabled', 'paperMode', 'autoTrade'] as const;
+const EDITABLE_BOOLEANS = ['tradingEnabled', 'paperMode', 'autoTrade', 'mcpTradingEnabled'] as const;
 const EDITABLE_NUMBERS = [
   'paperBankrollUsd',
   'perPositionCapUsd',
@@ -86,6 +86,17 @@ export async function PUT(request: NextRequest) {
       eventType: 'auto_trade.changed',
       entityType: 'system',
       note: updates.autoTrade ? 'Auto-trade enabled' : 'Auto-trade disabled (proposals need approval)',
+    });
+  }
+  if (updates.mcpTradingEnabled !== undefined && updates.mcpTradingEnabled !== before.mcpTradingEnabled) {
+    await appendAudit(userId, {
+      actor: 'user',
+      actorId: email,
+      eventType: 'system.updated',
+      entityType: 'system',
+      note: updates.mcpTradingEnabled
+        ? 'MCP trading enabled (external agents may execute through guardrails)'
+        : 'MCP trading disabled (external agents are observe/propose only)',
     });
   }
 

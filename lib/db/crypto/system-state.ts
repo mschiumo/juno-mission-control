@@ -12,6 +12,7 @@ export const DEFAULT_SYSTEM_STATE: CryptoSystemState = {
   tradingEnabled: false,
   paperMode: true,
   autoTrade: false,
+  mcpTradingEnabled: false,
   paperBankrollUsd: 1000,
   perPositionCapUsd: 100,
   totalExposureCapUsd: 500,

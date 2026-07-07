@@ -90,6 +90,12 @@ export interface CryptoSystemState {
    * approval. When false, proposals wait as `pending` for owner review.
    */
   autoTrade: boolean;
+  /**
+   * When true, external MCP agents may execute/close through /api/mcp/crypto
+   * (still subject to every guardrail). When false, MCP agents can only
+   * observe and create pending proposals for owner review.
+   */
+  mcpTradingEnabled: boolean;
   /** Simulated bankroll for paper mode, in USD. */
   paperBankrollUsd: number;
   perPositionCapUsd: number;

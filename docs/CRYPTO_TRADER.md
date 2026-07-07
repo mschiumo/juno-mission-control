@@ -91,6 +91,32 @@ goes through the Jupiter Ultra API (which broadcasts the transaction itself).
 6. Start with tiny caps ($25 per position / $100 exposure) and scale only after
    fills, slippage, and exits behave.
 
+## MCP server (agentic trading over Model Context Protocol)
+
+`POST /api/mcp/crypto` is a Streamable-HTTP MCP server that lets external Claude
+agents (Claude Code, claude.ai connectors, the Anthropic API MCP connector,
+scheduled cloud agents) observe and trade through the SAME guardrails as the UI.
+
+Authority model, defense in depth:
+- **Transport**: bearer `AGENT_SECRET` (enforced in `middleware.ts` for `/api/mcp/*`).
+- **Observe + propose** tools always work.
+- **execute_proposal / close_position** additionally require the owner to turn on
+  the **MCP** toggle in the agent console (`mcpTradingEnabled`, default OFF).
+- Execution then re-runs every code guardrail (kill switch, live-arming, caps,
+  circuit breaker, cooldown, safety/liquidity floors). An MCP agent can never
+  raise a cap or bypass the kill switch. Paper fills unless the server is armed
+  for live. Every mutating call is audited (`actor: agent`, `actorId: mcp`).
+
+Tools: `get_system_state`, `get_wallet_status`, `get_screener`,
+`get_token_safety`, `get_positions`, `get_orders`, `get_audit_log`,
+`create_trade_proposal`, `execute_proposal`, `close_position`.
+
+Connect from Claude Code:
+```bash
+claude mcp add --transport http crypto-trader \
+  https://<host>/api/mcp/crypto --header "Authorization: Bearer $AGENT_SECRET"
+```
+
 ## Endpoints
 
 - `GET /api/crypto/screener` — screener snapshot (any logged-in user; 2-min cache, `?refresh=1`)
