@@ -287,7 +287,10 @@ export interface CSVImportResult {
   trades: Trade[];
   startingBalance?: number;
   dailyBalances?: Array<{ date: string; balance: number }>;
-  dailyFees?: Array<{ date: string; amount: number }>;
+  dailyFees?: Array<{ date: string; amount: number; commissions?: number; borrow?: number }>;
+  // Set when an Account Statement's Cash Balance section had no activity rows,
+  // so fees/balances weren't updated. Surfaced to the user as an import warning.
+  cashBalanceEmpty?: boolean;
 }
 
 export interface CSVImportError {

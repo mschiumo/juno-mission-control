@@ -22,18 +22,50 @@ interface GapStock {
   gapPercent: number;
 }
 
+interface CryptoMover {
+  symbol: string;
+  name: string;
+  priceUsd: number;
+  changePct24h: number;
+  marketCapUsd: number;
+}
+
+interface MemecoinMover {
+  symbol: string;
+  name: string;
+  chain: string;
+  priceUsd: number;
+  changePct24h: number;
+  volumeH24Usd: number;
+  liquidityUsd: number;
+  url: string;
+}
+
+interface CryptoBriefData {
+  gainers: CryptoMover[];
+  losers: CryptoMover[];
+  trending: string[];
+  memecoins: MemecoinMover[];
+  globalLine: string | null;
+}
+
 interface BriefingEmailProps {
   date: string;
   indices: MarketItem[];
   stocks: MarketItem[];
   crypto: MarketItem[];
   futures?: MarketItem[];
+  cryptoBrief?: CryptoBriefData;
   aiSummary: {
     marketOverview: string;
     bigMovers: { symbol: string; move: string; reason: string }[];
     newsHighlights: { headline: string; url: string }[];
     upcomingEvents: string[];
     sentiment: 'bullish' | 'bearish' | 'neutral' | 'mixed';
+    cryptoWatch?: {
+      summary: string;
+      regulatory: string;
+    };
   };
   gapData?: {
     gainers: GapStock[];
@@ -70,7 +102,7 @@ const SENTIMENT_CONFIG: Record<string, { color: string; bg: string; border: stri
   mixed:   { color: P.warning,       bg: P.warningDim,               border: `${P.warning}40`,       icon: '◆', label: 'Mixed' },
 };
 
-const SECTION_ICONS = { snapshot: '📊', gaps: '🔍', movers: '⚡', news: '📰', events: '📅' };
+const SECTION_ICONS = { snapshot: '📊', gaps: '🔍', movers: '⚡', news: '📰', events: '📅', crypto: '₿' };
 
 // Yahoo "=F" continuous front-month → TradingView "1!" continuous contract.
 const FUTURES_TV_MAP: Record<string, string> = {
@@ -87,7 +119,7 @@ const FUTURES_TV_MAP: Record<string, string> = {
 
 function getTickerUrl(symbol: string): string {
   if (FUTURES_TV_MAP[symbol]) return `https://www.tradingview.com/chart/?symbol=${FUTURES_TV_MAP[symbol]}`;
-  if (symbol === 'BTC' || symbol === 'ETH') return `https://www.tradingview.com/chart/?symbol=BINANCE:${symbol}USDT`;
+  if (symbol === 'BTC' || symbol === 'ETH' || symbol === 'SOL') return `https://www.tradingview.com/chart/?symbol=BINANCE:${symbol}USDT`;
   if (symbol === 'VIX') return `https://www.tradingview.com/chart/?symbol=TVC:VIX`;
   return `https://www.tradingview.com/chart/?symbol=${symbol}`;
 }
@@ -174,6 +206,108 @@ function TickerCopyBox({ stocks, label, color, icon }: {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Crypto Watch                                                       */
+/* ------------------------------------------------------------------ */
+
+function formatCryptoPrice(price: number): string {
+  if (price >= 1) return `$${price.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+  if (price >= 0.001) return `$${price.toFixed(4)}`;
+  return `$${price.toPrecision(3)}`;
+}
+
+function CryptoMoverRow({ mover }: { mover: CryptoMover }) {
+  const isUp = mover.changePct24h >= 0;
+  return (
+    <Row style={{ ...tickerRow, backgroundColor: isUp ? 'rgba(0,200,150,0.03)' : 'rgba(255,61,87,0.03)' }}>
+      <Column style={{ width: '5%', verticalAlign: 'middle' as const, paddingLeft: '10px' }}>
+        <Text style={{ color: isUp ? P.positive : P.negative, fontSize: '8px', margin: 0, lineHeight: '16px' }}>
+          {isUp ? '▲' : '▼'}
+        </Text>
+      </Column>
+      <Column style={{ width: '42%', verticalAlign: 'middle' as const }}>
+        <Text style={{ ...tickerName, textDecoration: 'none' }}>{mover.name}</Text>
+        <Text style={tickerSymbol}>{mover.symbol}</Text>
+      </Column>
+      <Column style={{ width: '27%', textAlign: 'right' as const, verticalAlign: 'middle' as const, paddingRight: '12px' }}>
+        <Text style={tickerPrice}>{formatCryptoPrice(mover.priceUsd)}</Text>
+      </Column>
+      <Column style={{ width: '26%', textAlign: 'right' as const, verticalAlign: 'middle' as const, paddingRight: '10px' }}>
+        <Text style={{
+          ...changePill,
+          backgroundColor: isUp ? P.positiveDim : P.negativeDim,
+          color: isUp ? P.positive : P.negative,
+        }}>
+          {isUp ? '+' : ''}{mover.changePct24h.toFixed(1)}%
+        </Text>
+      </Column>
+    </Row>
+  );
+}
+
+function CryptoWatchSection({ cryptoBrief, cryptoWatch }: {
+  cryptoBrief?: CryptoBriefData;
+  cryptoWatch?: { summary: string; regulatory: string };
+}) {
+  const hasMovers = !!cryptoBrief && (cryptoBrief.gainers.length > 0 || cryptoBrief.losers.length > 0);
+  if (!hasMovers && !cryptoWatch) return null;
+
+  return (
+    <Section style={card}>
+      <SectionHeader icon={SECTION_ICONS.crypto} title="Crypto Watch" />
+
+      {cryptoWatch?.summary && <Text style={{ ...overviewText, margin: '12px 0 0' }}>{cryptoWatch.summary}</Text>}
+      {cryptoBrief?.globalLine && <Text style={cryptoGlobalLine}>{cryptoBrief.globalLine}</Text>}
+
+      {hasMovers && (
+        <>
+          <TickerGroupLabel label="Top Gainers (24h)" icon="🟢" />
+          {cryptoBrief!.gainers.map((m) => <CryptoMoverRow key={m.symbol} mover={m} />)}
+          <TickerGroupLabel label="Top Losers (24h)" icon="🔴" />
+          {cryptoBrief!.losers.map((m) => <CryptoMoverRow key={m.symbol} mover={m} />)}
+        </>
+      )}
+
+      {cryptoBrief && cryptoBrief.memecoins.length > 0 && (
+        <>
+          <TickerGroupLabel label="Memecoin Movers (Solana DEX)" icon="🐸" />
+          <Text style={memecoinLine}>
+            {cryptoBrief.memecoins.map((m, i) => (
+              <React.Fragment key={m.symbol}>
+                {i > 0 && '  ·  '}
+                {m.url
+                  ? <Link href={m.url} style={{ color: P.info, textDecoration: 'none' }}>{m.symbol}</Link>
+                  : m.symbol}
+                <span style={{ color: m.changePct24h >= 0 ? P.positive : P.negative }}>
+                  {' '}{m.changePct24h >= 0 ? '+' : ''}{m.changePct24h.toFixed(0)}%
+                </span>
+              </React.Fragment>
+            ))}
+          </Text>
+        </>
+      )}
+
+      {cryptoBrief && cryptoBrief.trending.length > 0 && (
+        <>
+          <TickerGroupLabel label="Trending Searches" icon="🔥" />
+          <Text style={memecoinLine}>{cryptoBrief.trending.join('  ·  ')}</Text>
+        </>
+      )}
+
+      {cryptoWatch?.regulatory && (
+        <>
+          <TickerGroupLabel label="Regulation — CLARITY Act Watch" icon="🏛️" />
+          <Text style={regulatoryText}>{cryptoWatch.regulatory}</Text>
+        </>
+      )}
+    </Section>
+  );
+}
+
+function TickerGroupLabel({ label, icon }: { label: string; icon: string }) {
+  return <Text style={groupLabel}><span style={{ marginRight: '6px' }}>{icon}</span>{label}</Text>;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Section header                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -193,7 +327,7 @@ function SectionHeader({ icon, title }: { icon: string; title: string }) {
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 
-export function MarketBriefingEmail({ date, indices, stocks, crypto, futures, aiSummary, gapData }: BriefingEmailProps) {
+export function MarketBriefingEmail({ date, indices, stocks, crypto, futures, cryptoBrief, aiSummary, gapData }: BriefingEmailProps) {
   const sentiment = SENTIMENT_CONFIG[aiSummary.sentiment] || SENTIMENT_CONFIG.neutral;
   const futuresList = futures ?? [];
   const allItems = [...futuresList, ...indices, ...stocks, ...crypto];
@@ -298,6 +432,9 @@ export function MarketBriefingEmail({ date, indices, stocks, crypto, futures, ai
           })}
         </Section>
       )}
+
+      {/* Crypto Watch — big movers, memecoins, trending, CLARITY Act */}
+      <CryptoWatchSection cryptoBrief={cryptoBrief} cryptoWatch={aiSummary.cryptoWatch} />
 
       {/* News */}
       {aiSummary.newsHighlights.length > 0 && (
@@ -575,4 +712,24 @@ const eventItem: React.CSSProperties = {
   fontSize: '13px',
   lineHeight: '21px',
   margin: 0,
+};
+
+const cryptoGlobalLine: React.CSSProperties = {
+  color: P.textSecondary,
+  fontSize: '11px',
+  margin: '8px 0 0',
+};
+
+const memecoinLine: React.CSSProperties = {
+  color: P.textPrimary,
+  fontSize: '12px',
+  lineHeight: '20px',
+  margin: '4px 0 0',
+};
+
+const regulatoryText: React.CSSProperties = {
+  color: P.textPrimary,
+  fontSize: '12px',
+  lineHeight: '20px',
+  margin: '4px 0 0',
 };

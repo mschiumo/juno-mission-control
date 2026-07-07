@@ -168,6 +168,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
+    // Warn when an Account Statement omitted its Cash Balance activity: trades
+    // still import, but broker fees and daily balances can't be derived, so a
+    // re-import would silently leave those metrics stale.
+    const warning = result.cashBalanceEmpty
+      ? 'This Account Statement has no Cash Balance activity, so broker fees and daily balances were not updated. Re-export from thinkorswim with the Cash Balance section included.'
+      : undefined;
+
     return NextResponse.json({
       success: result.success,
       data: {
@@ -179,7 +186,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         startingBalance: result.startingBalance,
         dailyBalances: result.dailyBalances,
       },
-      count: result.imported
+      count: result.imported,
+      warning,
     });
 
   } catch (error) {
