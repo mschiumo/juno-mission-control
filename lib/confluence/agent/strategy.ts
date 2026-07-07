@@ -31,6 +31,11 @@ export interface Candidate {
   fundamentals: FundamentalMetric[];
   /** Optional 0–100 ranking score; the runner keeps the best-scored candidates. */
   score?: number;
+  /**
+   * Display/provenance override for proposals from a strategy SLEEVE (e.g. the
+   * Value-TA hedge sleeve) — distinct badge, same registry strategy.
+   */
+  displayStrategyId?: string;
 }
 
 /**

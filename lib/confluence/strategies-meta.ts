@@ -31,6 +31,17 @@ export const STRATEGY_META: Record<string, StrategyMeta> = {
     colorDim: 'rgba(99, 102, 241, 0.15)',
     tagline: 'Value picks the name, technicals pick the moment: quality large caps pulled back to a rising 50-day.',
   },
+  // Display-only id for the Value-TA hedge sleeve (not a registry strategy —
+  // it runs INSIDE value-ta-pullback; distinct badge so hedge proposals are
+  // unmistakable in the queue).
+  'value-ta-hedge': {
+    id: 'value-ta-hedge',
+    name: 'Value-TA Hedge Sleeve',
+    short: 'VTA-HEDGE',
+    color: '#f59e0b', // amber — bearish overlay on the flagship
+    colorDim: 'rgba(245, 158, 11, 0.15)',
+    tagline: 'Long 1x inverse index ETFs when the index is in a downtrend bouncing into resistance — bearish exposure without shorting.',
+  },
   placeholder: {
     id: 'placeholder',
     name: 'Placeholder Screen',

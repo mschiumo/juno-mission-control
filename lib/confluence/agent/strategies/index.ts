@@ -15,7 +15,14 @@
 import type { Fundamentals } from '@/lib/confluence/fundamentals';
 import type { Technicals } from '@/lib/confluence/technicals';
 import { defaultStrategy, type Candidate, type StrategyContext } from '../strategy';
-import { evaluateValueTaPullback, valueTaPrefilter, VALUE_TA_CRITERIA_PROMPT } from './value-ta-pullback';
+import {
+  evaluateInverseEtfHedge,
+  evaluateValueTaPullback,
+  HEDGE_MAX_PER_RUN,
+  hedgeSleeveSymbols,
+  valueTaPrefilter,
+  VALUE_TA_CRITERIA_PROMPT,
+} from './value-ta-pullback';
 
 export interface StrategyDefinition {
   /** Stable id — recorded in run metadata and selected via CONFLUENCE_STRATEGY. */
@@ -31,6 +38,16 @@ export interface StrategyDefinition {
   evaluate(f: Fundamentals, t: Technicals | null, ctx: StrategyContext): Candidate | null;
   /** Rules for the Claude/MCP analyst's <criteria> block, when this strategy drives it. */
   criteriaPrompt?: string;
+  /**
+   * Optional TECHNICALS-ONLY side universe evaluated after the main screen
+   * (e.g. the inverse-ETF hedge sleeve). Deterministic runs only; sleeve
+   * candidates rank among the run's proposals but are capped at maxPerRun.
+   */
+  sleeve?: {
+    symbols(): string[];
+    evaluate(symbol: string, t: Technicals | null, ctx: StrategyContext): Candidate | null;
+    maxPerRun: number;
+  };
 }
 
 const STRATEGIES: Record<string, StrategyDefinition> = {
@@ -41,6 +58,11 @@ const STRATEGIES: Record<string, StrategyDefinition> = {
     prefilter: valueTaPrefilter,
     evaluate: evaluateValueTaPullback,
     criteriaPrompt: VALUE_TA_CRITERIA_PROMPT,
+    sleeve: {
+      symbols: hedgeSleeveSymbols,
+      evaluate: evaluateInverseEtfHedge,
+      maxPerRun: HEDGE_MAX_PER_RUN,
+    },
   },
   placeholder: {
     id: 'placeholder',
