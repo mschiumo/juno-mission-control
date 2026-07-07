@@ -1,4 +1,5 @@
 import { getRedisClient } from '@/lib/redis';
+import { hasJournalContentRaw } from '@/lib/journal-content';
 import type { TradingGoal } from '@/types/trading-goals';
 
 function goalsKey(userId: string) {
@@ -67,17 +68,22 @@ export async function deleteGoal(id: string, userId: string): Promise<boolean> {
 }
 
 /**
- * The set of YYYY-MM-DD dates that have a daily journal entry, used by the
- * journal_consistency goal metric. Mirrors how journal-insights enumerates keys.
+ * The set of YYYY-MM-DD dates that have a daily journal entry with actual
+ * text, used by the journal_consistency goal metric. Content-less entries
+ * (e.g. stubs left behind by older statement imports) don't count.
  */
 export async function getJournaledDates(userId: string): Promise<Set<string>> {
   try {
     const redis = await getRedisClient();
     const keys = await redis.keys(`daily-journal:${userId}:*`);
     const prefix = `daily-journal:${userId}:`;
-    const dates = keys
-      .map((k) => k.slice(prefix.length))
-      .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+    const dates: string[] = [];
+    for (const key of keys) {
+      const date = key.slice(prefix.length);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      const promptsJson = await redis.hGet(key, 'prompts');
+      if (hasJournalContentRaw(promptsJson ?? undefined)) dates.push(date);
+    }
     return new Set(dates);
   } catch (error) {
     console.error('Error reading journaled dates from Redis:', error);
