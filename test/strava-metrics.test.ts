@@ -101,6 +101,9 @@ describe('weekDailyDistance', () => {
     expect(buckets[1].meters / MI).toBeCloseTo(3); // 2 + 1
     expect(buckets[6].date).toBe('2026-07-12');
     expect(buckets.slice(2).every((b) => b.meters === 0)).toBe(true);
+    // moving time sums alongside distance (act() default is 600s each)
+    expect(buckets[0].seconds).toBe(600);
+    expect(buckets[1].seconds).toBe(1200);
   });
 });
 

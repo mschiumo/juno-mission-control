@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
 import {
-  type ActivitySummary, RUN_SPORTS,
+  type ActivitySummary, RUN_SPORTS, WALK_SPORTS,
   fmtMiles, fmtDuration, fmtPace, paceSecPerMile, speedMph, metersToMiles,
   distanceTotals, runRecords, weekDailyDistance, monthDailyDistance, activityDate,
 } from '@/lib/strava-metrics';
@@ -98,6 +98,31 @@ const PERIODS = [
   { id: 'month' as const, label: 'Month' },
 ];
 
+const ACTIVITY_TYPES = [
+  { id: 'all' as const, label: 'All' },
+  { id: 'run' as const, label: 'Run' },
+  { id: 'walk' as const, label: 'Walk' },
+];
+
+// Native-tooltip text for a single activity bar in the Day view.
+function activityBarTooltip(a: ActivitySummary): string {
+  const parts = [fmtMiles(a.distance)];
+  const pace = a.distance > 0 ? paceSecPerMile(a) : null;
+  if (pace !== null && !a.sport_type.includes('Ride')) parts.push(`${fmtPace(pace)} avg`);
+  const mph = a.sport_type.includes('Ride') ? speedMph(a) : null;
+  if (mph !== null) parts.push(`${mph.toFixed(1)} mph avg`);
+  parts.push(fmtDuration(a.moving_time));
+  return `${a.name} — ${parts.join(' · ')}`;
+}
+
+// Native-tooltip text for an aggregated day bar in the Week/Month views.
+function dayBarTooltip(d: { date: string; meters: number; seconds: number }): string {
+  if (d.meters <= 0) return `${d.date}: no distance`;
+  const parts = [fmtMiles(d.meters)];
+  if (d.seconds > 0) parts.push(`${fmtPace(d.seconds / metersToMiles(d.meters))} avg`);
+  return `${d.date}: ${parts.join(' · ')}`;
+}
+
 function hourLabel(dateLocal: string): string {
   const h = parseInt(dateLocal.slice(11, 13), 10);
   if (Number.isNaN(h)) return '';
@@ -110,8 +135,9 @@ export default function FitnessCard() {
   const [workout, setWorkout] = useState<WorkoutSchedule | null>(null);
   const [workoutBusy, setWorkoutBusy] = useState(false);
 
-  // Distance panel period toggle
+  // Distance panel period + activity-type toggles
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('week');
+  const [actType, setActType] = useState<'all' | 'run' | 'walk'>('all');
 
   // Strava state
   const [stravaLoading, setStravaLoading] = useState(true);
@@ -241,19 +267,24 @@ export default function FitnessCard() {
     }
   }
 
-  // Distance totals, run records, and per-day mileage for the charts.
+  // Distance totals, records, and per-day mileage — scoped by the Run/Walk toggle.
   const metrics = useMemo(() => {
     if (activities.length === 0) return null;
+    const filtered = actType === 'run'
+      ? activities.filter((a) => RUN_SPORTS.has(a.sport_type))
+      : actType === 'walk'
+        ? activities.filter((a) => WALK_SPORTS.has(a.sport_type))
+        : activities;
     const todayEST = getTodayInEST();
     return {
       today: todayEST,
-      totals: distanceTotals(activities, todayEST),
-      records: runRecords(activities),
-      week: weekDailyDistance(activities, todayEST),
-      month: monthDailyDistance(activities, todayEST),
-      todays: activities.filter((a) => activityDate(a) === todayEST).slice().reverse(), // chronological
+      totals: distanceTotals(filtered, todayEST),
+      records: runRecords(filtered, actType === 'walk' ? WALK_SPORTS : RUN_SPORTS),
+      week: weekDailyDistance(filtered, todayEST),
+      month: monthDailyDistance(filtered, todayEST),
+      todays: filtered.filter((a) => activityDate(a) === todayEST).slice().reverse(), // chronological
     };
-  }, [activities]);
+  }, [activities, actType]);
 
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
@@ -422,9 +453,19 @@ export default function FitnessCard() {
                   </button>
                 ))}
               </div>
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 opacity-80" fill="#FC4C02" aria-hidden>
-                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
-              </svg>
+              <div className="flex items-center gap-0.5 bg-[#0d1117]/60 border border-white/5 rounded-lg p-0.5">
+                {ACTIVITY_TYPES.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setActType(t.id)}
+                    className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md transition-colors ${
+                      actType === t.id ? 'bg-[#FC4C02]/25 text-[#FC4C02]' : 'text-[#8b949e] hover:text-white'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
             {!connected || !metrics ? (
               <p className="text-xs text-[#8b949e] leading-relaxed">
@@ -432,11 +473,6 @@ export default function FitnessCard() {
               </p>
             ) : (() => {
               const heroMeters = period === 'day' ? metrics.totals.today : period === 'week' ? metrics.totals.week : metrics.totals.month;
-              const subStats = period === 'day'
-                ? [['week', metrics.totals.week], ['month', metrics.totals.month]] as const
-                : period === 'week'
-                  ? [['today', metrics.totals.today], ['month', metrics.totals.month]] as const
-                  : [['today', metrics.totals.today], ['week', metrics.totals.week]] as const;
               const chartDays = period === 'month' ? metrics.month : metrics.week;
               const maxChartMeters = Math.max(...chartDays.map((d) => d.meters), 1);
               const maxTodayMeters = Math.max(...metrics.todays.map((a) => a.distance), 1);
@@ -447,11 +483,6 @@ export default function FitnessCard() {
                       {metersToMiles(heroMeters).toFixed(1)}
                     </span>
                     <span className="text-sm font-semibold text-[#FC4C02]">mi</span>
-                    <span className="ml-auto text-[10px] text-[#8b949e] tabular-nums text-right leading-tight">
-                      {subStats[0][0]} {fmtMiles(subStats[0][1])}
-                      <br />
-                      {subStats[1][0]} {fmtMiles(subStats[1][1])}
-                    </span>
                   </div>
 
                   {period === 'day' ? (
@@ -466,7 +497,7 @@ export default function FitnessCard() {
                           {metrics.todays.map((a) => {
                             const pct = a.distance > 0 ? Math.max((a.distance / maxTodayMeters) * 100, 14) : 14;
                             return (
-                              <div key={a.id} className="flex-1 max-w-14 flex flex-col items-center justify-end h-full" title={`${a.name}: ${fmtMiles(a.distance)}`}>
+                              <div key={a.id} className="flex-1 max-w-14 flex flex-col items-center justify-end h-full" title={activityBarTooltip(a)}>
                                 <div
                                   className="w-full rounded-t-sm transition-all duration-500"
                                   style={{
@@ -497,7 +528,7 @@ export default function FitnessCard() {
                           const isToday = d.date === metrics.today;
                           const pct = d.meters > 0 ? Math.max((d.meters / maxChartMeters) * 100, 12) : 0;
                           return (
-                            <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full" title={`${d.date}: ${fmtMiles(d.meters)}`}>
+                            <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full" title={dayBarTooltip(d)}>
                               <div
                                 className={`w-full transition-all duration-500 ${period === 'month' ? 'rounded-t-[2px]' : 'rounded-t-sm'}`}
                                 style={{
@@ -539,6 +570,7 @@ export default function FitnessCard() {
 
                   {/* Records (30-day window) */}
                   <div className="flex items-center gap-3 mt-2.5 pt-2 border-t border-white/5 text-[11px]">
+                    <span className="text-[9px] uppercase tracking-wider text-[#8b949e] font-medium">30d best</span>
                     {metrics.records.bestPace && (
                       <span className="flex items-center gap-1 text-[#c9d1d9]" title={`Fastest avg pace (30d): ${metrics.records.bestPace.activity.name}`}>
                         <Zap className="w-3 h-3 text-[#FC4C02]" />
