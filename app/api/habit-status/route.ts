@@ -364,10 +364,12 @@ export async function POST(request: Request) {
       if (stored) {
         habits = JSON.parse(stored);
       } else {
-        // Initialize from yesterday if needed
+        // Initialize from yesterday if needed — use the user's saved habit list
+        // (not DEFAULT_HABITS) so custom habits survive a fresh-day toggle.
         const yesterday = getPreviousDate(today, 1);
         const yesterdayData = await redis.get(getStorageKey(userId, yesterday));
-        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today);
+        const habitDefs = await loadHabitsList(redis, userId);
+        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today, habitDefs);
       }
     } else {
       return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });

@@ -68,6 +68,20 @@ interface PendingChange {
   previousState: boolean;
 }
 
+// Mirrors the server's stats math (frequency-aware weekly goals) so optimistic
+// updates don't briefly disagree with what the server sends back.
+function computeStats(habits: Habit[]): HabitStats {
+  const completedToday = habits.filter(h => h.completedToday).length;
+  const totalHabits = habits.length;
+  const longestStreak = Math.max(...habits.map(h => h.streak), 0);
+  const totalCompletions = habits.reduce((acc, h) =>
+    acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
+  );
+  const totalGoal = habits.reduce((acc, h) => acc + frequencyGoal(h.frequency), 0);
+  const weeklyCompletion = totalGoal > 0 ? Math.round((totalCompletions / totalGoal) * 100) : 0;
+  return { totalHabits, completedToday, longestStreak, weeklyCompletion };
+}
+
 type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 
 const EMOJI_OPTIONS = ['💪', '🏃', '📚', '💧', '🧘', '🛏️', '💊', '📝', '📊', '🎯', '🔥', '⭐', '🌟', '✨', '🎨', '🎵', '🌱', '☀️', '🌙', '🍎', '🥗', '💤', '🧠', '❤️', '🌈'];
@@ -148,6 +162,14 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disab
                 {habit.streak} day{habit.streak !== 1 ? 's' : ''}
               </span>
             </div>
+            {!habit.completedToday && habit.streak >= 2 && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#d29922]/15 text-[#d29922] font-medium flex-shrink-0"
+                title={`Complete today to keep your ${habit.streak}-day streak alive`}
+              >
+                streak at risk
+              </span>
+            )}
             <span className="text-xs text-[#737373] truncate">{habit.target}</span>
           </div>
         </div>
@@ -366,21 +388,7 @@ export default function HabitCard() {
         : h
     );
     setHabits(updatedHabits);
-    
-    // Recalculate stats optimistically
-    const completedToday = updatedHabits.filter(h => h.completedToday).length;
-    const totalHabits = updatedHabits.length;
-    const longestStreak = Math.max(...updatedHabits.map(h => h.streak), 0);
-    
-    const totalPossibleCompletions = totalHabits * 7;
-    const actualCompletions = updatedHabits.reduce((acc, h) => 
-      acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
-    );
-    const weeklyCompletion = totalPossibleCompletions > 0 
-      ? Math.round((actualCompletions / totalPossibleCompletions) * 100)
-      : 0;
-    
-    setStats({ totalHabits, completedToday, longestStreak, weeklyCompletion });
+    setStats(computeStats(updatedHabits));
     
     try {
       const response = await fetch('/api/habit-status', {
@@ -400,6 +408,8 @@ export default function HabitCard() {
         setStats(data.data.stats);
         setLastUpdated(new Date());
         setSyncStatus('synced');
+        // Let the Discipline card recompute today's score.
+        window.dispatchEvent(new Event('ct:discipline-updated'));
       } else {
         throw new Error(data.error || 'Server returned error');
       }
@@ -413,27 +423,8 @@ export default function HabitCard() {
           : h
       );
       setHabits(revertedHabits);
-      
-      // Recalculate stats with reverted state
-      const revertedCompletedToday = revertedHabits.filter(h => h.completedToday).length;
-      const revertedTotalHabits = revertedHabits.length;
-      const revertedLongestStreak = Math.max(...revertedHabits.map(h => h.streak), 0);
-      
-      const revertedTotalPossibleCompletions = revertedTotalHabits * 7;
-      const revertedActualCompletions = revertedHabits.reduce((acc, h) => 
-        acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
-      );
-      const revertedWeeklyCompletion = revertedTotalPossibleCompletions > 0 
-        ? Math.round((revertedActualCompletions / revertedTotalPossibleCompletions) * 100)
-        : 0;
-      
-      setStats({ 
-        totalHabits: revertedTotalHabits, 
-        completedToday: revertedCompletedToday, 
-        longestStreak: revertedLongestStreak, 
-        weeklyCompletion: revertedWeeklyCompletion 
-      });
-      
+      setStats(computeStats(revertedHabits));
+
       setSyncStatus('error');
     } finally {
       setPendingChanges(prev => {
