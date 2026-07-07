@@ -5,6 +5,12 @@ import {
   ShieldCheck, RefreshCw, Link2, Unlink, Loader2,
   TrendingUp, TrendingDown, Minus, CheckCircle2, AlertTriangle,
 } from 'lucide-react';
+import { getTodayInEST } from '@/lib/date-utils';
+import {
+  type ActivitySummary, RUN_SPORTS,
+  fmtMiles, fmtDuration, fmtPace, paceSecPerMile, speedMph,
+  distanceTotals, runRecords,
+} from '@/lib/strava-metrics';
 
 interface DisciplineDay {
   date: string;
@@ -13,15 +19,7 @@ interface DisciplineDay {
   journaled: boolean;
 }
 
-interface StravaActivity {
-  id: number;
-  name: string;
-  sport_type: string;
-  distance: number; // meters
-  moving_time: number; // seconds
-  total_elevation_gain: number;
-  start_date_local: string;
-}
+type StravaActivity = ActivitySummary;
 
 interface CompletedHabit {
   id: string;
@@ -40,22 +38,26 @@ function sportIcon(sport: string): string {
   return SPORT_ICONS[sport] || '⚡';
 }
 
-function fmtDistance(meters: number): string {
-  if (!meters) return '';
-  const miles = meters / 1609.344;
-  return `${miles.toFixed(miles >= 10 ? 0 : 1)} mi`;
-}
-
-function fmtDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.round((seconds % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
-
 function fmtDay(dateLocal: string): string {
   return new Date(dateLocal.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
+    month: 'short', day: 'numeric',
   });
+}
+
+// Inline stat line for one activity: runs get pace, rides get mph, everything
+// else just duration.
+function activityStats(a: StravaActivity): string {
+  const parts: string[] = [];
+  if (a.distance > 0) parts.push(fmtMiles(a.distance));
+  if (RUN_SPORTS.has(a.sport_type)) {
+    const pace = paceSecPerMile(a);
+    if (pace !== null) parts.push(fmtPace(pace));
+  } else if (a.sport_type.includes('Ride')) {
+    const mph = speedMph(a);
+    if (mph !== null) parts.push(`${mph.toFixed(1)} mph`);
+  }
+  parts.push(fmtDuration(a.moving_time));
+  return parts.join(' · ');
 }
 
 function scoreColor(score: number | null): string {
@@ -215,6 +217,16 @@ export default function DisciplineCard() {
   const circumference = 2 * Math.PI * 26;
   const dashOffset = todayScore === null ? circumference : circumference * (1 - todayScore / 100);
 
+  // Distance totals + run records over the synced window (~this month / 30d).
+  const metrics = useMemo(() => {
+    if (activities.length === 0) return null;
+    const todayEST = getTodayInEST();
+    return {
+      totals: distanceTotals(activities, todayEST),
+      records: runRecords(activities),
+    };
+  }, [activities]);
+
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
       {/* Header — title, momentum, Strava connection */}
@@ -328,8 +340,52 @@ export default function DisciplineCard() {
             </div>
           </div>
 
-          {/* Recent Strava activity */}
-          <div className="md:col-span-2 bg-[#0d1117] border border-[#30363d] rounded-lg p-3">
+          {/* Distance + run records */}
+          <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3">
+            <p className="text-[10px] uppercase tracking-wider text-[#8b949e] font-medium mb-2">Distance</p>
+            {!connected || !metrics ? (
+              <p className="text-xs text-[#8b949e] leading-relaxed">
+                {stravaLoading ? 'Loading…' : connected ? 'No activities yet this month.' : 'Connect Strava to track distance and pace here.'}
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-2 mb-2.5">
+                  {[
+                    { label: 'Today', meters: metrics.totals.today },
+                    { label: 'Week', meters: metrics.totals.week },
+                    { label: 'Month', meters: metrics.totals.month },
+                  ].map((s) => (
+                    <div key={s.label} className="bg-[#161b22] border border-[#30363d] rounded-lg px-1.5 py-2 text-center">
+                      <div className="text-sm font-bold text-[#FC4C02] tabular-nums">{fmtMiles(s.meters)}</div>
+                      <div className="text-[10px] text-[#8b949e] mt-0.5">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-1 text-[11px] text-[#8b949e]">
+                  {metrics.records.bestPace && (
+                    <p className="truncate" title={metrics.records.bestPace.activity.name}>
+                      <span className="text-[#c9d1d9] font-medium">Best pace</span>{' '}
+                      {fmtPace(metrics.records.bestPace.secPerMile)}
+                      <span className="text-[#484f58]"> · {fmtDay(metrics.records.bestPace.activity.start_date_local)}</span>
+                    </p>
+                  )}
+                  {metrics.records.longest && (
+                    <p className="truncate" title={metrics.records.longest.name}>
+                      <span className="text-[#c9d1d9] font-medium">Longest run</span>{' '}
+                      {fmtMiles(metrics.records.longest.distance)}
+                      <span className="text-[#484f58]"> · {fmtDay(metrics.records.longest.start_date_local)}</span>
+                    </p>
+                  )}
+                  {!metrics.records.bestPace && !metrics.records.longest && (
+                    <p>No runs in the window yet.</p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Recent activity — compact, inline stats per entry */}
+          <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3">
             <p className="text-[10px] uppercase tracking-wider text-[#8b949e] font-medium mb-2">Recent Activity</p>
             {stravaLoading ? (
               <div className="flex items-center justify-center py-4 text-[#8b949e]">
@@ -341,24 +397,24 @@ export default function DisciplineCard() {
                 activity syncs — no manual check-off, the score just moves.
               </p>
             ) : activities.length === 0 ? (
-              <p className="text-xs text-[#8b949e]">No activities in the last 7 days. Log a workout and it&apos;ll appear here.</p>
+              <p className="text-xs text-[#8b949e]">No recent activities. Log a workout and it&apos;ll appear here.</p>
             ) : (
               <ul className="divide-y divide-[#21262d] max-h-28 overflow-y-auto pr-1">
                 {activities.map((a) => (
-                  <li key={a.id} className="flex items-center gap-2.5 py-1.5 first:pt-0 last:pb-0">
-                    <span className="text-sm flex-shrink-0">{sportIcon(a.sport_type)}</span>
-                    <a
-                      href={`https://www.strava.com/activities/${a.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 min-w-0 text-xs font-medium text-white truncate hover:text-[#FC4C02] transition-colors"
-                    >
-                      {a.name}
-                    </a>
-                    <span className="text-[10px] text-[#8b949e] flex-shrink-0">{fmtDay(a.start_date_local)}</span>
-                    <span className="text-[10px] text-[#8b949e] tabular-nums flex-shrink-0 w-20 text-right">
-                      {a.distance > 0 ? `${fmtDistance(a.distance)} · ` : ''}{fmtDuration(a.moving_time)}
-                    </span>
+                  <li key={a.id} className="py-1.5 first:pt-0 last:pb-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm flex-shrink-0">{sportIcon(a.sport_type)}</span>
+                      <a
+                        href={`https://www.strava.com/activities/${a.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 min-w-0 text-xs font-medium text-white truncate hover:text-[#FC4C02] transition-colors"
+                      >
+                        {a.name}
+                      </a>
+                      <span className="text-[10px] text-[#484f58] flex-shrink-0">{fmtDay(a.start_date_local)}</span>
+                    </div>
+                    <p className="text-[10px] text-[#8b949e] tabular-nums pl-6">{activityStats(a)}</p>
                   </li>
                 ))}
               </ul>

@@ -53,10 +53,15 @@ export async function POST() {
   if (error) return error;
 
   try {
-    const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
+    // Window: whichever reaches further back — 30 rolling days (pace records)
+    // or the start of the current calendar month (monthly distance total).
+    const nowSec = Math.floor(Date.now() / 1000);
+    const thirtyDaysAgoSec = nowSec - 30 * 24 * 60 * 60;
+    const monthStartSec = Math.floor(new Date(`${getTodayEST().slice(0, 7)}-01T00:00:00-05:00`).getTime() / 1000);
+    const afterSec = Math.min(thirtyDaysAgoSec, monthStartSec);
     let activities: StravaActivity[] | null;
     try {
-      activities = await fetchRecentActivities(userId, sevenDaysAgoSec);
+      activities = await fetchRecentActivities(userId, afterSec);
     } catch (err) {
       console.error('Strava sync fetch error:', err);
       return NextResponse.json({ success: false, error: 'Strava API request failed' }, { status: 502 });
@@ -98,7 +103,7 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       connected: true,
-      activities: activities.slice(0, 20),
+      activities,
       completedHabits,
     });
   } catch (err) {
