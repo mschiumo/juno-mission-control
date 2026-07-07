@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
+import { completeMatchingHabits, uncompleteHabits, isExerciseHabit } from '@/lib/habit-sync';
 
 // Rotating workout split. The pointer advances one group per completed
 // workout (not per calendar day), so a missed day just keeps the same group
@@ -11,7 +12,9 @@ export const WORKOUT_GROUPS = ['Chest', 'Biceps', 'Triceps', 'Back', 'Shoulders'
 interface WorkoutState {
   index: number; // which group is up next
   lastCompletedDate: string | null; // YYYY-MM-DD of most recent completion
-  history: { date: string; group: string }[]; // most recent last, capped
+  // habitIds = habits this completion auto-checked, so undo only reverts
+  // what we flipped (never a habit checked manually or by Strava sync).
+  history: { date: string; group: string; habitIds?: string[] }[]; // most recent last, capped
 }
 
 const HISTORY_CAP = 60;
@@ -91,9 +94,17 @@ export async function POST(request: NextRequest) {
     const today = getTodayEST();
     const state = await loadState(userId);
 
+    let completedHabits: { id: string; name: string; icon: string }[] = [];
+
     if (action === 'complete') {
       if (state.lastCompletedDate !== today) {
-        state.history.push({ date: today, group: WORKOUT_GROUPS[state.index] });
+        // A logged workout checks off the Exercise/Lift habit too.
+        completedHabits = await completeMatchingHabits(userId, today, isExerciseHabit);
+        state.history.push({
+          date: today,
+          group: WORKOUT_GROUPS[state.index],
+          ...(completedHabits.length > 0 ? { habitIds: completedHabits.map((h) => h.id) } : {}),
+        });
         if (state.history.length > HISTORY_CAP) state.history = state.history.slice(-HISTORY_CAP);
         state.lastCompletedDate = today;
         state.index = (state.index + 1) % WORKOUT_GROUPS.length;
@@ -101,10 +112,12 @@ export async function POST(request: NextRequest) {
       }
     } else if (action === 'undo') {
       if (state.lastCompletedDate === today && state.history.length > 0) {
-        state.history.pop();
+        const entry = state.history.pop();
         state.index = (state.index - 1 + WORKOUT_GROUPS.length) % WORKOUT_GROUPS.length;
         state.lastCompletedDate = state.history[state.history.length - 1]?.date ?? null;
         await saveState(userId, state);
+        // Revert only the habits this completion flipped.
+        await uncompleteHabits(userId, today, entry?.habitIds ?? []);
       }
     } else if (action === 'skip') {
       // Move past the up-next group without logging a workout.
@@ -114,7 +127,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'action must be complete, undo, or skip' }, { status: 400 });
     }
 
-    return NextResponse.json(serialize(state, today));
+    return NextResponse.json({ ...serialize(state, today), completedHabits });
   } catch (err) {
     console.error('Workout schedule POST error:', err);
     return NextResponse.json({ success: false, error: 'Failed to update workout schedule' }, { status: 500 });

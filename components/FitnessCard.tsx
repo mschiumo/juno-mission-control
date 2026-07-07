@@ -96,7 +96,20 @@ export default function FitnessCard() {
         body: JSON.stringify({ action }),
       });
       const data = await res.json();
-      if (data.success) setWorkout(data);
+      if (data.success) {
+        setWorkout(data);
+        const done: CompletedHabit[] = data.completedHabits || [];
+        if (action === 'complete' && done.length > 0) {
+          setBanner({
+            kind: 'success',
+            text: `Checked off with your workout: ${done.map((h) => `${h.icon} ${h.name}`).join(', ')}`,
+          });
+        }
+        if (action !== 'skip') {
+          // Completing/undoing a workout can flip habits — refresh the Habits card.
+          window.dispatchEvent(new Event('ct:habits-updated'));
+        }
+      }
     } catch {
       // leave as-is; user can retry
     } finally {

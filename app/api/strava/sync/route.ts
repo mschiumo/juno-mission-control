@@ -1,22 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
 import { fetchRecentActivities, type StravaActivity } from '@/lib/strava';
+import { completeMatchingHabits, isExerciseHabit, isRunHabit } from '@/lib/habit-sync';
 
 // POST — pull recent Strava activities and auto-complete matching habits for
-// today. Returns the last 7 days of activities for display either way.
+// today. Returns the synced window of activities for display either way.
 
 const RUN_SPORTS = new Set(['Run', 'TrailRun', 'VirtualRun']);
-
-interface HabitData {
-  id: string;
-  name: string;
-  icon: string;
-  completedToday: boolean;
-  streak: number;
-  history: boolean[];
-  [key: string]: unknown;
-}
 
 function getTodayEST(): string {
   const dateStr = new Date().toLocaleDateString('en-US', {
@@ -27,25 +17,6 @@ function getTodayEST(): string {
   });
   const [month, day, year] = dateStr.split('/');
   return `${year}-${month}-${day}`;
-}
-
-function streakWith(completed: boolean, history: boolean[]): number {
-  let streak = completed ? 1 : 0;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i]) streak++;
-    else break;
-  }
-  return streak;
-}
-
-// Habit ids aren't stable slugs (list was seeded once and users add their
-// own), so match by id OR name.
-function isRunHabit(h: HabitData): boolean {
-  return h.id === 'run' || h.id === 'ran' || /\brun/i.test(h.name);
-}
-
-function isExerciseHabit(h: HabitData): boolean {
-  return h.id === 'exercise' || /exercise|work\s?out|lift|gym|train/i.test(h.name);
 }
 
 export async function POST() {
@@ -77,28 +48,11 @@ export async function POST() {
     const hasRunToday = todaysActivities.some((a) => RUN_SPORTS.has(a.sport_type));
     const hasAnyToday = todaysActivities.length > 0;
 
-    const completedHabits: { id: string; name: string; icon: string }[] = [];
-
-    if (hasAnyToday) {
-      const redis = await getRedisClient();
-      const key = `habits_data:${userId}:${today}`;
-      const stored = await redis.get(key);
-      if (stored) {
-        const habits: HabitData[] = JSON.parse(stored);
-        for (const h of habits) {
-          if (h.completedToday) continue;
-          const matches = (isExerciseHabit(h) && hasAnyToday) || (isRunHabit(h) && hasRunToday);
-          if (matches) {
-            h.completedToday = true;
-            h.streak = streakWith(true, h.history);
-            completedHabits.push({ id: h.id, name: h.name, icon: h.icon });
-          }
-        }
-        if (completedHabits.length > 0) {
-          await redis.set(key, JSON.stringify(habits));
-        }
-      }
-    }
+    const completedHabits = hasAnyToday
+      ? await completeMatchingHabits(userId, today, (h) =>
+          (isExerciseHabit(h) && hasAnyToday) || (isRunHabit(h) && hasRunToday)
+        )
+      : [];
 
     return NextResponse.json({
       success: true,
