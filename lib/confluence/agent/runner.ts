@@ -163,6 +163,55 @@ async function deterministicCandidates(
     }
   }
 
+  // ── Stage 5: strategy sleeve (e.g. inverse-ETF hedge) — technicals-only
+  // side universe, evaluated with the same ctx and capped per run. A sleeve
+  // failure never fails the run: it's an optional overlay on the main screen.
+  if (strat.sleeve && technicalsProvider) {
+    try {
+      const sleeveSymbols = [...new Set(strat.sleeve.symbols().map((x) => x.toUpperCase()))].filter(
+        (sym) => !universe.includes(sym),
+      );
+      if (sleeveSymbols.length > 0) {
+        const sleeveTech = new Map<string, Technicals>();
+        if (technicalsProvider.getTechnicalsBatch) {
+          for (const batch of chunk(sleeveSymbols, MCP_SYMBOL_BATCH_SIZE)) {
+            try {
+              const got = await technicalsProvider.getTechnicalsBatch(batch);
+              for (const sym of batch) {
+                const t = got.get(sym) ?? got.get(sym.toUpperCase());
+                if (t) sleeveTech.set(sym, t);
+              }
+            } catch {
+              /* sleeve symbols are optional — skip the batch */
+            }
+          }
+        } else {
+          for (const sym of sleeveSymbols) {
+            try {
+              const t = await technicalsProvider.getTechnicals(sym);
+              if (t) sleeveTech.set(sym, t);
+            } catch {
+              /* optional */
+            }
+          }
+        }
+        const sleeveCandidates: Candidate[] = [];
+        for (const sym of sleeveSymbols) {
+          try {
+            const c = strat.sleeve.evaluate(sym, sleeveTech.get(sym) ?? null, evalCtx);
+            if (c) sleeveCandidates.push(c);
+          } catch {
+            /* optional */
+          }
+        }
+        sleeveCandidates.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+        candidates.push(...sleeveCandidates.slice(0, strat.sleeve.maxPerRun));
+      }
+    } catch {
+      /* the sleeve must never take down the main screen */
+    }
+  }
+
   // Every symbol failing is systemic (dead token, provider outage) — that must
   // surface as a failed run, not a quiet zero-proposal success.
   if (universe.length > 0 && skipped.size === universe.length) {
@@ -289,7 +338,7 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
         symbol: candidate.symbol,
         direction: candidate.direction,
         thesis: candidate.thesis,
-        strategyId: strat.id,
+        strategyId: candidate.displayStrategyId ?? strat.id,
         suggestedLimitPrice: candidate.suggestedLimitPrice,
         suggestedQuantity: candidate.suggestedQuantity,
         suggestedStopPrice: candidate.suggestedStopPrice,

@@ -126,3 +126,16 @@ is refusing B-grade setups, and cash is a position.
   verification (see the file header note) before switching it on.
 - Live order flow itself is unchanged by this feature and still governed by
   `docs/CONFLUENCE_GO_LIVE.md`.
+
+## Hedge sleeve — inverse index ETFs (1x only)
+
+Bearish exposure without shorting (the agentic account is cash-only). The
+sleeve watches `CONFLUENCE_INVERSE_ETFS` (default `SH,PSQ,DOG,RWM` — 1x
+inverse only; leveraged 2x/3x are excluded because daily-rebalancing decay
+punishes multi-day holds) and applies the SAME technical gate to the inverse
+ETF itself: its established uptrend + pullback to the rising 50-day IS the
+underlying index in a downtrend bouncing into resistance, so no separate
+regime detector exists. No value gate (ETFs have no earnings). Same
+entry/stop/target construction and risk-based sizing; at most one hedge
+proposal per run; wears the amber `VTA-HEDGE` badge in the queue. Set the
+env var empty to disable the sleeve.

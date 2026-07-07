@@ -12,7 +12,7 @@
 import { NextResponse } from 'next/server';
 import { requireOwner } from '@/lib/auth-session';
 import { getStrategy, listStrategies } from '@/lib/confluence/agent/strategies';
-import { VALUE_TA_PARAMS } from '@/lib/confluence/agent/strategies/value-ta-pullback';
+import { hedgeSleeveSymbols, VALUE_TA_PARAMS } from '@/lib/confluence/agent/strategies/value-ta-pullback';
 import { strategyMeta } from '@/lib/confluence/strategies-meta';
 
 export const dynamic = 'force-dynamic';
@@ -59,6 +59,15 @@ function valueTaBreakdown(): RuleSection[] {
         `Target: ${P.rewardRiskRatio}:1 reward-to-risk from the stop distance`,
         `Sizing: risk budget (default ${pct(P.defaultRiskPerTradeFraction)} of the total exposure cap) ÷ per-share stop distance, capped by the per-position budget`,
         'Ranked by confluence score when more names qualify than the run budget',
+      ],
+    },
+    {
+      title: 'Hedge sleeve — inverse index ETFs (1x only)',
+      rules: [
+        `Watches ${hedgeSleeveSymbols().join(', ') || '(disabled — CONFLUENCE_INVERSE_ETFS is empty)'} — index-based 1x inverse ETFs (leveraged 2x/3x excluded: daily-rebalancing decay punishes swing holds)`,
+        'Technicals-only: the same technical gate applied to the inverse ETF itself — its uptrend + pullback IS the index downtrend bouncing into resistance, so no separate regime detector',
+        'No value gate (ETFs have no earnings); same entry/stop/target construction and risk-based sizing',
+        'At most one hedge proposal per run — a hedge, not a second book; wears the VTA-HEDGE badge in the queue',
       ],
     },
     {

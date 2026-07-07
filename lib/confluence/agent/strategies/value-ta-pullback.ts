@@ -295,3 +295,119 @@ export const VALUE_TA_CRITERIA_PROMPT = [
   '',
   'Propose NOTHING when no symbol clears both gates — an empty proposals array is a good outcome.',
 ].join('\n');
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Hedge sleeve — long INVERSE INDEX ETFs (1x only).
+ *
+ * Bearish exposure without shorting (the agentic account is cash-only): an
+ * inverse index ETF in an established uptrend, pulled back to its rising
+ * 50-day, IS the index in a downtrend bouncing into resistance — so the same
+ * technical gate, applied to the inverse ETF itself, encodes the bearish
+ * regime with no separate detector. The value gate deliberately does not
+ * apply: ETFs have no earnings — this sleeve is technicals-only.
+ *
+ * 1x inverse only by default (SH, PSQ, DOG, RWM): leveraged inverse ETFs
+ * (SQQQ, SDS, TZA…) decay under daily rebalancing and punish multi-day
+ * holds — the wrong tool for a swing system. Override the universe with
+ * CONFLUENCE_INVERSE_ETFS (comma-separated; set EMPTY to disable the sleeve).
+ * At most one hedge proposal per run — this is a hedge, not a second book.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export const HEDGE_SLEEVE_DEFAULT_ETFS = ['SH', 'PSQ', 'DOG', 'RWM'] as const;
+export const HEDGE_MAX_PER_RUN = 1;
+
+export function hedgeSleeveSymbols(): string[] {
+  const raw = process.env.CONFLUENCE_INVERSE_ETFS;
+  if (raw !== undefined) {
+    return raw.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean);
+  }
+  return [...HEDGE_SLEEVE_DEFAULT_ETFS];
+}
+
+/** Technicals-only 0–100 score for hedge ranking (no valuation inputs). */
+function hedgeScore(t: Technicals): number {
+  const rsiCenter = (P.rsiMin + P.rsiMax) / 2;
+  const rsiScore = 1 - Math.min(1, Math.abs((t.rsi14 ?? rsiCenter) - rsiCenter) / 10);
+  const sma50Dist = t.sma50 ? Math.abs(t.lastClose / t.sma50 - 1) : 1;
+  const pullbackScore = 1 - Math.min(1, sma50Dist / P.pullbackBandAboveSma50);
+  const trendScore = t.sma50 && t.sma200 ? Math.min(1, (t.sma50 / t.sma200 - 1) / 0.1) : 0;
+  return Math.round((rsiScore * 0.35 + pullbackScore * 0.35 + trendScore * 0.3) * 100);
+}
+
+/**
+ * Evaluate one inverse index ETF for the hedge sleeve. Same technical gate,
+ * entry/stop/target construction, and risk-based sizing as the main strategy;
+ * no value gate (ETFs have no earnings) and no 52-week-high check (that data
+ * comes from the fundamentals feed the sleeve doesn't use).
+ */
+export function evaluateInverseEtfHedge(
+  symbol: string,
+  t: Technicals | null,
+  ctx: StrategyContext,
+): Candidate | null {
+  if (t == null) return null;
+  if (!passesTechnicalGate(t, undefined)) return null;
+
+  const entry = round2(t.lastClose * P.limitDiscount);
+  if (entry <= 0) return null;
+
+  const atrStopDist = Math.max(t.atr14! * P.atrStopMultiple, entry * P.minStopPct);
+  let stop = entry - Math.min(atrStopDist, entry * P.maxStopPct);
+  if (t.swingLow10 != null) {
+    const structureStop = t.swingLow10 * P.swingLowBuffer;
+    if (structureStop < stop && structureStop >= entry * (1 - P.maxStopPct)) {
+      stop = structureStop;
+    }
+  }
+  stop = round2(stop);
+  const riskPerShare = entry - stop;
+  if (riskPerShare <= 0) return null;
+  const target = round2(entry + riskPerShare * P.rewardRiskRatio);
+
+  const riskUsd = ctx.maxRiskPerTradeUsd ?? ctx.perPositionBudgetUsd * 0.1;
+  const qtyByRisk = Math.floor(riskUsd / riskPerShare);
+  const qtyByBudget = Math.floor(ctx.perPositionBudgetUsd / entry);
+  const quantity = Math.min(qtyByRisk, qtyByBudget);
+  if (quantity < 1) {
+    ctx.onSizedOut?.({
+      symbol,
+      entry,
+      riskPerShare: round2(riskPerShare),
+      riskBudgetUsd: round2(riskUsd),
+      perPositionBudgetUsd: ctx.perPositionBudgetUsd,
+    });
+    return null;
+  }
+
+  const score = hedgeScore(t);
+  const stopPct = (riskPerShare / entry) * 100;
+
+  return {
+    symbol,
+    direction: 'buy',
+    displayStrategyId: 'value-ta-hedge',
+    thesis:
+      `${symbol} (inverse index ETF — HEDGE): the underlying index is in a downtrend and has bounced ` +
+      `into resistance — mirrored here as an established uptrend pulled back to the rising 50-day ` +
+      `(RSI ${t.rsi14!.toFixed(0)}, ${(((t.lastClose / t.sma200!) - 1) * 100).toFixed(0)}% above SMA200). ` +
+      `Long the 1x inverse ETF for bearish exposure without shorting (cash account). ` +
+      `Limit $${entry}, stop $${stop} (−${stopPct.toFixed(1)}%), target $${target} (${P.rewardRiskRatio}:1 R:R). ` +
+      `Technical score ${score}/100.`,
+    suggestedLimitPrice: entry,
+    suggestedQuantity: quantity,
+    suggestedStopPrice: stop,
+    suggestedTargetPrice: target,
+    fundamentals: [
+      { label: 'Type', value: 'Inverse index ETF (1x)' },
+      { label: 'Sleeve', value: 'Hedge — technicals only' },
+      { label: 'RSI(14)', value: t.rsi14!.toFixed(0) },
+      { label: 'vs SMA50', value: `${(((t.lastClose / t.sma50!) - 1) * 100).toFixed(1)}%` },
+      { label: 'vs SMA200', value: `${(((t.lastClose / t.sma200!) - 1) * 100).toFixed(1)}%` },
+      { label: 'ATR(14)', value: `${((t.atr14! / t.lastClose) * 100).toFixed(1)}%` },
+      { label: 'Stop / Target', value: `$${stop} / $${target} (${P.rewardRiskRatio}:1)` },
+      { label: 'Technical score', value: score },
+    ],
+    score,
+  };
+}
