@@ -104,32 +104,59 @@ const ACTIVITY_TYPES = [
   { id: 'walk' as const, label: 'Walk' },
 ];
 
-// Native-tooltip text for a single activity bar in the Day view.
-function activityBarTooltip(a: ActivitySummary): string {
-  const parts = [fmtMiles(a.distance)];
-  const pace = a.distance > 0 ? paceSecPerMile(a) : null;
-  if (pace !== null && !a.sport_type.includes('Ride')) parts.push(`${fmtPace(pace)} avg`);
+interface TooltipRow {
+  label: string;
+  value: string;
+  accent?: boolean; // Strava orange for the headline stat (pace/speed)
+}
+
+// Stat rows for a single activity bar in the Day view.
+function activityTooltipRows(a: ActivitySummary): TooltipRow[] {
+  const rows: TooltipRow[] = [];
+  if (a.distance > 0) rows.push({ label: 'Distance', value: fmtMiles(a.distance) });
+  const pace = a.distance > 0 && !a.sport_type.includes('Ride') ? paceSecPerMile(a) : null;
+  if (pace !== null) rows.push({ label: 'Avg Pace', value: fmtPace(pace), accent: true });
   const mph = a.sport_type.includes('Ride') ? speedMph(a) : null;
-  if (mph !== null) parts.push(`${mph.toFixed(1)} mph avg`);
-  parts.push(fmtDuration(a.moving_time));
-  return `${a.name} — ${parts.join(' · ')}`;
+  if (mph !== null) rows.push({ label: 'Avg Speed', value: `${mph.toFixed(1)} mph`, accent: true });
+  rows.push({ label: 'Time', value: fmtDuration(a.moving_time) });
+  if (a.total_elevation_gain > 0) rows.push({ label: 'Elev Gain', value: `${Math.round(a.total_elevation_gain * 3.28084)} ft` });
+  return rows;
 }
 
-// Tooltip text for an aggregated day bar in the Week/Month views.
-function dayBarTooltip(d: { date: string; meters: number; seconds: number }): string {
-  const day = new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  const parts = [fmtMiles(d.meters)];
-  if (d.seconds > 0) parts.push(`${fmtPace(d.seconds / metersToMiles(d.meters))} avg`);
-  return `${day} — ${parts.join(' · ')}`;
+// Stat rows for an aggregated day bar in the Week/Month views.
+function dayTooltipRows(d: { date: string; meters: number; seconds: number }): TooltipRow[] {
+  const rows: TooltipRow[] = [{ label: 'Distance', value: fmtMiles(d.meters) }];
+  if (d.seconds > 0) {
+    rows.push({ label: 'Avg Pace', value: fmtPace(d.seconds / metersToMiles(d.meters)), accent: true });
+    rows.push({ label: 'Time', value: fmtDuration(d.seconds) });
+  }
+  return rows;
 }
 
-// Instant styled tooltip shown above a chart bar on hover (native title
-// tooltips are too slow/subtle to discover).
-function BarTooltip({ text }: { text: string }) {
+function longDay(date: string): string {
+  return new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+// Rich hover tooltip above a chart bar: title header + labeled stat rows,
+// with a pointer arrow. Instant (no native-title delay).
+function BarTooltip({ title, rows }: { title: string; rows: TooltipRow[] }) {
   return (
-    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-[#0d1117] border border-[#30363d] rounded-md text-[10px] text-white whitespace-nowrap opacity-0 group-hover/bar:opacity-100 transition-opacity pointer-events-none z-20 shadow-lg">
-      {text}
-    </span>
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 opacity-0 group-hover/bar:opacity-100 transition-opacity duration-150 pointer-events-none z-30">
+      <div className="min-w-[150px] rounded-lg border border-[#30363d] bg-[#161b22]/95 backdrop-blur-sm px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+        <p className="max-w-[200px] truncate text-[11px] font-semibold text-white pb-1.5 mb-1.5 border-b border-white/10">{title}</p>
+        <div className="space-y-1">
+          {rows.map((r) => (
+            <div key={r.label} className="flex items-center justify-between gap-4">
+              <span className="text-[9px] uppercase tracking-wider text-[#8b949e] font-medium">{r.label}</span>
+              <span className={`text-[11px] font-semibold tabular-nums whitespace-nowrap ${r.accent ? 'text-[#FC4C02]' : 'text-white'}`}>
+                {r.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="mx-auto -mt-1 w-2 h-2 rotate-45 bg-[#161b22] border-b border-r border-[#30363d]" />
+    </div>
   );
 }
 
@@ -508,7 +535,7 @@ export default function FitnessCard() {
                             const pct = a.distance > 0 ? Math.max((a.distance / maxTodayMeters) * 100, 14) : 14;
                             return (
                               <div key={a.id} className="relative group/bar flex-1 max-w-14 flex flex-col items-center justify-end h-full">
-                                <BarTooltip text={activityBarTooltip(a)} />
+                                <BarTooltip title={a.name} rows={activityTooltipRows(a)} />
                                 <div
                                   className="w-full rounded-t-sm transition-all duration-500 group-hover/bar:brightness-125"
                                   style={{
@@ -540,7 +567,7 @@ export default function FitnessCard() {
                           const pct = d.meters > 0 ? Math.max((d.meters / maxChartMeters) * 100, 12) : 0;
                           return (
                             <div key={d.date} className="relative group/bar flex-1 flex flex-col items-center justify-end h-full">
-                              {d.meters > 0 && <BarTooltip text={dayBarTooltip(d)} />}
+                              {d.meters > 0 && <BarTooltip title={longDay(d.date)} rows={dayTooltipRows(d)} />}
                               <div
                                 className={`w-full transition-all duration-500 ${d.meters > 0 ? 'group-hover/bar:brightness-125' : ''} ${period === 'month' ? 'rounded-t-[2px]' : 'rounded-t-sm'}`}
                                 style={{
