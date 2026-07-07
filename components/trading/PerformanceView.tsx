@@ -313,6 +313,8 @@ function DayOfWeekTooltip({ active, payload }: { active?: boolean; payload?: Arr
 interface DailyFee {
   date: string;
   amount: number;
+  commissions?: number; // TRD-derived: matches broker's "Total Commissions & Fees"
+  borrow?: number;      // JRN-derived: stock borrow fees
 }
 
 export default function PerformanceView({ refreshKey }: { refreshKey?: number }) {
@@ -393,17 +395,31 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     [allDailyBalances, period],
   );
 
-  const totalFees = useMemo(() => {
-    if (!allDailyFees.length) return 0;
-    if (period === 'all') return allDailyFees.reduce((s, f) => s + f.amount, 0);
-    const cutoff = new Date();
-    switch (period) {
-      case 'week': cutoff.setDate(cutoff.getDate() - 7); break;
-      case 'month': cutoff.setMonth(cutoff.getMonth() - 1); break;
-      case 'year': cutoff.setFullYear(cutoff.getFullYear() - 1); break;
+  // Fees for the selected period, split into the broker's own buckets:
+  // "commissions" (commissions + regulatory fees, reconciles to Schwab's
+  // "Total Commissions & Fees") and "borrow" (stock borrow fees). hasBreakdown
+  // is false for legacy records stored before the split, so the card can fall
+  // back to a generic subtitle rather than showing misleading $0 buckets.
+  const feeTotals = useMemo(() => {
+    let cutoffDate = '';
+    if (period !== 'all') {
+      const cutoff = new Date();
+      switch (period) {
+        case 'week': cutoff.setDate(cutoff.getDate() - 7); break;
+        case 'month': cutoff.setMonth(cutoff.getMonth() - 1); break;
+        case 'year': cutoff.setFullYear(cutoff.getFullYear() - 1); break;
+      }
+      cutoffDate = cutoff.toISOString().slice(0, 10);
     }
-    const cutoffDate = cutoff.toISOString().slice(0, 10);
-    return allDailyFees.filter(f => f.date >= cutoffDate).reduce((s, f) => s + f.amount, 0);
+    let total = 0, commissions = 0, borrow = 0, hasBreakdown = false;
+    for (const f of allDailyFees) {
+      if (cutoffDate && f.date < cutoffDate) continue;
+      total += f.amount;
+      if (f.commissions !== undefined || f.borrow !== undefined) hasBreakdown = true;
+      commissions += f.commissions ?? 0;
+      borrow += f.borrow ?? 0;
+    }
+    return { total, commissions, borrow, hasBreakdown };
   }, [allDailyFees, period]);
 
   // Build equity curve. Prefer the broker's authoritative daily balances —
@@ -605,9 +621,9 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
                 <div className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     <p className="text-base font-bold num" style={{ color: 'var(--text-primary)' }}>{hasData ? formatNLV(currentNLV) : '$0'}</p>
-                    {hasData && totalFees > 0 && (
+                    {hasData && feeTotals.total > 0 && (
                       <InfoTooltip
-                        text={`This value may differ slightly from your broker balance. Broker fees (${formatDollars(totalFees)} this period) are tracked separately and reduce your actual account value. The equity curve uses authoritative broker balances from imported Account Statements when available.`}
+                        text={`This value may differ slightly from your broker balance. Broker fees (${formatDollars(feeTotals.total)} this period) are tracked separately and reduce your actual account value. The equity curve uses authoritative broker balances from imported Account Statements when available.`}
                         align="right"
                       />
                     )}
@@ -751,14 +767,16 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
       </div>
 
       {/* Broker Fees card — only shown when fee data is available */}
-      {totalFees > 0 && (
+      {feeTotals.total > 0 && (
         <div className="grid grid-cols-1 gap-3">
           <MetricCard
             icon={<DollarSign className="w-4 h-4" style={{ color: 'var(--negative)' }} />}
             label="Broker Fees"
-            value={`-${formatDollars(totalFees)}`}
+            value={`-${formatDollars(feeTotals.total)}`}
             valueStyle={{ color: 'var(--negative)' }}
-            sub="Stock borrow, commissions & regulatory fees"
+            sub={feeTotals.hasBreakdown
+              ? `Commissions & fees ${formatDollars(feeTotals.commissions)} · Borrow ${formatDollars(feeTotals.borrow)}`
+              : 'Stock borrow, commissions & regulatory fees'}
             tooltip={METRIC_TOOLTIPS['Broker Fees']}
           />
         </div>

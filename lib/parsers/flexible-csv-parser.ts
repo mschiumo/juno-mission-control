@@ -8,7 +8,7 @@
  * 4. Generic CSV with auto-column mapping
  */
 
-import { TOSTrade, parseTOSCSV, parseTOSAccountStatementFull, RawPositionAdjustment } from './tos-parser';
+import { TOSTrade, parseTOSCSV, parseTOSAccountStatementFull, RawPositionAdjustment, DailyFee } from './tos-parser';
 import { Trade, TradeSide, TradeStatus, Strategy, CSVImportResult, CSVImportError } from '@/types/trading';
 import { getNowInEST } from '@/lib/date-utils';
 
@@ -292,7 +292,10 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
   let rawAdjustments: RawPositionAdjustment[] = [];
   let startingBalance: number | undefined;
   let dailyBalances: Array<{ date: string; balance: number }> | undefined;
-  let dailyFees: Array<{ date: string; amount: number }> | undefined;
+  let dailyFees: DailyFee[] | undefined;
+  // True when the file is an Account Statement but its Cash Balance section has
+  // no activity rows — fees/balances can't be derived and the import warns.
+  let cashBalanceEmpty = false;
 
   if (isAccountStatement) {
     const result = parseTOSAccountStatementFull(csvText);
@@ -301,6 +304,7 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
     startingBalance = result.startingBalance;
     dailyBalances = result.dailyBalances;
     dailyFees = result.dailyFees.length > 0 ? result.dailyFees : undefined;
+    cashBalanceEmpty = result.cashBalanceRows === 0;
   } else {
     tosTrades = parseTOSCSV(csvText);
   }
@@ -602,6 +606,7 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
     startingBalance,
     dailyBalances,
     dailyFees,
+    cashBalanceEmpty,
   };
 }
 

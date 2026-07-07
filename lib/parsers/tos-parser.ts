@@ -26,6 +26,9 @@ export interface DailyBalance {
 export interface DailyFee {
   date: string;   // YYYY-MM-DD (ET local)
   amount: number; // Total fees charged on this date (positive = cost to account)
+  // Breakdown of `amount`. Older stored records may omit these (total only).
+  commissions?: number; // TRD-derived: Misc Fees + Commissions & Fees (matches Schwab's "Total Commissions & Fees")
+  borrow?: number;      // JRN-derived: stock borrow fees & other journal debits
 }
 
 export interface TOSAccountStatementResult {
@@ -34,6 +37,10 @@ export interface TOSAccountStatementResult {
   startingBalance?: number;
   dailyBalances: DailyBalance[];
   dailyFees: DailyFee[];
+  // Number of data rows in the Cash Balance section. Zero means the export
+  // omitted that section entirely (fees/balances can't be derived), which the
+  // import flow surfaces as a warning so a re-import doesn't silently no-op.
+  cashBalanceRows: number;
 }
 
 export interface DayData {
@@ -133,7 +140,8 @@ export function parseTOSAccountStatementFull(csvText: string): TOSAccountStateme
   const startingBalance = parseCashBalanceStartingBalance(csvText);
   const dailyBalances = parseDailyBalances(csvText);
   const dailyFees = parseDailyFees(csvText);
-  return { trades, positionAdjustments, startingBalance, dailyBalances, dailyFees };
+  const cashBalanceRows = countCashBalanceRows(csvText);
+  return { trades, positionAdjustments, startingBalance, dailyBalances, dailyFees, cashBalanceRows };
 }
 
 export function parseTOSCSV(csvText: string): TOSTrade[] {
@@ -424,23 +432,27 @@ function parseCashBalanceStartingBalance(csvText: string): number | undefined {
   return earliestBalance;
 }
 
+// Section headers that terminate the Cash Balance section of a TOS statement.
+const CASH_BALANCE_END_HEADERS = [
+  'Futures Statements', 'Forex Statements', 'Account Order History',
+  'Account Trade History', 'Profits and Losses', 'Crypto',
+];
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 /**
- * Parse broker fees from the Cash Balance section. Captures two sources:
- *  - TRD rows: "Misc Fees" (index 5, regulatory/exchange fees) plus
- *    "Commissions & Fees" (index 6)
- *  - JRN rows with a negative AMOUNT that look like fee charges (borrow fees,
- *    regulatory fees, etc.)
- * Returns per-ET-date fee totals (positive = cost to the account).
+ * Parse broker fees from the Cash Balance section, split into two buckets so
+ * the UI can reconcile against the broker's own figures:
+ *  - commissions: TRD rows, "Misc Fees" (index 5, regulatory/exchange fees) +
+ *    "Commissions & Fees" (index 6). Sums to Schwab's "Total Commissions & Fees".
+ *  - borrow: JRN rows with a negative AMOUNT (stock borrow fees, other debits).
+ * Returns per-ET-date totals (positive = cost to the account).
  */
 export function parseDailyFees(csvText: string): DailyFee[] {
   const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-  const SECTION_HEADERS = [
-    'Futures Statements', 'Forex Statements', 'Account Order History',
-    'Account Trade History', 'Profits and Losses', 'Crypto',
-  ];
   let inCashBalance = false;
   let headerFound = false;
-  const byDate = new Map<string, number>();
+  const byDate = new Map<string, { commissions: number; borrow: number }>();
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -449,7 +461,7 @@ export function parseDailyFees(csvText: string): DailyFee[] {
       headerFound = true;
       continue;
     }
-    if (inCashBalance && headerFound && SECTION_HEADERS.some(h => trimmed.startsWith(h))) break;
+    if (inCashBalance && headerFound && CASH_BALANCE_END_HEADERS.some(h => trimmed.startsWith(h))) break;
     if (!inCashBalance || !headerFound) continue;
 
     const parts = splitCSVLine(line);
@@ -463,29 +475,66 @@ export function parseDailyFees(csvText: string): DailyFee[] {
     const { date: isoDate } = convertUTCDateTimeToET(dateStr, timeStr);
     if (!isoDate) continue;
 
-    let fee = 0;
+    let commissions = 0;
+    let borrow = 0;
 
     if (type === 'TRD') {
       // Misc Fees (regulatory/exchange fees) + Commissions & Fees
       const miscStr = parts[5]?.trim();
       const commStr = parts[6]?.trim();
-      if (miscStr) fee += Math.abs(parseQuotedAmount(miscStr));
-      if (commStr) fee += Math.abs(parseQuotedAmount(commStr));
+      if (miscStr) commissions += Math.abs(parseQuotedAmount(miscStr));
+      if (commStr) commissions += Math.abs(parseQuotedAmount(commStr));
     } else if (type === 'JRN') {
       // Journal charges: stock borrow fees, regulatory fees, etc.
       const amountStr = parts[7]?.trim();
       const amount = parseQuotedAmount(amountStr);
-      if (amount < 0) fee = Math.abs(amount); // Only debit journal entries count as fees
+      if (amount < 0) borrow = Math.abs(amount); // Only debit journal entries count as fees
     }
 
-    if (fee > 0) {
-      byDate.set(isoDate, (byDate.get(isoDate) || 0) + fee);
+    if (commissions > 0 || borrow > 0) {
+      const cur = byDate.get(isoDate) || { commissions: 0, borrow: 0 };
+      cur.commissions += commissions;
+      cur.borrow += borrow;
+      byDate.set(isoDate, cur);
     }
   }
 
   return [...byDate.entries()]
-    .map(([date, amount]) => ({ date, amount: Math.round(amount * 100) / 100 }))
+    .map(([date, { commissions, borrow }]) => ({
+      date,
+      amount: round2(commissions + borrow),
+      commissions: round2(commissions),
+      borrow: round2(borrow),
+    }))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Count data rows in the Cash Balance section (rows whose first column is a
+ * date). Zero means the export omitted the section's activity entirely — the
+ * caller warns rather than silently skipping fees/balances on re-import.
+ */
+export function countCashBalanceRows(csvText: string): number {
+  const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  let inCashBalance = false;
+  let headerFound = false;
+  let count = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === 'Cash Balance') { inCashBalance = true; headerFound = false; continue; }
+    if (inCashBalance && !headerFound && trimmed.includes('DATE') && trimmed.includes('TYPE')) {
+      headerFound = true;
+      continue;
+    }
+    if (inCashBalance && headerFound && CASH_BALANCE_END_HEADERS.some(h => trimmed.startsWith(h))) break;
+    if (!inCashBalance || !headerFound) continue;
+
+    const dateStr = splitCSVLine(line)[0]?.trim();
+    if (dateStr && dateStr.includes('/')) count++;
+  }
+
+  return count;
 }
 
 function splitCSVLine(line: string): string[] {
