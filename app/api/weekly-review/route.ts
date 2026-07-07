@@ -159,6 +159,52 @@ async function journalDays(userId: string, weekStart: string, today: string): Pr
   return count;
 }
 
+// "Write" habit matcher — habit ids aren't stable slugs, so match id or name.
+function isWriteHabit(h: { id: string; name: string }): boolean {
+  return h.id === 'write' || /\bwrit|poem|poetry/i.test(h.name);
+}
+
+function weeklyGoal(frequency: string | undefined): number {
+  switch (frequency) {
+    case 'weekdays': return 5;
+    case '3x':       return 3;
+    case '4x':       return 4;
+    case '5x':       return 5;
+    case '6x':       return 6;
+    default:         return 7; // 'daily' or unset
+  }
+}
+
+/**
+ * Days this week the "Write" habit was checked off, with the weekly goal
+ * taken from the habit's own frequency setting. Null when no Write-like
+ * habit exists on the Habits card.
+ */
+async function writingDays(
+  userId: string,
+  weekStart: string,
+  today: string
+): Promise<{ days: number; goal: number } | null> {
+  const redis = await getRedisClient();
+  let days = 0;
+  let goal: number | null = null;
+  for (let i = 0; i < 7; i++) {
+    const date = shiftDate(weekStart, i);
+    if (date > today) break;
+    const raw = await redis.get(`habits_data:${userId}:${date}`);
+    if (!raw) continue;
+    try {
+      const habits = JSON.parse(raw) as { id: string; name: string; frequency?: string; completedToday: boolean }[];
+      const matches = habits.filter(isWriteHabit);
+      if (matches.length > 0) goal = weeklyGoal(matches[0].frequency);
+      if (matches.some((h) => h.completedToday)) days++;
+    } catch {
+      /* malformed day — skip */
+    }
+  }
+  return goal !== null ? { days, goal } : null;
+}
+
 function buildDebtPayload(plan: DebtPlan | null, today: string) {
   if (!plan) return { configured: false as const };
   const current = plan.entries.length > 0 ? plan.entries[plan.entries.length - 1].balance : plan.startBalance;
@@ -179,12 +225,13 @@ async function buildResponse(userId: string) {
   const today = getTodayEST();
   const weekStart = mondayOf(today);
 
-  const [entry, plan, training, pnl, journal] = await Promise.all([
+  const [entry, plan, training, pnl, journal, writing] = await Promise.all([
     loadWeeklyEntry(userId, weekStart),
     loadDebtPlan(userId),
     trainingDays(userId, weekStart, today),
     weeklyPnl(userId, weekStart, today),
     journalDays(userId, weekStart, today),
+    writingDays(userId, weekStart, today),
   ]);
 
   const prevBalance = plan && plan.entries.length > 0
@@ -201,7 +248,7 @@ async function buildResponse(userId: string) {
       pnlTrades: pnl.trades,
       journal,
       training,
-      posts: entry.postsPublished ?? 0,
+      writing,
     },
     debt: buildDebtPayload(plan, today),
   };
@@ -224,15 +271,15 @@ export async function POST(request: NextRequest) {
   if (error) return error;
 
   try {
-    const body = (await request.json()) as { cardBalance?: number; postsPublished?: number; startBalance?: number };
-    const { cardBalance, postsPublished, startBalance } = body;
+    const body = (await request.json()) as { cardBalance?: number; startBalance?: number };
+    const { cardBalance, startBalance } = body;
 
-    for (const [name, v] of Object.entries({ cardBalance, postsPublished, startBalance })) {
+    for (const [name, v] of Object.entries({ cardBalance, startBalance })) {
       if (v !== undefined && (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > 10_000_000)) {
         return NextResponse.json({ success: false, error: `${name} must be a non-negative number` }, { status: 400 });
       }
     }
-    if (cardBalance === undefined && postsPublished === undefined && startBalance === undefined) {
+    if (cardBalance === undefined && startBalance === undefined) {
       return NextResponse.json({ success: false, error: 'nothing to update' }, { status: 400 });
     }
 
@@ -241,10 +288,9 @@ export async function POST(request: NextRequest) {
     const weekStart = mondayOf(today);
 
     // Weekly entry (manual numbers)
-    if (cardBalance !== undefined || postsPublished !== undefined) {
+    if (cardBalance !== undefined) {
       const entry = await loadWeeklyEntry(userId, weekStart);
-      if (cardBalance !== undefined) entry.cardBalance = cardBalance;
-      if (postsPublished !== undefined) entry.postsPublished = postsPublished;
+      entry.cardBalance = cardBalance;
       entry.updatedAt = new Date().toISOString();
       await redis.set(reviewKey(userId, weekStart), JSON.stringify(entry));
     }
