@@ -9,17 +9,18 @@ import DailyJournalCard from "@/components/DailyJournalCard";
 import CountdownCard from "@/components/CountdownCard";
 import FitnessCard from "@/components/FitnessCard";
 import GoalsCard from "@/components/GoalsCard";
+import FinanceCard from "@/components/FinanceCard";
 import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
 import LandingPage from "@/components/landing/LandingPage";
 import Link from 'next/link';
-import { LayoutDashboard, Target, TrendingUp, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, Target, TrendingUp, Wallet, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
 
-type TabId = 'dashboard' | 'trading' | 'goals';
+type TabId = 'dashboard' | 'trading' | 'goals' | 'finance';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -35,6 +36,7 @@ function DashboardContent() {
     const tab = searchParams.get('tab');
     if (tab === 'trading') return 'trading';
     if (tab === 'goals' && isOwner) return 'goals';
+    if (tab === 'finance' && isOwner) return 'finance';
     if (isOwner) return 'dashboard';
     return 'trading';
   }, [searchParams, isOwner]);
@@ -42,9 +44,9 @@ function DashboardContent() {
   const [activeTab, setActiveTabState] = useState<TabId>(getTabFromUrl);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Redirect non-owners away from owner-only tabs (dashboard, goals)
+  // Redirect non-owners away from owner-only tabs (dashboard, goals, finance)
   useEffect(() => {
-    if (!isOwner && (activeTab === 'dashboard' || activeTab === 'goals')) {
+    if (!isOwner && (activeTab === 'dashboard' || activeTab === 'goals' || activeTab === 'finance')) {
       setActiveTab('trading');
     }
   }, [isOwner, activeTab]);
@@ -66,6 +68,7 @@ function DashboardContent() {
         { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
         { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
         { id: 'goals' as const, label: 'Goals', icon: Target },
+        { id: 'finance' as const, label: 'Finances', icon: Wallet },
       ]
     : [];
 
@@ -233,6 +236,11 @@ function DashboardContent() {
             <Suspense fallback={<div className="p-8 text-center" style={{ color: 'var(--text-tertiary)' }}>Loading goals...</div>}>
               <GoalsCard />
             </Suspense>
+          </div>
+        ) : activeTab === 'finance' ? (
+          /* Finance View — owner-only debt tracker + payoff planner */
+          <div className="max-w-[1600px] mx-auto">
+            <FinanceCard />
           </div>
         ) : null}
       </main>
