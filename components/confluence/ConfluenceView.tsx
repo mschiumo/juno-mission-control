@@ -10,16 +10,17 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Inbox, Activity, ScrollText, SlidersHorizontal, Sparkles, FlaskConical, Play, LineChart, ClipboardCheck } from 'lucide-react';
+import { Inbox, Activity, ScrollText, SlidersHorizontal, Sparkles, FlaskConical, Play, LineChart, ClipboardCheck, Target } from 'lucide-react';
 import type { AgentRun, AuditEvent, ExecutionOrder, Proposal, SystemState } from '@/types/confluence';
 import ProposalCard, { type EditState } from './ProposalCard';
 import OrdersMonitor, { type LivePosition } from './OrdersMonitor';
+import StrategyPanel from './StrategyPanel';
 import AuditLog from './AuditLog';
 import SettingsPanel from './SettingsPanel';
 import PerformancePanel from './PerformancePanel';
 import ReviewPanel from './ReviewPanel';
 
-type SubTab = 'queue' | 'orders' | 'performance' | 'review' | 'audit' | 'settings';
+type SubTab = 'queue' | 'orders' | 'performance' | 'review' | 'audit' | 'strategy' | 'settings';
 
 const SUBTABS: { id: SubTab; label: string; icon: typeof Inbox }[] = [
   { id: 'queue', label: 'Proposals', icon: Inbox },
@@ -27,6 +28,7 @@ const SUBTABS: { id: SubTab; label: string; icon: typeof Inbox }[] = [
   { id: 'performance', label: 'Performance', icon: LineChart },
   { id: 'review', label: 'Review', icon: ClipboardCheck },
   { id: 'audit', label: 'Audit', icon: ScrollText },
+  { id: 'strategy', label: 'Strategy', icon: Target },
   { id: 'settings', label: 'Settings', icon: SlidersHorizontal },
 ];
 
@@ -77,6 +79,18 @@ export default function ConfluenceView() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // Keep the Agents-tab notification badge honest: broadcast the pending
+  // count whenever proposals change (approve/reject/run/refresh), so the
+  // badge clears the moment the queue empties instead of waiting for the
+  // 5-minute poll in TradingView.
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('confluence:pending-count', {
+        detail: proposals.filter((p) => p.status === 'pending').length,
+      }),
+    );
+  }, [proposals]);
 
   // Live quotes for the pending symbols — advisory context for review (the
   // agent priced off the prior close). Refreshes whenever the queue changes.
@@ -388,6 +402,8 @@ export default function ConfluenceView() {
       {subTab === 'review' && <ReviewPanel />}
 
       {subTab === 'audit' && <AuditLog events={audit} />}
+
+      {subTab === 'strategy' && <StrategyPanel />}
 
       {subTab === 'settings' && state && <SettingsPanel state={state} busy={busy} onSave={handleSaveState} />}
     </div>
