@@ -14,6 +14,7 @@ export interface ActivitySummary {
 }
 
 export const RUN_SPORTS = new Set(['Run', 'TrailRun', 'VirtualRun']);
+export const WALK_SPORTS = new Set(['Walk', 'Hike']);
 const METERS_PER_MILE = 1609.344;
 
 export function metersToMiles(meters: number): number {
@@ -88,24 +89,36 @@ export function distanceTotals(activities: ActivitySummary[], today: string): Di
   return totals;
 }
 
+export interface DayBucket {
+  date: string;
+  meters: number;
+  seconds: number; // moving time of distance-bearing activities (for avg pace)
+}
+
+function sumIntoBuckets(activities: ActivitySummary[], days: DayBucket[]): void {
+  const byDate = new Map(days.map((day) => [day.date, day]));
+  for (const a of activities) {
+    const entry = byDate.get(activityDate(a));
+    if (!entry) continue;
+    entry.meters += a.distance;
+    if (a.distance > 0) entry.seconds += a.moving_time;
+  }
+}
+
 /**
  * Meters per day for the Monday-based week containing `today` (7 entries,
  * Monday first) — feeds the weekly mileage mini-chart.
  */
-export function weekDailyDistance(activities: ActivitySummary[], today: string): { date: string; meters: number }[] {
+export function weekDailyDistance(activities: ActivitySummary[], today: string): DayBucket[] {
   const start = mondayOf(today);
   const [y, m, d] = start.split('-').map(Number);
-  const days: { date: string; meters: number }[] = [];
+  const days: DayBucket[] = [];
   for (let i = 0; i < 7; i++) {
     const date = new Date(y, m - 1, d + i, 12);
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    days.push({ date: key, meters: 0 });
+    days.push({ date: key, meters: 0, seconds: 0 });
   }
-  const byDate = new Map(days.map((day) => [day.date, day]));
-  for (const a of activities) {
-    const entry = byDate.get(activityDate(a));
-    if (entry) entry.meters += a.distance;
-  }
+  sumIntoBuckets(activities, days);
   return days;
 }
 
@@ -113,18 +126,14 @@ export function weekDailyDistance(activities: ActivitySummary[], today: string):
  * Meters per day for the calendar month containing `today` (1st → last day,
  * in order) — feeds the monthly mileage mini-chart.
  */
-export function monthDailyDistance(activities: ActivitySummary[], today: string): { date: string; meters: number }[] {
+export function monthDailyDistance(activities: ActivitySummary[], today: string): DayBucket[] {
   const [y, m] = today.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
-  const days: { date: string; meters: number }[] = [];
+  const days: DayBucket[] = [];
   for (let i = 1; i <= daysInMonth; i++) {
-    days.push({ date: `${today.slice(0, 7)}-${String(i).padStart(2, '0')}`, meters: 0 });
+    days.push({ date: `${today.slice(0, 7)}-${String(i).padStart(2, '0')}`, meters: 0, seconds: 0 });
   }
-  const byDate = new Map(days.map((day) => [day.date, day]));
-  for (const a of activities) {
-    const entry = byDate.get(activityDate(a));
-    if (entry) entry.meters += a.distance;
-  }
+  sumIntoBuckets(activities, days);
   return days;
 }
 
@@ -134,15 +143,15 @@ export interface RunRecords {
 }
 
 /**
- * Best (fastest) average pace and longest run among runs in the list.
- * Runs shorter than a quarter mile are ignored — GPS noise produces absurd
- * paces on tiny distances.
+ * Best (fastest) average pace and longest activity among the given sports
+ * (runs by default). Activities shorter than a quarter mile are ignored —
+ * GPS noise produces absurd paces on tiny distances.
  */
-export function runRecords(activities: ActivitySummary[]): RunRecords {
+export function runRecords(activities: ActivitySummary[], sports: Set<string> = RUN_SPORTS): RunRecords {
   let bestPace: RunRecords['bestPace'] = null;
   let longest: ActivitySummary | null = null;
   for (const a of activities) {
-    if (!RUN_SPORTS.has(a.sport_type)) continue;
+    if (!sports.has(a.sport_type)) continue;
     if (metersToMiles(a.distance) < 0.25) continue;
     const pace = paceSecPerMile(a);
     if (pace !== null && (bestPace === null || pace < bestPace.secPerMile)) {
