@@ -57,6 +57,30 @@ export default function TradingView() {
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [showBriefingModal, setShowBriefingModal] = useState(false);
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
+  // Pending agent proposals awaiting review — drives the glowing badge on the
+  // Agents tab so a nightly run's output doesn't sit unnoticed. Owner-only
+  // (matches the tab itself); refreshed every 5 minutes.
+  const [pendingProposals, setPendingProposals] = useState(0);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    let cancelled = false;
+    const check = () => {
+      fetch('/api/confluence/proposals')
+        .then((r) => r.json())
+        .then((d) => {
+          if (cancelled || !d.success || !Array.isArray(d.proposals)) return;
+          setPendingProposals(d.proposals.filter((p: { status: string }) => p.status === 'pending').length);
+        })
+        .catch(() => {});
+    };
+    check();
+    const interval = setInterval(check, 5 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [isOwner]);
   const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
@@ -134,6 +158,19 @@ export default function TradingView() {
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span>{tab.label}</span>
+                {tab.id === 'agents' && pendingProposals > 0 && (
+                  <span
+                    className="animate-pulse px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none"
+                    style={{
+                      background: 'var(--warning)',
+                      color: '#1a1206',
+                      boxShadow: '0 0 8px var(--warning)',
+                    }}
+                    title={`${pendingProposals} proposal${pendingProposals === 1 ? '' : 's'} awaiting review`}
+                  >
+                    {pendingProposals}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -175,6 +212,14 @@ export default function TradingView() {
                   >
                     <Icon className="w-4 h-4" style={{ color: isActive ? 'var(--accent)' : 'inherit' } as React.CSSProperties} />
                     <span className="text-sm font-medium">{tab.label}</span>
+                    {tab.id === 'agents' && pendingProposals > 0 && (
+                      <span
+                        className="animate-pulse px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none"
+                        style={{ background: 'var(--warning)', color: '#1a1206', boxShadow: '0 0 8px var(--warning)' }}
+                      >
+                        {pendingProposals}
+                      </span>
+                    )}
                     {isActive && (
                       <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent)' }} />
                     )}
