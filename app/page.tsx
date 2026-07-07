@@ -8,6 +8,7 @@ import GapScannerCard from "@/components/GapScannerCard";
 import DailyJournalCard from "@/components/DailyJournalCard";
 import CountdownCard from "@/components/CountdownCard";
 import DisciplineCard from "@/components/DisciplineCard";
+import StravaCard from "@/components/StravaCard";
 import GoalsCard from "@/components/GoalsCard";
 import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
@@ -210,8 +211,9 @@ function DashboardContent() {
             <EveningCheckinReminder />
             <DisciplineCard />
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 md:gap-6 xl:items-start">
-              <div>
+              <div className="flex flex-col gap-5">
                 <HabitCard />
+                <StravaCard />
               </div>
               <div className="flex flex-col gap-5 xl:h-[900px]">
                 <CountdownCard />
