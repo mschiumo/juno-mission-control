@@ -118,7 +118,6 @@ function activityBarTooltip(a: ActivitySummary): string {
 // Tooltip text for an aggregated day bar in the Week/Month views.
 function dayBarTooltip(d: { date: string; meters: number; seconds: number }): string {
   const day = new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  if (d.meters <= 0) return `${day} — no distance`;
   const parts = [fmtMiles(d.meters)];
   if (d.seconds > 0) parts.push(`${fmtPace(d.seconds / metersToMiles(d.meters))} avg`);
   return `${day} — ${parts.join(' · ')}`;
@@ -541,9 +540,9 @@ export default function FitnessCard() {
                           const pct = d.meters > 0 ? Math.max((d.meters / maxChartMeters) * 100, 12) : 0;
                           return (
                             <div key={d.date} className="relative group/bar flex-1 flex flex-col items-center justify-end h-full">
-                              <BarTooltip text={dayBarTooltip(d)} />
+                              {d.meters > 0 && <BarTooltip text={dayBarTooltip(d)} />}
                               <div
-                                className={`w-full transition-all duration-500 group-hover/bar:brightness-125 ${period === 'month' ? 'rounded-t-[2px]' : 'rounded-t-sm'}`}
+                                className={`w-full transition-all duration-500 ${d.meters > 0 ? 'group-hover/bar:brightness-125' : ''} ${period === 'month' ? 'rounded-t-[2px]' : 'rounded-t-sm'}`}
                                 style={{
                                   height: `${pct}%`,
                                   minHeight: d.meters > 0 ? '4px' : '2px',
@@ -572,11 +571,16 @@ export default function FitnessCard() {
                           ))}
                         </div>
                       ) : (
-                        <div className="flex justify-between mt-1 text-[9px] font-medium text-[#484f58]">
-                          <span>1</span>
-                          <span className="text-[#FC4C02]">{parseInt(metrics.today.slice(8), 10)}</span>
-                          <span>{chartDays.length}</span>
-                        </div>
+                        (() => {
+                          const monthName = new Date(metrics.today + 'T12:00:00').toLocaleDateString('en-US', { month: 'short' });
+                          return (
+                            <div className="flex justify-between mt-1 text-[9px] font-medium text-[#484f58]">
+                              <span>{monthName} 1</span>
+                              <span className="text-[#FC4C02]">{monthName} {parseInt(metrics.today.slice(8), 10)}</span>
+                              <span>{monthName} {chartDays.length}</span>
+                            </div>
+                          );
+                        })()
                       )}
                     </>
                   )}
