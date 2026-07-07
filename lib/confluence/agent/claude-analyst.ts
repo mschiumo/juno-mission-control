@@ -21,7 +21,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { ConfluenceNotConfigured, getRobinhoodAccessToken } from '@/lib/confluence/robinhood/oauth';
-import { getAgentUniverse } from './universe';
+import { resolveUniverse } from '@/lib/confluence/universe';
 import { getStrategy } from './strategies';
 import type { Candidate } from './strategy';
 import type { FundamentalMetric } from '@/types/confluence';
@@ -141,7 +141,7 @@ export async function analyzeWithClaude(opts: ClaudeAnalystOptions): Promise<Can
   const client = new Anthropic({ apiKey });
   const model = process.env.CONFLUENCE_AGENT_MODEL || DEFAULT_MODEL;
   const rhUrl = process.env.ROBINHOOD_MCP_URL || DEFAULT_RH_MCP_URL;
-  const universe = getAgentUniverse();
+  const universe = (await resolveUniverse()).symbols;
 
   const stream = client.beta.messages.stream({
     model,

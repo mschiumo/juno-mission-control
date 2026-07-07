@@ -29,7 +29,7 @@ import { getSystemState } from '@/lib/db/confluence/system-state';
 import { getProposalsByStatus, saveProposal } from '@/lib/db/confluence/proposals';
 import { saveRun } from '@/lib/db/confluence/agent-runs';
 import { appendAudit } from '@/lib/db/confluence/audit';
-import { getAgentUniverse } from '@/lib/confluence/agent/universe';
+import { resolveUniverse } from '@/lib/confluence/universe';
 import type { AgentRun, FundamentalMetric, Proposal, TradeDirection } from '@/types/confluence';
 
 async function ownerUserId(): Promise<string | null> {
@@ -46,9 +46,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const state = await getSystemState(userId);
   const pending = await getProposalsByStatus(userId, 'pending');
+  const resolved = await resolveUniverse();
   return NextResponse.json({
     success: true,
-    universe: getAgentUniverse(),
+    universe: resolved.symbols,
+    universeSource: resolved.source,
     perPositionBudgetUsd: Math.min(state.perPositionCapUsd, 1000),
     totalExposureCapUsd: state.totalExposureCapUsd,
     paperMode: state.paperMode,
