@@ -159,7 +159,7 @@ export async function fetchRecentActivities(userId: string, afterUnixSec: number
   const accessToken = await getValidAccessToken(userId);
   if (!accessToken) return null;
 
-  const params = new URLSearchParams({ after: String(afterUnixSec), per_page: '50' });
+  const params = new URLSearchParams({ after: String(afterUnixSec), per_page: '200' });
   const res = await fetch(`https://www.strava.com/api/v3/athlete/activities?${params}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
