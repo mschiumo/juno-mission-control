@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
+import { hasJournalContentRaw } from '@/lib/journal-content';
 import Anthropic from '@anthropic-ai/sdk';
 
 interface JournalPrompt {
@@ -241,7 +242,7 @@ export async function POST(request: NextRequest) {
 
     for (const key of journalKeys) {
       const data = await redis.hGetAll(key);
-      if (!data?.id) continue;
+      if (!data?.id || !hasJournalContentRaw(data.prompts)) continue;
 
       const entryDate = new Date(data.date + 'T12:00:00');
       if (entryDate >= start && entryDate <= end) {

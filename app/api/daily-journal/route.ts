@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
+import { hasJournalContent, hasJournalContentRaw } from '@/lib/journal-content';
 
 function dailyJournalKey(userId: string, date: string) {
   return `daily-journal:${userId}:${date}`;
@@ -35,6 +36,13 @@ export async function POST(request: NextRequest) {
     if (!date) {
       return NextResponse.json(
         { success: false, error: 'Date is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!hasJournalContent(prompts)) {
+      return NextResponse.json(
+        { success: false, error: 'Journal entry text cannot be blank' },
         { status: 400 }
       );
     }
@@ -94,7 +102,9 @@ export async function GET(request: NextRequest) {
       // Get specific date
       const data = await redis.hGetAll(dailyJournalKey(userId, date));
 
-      if (!data || !data.id) {
+      // Treat content-less entries (e.g. stubs from older statement imports)
+      // as missing so the UI offers a fresh entry instead of a blank one.
+      if (!data || !data.id || !hasJournalContentRaw(data.prompts)) {
         return NextResponse.json({
           success: true,
           entry: null,
@@ -121,7 +131,7 @@ export async function GET(request: NextRequest) {
 
     for (const key of keys) {
       const data = await redis.hGetAll(key);
-      if (data && data.id) {
+      if (data && data.id && hasJournalContentRaw(data.prompts)) {
         entries.push({
           id: data.id,
           date: data.date,
