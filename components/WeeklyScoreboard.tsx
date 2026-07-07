@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ClipboardCheck, Pencil, Loader2, LineChart,
-  Dumbbell, BookOpen, Megaphone, Check, X,
+  ClipboardCheck, Loader2, LineChart,
+  Dumbbell, BookOpen, PenLine,
 } from 'lucide-react';
 
 // The weekly review numbers from MJ's 3/6/12-month plan: trading P&L (auto,
 // from the trading journal), training days (auto, Strava + workout split),
-// journaling days (auto, daily journal), posts published (manual).
-// Card balance / debt payoff moved to the Finances tab.
+// journaling days (auto, daily journal), writing days (auto, 'Write' habit
+// check-offs). Card balance / debt payoff moved to the Finances tab.
 
 interface Scoreboard {
   week: { start: string; today: string };
@@ -18,11 +18,11 @@ interface Scoreboard {
     pnlTrades: number;
     journal: number;
     training: number;
-    posts: number;
+    writing: { days: number; goal: number } | null;
   };
 }
 
-const WEEKLY_TARGETS = { training: 5, journal: 7, posts: 3 }; // 3x MT + 2 runs · daily journal · IG cadence
+const WEEKLY_TARGETS = { training: 5, journal: 7 }; // 3x MT + 2 runs · daily journal
 
 function fmtUSD(n: number): string {
   const abs = Math.abs(n);
@@ -41,11 +41,6 @@ function weekLabel(start: string): string {
 export default function WeeklyScoreboard() {
   const [data, setData] = useState<Scoreboard | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  // Inline editor (posts is the only manual number now)
-  const [editingPosts, setEditingPosts] = useState(false);
-  const [draft, setDraft] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -69,31 +64,6 @@ export default function WeeklyScoreboard() {
     return () => window.removeEventListener('ct:habits-updated', load);
   }, [load]);
 
-  async function save(payload: { postsPublished: number }) {
-    setSaving(true);
-    try {
-      const res = await fetch('/api/weekly-review', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
-      if (json.success) setData(json);
-    } catch {
-      /* user can retry */
-    } finally {
-      setSaving(false);
-      setEditingPosts(false);
-      setDraft('');
-    }
-  }
-
-  function submitDraft() {
-    const value = parseFloat(draft.replace(/[$,\s]/g, ''));
-    if (!Number.isFinite(value) || value < 0) return;
-    save({ postsPublished: Math.round(value) });
-  }
-
   const numbers = data?.numbers;
 
   return (
@@ -103,7 +73,7 @@ export default function WeeklyScoreboard() {
           <ClipboardCheck className="w-3 h-3 text-[#F97316]" />
           {data ? `Week of ${weekLabel(data.week.start)}` : 'Weekly review'}
         </span>
-        <span className="text-[10px] text-[#484f58]">trading p&l · training · journal · posts</span>
+        <span className="text-[10px] text-[#484f58]">trading p&l · training · journal · writing</span>
       </div>
 
       {loading && !data ? (
@@ -158,57 +128,28 @@ export default function WeeklyScoreboard() {
             <p className="text-[10px] text-[#484f58] mt-0.5">auto · daily journal entries</p>
           </div>
 
-          {/* Posts (manual) */}
+          {/* Writing (auto — 'Write' habit check-offs) */}
           <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3">
             <div className="flex items-center gap-1.5 mb-1">
-              <Megaphone className="w-3 h-3 text-[#F97316]" />
-              <span className="text-[9px] uppercase tracking-wider text-[#8b949e] font-medium">Posts Published</span>
+              <PenLine className="w-3 h-3 text-[#F97316]" />
+              <span className="text-[9px] uppercase tracking-wider text-[#8b949e] font-medium">Writing Days</span>
             </div>
-            {editingPosts ? (
-              <span className="flex items-center gap-1">
-                <input
-                  autoFocus
-                  type="text"
-                  inputMode="numeric"
-                  value={draft}
-                  placeholder="3"
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') submitDraft();
-                    if (e.key === 'Escape') { setEditingPosts(false); setDraft(''); }
-                  }}
-                  className="w-16 px-2 py-1 bg-[#161b22] border border-[#F97316]/60 rounded-md text-sm text-white tabular-nums focus:outline-none"
-                />
-                <button onClick={submitDraft} disabled={saving} className="p-1 rounded-md bg-[#22c55e]/15 hover:bg-[#22c55e]/30 disabled:opacity-50" title="Save">
-                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#22c55e]" /> : <Check className="w-3.5 h-3.5 text-[#22c55e]" />}
-                </button>
-                <button onClick={() => { setEditingPosts(false); setDraft(''); }} className="p-1 rounded-md hover:bg-[#30363d]" title="Cancel">
-                  <X className="w-3.5 h-3.5 text-[#8b949e]" />
-                </button>
-              </span>
-            ) : (
-              <div className="flex items-center gap-1.5">
+            {numbers!.writing ? (
+              <>
                 <span className="text-base font-bold tabular-nums">
-                  <span className={numbers!.posts >= WEEKLY_TARGETS.posts ? 'text-[#22c55e]' : 'text-white'}>{numbers!.posts}</span>
-                  <span className="text-[#484f58] text-xs font-semibold"> / {WEEKLY_TARGETS.posts}</span>
+                  <span className={numbers!.writing.days >= numbers!.writing.goal ? 'text-[#22c55e]' : 'text-white'}>
+                    {numbers!.writing.days}
+                  </span>
+                  <span className="text-[#484f58] text-xs font-semibold"> / {numbers!.writing.goal} days</span>
                 </span>
-                <button
-                  onClick={() => save({ postsPublished: numbers!.posts + 1 })}
-                  disabled={saving}
-                  className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md bg-[#F97316]/15 text-[#F97316] hover:bg-[#F97316]/30 disabled:opacity-50"
-                  title="Log a published post"
-                >
-                  +1
-                </button>
-                <button
-                  onClick={() => { setEditingPosts(true); setDraft(String(numbers!.posts)); }}
-                  className="p-1 hover:bg-[#30363d] rounded-md" title="Edit count"
-                >
-                  <Pencil className="w-3 h-3 text-[#737373] hover:text-[#F97316]" />
-                </button>
-              </div>
+                <p className="text-[10px] text-[#484f58] mt-0.5">auto · &apos;Write&apos; habit check-offs</p>
+              </>
+            ) : (
+              <>
+                <span className="text-base font-bold text-[#484f58]">—</span>
+                <p className="text-[10px] text-[#484f58] mt-0.5">add a &apos;Write&apos; habit to track this</p>
+              </>
             )}
-            <p className="text-[10px] text-[#484f58] mt-0.5">IG poetry · 3/wk cadence</p>
           </div>
         </div>
       )}
