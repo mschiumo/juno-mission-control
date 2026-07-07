@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
 import { fetchRecentActivities } from '@/lib/strava';
+import { getAllTrades } from '@/lib/db/trades-v2';
+import { getESTDateFromTimestamp } from '@/lib/date-utils';
 import { pctPaid, projectDebtFreeDate, paceStatus, DEBT_TARGET, type BalanceEntry } from '@/lib/debt-math';
 
 // Weekly Scoreboard — the "four numbers" from MJ's plan (card balance,
@@ -116,15 +118,43 @@ async function trainingDays(userId: string, weekStart: string, today: string): P
   return days.size;
 }
 
-/** Days this week with a trading-journal entry. */
-async function tradeJournalDays(userId: string, weekStart: string, today: string): Promise<number> {
+/** Realized P&L this week: closed trades whose EST exit date falls in the week. */
+async function weeklyPnl(userId: string, weekStart: string, today: string): Promise<{ pnl: number; trades: number }> {
+  try {
+    const trades = await getAllTrades(userId);
+    let pnl = 0;
+    let count = 0;
+    for (const t of trades) {
+      if (t.status !== 'CLOSED' || !t.exitDate) continue;
+      const d = getESTDateFromTimestamp(t.exitDate);
+      if (d >= weekStart && d <= today) {
+        pnl += t.netPnL || 0;
+        count++;
+      }
+    }
+    return { pnl: Math.round(pnl * 100) / 100, trades: count };
+  } catch (err) {
+    console.error('weeklyPnl error:', err);
+    return { pnl: 0, trades: 0 };
+  }
+}
+
+/** Days this week with a personal (daily) journal entry that has content. */
+async function journalDays(userId: string, weekStart: string, today: string): Promise<number> {
   const redis = await getRedisClient();
   let count = 0;
   for (let i = 0; i < 7; i++) {
     const date = shiftDate(weekStart, i);
     if (date > today) break;
-    const exists = await redis.exists(`daily-journal:${userId}:${date}`);
-    if (exists) count++;
+    const hash = await redis.hGetAll(`personal-journal:${userId}:${date}`);
+    if (hash && hash.prompts) {
+      try {
+        const prompts = JSON.parse(hash.prompts) as { answer?: string }[];
+        if (prompts.some((p) => p.answer?.trim())) count++;
+      } catch {
+        /* malformed entry — skip */
+      }
+    }
   }
   return count;
 }
@@ -149,11 +179,12 @@ async function buildResponse(userId: string) {
   const today = getTodayEST();
   const weekStart = mondayOf(today);
 
-  const [entry, plan, training, trades] = await Promise.all([
+  const [entry, plan, training, pnl, journal] = await Promise.all([
     loadWeeklyEntry(userId, weekStart),
     loadDebtPlan(userId),
     trainingDays(userId, weekStart, today),
-    tradeJournalDays(userId, weekStart, today),
+    weeklyPnl(userId, weekStart, today),
+    journalDays(userId, weekStart, today),
   ]);
 
   const prevBalance = plan && plan.entries.length > 0
@@ -166,7 +197,9 @@ async function buildResponse(userId: string) {
     numbers: {
       cardBalance: entry.cardBalance ?? null,
       prevCardBalance: prevBalance,
-      trades,
+      pnl: pnl.pnl,
+      pnlTrades: pnl.trades,
+      journal,
       training,
       posts: entry.postsPublished ?? 0,
     },
