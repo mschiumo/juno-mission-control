@@ -1,5 +1,5 @@
 // Pure helpers for Strava activity metrics — kept dependency-free so they run
-// client-side in DisciplineCard and are trivially testable.
+// client-side in FitnessCard and are trivially testable.
 
 export interface ActivitySummary {
   id: number;
@@ -84,6 +84,27 @@ export function distanceTotals(activities: ActivitySummary[], today: string): Di
     if (d >= monthStart) totals.month += a.distance;
   }
   return totals;
+}
+
+/**
+ * Meters per day for the Monday-based week containing `today` (7 entries,
+ * Monday first) — feeds the weekly mileage mini-chart.
+ */
+export function weekDailyDistance(activities: ActivitySummary[], today: string): { date: string; meters: number }[] {
+  const start = mondayOf(today);
+  const [y, m, d] = start.split('-').map(Number);
+  const days: { date: string; meters: number }[] = [];
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(y, m - 1, d + i, 12);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    days.push({ date: key, meters: 0 });
+  }
+  const byDate = new Map(days.map((day) => [day.date, day]));
+  for (const a of activities) {
+    const entry = byDate.get(activityDate(a));
+    if (entry) entry.meters += a.distance;
+  }
+  return days;
 }
 
 export interface RunRecords {
