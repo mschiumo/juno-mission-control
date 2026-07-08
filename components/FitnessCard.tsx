@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Dumbbell, RefreshCw, Link2, Unlink, Loader2, Check,
   CheckCircle2, AlertTriangle, Zap, Trophy, Pencil, Plus, Trash2,
@@ -207,7 +208,9 @@ function EditSplitModal({
     }
   }
 
-  return (
+  // Portaled to <body>: the dashboard's fade-up animation leaves a transform
+  // on an ancestor, which would trap position:fixed inside the card.
+  return createPortal(
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={onClose}>
       <div
         className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-sm max-h-[85vh] overflow-hidden flex flex-col"
@@ -279,7 +282,8 @@ function EditSplitModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
