@@ -291,6 +291,8 @@ export interface CSVImportResult {
   // Set when an Account Statement's Cash Balance section had no activity rows,
   // so fees/balances weren't updated. Surfaced to the user as an import warning.
   cashBalanceEmpty?: boolean;
+  // User-facing suggestions for fixing a failed import (shown in the UI).
+  hints?: string[];
 }
 
 export interface CSVImportError {

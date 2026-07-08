@@ -1172,26 +1172,81 @@ interface ImportModalProps {
   onSuccess?: () => void;
 }
 
+interface UploadResult {
+  success: boolean;
+  message: string;
+  count?: number;
+  warnings?: string[];
+  hints?: string[];
+  rowErrors?: { row: number; message: string }[];
+}
+
+// Vercel rejects request bodies over ~4.5 MB before they reach the API,
+// so catch oversized files client-side with a clear message.
+const MAX_UPLOAD_BYTES = 4.5 * 1024 * 1024;
+
 function ImportModal({ onClose, onSuccess }: ImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; count?: number; warning?: string } | null>(null);
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (selectedFile: File) => {
-    if (selectedFile.name.endsWith('.csv') || selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls')) {
-      setFile(selectedFile);
-      setUploadResult(null);
-    } else {
-      setUploadResult({ success: false, message: 'Please select a CSV or Excel file' });
+    const name = selectedFile.name.toLowerCase();
+    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+      setFile(null);
+      setUploadResult({
+        success: false,
+        message: 'Excel files can\'t be imported — the importer only reads plain-text CSV files.',
+        hints: [
+          'In thinkorswim, export the Account Statement as CSV: Monitor → Account Statement → export/print icon → CSV.',
+          'If you only have the Excel file, open it and use File → Save As → "CSV (Comma delimited)".',
+        ],
+      });
+      return;
     }
+    if (!name.endsWith('.csv') && !name.endsWith('.txt')) {
+      setFile(null);
+      setUploadResult({
+        success: false,
+        message: `"${selectedFile.name}" doesn't look like a CSV file.`,
+        hints: [
+          'Select the .csv file exported from your broker (thinkorswim: Monitor → Account Statement → export to CSV).',
+        ],
+      });
+      return;
+    }
+    if (selectedFile.size === 0) {
+      setFile(null);
+      setUploadResult({
+        success: false,
+        message: 'This file is empty (0 KB).',
+        hints: [
+          'The export may have failed, or the selected date range had no activity. Re-export from your broker and try again.',
+        ],
+      });
+      return;
+    }
+    if (selectedFile.size > MAX_UPLOAD_BYTES) {
+      setFile(null);
+      setUploadResult({
+        success: false,
+        message: `This file is too large to upload (${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB — the limit is about 4.5 MB).`,
+        hints: [
+          'Export a shorter date range from your broker and import it in smaller chunks.',
+        ],
+      });
+      return;
+    }
+    setFile(selectedFile);
+    setUploadResult(null);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFileSelect(e.dataTransfer.files[0]);
     }
@@ -1199,28 +1254,44 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
 
   const handleUpload = async () => {
     if (!file) return;
-    
+
     setIsUploading(true);
-    
+
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const response = await fetch('/api/trades/import', {
         method: 'POST',
         body: formData,
       });
-      
-      const result = await response.json();
-      
-      if (result.success) {
+
+      let result: {
+        success?: boolean;
+        count?: number;
+        error?: string;
+        hints?: string[];
+        warning?: string;
+        warnings?: string[];
+        rowErrors?: { row: number; message: string }[];
+      } | null = null;
+      try {
+        result = await response.json();
+      } catch {
+        // Non-JSON response — the request never reached the import handler
+        // (proxy/body-size/timeout errors return plain-text or HTML pages).
+      }
+
+      if (result?.success) {
+        const warnings = result.warnings || (result.warning ? [result.warning] : undefined);
         setUploadResult({
           success: true,
           message: `Successfully imported ${result.count || 0} trades`,
           count: result.count,
-          warning: result.warning,
+          warnings,
+          rowErrors: result.rowErrors,
         });
-        // Give the user longer to read a warning before the modal auto-closes.
+        // Give the user longer to read warnings before the modal auto-closes.
         setTimeout(() => {
           onClose();
           if (onSuccess) {
@@ -1228,12 +1299,37 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
           } else {
             window.location.reload();
           }
-        }, result.warning ? 6000 : 1500);
+        }, warnings && warnings.length > 0 ? 8000 : 1500);
+      } else if (result) {
+        setUploadResult({
+          success: false,
+          message: result.error ||
+            (response.status === 401
+              ? 'Your session has expired — please sign in again, then retry the import.'
+              : 'Import failed for an unknown reason. Please try again.'),
+          hints: result.hints,
+          rowErrors: result.rowErrors,
+        });
       } else {
-        setUploadResult({ success: false, message: result.error || 'Import failed' });
+        setUploadResult({
+          success: false,
+          message: response.status === 413
+            ? 'The file is too large to upload (the server limit is about 4.5 MB).'
+            : `The server returned an unexpected response (HTTP ${response.status}).`,
+          hints: response.status === 413
+            ? ['Export a shorter date range from your broker and import it in smaller chunks.']
+            : ['Try the import again in a moment.', 'If it keeps failing, check that you\'re still signed in.'],
+        });
       }
     } catch (error) {
-      setUploadResult({ success: false, message: 'Upload failed. Please try again.' });
+      setUploadResult({
+        success: false,
+        message: 'The upload never reached the server.',
+        hints: [
+          'Check your internet connection and try again.',
+          'If you\'re on a VPN or firewall, it may be blocking the request.',
+        ],
+      });
     } finally {
       setIsUploading(false);
     }
@@ -1258,13 +1354,13 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
           <input
             type="file"
             ref={fileInputRef}
-            accept=".csv,.xlsx,.xls"
+            accept=".csv,.txt"
             onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
             className="hidden"
           />
-          
+
           <Upload className="w-12 h-12 text-[#8b949e] mx-auto mb-4" />
-          
+
           {file ? (
             <div className="space-y-2">
               <p className="text-[#3fb950] font-medium">{file.name}</p>
@@ -1272,8 +1368,8 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
             </div>
           ) : (
             <>
-              <p className="text-white font-medium mb-2">Drop CSV or Excel file here</p>
-              <p className="text-sm text-[#8b949e] mb-4">Supports ThinkOrSwim, Interactive Brokers, and generic formats</p>
+              <p className="text-white font-medium mb-2">Drop your CSV file here</p>
+              <p className="text-sm text-[#8b949e] mb-4">In thinkorswim: <span className="text-white">Monitor → Account Statement → export to CSV</span>. Generic trade CSVs work too.</p>
             </>
           )}
           
@@ -1288,13 +1384,43 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
         
         {uploadResult && (
           <div className={`p-3 rounded-lg mb-4 ${uploadResult.success ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#da3633]/20 text-[#f85149]'}`}>
-            {uploadResult.message}
+            <p className={uploadResult.hints?.length || uploadResult.rowErrors?.length ? 'font-medium' : undefined}>
+              {uploadResult.message}
+            </p>
+            {!uploadResult.success && uploadResult.hints && uploadResult.hints.length > 0 && (
+              <div className="mt-2 text-sm text-[#f0a8a4]">
+                <p className="font-medium mb-1">How to fix it:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {uploadResult.hints.map((hint, i) => (
+                    <li key={i}>{hint}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
-        {uploadResult?.warning && (
-          <div className="p-3 rounded-lg mb-4 bg-[#9e6a03]/20 text-[#e3b341]">
-            {uploadResult.warning}
+        {uploadResult?.warnings && uploadResult.warnings.length > 0 && (
+          <div className="p-3 rounded-lg mb-4 bg-[#9e6a03]/20 text-[#e3b341] space-y-1">
+            {uploadResult.warnings.map((warning, i) => (
+              <p key={i}>{warning}</p>
+            ))}
+          </div>
+        )}
+
+        {uploadResult?.rowErrors && uploadResult.rowErrors.length > 0 && (
+          <div className="p-3 rounded-lg mb-4 bg-[#161b22] border border-[#30363d] text-sm text-[#8b949e] max-h-40 overflow-y-auto">
+            <p className="font-medium text-white mb-1">Rows that failed:</p>
+            <ul className="space-y-1">
+              {uploadResult.rowErrors.slice(0, 5).map((rowError, i) => (
+                <li key={i}>
+                  <span className="text-[#f85149]">Row {rowError.row}:</span> {rowError.message}
+                </li>
+              ))}
+            </ul>
+            {uploadResult.rowErrors.length > 5 && (
+              <p className="mt-1 italic">…and {uploadResult.rowErrors.length - 5} more row{uploadResult.rowErrors.length - 5 === 1 ? '' : 's'}</p>
+            )}
           </div>
         )}
 
