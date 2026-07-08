@@ -240,6 +240,13 @@ export default function ConfluenceView() {
   }, [loadAll]);
 
   const lastRun = runs[0];
+  // Freshness + plain-English outcome for the run banner: the owner should
+  // never have to wonder whether the morning screen ran or what it concluded.
+  const lastRunAge = lastRun ? Date.now() - new Date(lastRun.startedAt).getTime() : null;
+  const lastRunFresh = lastRunAge != null && lastRunAge < 24 * 60 * 60 * 1000;
+  const lastRunInPlay = Array.isArray(lastRun?.metadata?.alreadyInPlay)
+    ? (lastRun.metadata.alreadyInPlay as string[])
+    : [];
   // Gate-passing candidates the last run dropped only because sizing rounded
   // to zero shares — surfaced so a too-small risk budget doesn't read as
   // "no setups found".
@@ -326,27 +333,7 @@ export default function ConfluenceView() {
               <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
                 {pending.length} pending {pending.length === 1 ? 'proposal' : 'proposals'}
               </span>
-              {lastRun && (
-                <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                  Last run {new Date(lastRun.startedAt).toLocaleString()} · {lastRun.cadence} · {lastRun.proposalsGenerated} proposed · {lastRun.status}
-                  {lastRunSizedOut.length > 0 && (
-                    <>
-                      {' · '}
-                      <span
-                        style={{ color: 'var(--warning)', cursor: 'help' }}
-                        title={
-                          'Passed all gates but the risk budget was too small for 1 share:\n' +
-                          lastRunSizedOut
-                            .map((s) => `${s.symbol} — $${s.riskPerShare}/share risk vs $${s.riskBudgetUsd} budget`)
-                            .join('\n')
-                        }
-                      >
-                        {lastRunSizedOut.length} sized out (risk budget too small)
-                      </span>
-                    </>
-                  )}
-                </span>
-              )}
+
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -362,11 +349,87 @@ export default function ConfluenceView() {
               </button>
             </div>
           </div>
+          {/* Run-status banner — explicit about whether the screen ran and what it concluded. */}
+          {lastRun && (
+            <div
+              className="card flex items-start gap-3 py-3"
+              style={{
+                borderColor:
+                  lastRun.status === 'failed'
+                    ? 'var(--negative)'
+                    : lastRunFresh
+                      ? 'var(--border-default)'
+                      : 'var(--warning)',
+              }}
+            >
+              <div
+                className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
+                style={{
+                  background:
+                    lastRun.status === 'failed'
+                      ? 'var(--negative)'
+                      : lastRunFresh
+                        ? 'var(--positive)'
+                        : 'var(--warning)',
+                }}
+              />
+              <div className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                  {lastRun.status === 'failed'
+                    ? 'Last screen FAILED'
+                    : `Screen ran ${new Date(lastRun.startedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`}
+                </span>
+                {lastRun.status !== 'failed' && (
+                  <>
+                    {' — '}
+                    {typeof lastRun.universeSize === 'number' ? `${lastRun.universeSize} symbols screened` : 'screen completed'}
+                    {typeof lastRun.metadata?.valueGatePassed === 'number'
+                      ? `, ${lastRun.metadata.valueGatePassed as number} passed the value gate`
+                      : ''}
+                    {', '}
+                    {lastRun.proposalsGenerated > 0 ? (
+                      <b style={{ color: 'var(--text-primary)' }}>{lastRun.proposalsGenerated} proposed</b>
+                    ) : (
+                      <b style={{ color: 'var(--text-primary)' }}>no opportunities matched the strategy</b>
+                    )}
+                    {'.'}
+                    {lastRun.proposalsGenerated === 0 && (
+                      <span>
+                        {' '}Zero-proposal days are the strategy being selective — nothing was in the pullback zone
+                        {lastRunInPlay.length > 0
+                          ? ` (and ${lastRunInPlay.length} qualifying ${lastRunInPlay.length === 1 ? 'name is' : 'names are'} already in play: ${lastRunInPlay.join(', ')})`
+                          : ''}
+                        .
+                      </span>
+                    )}
+                    {lastRunSizedOut.length > 0 && (
+                      <span
+                        style={{ color: 'var(--warning)', cursor: 'help' }}
+                        title={lastRunSizedOut
+                          .map((x) => `${x.symbol} — $${x.riskPerShare}/share risk vs $${x.riskBudgetUsd} budget`)
+                          .join('\n')}
+                      >
+                        {' '}{lastRunSizedOut.length} sized out (risk budget too small).
+                      </span>
+                    )}
+                  </>
+                )}
+                {lastRun.status === 'failed' && (
+                  <span> — check the run entry and cron results; no screen output was produced.</span>
+                )}
+                {!lastRunFresh && lastRun.status !== 'failed' && (
+                  <span style={{ color: 'var(--warning)' }}> Over 24h old — the pre-open cron may not have run today.</span>
+                )}
+              </div>
+            </div>
+          )}
           {pending.length === 0 ? (
             <div className="card text-center py-10">
               <Inbox className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
               <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-                No pending proposals. Seed demo proposals to watch the flow end to end.
+                {lastRun && lastRunFresh && lastRun.status === 'completed'
+                  ? 'Queue is clear — the screen ran and found nothing to propose today.'
+                  : 'No pending proposals. Seed demo proposals to watch the flow end to end.'}
               </p>
             </div>
           ) : (
