@@ -310,12 +310,27 @@ function parseTOSOrSchwabFormat(csvText: string, options: FlexibleCSVOptions): C
   }
 
   if (tosTrades.length === 0 && rawAdjustments.length === 0) {
+    const message = isAccountStatement
+      ? 'This Account Statement was recognized, but its "Account Trade History" section contains no filled trades.'
+      : 'This file was recognized as a thinkorswim/Schwab export, but no filled orders were found in it.';
+    const hints = isAccountStatement
+      ? [
+          'Check the date range on the statement — it may cover days with no trading activity.',
+          'In thinkorswim, go to Monitor → Account Statement, widen the date range, and re-export to CSV.',
+          'Make sure the "Account Trade History" section is included in the export (section visibility affects the CSV).',
+        ]
+      : [
+          'Only filled orders can be imported — working or canceled orders are skipped.',
+          'In thinkorswim, export from Monitor → Account Statement so trades, balances, and fees are all included.',
+          'Check that the export covers a date range where you actually traded.',
+        ];
     return {
       success: false,
       imported: 0,
       failed: 0,
-      errors: [{ row: 0, message: 'No trades found in file', data: {} }],
+      errors: [{ row: 0, message, data: {} }],
       trades: [],
+      hints,
     };
   }
 
@@ -979,33 +994,47 @@ function parseCSVLine(line: string, delimiter: string): string[] {
 /**
  * Validate CSV format before parsing
  */
-export function validateCSVFormat(csvText: string): { valid: boolean; format: CSVFormat; message?: string } {
+export function validateCSVFormat(csvText: string): { valid: boolean; format: CSVFormat; message?: string; hints?: string[] } {
   const lines = csvText.split('\n').filter(line => line.trim());
-  
+
   if (lines.length < 2) {
-    return { valid: false, format: 'generic', message: 'CSV must have at least a header and one data row' };
+    return {
+      valid: false,
+      format: 'generic',
+      message: 'This file is empty or has no data rows — a CSV needs at least a header row and one data row.',
+      hints: [
+        'The export may have failed or covered a date range with no activity. Re-export and check the file opens with data in a text editor or Excel.',
+        'In thinkorswim: Monitor → Account Statement → set your date range → export to CSV.',
+      ],
+    };
   }
-  
+
   const format = detectCSVFormat(csvText);
-  
+
   if (format === 'generic') {
-    // Check if we can detect required columns
+    // The file didn't match any known broker export, so we need to find the
+    // required columns by header name before attempting a generic parse.
+    const columnHints = [
+      'This file didn\'t match a known broker format (thinkorswim/Schwab), so it needs recognizable column headers.',
+      'For thinkorswim, export the full Account Statement (Monitor → Account Statement → CSV) instead of a custom report.',
+      'For other CSVs, make sure the first row is a header row naming each column.',
+    ];
     const headers = parseCSVLine(lines[0], ',').map(h => h.toLowerCase().trim());
     const hasSymbol = headers.some(h => /symbol|ticker|stock/.test(h));
     const hasPrice = headers.some(h => /price|entry/.test(h));
     const hasQuantity = headers.some(h => /shares|quantity|qty|size/.test(h));
-    
+
     if (!hasSymbol) {
-      return { valid: false, format, message: 'Could not detect Symbol column. Expected headers: Symbol, Ticker, or Stock' };
+      return { valid: false, format, message: 'Could not find a Symbol column. Expected a header named Symbol, Ticker, or Stock.', hints: columnHints };
     }
     if (!hasPrice) {
-      return { valid: false, format, message: 'Could not detect Price column. Expected headers: Price, Entry_Price, or Entry' };
+      return { valid: false, format, message: 'Could not find a Price column. Expected a header named Price, Entry_Price, or Entry.', hints: columnHints };
     }
     if (!hasQuantity) {
-      return { valid: false, format, message: 'Could not detect Quantity column. Expected headers: Shares, Quantity, Qty, or Size' };
+      return { valid: false, format, message: 'Could not find a Quantity column. Expected a header named Shares, Quantity, Qty, or Size.', hints: columnHints };
     }
   }
-  
+
   return { valid: true, format };
 }
 

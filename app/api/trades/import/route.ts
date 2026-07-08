@@ -56,6 +56,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       // Read file content
       csv = await file.text();
+
+      // Excel and other binary files decode to garbage via file.text() and
+      // would otherwise fail later with a confusing "column not found" error.
+      // .xlsx is a zip archive (starts "PK"); legacy .xls and other binary
+      // formats surface as NUL bytes or U+FFFD replacement chars.
+      const fileName = (file.name || '').toLowerCase();
+      const head = csv.slice(0, 2000);
+      const looksBinary = head.startsWith('PK') || head.includes('\u0000') || head.includes('\uFFFD');
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || looksBinary) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'This looks like an Excel or binary file — only plain-text CSV files can be imported.',
+            hints: [
+              'In thinkorswim, export the Account Statement as CSV (Monitor → Account Statement → export/print icon → CSV).',
+              'If you only have an Excel file, open it and use File → Save As → "CSV (Comma delimited)".',
+            ],
+          },
+          { status: 400 }
+        );
+      }
     } else {
       // Handle JSON
       const body = await request.json();
@@ -78,6 +99,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         {
           success: false,
           error: validation.message,
+          hints: validation.hints,
           detectedFormat: validation.format,
           sample: getFormatSample(validation.format)
         },
@@ -94,6 +116,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       delimiter,
       defaultStrategy: Strategy.DAY_TRADE,
     });
+
+    // Nothing usable in the file at all — fail explicitly with the parser's
+    // reason and per-row details instead of a silent success:false payload
+    // the UI can't explain.
+    const hasBalanceData =
+      (result.startingBalance && result.startingBalance > 0) ||
+      (result.dailyBalances && result.dailyBalances.length > 0) ||
+      (result.dailyFees && result.dailyFees.length > 0);
+    if (result.trades.length === 0 && !hasBalanceData) {
+      // errors[0].row === 0 marks a file-level message; otherwise every data
+      // row failed individually and we summarize instead.
+      const fileLevelError = result.errors[0]?.row === 0 ? result.errors[0].message : undefined;
+      return NextResponse.json(
+        {
+          success: false,
+          error: fileLevelError ||
+            (result.failed > 0
+              ? `No trades could be imported — all ${result.failed} data row${result.failed === 1 ? '' : 's'} failed. See row details below.`
+              : 'No trades could be read from this file.'),
+          hints: result.hints || [
+            'Check that the export covers a date range where you actually traded.',
+            'In thinkorswim, export the full Account Statement (Monitor → Account Statement → CSV).',
+          ],
+          rowErrors: result.errors.filter(e => e.row > 0).slice(0, 20).map(e => ({ row: e.row, message: e.message })),
+          detectedFormat,
+        },
+        { status: 400 }
+      );
+    }
 
     // Save trades to Redis
     if (result.trades.length > 0) {
@@ -143,15 +194,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // Warn when an Account Statement omitted its Cash Balance activity: trades
-    // still import, but broker fees and daily balances can't be derived, so a
-    // re-import would silently leave those metrics stale.
-    const warning = result.cashBalanceEmpty
-      ? 'This Account Statement has no Cash Balance activity, so broker fees and daily balances were not updated. Re-export from thinkorswim with the Cash Balance section included.'
-      : undefined;
+    // Non-fatal problems the user should still see after a save: skipped rows,
+    // trade-less balance updates, and Account Statements missing Cash Balance
+    // activity (fees/balances can't be derived, so metrics would silently go
+    // stale on re-import).
+    const warnings: string[] = [];
+    if (result.failed > 0) {
+      warnings.push(
+        `${result.failed} row${result.failed === 1 ? '' : 's'} could not be imported and ${result.failed === 1 ? 'was' : 'were'} skipped. See row details below.`
+      );
+    }
+    if (result.trades.length === 0) {
+      warnings.push('No trades were found in this file, but account balances/fees were updated.');
+    }
+    if (result.cashBalanceEmpty) {
+      warnings.push('This Account Statement has no Cash Balance activity, so broker fees and daily balances were not updated. Re-export from thinkorswim with the Cash Balance section included.');
+    }
 
     return NextResponse.json({
-      success: result.success,
+      success: true,
       data: {
         imported: result.imported,
         failed: result.failed,
@@ -162,7 +223,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         dailyBalances: result.dailyBalances,
       },
       count: result.imported,
-      warning,
+      // Kept for older clients that read a single `warning` string.
+      warning: warnings[0],
+      warnings: warnings.length > 0 ? warnings : undefined,
+      rowErrors: result.failed > 0
+        ? result.errors.filter(e => e.row > 0).slice(0, 20).map(e => ({ row: e.row, message: e.message }))
+        : undefined,
     });
 
   } catch (error) {
@@ -170,7 +236,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to import trades'
+        error: `Something went wrong on the server while importing: ${error instanceof Error ? error.message : 'unknown error'}`,
+        hints: [
+          'Try the import again — transient storage errors usually resolve on retry.',
+          'If it keeps failing, the file may contain unexpected formatting; try re-exporting it from your broker.',
+        ],
       },
       { status: 500 }
     );
