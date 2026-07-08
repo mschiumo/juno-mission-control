@@ -7,7 +7,7 @@ import { completeMatchingHabits, uncompleteHabits, isExerciseHabit } from '@/lib
 // workout (not per calendar day), so a missed day just keeps the same group
 // up next — the order is what matters.
 
-export const WORKOUT_GROUPS = ['Chest', 'Biceps', 'Triceps', 'Back', 'Shoulders'] as const;
+const DEFAULT_GROUPS = ['Chest', 'Biceps', 'Triceps', 'Back', 'Shoulders'];
 
 interface WorkoutState {
   index: number; // which group is up next
@@ -15,9 +15,29 @@ interface WorkoutState {
   // habitIds = habits this completion auto-checked, so undo only reverts
   // what we flipped (never a habit checked manually or by Strava sync).
   history: { date: string; group: string; habitIds?: string[] }[]; // most recent last, capped
+  groups?: string[]; // custom rotation; absent = DEFAULT_GROUPS
 }
 
 const HISTORY_CAP = 60;
+const MAX_GROUPS = 12;
+const MAX_GROUP_LENGTH = 40;
+
+// Trim, drop empties, dedupe (case-insensitive, first occurrence wins), cap
+// count and length. Returns null when nothing usable remains.
+function sanitizeGroups(input: unknown): string[] | null {
+  if (!Array.isArray(input)) return null;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of input) {
+    if (typeof item !== 'string') continue;
+    const name = item.trim().slice(0, MAX_GROUP_LENGTH);
+    if (!name || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    out.push(name);
+    if (out.length >= MAX_GROUPS) break;
+  }
+  return out.length > 0 ? out : null;
+}
 
 function stateKey(userId: string) {
   return `workout_schedule:${userId}`;
@@ -41,17 +61,23 @@ async function loadState(userId: string): Promise<WorkoutState> {
     try {
       const parsed = JSON.parse(raw) as WorkoutState;
       if (typeof parsed.index === 'number') {
+        const groups = sanitizeGroups(parsed.groups) ?? DEFAULT_GROUPS;
         return {
-          index: ((parsed.index % WORKOUT_GROUPS.length) + WORKOUT_GROUPS.length) % WORKOUT_GROUPS.length,
+          index: ((parsed.index % groups.length) + groups.length) % groups.length,
           lastCompletedDate: parsed.lastCompletedDate ?? null,
           history: Array.isArray(parsed.history) ? parsed.history : [],
+          groups,
         };
       }
     } catch {
       /* fall through to fresh state */
     }
   }
-  return { index: 0, lastCompletedDate: null, history: [] };
+  return { index: 0, lastCompletedDate: null, history: [], groups: DEFAULT_GROUPS };
+}
+
+function groupsOf(state: WorkoutState): string[] {
+  return state.groups ?? DEFAULT_GROUPS;
 }
 
 async function saveState(userId: string, state: WorkoutState): Promise<void> {
@@ -60,11 +86,12 @@ async function saveState(userId: string, state: WorkoutState): Promise<void> {
 }
 
 function serialize(state: WorkoutState, today: string) {
+  const groups = groupsOf(state);
   return {
     success: true,
-    groups: WORKOUT_GROUPS,
+    groups,
     nextIndex: state.index,
-    nextGroup: WORKOUT_GROUPS[state.index],
+    nextGroup: groups[state.index],
     completedToday: state.lastCompletedDate === today,
     todayGroup: state.lastCompletedDate === today ? state.history[state.history.length - 1]?.group ?? null : null,
     lastCompletedDate: state.lastCompletedDate,
@@ -90,9 +117,10 @@ export async function POST(request: NextRequest) {
   if (error) return error;
 
   try {
-    const { action } = (await request.json()) as { action?: string };
+    const { action, groups: rawGroups } = (await request.json()) as { action?: string; groups?: unknown };
     const today = getTodayEST();
     const state = await loadState(userId);
+    const groups = groupsOf(state);
 
     let completedHabits: { id: string; name: string; icon: string }[] = [];
 
@@ -102,18 +130,18 @@ export async function POST(request: NextRequest) {
         completedHabits = await completeMatchingHabits(userId, today, isExerciseHabit);
         state.history.push({
           date: today,
-          group: WORKOUT_GROUPS[state.index],
+          group: groups[state.index],
           ...(completedHabits.length > 0 ? { habitIds: completedHabits.map((h) => h.id) } : {}),
         });
         if (state.history.length > HISTORY_CAP) state.history = state.history.slice(-HISTORY_CAP);
         state.lastCompletedDate = today;
-        state.index = (state.index + 1) % WORKOUT_GROUPS.length;
+        state.index = (state.index + 1) % groups.length;
         await saveState(userId, state);
       }
     } else if (action === 'undo') {
       if (state.lastCompletedDate === today && state.history.length > 0) {
         const entry = state.history.pop();
-        state.index = (state.index - 1 + WORKOUT_GROUPS.length) % WORKOUT_GROUPS.length;
+        state.index = (state.index - 1 + groups.length) % groups.length;
         state.lastCompletedDate = state.history[state.history.length - 1]?.date ?? null;
         await saveState(userId, state);
         // Revert only the habits this completion flipped.
@@ -121,10 +149,21 @@ export async function POST(request: NextRequest) {
       }
     } else if (action === 'skip') {
       // Move past the up-next group without logging a workout.
-      state.index = (state.index + 1) % WORKOUT_GROUPS.length;
+      state.index = (state.index + 1) % groups.length;
+      await saveState(userId, state);
+    } else if (action === 'setGroups') {
+      const next = sanitizeGroups(rawGroups);
+      if (!next) {
+        return NextResponse.json({ success: false, error: 'groups must be a non-empty array of names' }, { status: 400 });
+      }
+      // Keep pointing at the same up-next group when it survives the edit;
+      // otherwise clamp so the pointer stays in range.
+      const keep = next.indexOf(groups[state.index]);
+      state.index = keep >= 0 ? keep : Math.min(state.index, next.length - 1);
+      state.groups = next;
       await saveState(userId, state);
     } else {
-      return NextResponse.json({ success: false, error: 'action must be complete, undo, or skip' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'action must be complete, undo, skip, or setGroups' }, { status: 400 });
     }
 
     return NextResponse.json({ ...serialize(state, today), completedHabits });
