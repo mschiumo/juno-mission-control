@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Dumbbell, RefreshCw, Link2, Unlink, Loader2, Check,
-  CheckCircle2, AlertTriangle, Zap, Trophy,
+  CheckCircle2, AlertTriangle, Zap, Trophy, Pencil, Plus, Trash2,
 } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
 import WeeklyScoreboard from '@/components/WeeklyScoreboard';
@@ -168,10 +168,126 @@ function hourLabel(dateLocal: string): string {
   return `${twelve}${h < 12 ? 'a' : 'p'}`;
 }
 
+// Mirrors the server-side limits in /api/workout-schedule.
+const MAX_GROUPS = 12;
+const MAX_GROUP_LENGTH = 40;
+
+// Modal for editing the workout split rotation: add, rename, or delete groups.
+function EditSplitModal({
+  groups,
+  onClose,
+  onSaved,
+}: {
+  groups: string[];
+  onClose: () => void;
+  onSaved: (schedule: WorkoutSchedule) => void;
+}) {
+  const [draft, setDraft] = useState<string[]>(groups);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const cleaned = draft.map((g) => g.trim()).filter((g) => g.length > 0);
+  const canSave = !saving && cleaned.length > 0;
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/workout-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setGroups', groups: cleaned }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Save failed');
+      onSaved(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={onClose}>
+      <div
+        className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-sm max-h-[85vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-gradient-to-r from-[#1a1f2e] to-[#161b22] border-b border-[#30363d] p-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#F97316]/10 rounded-xl flex-shrink-0">
+              <Dumbbell className="w-5 h-5 text-[#F97316]" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-white">Edit Workout Split</h2>
+              <p className="text-xs text-[#8b949e]">The rotation advances one group per completed workout.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-2 overflow-y-auto">
+          {draft.map((g, i) => (
+            <div key={i} className="flex items-center gap-2 p-2 bg-[#0d1117] border border-[#21262d] rounded-lg">
+              <span className="text-xs font-bold text-[#F97316] bg-[#F97316]/10 w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 tabular-nums">
+                {i + 1}
+              </span>
+              <input
+                value={g}
+                onChange={(e) => setDraft((prev) => prev.map((x, idx) => (idx === i ? e.target.value : x)))}
+                maxLength={MAX_GROUP_LENGTH}
+                className="flex-1 bg-transparent text-sm text-[#e6edf3] focus:outline-none focus:ring-1 focus:ring-[#F97316]/50 rounded px-2 py-1 min-w-0"
+                placeholder="e.g. Legs"
+              />
+              <button
+                onClick={() => setDraft((prev) => prev.filter((_, idx) => idx !== i))}
+                className="p-1.5 hover:bg-[#f85149]/10 rounded transition-colors flex-shrink-0"
+                title="Delete group"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-[#8b949e] hover:text-[#f85149]" />
+              </button>
+            </div>
+          ))}
+          {draft.length < MAX_GROUPS && (
+            <button
+              onClick={() => setDraft((prev) => [...prev, ''])}
+              className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-[#30363d] hover:border-[#F97316]/50 text-sm text-[#8b949e] hover:text-[#F97316] rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add group
+            </button>
+          )}
+          {cleaned.length === 0 && (
+            <p className="text-xs text-[#8b949e] text-center">Keep at least one group in the rotation.</p>
+          )}
+          {error && <p className="text-xs text-[#f85149]">{error}</p>}
+
+          <div className="flex items-center gap-2 pt-2">
+            <button
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 py-2 rounded-lg text-sm font-medium border border-[#30363d] text-[#c9d1d9] hover:bg-[#21262d] transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={save}
+              disabled={!canSave}
+              className="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:bg-[#21262d] disabled:text-[#484f58] bg-[#F97316] hover:bg-[#ea580c] text-white"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function FitnessCard() {
   // Workout split state
   const [workout, setWorkout] = useState<WorkoutSchedule | null>(null);
   const [workoutBusy, setWorkoutBusy] = useState(false);
+  const [editingSplit, setEditingSplit] = useState(false);
 
   // Card tab: fitness panels vs weekly scoreboard
   const [tab, setTab] = useState<'fitness' | 'scoreboard'>('fitness');
@@ -410,7 +526,18 @@ export default function FitnessCard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Workout split */}
           <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3 flex flex-col">
-            <p className="text-[10px] uppercase tracking-wider text-[#8b949e] font-medium mb-2">Workout Split</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] uppercase tracking-wider text-[#8b949e] font-medium">Workout Split</p>
+              {workout && (
+                <button
+                  onClick={() => setEditingSplit(true)}
+                  className="p-1 -m-1 hover:bg-[#30363d] rounded-md transition-colors"
+                  title="Edit workout split"
+                >
+                  <Pencil className="w-3 h-3 text-[#484f58] hover:text-[#F97316]" />
+                </button>
+              )}
+            </div>
             {!workout ? (
               <div className="flex items-center justify-center py-4 text-[#8b949e]">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -694,6 +821,17 @@ export default function FitnessCard() {
           </div>
         </div>
       </div>
+      )}
+
+      {editingSplit && workout && (
+        <EditSplitModal
+          groups={workout.groups}
+          onClose={() => setEditingSplit(false)}
+          onSaved={(schedule) => {
+            setWorkout(schedule);
+            setEditingSplit(false);
+          }}
+        />
       )}
     </div>
   );
