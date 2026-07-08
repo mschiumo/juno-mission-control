@@ -36,10 +36,20 @@ export interface ProtectiveStopDecision {
  * system only produces the loud "position unprotected" signal when a stop
  * would actually have been placed.
  */
+export interface ProtectiveStopOptions {
+  /**
+   * OCO restore path: the engine itself cancelled the previous stop to try a
+   * take-profit, so a cancelled child must NOT read as "owner removed
+   * protection" — allow re-placement.
+   */
+  afterOcoRestore?: boolean;
+}
+
 export function shouldPlaceProtectiveStop(
   entryOrder: ExecutionOrder,
   existingChildren: ExecutionOrder[],
   systemState: SystemState,
+  opts?: ProtectiveStopOptions,
 ): ProtectiveStopDecision {
   // Only entries chain stops (absent kind = legacy entry). A protective_stop
   // filling must never chain another order.
@@ -65,7 +75,13 @@ export function shouldPlaceProtectiveStop(
   // broker deterministically refused (a retry would just repeat it). The
   // unprotected cases still surface as NO STOP in the Positions card.
   const blocking = existingChildren.filter(
-    (c) => c.kind === 'protective_stop' && c.protectsOrderId === entryOrder.id && c.status !== 'failed',
+    (c) =>
+      c.kind === 'protective_stop' &&
+      c.protectsOrderId === entryOrder.id &&
+      c.status !== 'failed' &&
+      // OCO restore: the engine cancelled the previous stop itself — a
+      // cancelled child doesn't block re-arming. Active/filled still do.
+      !(opts?.afterOcoRestore && c.status === 'cancelled'),
   );
   if (blocking.length > 0) {
     return {
