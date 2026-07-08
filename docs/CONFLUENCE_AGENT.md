@@ -131,7 +131,7 @@ Report a one-line summary of what you proposed. Do not place any trades.
 Run it on a swing cadence (nightly, weekdays — not intraday). Either:
 
 - **Claude routines / the `schedule` skill** — create a recurring cloud agent
-  with the prompt above (e.g. cron `0 2 * * 2-6` ≈ post-close weeknights ET).
+  with the prompt above (e.g. cron `0 12 * * 1-5` ≈ pre-open weekday mornings ET — same slot as the in-app agent cron; daily bars don't change overnight, so pre-open sees the same data as post-close but lands proposals fresh in the morning review window).
 - **Claude Code scheduled task** on a machine that has the Robinhood MCP
   connected.
 

@@ -71,7 +71,7 @@
     },
     {
       "path": "/api/cron-jobs/confluence-agent",
-      "schedule": "0 2 * * 2-6"
+      "schedule": "0 12 * * 1-5"
     },
     {
       "path": "/api/cron-jobs/confluence-weekly-review",
