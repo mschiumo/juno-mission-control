@@ -4,14 +4,14 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Dumbbell, RefreshCw, Link2, Unlink, Loader2, Check,
-  CheckCircle2, AlertTriangle, Zap, Trophy, Pencil, Plus, Trash2,
+  CheckCircle2, AlertTriangle, Zap, Trophy, Pencil, Plus, Trash2, Flame,
 } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
 import WeeklyScoreboard from '@/components/WeeklyScoreboard';
 import {
   type ActivitySummary, RUN_SPORTS, WALK_SPORTS,
   fmtMiles, fmtDuration, fmtPace, paceSecPerMile, speedMph, metersToMiles,
-  distanceTotals, runRecords, weekDailyDistance, monthDailyDistance, activityDate,
+  distanceTotals, calorieTotals, runRecords, weekDailyDistance, monthDailyDistance, activityDate,
 } from '@/lib/strava-metrics';
 
 type StravaActivity = ActivitySummary;
@@ -122,6 +122,7 @@ function activityTooltipRows(a: ActivitySummary): TooltipRow[] {
   if (mph !== null) rows.push({ label: 'Avg Speed', value: `${mph.toFixed(1)} mph`, accent: true });
   rows.push({ label: 'Time', value: fmtDuration(a.moving_time) });
   if (a.total_elevation_gain > 0) rows.push({ label: 'Elev Gain', value: `${Math.round(a.total_elevation_gain * 3.28084)} ft` });
+  if ((a.calories ?? 0) > 0) rows.push({ label: 'Calories', value: `${Math.round(a.calories!).toLocaleString()} cal` });
   return rows;
 }
 
@@ -440,6 +441,7 @@ export default function FitnessCard() {
     return {
       today: todayEST,
       totals: distanceTotals(filtered, todayEST),
+      calories: calorieTotals(filtered, todayEST),
       records: runRecords(filtered, actType === 'walk' ? WALK_SPORTS : RUN_SPORTS),
       week: weekDailyDistance(filtered, todayEST),
       month: monthDailyDistance(filtered, todayEST),
@@ -660,6 +662,7 @@ export default function FitnessCard() {
               </p>
             ) : (() => {
               const heroMeters = period === 'day' ? metrics.totals.today : period === 'week' ? metrics.totals.week : metrics.totals.month;
+              const heroCalories = period === 'day' ? metrics.calories.today : period === 'week' ? metrics.calories.week : metrics.calories.month;
               const chartDays = period === 'month' ? metrics.month : metrics.week;
               const maxChartMeters = Math.max(...chartDays.map((d) => d.meters), 1);
               const maxTodayMeters = Math.max(...metrics.todays.map((a) => a.distance), 1);
@@ -670,6 +673,15 @@ export default function FitnessCard() {
                       {metersToMiles(heroMeters).toFixed(1)}
                     </span>
                     <span className="text-sm font-semibold text-[#FC4C02]">mi</span>
+                    {heroCalories > 0 && (
+                      <span
+                        className="ml-auto flex items-center gap-1 text-[11px] font-semibold text-[#c9d1d9] tabular-nums"
+                        title="Total calories burned in the selected period (Strava)"
+                      >
+                        <Flame className="w-3.5 h-3.5 text-[#FC4C02]" />
+                        {Math.round(heroCalories).toLocaleString()} cal
+                      </span>
+                    )}
                   </div>
 
                   {period === 'day' ? (
