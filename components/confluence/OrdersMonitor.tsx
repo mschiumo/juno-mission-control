@@ -16,6 +16,11 @@ export interface LivePosition {
   avgCost?: number;
   /** Active protective-stop coverage from the app's ledger (null = uncovered). */
   stop: { stopPrice?: number; quantity: number } | null;
+  /** The approved take-profit from the filled entry (null = untracked). */
+  target?: number | null;
+  lastPrice?: number | null;
+  /** Live quote at/above the approved target — time to take profit. */
+  atTarget?: boolean;
 }
 
 interface Props {
@@ -64,6 +69,7 @@ export default function OrdersMonitor({ orders, positions, positionsNote, busy, 
                   <th className="py-2 pr-3 font-medium">Qty</th>
                   <th className="py-2 pr-3 font-medium">Avg cost</th>
                   <th className="py-2 pr-3 font-medium">Protective stop</th>
+                  <th className="py-2 pr-3 font-medium">Target</th>
                 </tr>
               </thead>
               <tbody>
@@ -89,6 +95,34 @@ export default function OrdersMonitor({ orders, positions, positionsNote, busy, 
                         >
                           NO STOP
                         </span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3">
+                      {p.atTarget ? (
+                        <span
+                          className="animate-pulse px-2 py-0.5 rounded text-[11px] font-bold"
+                          style={{
+                            background: 'var(--positive)',
+                            color: '#06130a',
+                            boxShadow: '0 0 8px var(--positive)',
+                          }}
+                          title={`Last $${p.lastPrice?.toFixed(2)} ≥ target $${p.target?.toFixed(2)} — approved take-profit level reached`}
+                        >
+                          🎯 AT TARGET
+                        </span>
+                      ) : p.target != null ? (
+                        <span
+                          className="text-[11px] tabular-nums"
+                          style={{ color: 'var(--text-secondary)' }}
+                          title={p.lastPrice != null ? `Last $${p.lastPrice.toFixed(2)}` : undefined}
+                        >
+                          ${p.target.toFixed(2)}
+                          {p.lastPrice != null && p.avgCost != null && p.target > p.avgCost
+                            ? ` (${Math.max(0, Math.min(100, Math.round(((p.lastPrice - p.avgCost) / (p.target - p.avgCost)) * 100)))}% there)`
+                            : ''}
+                        </span>
+                      ) : (
+                        <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>—</span>
                       )}
                     </td>
                   </tr>
