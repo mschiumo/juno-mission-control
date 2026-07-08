@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  distanceTotals, runRecords, paceSecPerMile, speedMph,
+  distanceTotals, calorieTotals, runRecords, paceSecPerMile, speedMph,
   fmtPace, fmtMiles, mondayOf, weekDailyDistance, monthDailyDistance,
   type ActivitySummary,
 } from '../lib/strava-metrics';
@@ -120,5 +120,20 @@ describe('monthDailyDistance', () => {
     expect(buckets[0].meters / MI).toBeCloseTo(4);
     expect(buckets[6].meters / MI).toBeCloseTo(6);
     expect(buckets[30].date).toBe('2026-07-31');
+  });
+});
+
+describe('calorieTotals', () => {
+  it('buckets calories by today / week / month and skips unknowns', () => {
+    const acts = [
+      act({ calories: 500, start_date_local: '2026-07-07T06:00:00Z' }), // today
+      act({ calories: 300, start_date_local: '2026-07-06T06:00:00Z' }), // this week
+      act({ calories: 200, start_date_local: '2026-07-01T06:00:00Z' }), // this month
+      act({ start_date_local: '2026-07-07T08:00:00Z' }), // no calories yet — ignored
+    ];
+    const t = calorieTotals(acts, '2026-07-07');
+    expect(t.today).toBe(500);
+    expect(t.week).toBe(800);
+    expect(t.month).toBe(1000);
   });
 });

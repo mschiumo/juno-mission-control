@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireUserId } from '@/lib/auth-session';
-import { fetchRecentActivities, type StravaActivity } from '@/lib/strava';
+import { fetchRecentActivities, attachCalories, type StravaActivity } from '@/lib/strava';
 import { completeMatchingHabits, isExerciseHabit, isRunHabit, isCardioHabit } from '@/lib/habit-sync';
 import { RUN_SPORTS, WALK_SPORTS } from '@/lib/strava-metrics';
 
@@ -41,6 +41,13 @@ export async function POST() {
     }
 
     activities.sort((a, b) => b.start_date_local.localeCompare(a.start_date_local));
+
+    // Fill in calories (cached per activity; capped detail fetches per sync).
+    try {
+      await attachCalories(userId, activities);
+    } catch (err) {
+      console.error('attachCalories failed:', err);
+    }
 
     const today = getTodayEST();
     const todaysActivities = activities.filter((a) => a.start_date_local.slice(0, 10) === today);

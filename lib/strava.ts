@@ -29,6 +29,7 @@ export interface StravaActivity {
   start_date_local: string; // ISO, athlete-local wall time
   achievement_count: number; // segment + best-effort achievements on this activity
   pr_count: number; // personal records set on this activity
+  calories?: number; // from the detail endpoint (attachCalories) — absent until fetched
 }
 
 function tokenKey(userId: string) {
@@ -184,4 +185,66 @@ export async function fetchRecentActivities(userId: string, afterUnixSec: number
     achievement_count: a.achievement_count ?? 0,
     pr_count: a.pr_count ?? 0,
   }));
+}
+
+const CALORIES_KEY_PREFIX = 'strava:calories';
+
+/**
+ * Populate `calories` on each activity. Strava's list endpoint doesn't
+ * include calories — only the per-activity detail endpoint does — so values
+ * are fetched once, cached forever in a per-user Redis hash (calories never
+ * change after upload), and only `maxFetch` uncached activities are fetched
+ * per call to stay far inside rate limits. Activities still uncached after
+ * the cap fill in on subsequent syncs.
+ */
+export async function attachCalories(userId: string, activities: StravaActivity[], maxFetch = 30): Promise<void> {
+  if (activities.length === 0) return;
+  const redis = await getRedisClient();
+  const cacheKey = `${CALORIES_KEY_PREFIX}:${userId}`;
+
+  let cache: Record<string, string> = {};
+  try {
+    cache = await redis.hGetAll(cacheKey);
+  } catch {
+    /* cache miss is fine */
+  }
+
+  const missing: StravaActivity[] = [];
+  for (const a of activities) {
+    const cached = cache[String(a.id)];
+    if (cached !== undefined) a.calories = Number(cached);
+    else missing.push(a);
+  }
+  if (missing.length === 0) return;
+
+  const accessToken = await getValidAccessToken(userId);
+  if (!accessToken) return;
+
+  const toFetch = missing.slice(0, maxFetch);
+  const fetched: Record<string, string> = {};
+  await Promise.all(
+    toFetch.map(async (a) => {
+      try {
+        const res = await fetch(`https://www.strava.com/api/v3/activities/${a.id}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!res.ok) return;
+        const detail = (await res.json()) as { calories?: number; kilojoules?: number };
+        // kJ ≈ kcal for rides with power meters — reasonable fallback.
+        const cal = Math.round(detail.calories ?? detail.kilojoules ?? 0);
+        a.calories = cal;
+        fetched[String(a.id)] = String(cal);
+      } catch {
+        /* leave undefined; retried next sync */
+      }
+    })
+  );
+
+  if (Object.keys(fetched).length > 0) {
+    try {
+      await redis.hSet(cacheKey, fetched);
+    } catch {
+      /* cache write failure is non-fatal */
+    }
+  }
 }

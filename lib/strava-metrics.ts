@@ -11,6 +11,7 @@ export interface ActivitySummary {
   start_date_local: string; // ISO, athlete-local wall time
   achievement_count?: number; // segment + best-effort achievements
   pr_count?: number; // personal records set on this activity
+  calories?: number; // detail-endpoint value, cached server-side; absent until fetched
 }
 
 export const RUN_SPORTS = new Set(['Run', 'TrailRun', 'VirtualRun']);
@@ -85,6 +86,29 @@ export function distanceTotals(activities: ActivitySummary[], today: string): Di
     if (d === today) totals.today += a.distance;
     if (d >= weekStart) totals.week += a.distance;
     if (d >= monthStart) totals.month += a.distance;
+  }
+  return totals;
+}
+
+export interface CalorieTotals {
+  today: number;
+  week: number; // Monday-based week containing today
+  month: number; // calendar month containing today
+}
+
+/** Total calories burned per period (activities without a value count 0). */
+export function calorieTotals(activities: ActivitySummary[], today: string): CalorieTotals {
+  const weekStart = mondayOf(today);
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const totals: CalorieTotals = { today: 0, week: 0, month: 0 };
+  for (const a of activities) {
+    const cal = a.calories ?? 0;
+    if (cal <= 0) continue;
+    const d = activityDate(a);
+    if (d > today) continue;
+    if (d === today) totals.today += cal;
+    if (d >= weekStart) totals.week += cal;
+    if (d >= monthStart) totals.month += cal;
   }
   return totals;
 }
