@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import { requireUserId } from '@/lib/auth-session';
 import { fetchRecentActivities, type StravaActivity } from '@/lib/strava';
-import { completeMatchingHabits, isExerciseHabit, isRunHabit } from '@/lib/habit-sync';
+import { completeMatchingHabits, isExerciseHabit, isRunHabit, isCardioHabit } from '@/lib/habit-sync';
+import { RUN_SPORTS, WALK_SPORTS } from '@/lib/strava-metrics';
 
 // POST — pull recent Strava activities and auto-complete matching habits for
 // today. Returns the synced window of activities for display either way.
-
-const RUN_SPORTS = new Set(['Run', 'TrailRun', 'VirtualRun']);
 
 function getTodayEST(): string {
   const dateStr = new Date().toLocaleDateString('en-US', {
@@ -46,11 +45,13 @@ export async function POST() {
     const today = getTodayEST();
     const todaysActivities = activities.filter((a) => a.start_date_local.slice(0, 10) === today);
     const hasRunToday = todaysActivities.some((a) => RUN_SPORTS.has(a.sport_type));
+    // Runs and walks both count as cardio.
+    const hasCardioToday = todaysActivities.some((a) => RUN_SPORTS.has(a.sport_type) || WALK_SPORTS.has(a.sport_type));
     const hasAnyToday = todaysActivities.length > 0;
 
     const completedHabits = hasAnyToday
       ? await completeMatchingHabits(userId, today, (h) =>
-          (isExerciseHabit(h) && hasAnyToday) || (isRunHabit(h) && hasRunToday)
+          (isExerciseHabit(h) && hasAnyToday) || (isRunHabit(h) && hasRunToday) || (isCardioHabit(h) && hasCardioToday)
         )
       : [];
 

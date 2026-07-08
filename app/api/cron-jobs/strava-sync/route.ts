@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { fetchRecentActivities } from '@/lib/strava';
-import { completeMatchingHabits, isExerciseHabit, isRunHabit } from '@/lib/habit-sync';
+import { completeMatchingHabits, isExerciseHabit, isRunHabit, isCardioHabit } from '@/lib/habit-sync';
+import { RUN_SPORTS, WALK_SPORTS } from '@/lib/strava-metrics';
 
 /**
  * Scheduled Strava sync — runs every 12 hours (see vercel.json) so habits
@@ -13,7 +14,6 @@ import { completeMatchingHabits, isExerciseHabit, isRunHabit } from '@/lib/habit
 
 export const maxDuration = 60;
 
-const RUN_SPORTS = new Set(['Run', 'TrailRun', 'VirtualRun']);
 const TOKEN_KEY_PREFIX = 'strava:tokens:';
 
 function getTodayEST(): string {
@@ -58,8 +58,10 @@ export async function GET() {
         }
 
         const hasRunToday = todays.some((a) => RUN_SPORTS.has(a.sport_type));
+        // Runs and walks both count as cardio.
+        const hasCardioToday = todays.some((a) => RUN_SPORTS.has(a.sport_type) || WALK_SPORTS.has(a.sport_type));
         const completed = await completeMatchingHabits(userId, today, (h) =>
-          isExerciseHabit(h) || (isRunHabit(h) && hasRunToday)
+          isExerciseHabit(h) || (isRunHabit(h) && hasRunToday) || (isCardioHabit(h) && hasCardioToday)
         );
         results.push({ userId, status: 'synced', completed: completed.map((h) => h.name) });
       } catch (err) {

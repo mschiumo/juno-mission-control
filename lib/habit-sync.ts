@@ -26,6 +26,10 @@ export function isExerciseHabit(h: HabitData): boolean {
   return h.id === 'exercise' || /exercise|work\s?out|lift|gym|train/i.test(h.name);
 }
 
+export function isCardioHabit(h: HabitData): boolean {
+  return h.id === 'cardio' || /cardio/i.test(h.name);
+}
+
 // Anything that counts as a training session for the Weekly Scoreboard:
 // Lift / Cardio / Exercise / Run-style habits, by id or name.
 export function isTrainingHabit(h: Pick<HabitData, 'id' | 'name'>): boolean {
