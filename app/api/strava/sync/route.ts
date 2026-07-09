@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireUserId } from '@/lib/auth-session';
 import { fetchRecentActivities, attachCalories, type StravaActivity } from '@/lib/strava';
-import { completeMatchingHabits, isExerciseHabit, isRunHabit, isCardioHabit } from '@/lib/habit-sync';
+import { completeMatchingHabits, isRunHabit, isCardioHabit } from '@/lib/habit-sync';
 import { RUN_SPORTS, WALK_SPORTS } from '@/lib/strava-metrics';
 
 // POST — pull recent Strava activities and auto-complete matching habits for
@@ -56,9 +56,12 @@ export async function POST() {
     const hasCardioToday = todaysActivities.some((a) => RUN_SPORTS.has(a.sport_type) || WALK_SPORTS.has(a.sport_type));
     const hasAnyToday = todaysActivities.length > 0;
 
+    // Strava only speaks for cardio: runs/walks complete Run and Cardio
+    // habits. Lift/Exercise habits are the Workout Split's (or a manual
+    // check-off's) job — a run must never claim them.
     const completedHabits = hasAnyToday
       ? await completeMatchingHabits(userId, today, (h) =>
-          (isExerciseHabit(h) && hasAnyToday) || (isRunHabit(h) && hasRunToday) || (isCardioHabit(h) && hasCardioToday)
+          (isRunHabit(h) && hasRunToday) || (isCardioHabit(h) && hasCardioToday)
         )
       : [];
 

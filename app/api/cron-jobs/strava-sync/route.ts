@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { fetchRecentActivities } from '@/lib/strava';
-import { completeMatchingHabits, isExerciseHabit, isRunHabit, isCardioHabit } from '@/lib/habit-sync';
+import { completeMatchingHabits, isRunHabit, isCardioHabit } from '@/lib/habit-sync';
 import { RUN_SPORTS, WALK_SPORTS } from '@/lib/strava-metrics';
 
 /**
@@ -60,8 +60,10 @@ export async function GET() {
         const hasRunToday = todays.some((a) => RUN_SPORTS.has(a.sport_type));
         // Runs and walks both count as cardio.
         const hasCardioToday = todays.some((a) => RUN_SPORTS.has(a.sport_type) || WALK_SPORTS.has(a.sport_type));
+        // Strava only speaks for cardio — Lift/Exercise habits are the
+        // Workout Split's job (see the interactive sync route).
         const completed = await completeMatchingHabits(userId, today, (h) =>
-          isExerciseHabit(h) || (isRunHabit(h) && hasRunToday) || (isCardioHabit(h) && hasCardioToday)
+          (isRunHabit(h) && hasRunToday) || (isCardioHabit(h) && hasCardioToday)
         );
         results.push({ userId, status: 'synced', completed: completed.map((h) => h.name) });
       } catch (err) {
