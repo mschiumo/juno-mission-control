@@ -362,6 +362,23 @@ body {
   font-weight: 600;
 }
 
+/* Tutorial launcher ('?' in the Trading sub-nav) — soft pulsing glow so it's
+   discoverable; pauses on hover so it doesn't fight the tooltip. */
+.tour-launcher {
+  animation: tour-pulse 2.5s ease-in-out infinite;
+}
+
+.tour-launcher:hover {
+  animation: none;
+  background: var(--accent-dim);
+}
+
+@keyframes tour-pulse {
+  0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  60% { box-shadow: 0 0 0 8px rgba(255,107,0,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,107,0,0); }
+}
+
 /* ============================================================
    INPUTS & FORMS
    ============================================================ */

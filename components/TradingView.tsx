@@ -185,15 +185,23 @@ export default function TradingView() {
           })}
 
           {/* Permanent tour relaunch — the onboarding walkthrough, available anytime */}
-          <button
-            onClick={() => setShowTour(true)}
-            className="ml-auto shrink-0 self-center mb-1 p-1.5 rounded-full transition-colors hover:bg-[var(--surface-2)]"
-            style={{ color: 'var(--text-secondary)' }}
-            title="Replay the guided tour of the Trading tab"
-            aria-label="Launch the Trading tab tutorial"
-          >
-            <HelpCircle className="w-4 h-4" />
-          </button>
+          <div className="ml-auto shrink-0 self-center mb-1 relative group">
+            <button
+              onClick={() => setShowTour(true)}
+              className="tour-launcher block p-2 rounded-full transition-colors"
+              style={{ color: 'var(--accent)' }}
+              aria-label="Launch the Trading tab tutorial"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </button>
+            <div
+              role="tooltip"
+              className="absolute right-0 top-full mt-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+            >
+              Tutorial — take a guided tour of the Trading tab
+            </div>
+          </div>
         </div>
 
         {/* Mobile - Dropdown */}
@@ -256,8 +264,8 @@ export default function TradingView() {
                 className="w-full flex items-center gap-3 px-4 py-3 transition-colors"
                 style={{ color: 'var(--text-secondary)' }}
               >
-                <HelpCircle className="w-4 h-4" />
-                <span className="text-sm font-medium">Take the Tour</span>
+                <HelpCircle className="w-4 h-4" style={{ color: 'var(--accent)' } as React.CSSProperties} />
+                <span className="text-sm font-medium">Tutorial — Take the Tour</span>
               </button>
             </div>
           )}
