@@ -16,6 +16,7 @@ import {
   Sparkles,
   Menu,
   X,
+  HelpCircle,
 } from 'lucide-react';
 import MarketEventsCard from '@/components/MarketEventsCard';
 import GapScannerCard from '@/components/GapScannerCard';
@@ -182,6 +183,17 @@ export default function TradingView() {
               </button>
             );
           })}
+
+          {/* Permanent tour relaunch — the onboarding walkthrough, available anytime */}
+          <button
+            onClick={() => setShowTour(true)}
+            className="ml-auto shrink-0 self-center mb-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}
+            title="Replay the guided tour of the Trading tab"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span>Tour</span>
+          </button>
         </div>
 
         {/* Mobile - Dropdown */}
@@ -234,6 +246,19 @@ export default function TradingView() {
                   </button>
                 );
               })}
+
+              {/* Permanent tour relaunch (mobile) */}
+              <button
+                onClick={() => {
+                  setMobileDropdownOpen(false);
+                  setShowTour(true);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 transition-colors"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                <HelpCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">Take the Tour</span>
+              </button>
             </div>
           )}
         </div>
