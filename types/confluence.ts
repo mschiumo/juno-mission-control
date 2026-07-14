@@ -94,6 +94,13 @@ export interface SystemState {
    * Protective stops are NEVER auto-cancelled (they guard a live position).
    */
   entryOrderMaxAgeDays: number;
+  /**
+   * Synthetic OCO: when a held position's live price reaches the approved
+   * target, cancel the protective stop and place a GTC limit sell at target
+   * (stop restored if price retreats before the sell fills). OFF by default —
+   * the switch window (≤1 poll cycle) has a sell limit but no stop.
+   */
+  autoTakeProfit: boolean;
   updatedAt: string; // ISO
   updatedBy?: string;
 }
@@ -104,6 +111,7 @@ export const DEFAULT_SYSTEM_STATE: Omit<SystemState, 'updatedAt'> = {
   perPositionCapUsd: 2000,
   totalExposureCapUsd: 10000,
   entryOrderMaxAgeDays: 5,
+  autoTakeProfit: false,
 };
 
 /** agent_runs — observability for each scheduled scan (populated in Milestone 2). */
@@ -192,7 +200,7 @@ export interface ExecutionOrder {
    * A 'protective_stop' is the stop_market exit staged automatically after its
    * entry fills — deterministic completion of the plan the human approved.
    */
-  kind?: 'entry' | 'protective_stop';
+  kind?: 'entry' | 'protective_stop' | 'take_profit';
   /** The approved plan's stop, denormalized onto the ENTRY order at staging
    * (and the trigger price on the protective_stop child). */
   stopPrice?: number;
@@ -234,6 +242,7 @@ export type AuditEventType =
   | 'order.failed'
   | 'order.protective_stop_placed'
   | 'order.protective_stop_skipped'
+  | 'order.take_profit_placed'
   | 'order.reconciled'
   | 'position.target_reached'
   | 'killswitch.activated'

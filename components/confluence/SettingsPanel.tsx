@@ -179,6 +179,35 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
         </button>
       </div>
 
+      {/* Synthetic OCO — auto take-profit */}
+      <div className="card">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Auto take-profit (synthetic OCO)
+            </div>
+            <p className="text-[12px] mt-0.5 max-w-lg" style={{ color: 'var(--text-secondary)' }}>
+              When a held position reaches its approved target, the protective stop is cancelled and a GTC
+              limit sell is placed at the target; if price retreats 0.5% below target before it fills, the
+              stop is restored. ⚠️ During the switch (≤1 poll cycle) the position has a sell limit but
+              no stop underneath. Requires armed execution; the kill switch halts all of it.
+            </p>
+          </div>
+          <button
+            className="px-3.5 py-2 rounded-lg text-sm font-medium flex-shrink-0 disabled:opacity-50"
+            style={{
+              background: state.autoTakeProfit ? 'var(--positive-dim)' : 'var(--surface-2)',
+              color: state.autoTakeProfit ? 'var(--positive)' : 'var(--text-secondary)',
+              border: '1px solid var(--border-default)',
+            }}
+            disabled={busy}
+            onClick={() => onSave({ autoTakeProfit: !state.autoTakeProfit })}
+          >
+            {state.autoTakeProfit ? 'Enabled' : 'Disabled'}
+          </button>
+        </div>
+      </div>
+
       {/* Kill switch icon reference kept for a11y parity */}
       <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
         <Power className="w-3.5 h-3.5" /> Last updated {new Date(state.updatedAt).toLocaleString()}

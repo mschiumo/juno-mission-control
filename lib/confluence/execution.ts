@@ -221,7 +221,11 @@ export async function executeApprovedProposal(
  * The kill switch is absolute — disarmed skips placement and writes a LOUD
  * "position unprotected" audit event instead.
  */
-export async function placeProtectiveStop(entryOrderId: string, userId: string): Promise<ExecuteResult> {
+export async function placeProtectiveStop(
+  entryOrderId: string,
+  userId: string,
+  opts?: { afterOcoRestore?: boolean; quantityOverride?: number },
+): Promise<ExecuteResult> {
   const redis = await getRedisClient();
   const lockKey = `confluence:stop-lock:${userId}:${entryOrderId}`;
   const acquired = await redis.set(lockKey, '1', { NX: true, EX: 60 });
@@ -234,7 +238,9 @@ export async function placeProtectiveStop(entryOrderId: string, userId: string):
 
     const children = await getProtectiveStopsForEntry(entry.id, userId);
     const state = await getSystemState(userId);
-    const decision = shouldPlaceProtectiveStop(entry, children, state);
+    const decision = shouldPlaceProtectiveStop(entry, children, state, {
+      afterOcoRestore: opts?.afterOcoRestore,
+    });
     if (!decision.place) {
       if (decision.code === 'kill_switch') {
         await appendAudit(userId, {
@@ -267,7 +273,7 @@ export async function placeProtectiveStop(entryOrderId: string, userId: string):
       protectsOrderId: entry.id,
       limitPrice: entry.stopPrice!,
       stopPrice: entry.stopPrice,
-      quantity: entry.filledQuantity,
+      quantity: opts?.quantityOverride ?? entry.filledQuantity,
       timeInForce: 'gtc',
       refId: crypto.randomUUID(),
       status: 'staged',
@@ -302,7 +308,7 @@ export async function placeProtectiveStop(entryOrderId: string, userId: string):
         symbol: entry.symbol,
         side: staged.side,
         stopPrice: entry.stopPrice!,
-        quantity: entry.filledQuantity,
+        quantity: opts?.quantityOverride ?? entry.filledQuantity,
         timeInForce: 'gtc',
       });
       const submitted = await transitionOrder(staged.id, userId, {

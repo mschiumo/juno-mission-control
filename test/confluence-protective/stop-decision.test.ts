@@ -9,6 +9,7 @@ const baseState: SystemState = {
   perPositionCapUsd: 100,
   totalExposureCapUsd: 400,
   entryOrderMaxAgeDays: 5,
+  autoTakeProfit: false,
   updatedAt: new Date(0).toISOString(),
 };
 

@@ -83,6 +83,16 @@ export async function GET() {
       }
     }
 
+    // ── Synthetic OCO (opt-in, Settings → Auto take-profit): switch stops to
+    // target sells at target, restore stops on retreat. No-ops when disabled
+    // or disarmed; never fails the poll.
+    try {
+      const { runTakeProfitEngine } = await import('@/lib/confluence/take-profit');
+      events.push(...(await runTakeProfitEngine(userId)));
+    } catch (err) {
+      events.push(`OCO engine failed: ${err instanceof Error ? err.message : 'unknown'}`);
+    }
+
     // ── Take-profit watch: flag held positions trading at/above the APPROVED
     // target (from the filled entry). Notification only — nothing is sold;
     // the sell stays a human decision. One notification per entry order.
