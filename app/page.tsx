@@ -7,6 +7,7 @@ import HabitCard from "@/components/HabitCard";
 import GapScannerCard from "@/components/GapScannerCard";
 import DailyJournalCard from "@/components/DailyJournalCard";
 import CountdownCard from "@/components/CountdownCard";
+import DaysSinceCard from "@/components/DaysSinceCard";
 import FitnessCard from "@/components/FitnessCard";
 import GoalsCard from "@/components/GoalsCard";
 import LiveClock from "@/components/LiveClock";
@@ -215,6 +216,7 @@ function DashboardContent() {
               </div>
               <div className="flex flex-col gap-5 xl:h-[900px]">
                 <CountdownCard />
+                <DaysSinceCard />
                 <DailyJournalCard />
                 <div className="h-[360px] min-h-0 xl:h-auto xl:flex-1">
                   <CalendarCard />
