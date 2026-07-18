@@ -50,6 +50,18 @@ function shortWeekLabel(dateStr: string): string {
   return parse(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+// Encouraging note for an active journaling streak, scaled to the milestone reached.
+function streakMessage(streak: number): string | null {
+  if (streak <= 0) return null;
+  if (streak === 1) return '1 day — great start, come back tomorrow!';
+  if (streak === 2) return '2 days! keep it going!';
+  if (streak < 7) return `${streak} days! great job, keep it up!`;
+  if (streak < 14) return `${streak} days! a full week strong — amazing!`;
+  if (streak < 30) return `${streak} days! two weeks and counting 💪`;
+  if (streak < 100) return `${streak} days! a whole month — incredible 🚀`;
+  return `${streak} days! legendary dedication 🏆`;
+}
+
 export default function DailyJournalCard() {
   const today = getTodayInEST();
   const thisMonday = mondayOf(today);
@@ -145,6 +157,13 @@ export default function DailyJournalCard() {
           </div>
         </div>
       </div>
+
+      {/* Streak encouragement */}
+      {streak > 0 && (
+        <div className="px-4 py-1.5 border-b border-[#30363d] bg-[#F97316]/5 text-[11px] font-medium text-[#F97316]">
+          🔥 {streakMessage(streak)}
+        </div>
+      )}
 
       {/* Week strip */}
       <div className="px-4 pt-3 pb-3.5">

@@ -18,6 +18,18 @@ function daysSince(startDate: string): number {
   return Math.max(0, Math.round((b.getTime() - a.getTime()) / 86400000));
 }
 
+// One 🔥 per milestone reached — the row grows as the streak builds.
+const FIRE_MILESTONES = [1, 3, 7, 14, 30, 60, 100];
+
+function fireCount(days: number): number {
+  return FIRE_MILESTONES.filter((m) => days >= m).length;
+}
+
+function nextMilestone(days: number): number | null {
+  const next = FIRE_MILESTONES.find((m) => days < m);
+  return next ?? null;
+}
+
 function formatStart(startDate: string): string {
   return new Date(startDate + 'T12:00:00').toLocaleDateString('en-US', {
     month: 'short',
@@ -179,6 +191,14 @@ export default function DaysSinceCard() {
           <div className="text-right flex-shrink-0">
             <p className="text-4xl font-bold tabular-nums text-[#F97316] leading-none">{days}</p>
             <p className="text-[11px] text-[#8b949e] mt-1">{days === 1 ? 'day' : 'days'}</p>
+            {fireCount(days) > 0 && (
+              <p className="text-sm mt-1.5 tracking-tight" title={`Milestones reached: ${FIRE_MILESTONES.filter((m) => days >= m).join(', ')} days`}>
+                {'🔥'.repeat(fireCount(days))}
+              </p>
+            )}
+            {nextMilestone(days) !== null && (
+              <p className="text-[10px] text-[#484f58] mt-0.5">next 🔥 at {nextMilestone(days)}d</p>
+            )}
           </div>
         </div>
       )}
