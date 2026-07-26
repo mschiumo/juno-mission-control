@@ -94,6 +94,13 @@ export interface SystemState {
    * Protective stops are NEVER auto-cancelled (they guard a live position).
    */
   entryOrderMaxAgeDays: number;
+  /**
+   * Automatic take-profit: when a held position trades at/through the target
+   * approved at entry, the poll cancels the protective stop and places a GTC
+   * limit exit at the target (and restores the stop if price retreats before
+   * it fills). OFF = notification-only ("AT TARGET" chip + alert).
+   */
+  autoTakeProfit: boolean;
   updatedAt: string; // ISO
   updatedBy?: string;
 }
@@ -104,6 +111,7 @@ export const DEFAULT_SYSTEM_STATE: Omit<SystemState, 'updatedAt'> = {
   perPositionCapUsd: 2000,
   totalExposureCapUsd: 10000,
   entryOrderMaxAgeDays: 5,
+  autoTakeProfit: true,
 };
 
 /** agent_runs — observability for each scheduled scan (populated in Milestone 2). */
@@ -190,15 +198,18 @@ export interface ExecutionOrder {
   /**
    * What this order is. Absent = 'entry' (legacy records predate the field).
    * A 'protective_stop' is the stop_market exit staged automatically after its
-   * entry fills — deterministic completion of the plan the human approved.
+   * entry fills; a 'take_profit' is the limit exit staged automatically when
+   * the position trades at/through the approved target. Both are deterministic
+   * completion of the plan the human approved — exits only, never new exposure.
    */
-  kind?: 'entry' | 'protective_stop';
+  kind?: 'entry' | 'protective_stop' | 'take_profit';
   /** The approved plan's stop, denormalized onto the ENTRY order at staging
    * (and the trigger price on the protective_stop child). */
   stopPrice?: number;
-  /** The approved plan's target, denormalized onto the ENTRY order at staging. */
+  /** The approved plan's target, denormalized onto the ENTRY order at staging
+   * (and the limit price on the take_profit child). */
   targetPrice?: number;
-  /** On a protective_stop: the entry order it protects. */
+  /** On a protective_stop or take_profit: the entry order it exits. */
   protectsOrderId?: string;
   /** Idempotency key sent to the broker; re-sent verbatim on retry. */
   refId: string;
@@ -234,6 +245,8 @@ export type AuditEventType =
   | 'order.failed'
   | 'order.protective_stop_placed'
   | 'order.protective_stop_skipped'
+  | 'order.take_profit_placed'
+  | 'order.take_profit_skipped'
   | 'order.reconciled'
   | 'position.target_reached'
   | 'killswitch.activated'

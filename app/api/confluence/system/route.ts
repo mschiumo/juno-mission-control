@@ -38,6 +38,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     const updates: Partial<Omit<SystemState, 'updatedAt'>> = {};
     if (typeof body.tradingEnabled === 'boolean') updates.tradingEnabled = body.tradingEnabled;
     if (typeof body.paperMode === 'boolean') updates.paperMode = body.paperMode;
+    if (typeof body.autoTakeProfit === 'boolean') updates.autoTakeProfit = body.autoTakeProfit;
     if (typeof body.agenticAccount === 'string') updates.agenticAccount = body.agenticAccount.trim() || undefined;
     if (body.perPositionCapUsd !== undefined) {
       updates.perPositionCapUsd = coerceCap(body.perPositionCapUsd, current.perPositionCapUsd);

@@ -16,6 +16,8 @@ export interface LivePosition {
   avgCost?: number;
   /** Active protective-stop coverage from the app's ledger (null = uncovered). */
   stop: { stopPrice?: number; quantity: number } | null;
+  /** Active take-profit limit (the stop is cancelled while this rests). */
+  takeProfit?: { limitPrice: number; quantity: number } | null;
   /** The approved take-profit from the filled entry (null = untracked). */
   target?: number | null;
   lastPrice?: number | null;
@@ -87,6 +89,14 @@ export default function OrdersMonitor({ orders, positions, positionsNote, busy, 
                           style={{ background: 'var(--positive-dim)', color: 'var(--positive)' }}
                         >
                           stop ${p.stop.stopPrice?.toFixed(2) ?? '?'} × {p.stop.quantity}
+                        </span>
+                      ) : p.takeProfit ? (
+                        <span
+                          className="px-2 py-0.5 rounded text-[11px] font-medium"
+                          style={{ background: 'var(--info-dim)', color: 'var(--info)' }}
+                          title="Take-profit limit resting at the approved target — the protective stop was cancelled to free the shares"
+                        >
+                          take-profit ${p.takeProfit.limitPrice.toFixed(2)} × {p.takeProfit.quantity}
                         </span>
                       ) : (
                         <span
@@ -181,6 +191,14 @@ export default function OrdersMonitor({ orders, positions, positionsNote, busy, 
                           title="Protective stop — placed automatically at the approved stop price after the entry filled"
                         >
                           STOP
+                        </span>
+                      ) : o.kind === 'take_profit' ? (
+                        <span
+                          className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold align-middle"
+                          style={{ background: 'var(--positive-dim)', color: 'var(--positive)' }}
+                          title="Take-profit — placed automatically at the approved target when the position traded through it"
+                        >
+                          TARGET
                         </span>
                       ) : null}
                     </td>
