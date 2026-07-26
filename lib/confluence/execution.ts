@@ -16,8 +16,8 @@
 import { appendAudit } from '@/lib/db/confluence/audit';
 import {
   getActiveOrders,
+  getExitChildrenForEntry,
   getOrderById,
-  getProtectiveStopsForEntry,
   hasActiveOrderForProposal,
   saveOrder,
   transitionOrder,
@@ -29,7 +29,8 @@ import { checkGuardrails } from './guardrails';
 import { checkPreTradeReviewRules } from './review/rules';
 import { getBrokerAdapter } from './broker';
 import { getBuyingPower } from './broker/live-adapter';
-import { oppositeSide, shouldPlaceProtectiveStop } from './protective-stop';
+import { oppositeSide, shouldPlaceProtectiveStop, type ProtectiveStopOptions } from './protective-stop';
+import { shouldPlaceTakeProfit } from './take-profit';
 import type { ExecutionOrder, OrderParams, Proposal } from '@/types/confluence';
 import { isTerminalOrderStatus } from '@/types/confluence';
 
@@ -221,7 +222,11 @@ export async function executeApprovedProposal(
  * The kill switch is absolute — disarmed skips placement and writes a LOUD
  * "position unprotected" audit event instead.
  */
-export async function placeProtectiveStop(entryOrderId: string, userId: string): Promise<ExecuteResult> {
+export async function placeProtectiveStop(
+  entryOrderId: string,
+  userId: string,
+  opts: ProtectiveStopOptions = {},
+): Promise<ExecuteResult> {
   const redis = await getRedisClient();
   const lockKey = `confluence:stop-lock:${userId}:${entryOrderId}`;
   const acquired = await redis.set(lockKey, '1', { NX: true, EX: 60 });
@@ -232,9 +237,9 @@ export async function placeProtectiveStop(entryOrderId: string, userId: string):
     const entry = await getOrderById(entryOrderId, userId);
     if (!entry) return { ok: false, code: 'not_found', reason: 'Entry order not found.' };
 
-    const children = await getProtectiveStopsForEntry(entry.id, userId);
+    const children = await getExitChildrenForEntry(entry.id, userId);
     const state = await getSystemState(userId);
-    const decision = shouldPlaceProtectiveStop(entry, children, state);
+    const decision = shouldPlaceProtectiveStop(entry, children, state, opts);
     if (!decision.place) {
       if (decision.code === 'kill_switch') {
         await appendAudit(userId, {
@@ -347,6 +352,202 @@ export async function placeProtectiveStop(entryOrderId: string, userId: string):
 }
 
 /**
+ * Stage + place the take-profit limit for a held entry whose approved target
+ * has been reached — deterministic completion of the plan the HUMAN approved
+ * (the target price came through the approve route on the entry). Exit-only:
+ * side is the opposite of the entry, the limit price IS the approved target
+ * (so it fills at target or better), quantity is the entry's still-held
+ * shares, GTC.
+ *
+ * The resting protective stop reserves the same shares at the broker, so it
+ * is cancelled first; if the take-profit placement then fails, the stop is
+ * re-placed (fail-safe) so the position is never left unprotected. Safe to
+ * call repeatedly (the poll cron re-fires every cycle while at target): a
+ * Redis lock serializes per entry, and the pure guard re-checks children
+ * inside the lock. The kill switch is absolute — disarmed skips placement and
+ * writes a LOUD "target reached but disarmed" audit event instead (throttled
+ * so a 30-minute poll doesn't spam the log).
+ */
+export async function placeTakeProfit(
+  entryOrderId: string,
+  lastPrice: number,
+  userId: string,
+): Promise<ExecuteResult> {
+  const redis = await getRedisClient();
+  const lockKey = `confluence:tp-lock:${userId}:${entryOrderId}`;
+  const acquired = await redis.set(lockKey, '1', { NX: true, EX: 60 });
+  if (acquired !== 'OK') {
+    return { ok: false, code: 'in_flight', reason: 'Take-profit placement already in flight for this entry.' };
+  }
+  try {
+    const entry = await getOrderById(entryOrderId, userId);
+    if (!entry) return { ok: false, code: 'not_found', reason: 'Entry order not found.' };
+
+    const state = await getSystemState(userId);
+    const decision = shouldPlaceTakeProfit(entry, await getExitChildrenForEntry(entry.id, userId), lastPrice, state);
+    if (!decision.place) {
+      if (decision.code === 'kill_switch') {
+        // Once per 12h per entry — the poll re-checks every 30 min while the
+        // symbol trades at target, and the audit log must stay readable.
+        const flag = await redis.set(`confluence:tp-killswitch-audited:${userId}:${entry.id}`, '1', {
+          NX: true,
+          EX: 12 * 60 * 60,
+        });
+        if (flag === 'OK') {
+          await appendAudit(userId, {
+            actor: 'system',
+            actorId: 'system',
+            eventType: 'order.take_profit_skipped',
+            entityType: 'order',
+            entityId: entry.id,
+            note:
+              `⚠️ ${entry.symbol} is AT TARGET ($${lastPrice} vs $${entry.targetPrice}) but trading is disarmed — ` +
+              `take-profit NOT placed. Arm execution to lock in the profit (the protective stop stays working).`,
+          });
+        }
+      }
+      return { ok: false, code: decision.code, reason: decision.reason };
+    }
+
+    // The broker rejects a sell against shares reserved by the resting stop:
+    // cancel it first. If the cancel instead reveals the stop FILLED (price
+    // whipsawed to the stop while we acted), the position is closing there —
+    // stand down, nothing to take profit on.
+    const cancelledStopIds: string[] = [];
+    for (const stopId of decision.cancelStopIds ?? []) {
+      const result = await cancelOrder(stopId, 'system:take-profit', userId);
+      if (result && result.status !== 'cancelled') {
+        await appendAudit(userId, {
+          actor: 'system',
+          actorId: 'system',
+          eventType: 'order.take_profit_skipped',
+          entityType: 'order',
+          entityId: entry.id,
+          after: { stopId, stopStatus: result.status },
+          note: `${entry.symbol} take-profit stood down: the protective stop resolved ${result.status} during cancellation.`,
+        });
+        return {
+          ok: false,
+          code: 'stop_not_cancelled',
+          reason: `Protective stop resolved ${result.status} instead of cancelled — take-profit stood down.`,
+        };
+      }
+      if (result) cancelledStopIds.push(stopId);
+    }
+
+    // Stage the take-profit at the APPROVED target — a limit fills at target
+    // or better by construction.
+    const now = new Date().toISOString();
+    const staged: ExecutionOrder = {
+      id: crypto.randomUUID(),
+      proposalId: entry.proposalId,
+      createdAt: now,
+      updatedAt: now,
+      symbol: entry.symbol,
+      accountNumber: entry.accountNumber,
+      side: oppositeSide(entry.side),
+      type: 'limit',
+      kind: 'take_profit',
+      protectsOrderId: entry.id,
+      limitPrice: entry.targetPrice!,
+      targetPrice: entry.targetPrice,
+      quantity: decision.quantity!,
+      timeInForce: 'gtc',
+      refId: crypto.randomUUID(),
+      status: 'staged',
+      filledQuantity: 0,
+      isPaper: entry.isPaper,
+      history: [{ status: 'staged', ts: now }],
+    };
+    await saveOrder(staged, userId);
+    await appendAudit(userId, {
+      actor: 'system',
+      actorId: 'system',
+      eventType: 'order.staged',
+      entityType: 'order',
+      entityId: staged.id,
+      after: {
+        protectsOrderId: entry.id,
+        symbol: entry.symbol,
+        side: staged.side,
+        limitPrice: staged.limitPrice,
+        quantity: staged.quantity,
+        isPaper: staged.isPaper,
+      },
+      note: `Staged ${staged.isPaper ? 'paper' : 'live'} take-profit: ${staged.side} ${staged.quantity} ${entry.symbol} limit $${staged.limitPrice} (gtc)`,
+    });
+
+    const adapter = getBrokerAdapter(entry.isPaper);
+    try {
+      const brokerState = await adapter.placeLimitOrder({
+        orderId: staged.id,
+        refId: staged.refId,
+        accountNumber: entry.accountNumber,
+        symbol: entry.symbol,
+        side: staged.side,
+        limitPrice: staged.limitPrice,
+        quantity: staged.quantity,
+        timeInForce: 'gtc',
+      });
+      const submitted = await transitionOrder(staged.id, userId, {
+        status: brokerState.status,
+        filledQuantity: brokerState.filledQuantity,
+        avgFillPrice: brokerState.avgFillPrice,
+        brokerOrderId: brokerState.brokerOrderId,
+        lastError: brokerState.error,
+        detail: `take-profit via ${adapter.name}`,
+      });
+      await appendAudit(userId, {
+        actor: 'system',
+        actorId: 'system',
+        eventType: 'order.take_profit_placed',
+        entityType: 'order',
+        entityId: staged.id,
+        after: { brokerOrderId: brokerState.brokerOrderId, status: brokerState.status, limitPrice: staged.limitPrice, lastPrice },
+        note: `🎯 ${entry.symbol} hit its approved target (last $${lastPrice}) — take-profit → ${adapter.name} (${brokerState.status}): ${staged.side} ${staged.quantity} limit $${staged.limitPrice}`,
+      });
+      return { ok: true, order: submitted ?? staged };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown execution error';
+      const failed = await transitionOrder(staged.id, userId, {
+        status: 'failed',
+        lastError: message,
+        detail: 'adapter placeLimitOrder threw (take-profit)',
+      });
+      await appendAudit(userId, {
+        actor: 'system',
+        actorId: 'system',
+        eventType: 'order.failed',
+        entityType: 'order',
+        entityId: staged.id,
+        after: { lastError: message },
+        note: `⚠️ Take-profit for ${entry.symbol} FAILED: ${message}`,
+      });
+      // Fail-safe: we cancelled the stop to make room for this order — put
+      // the protection back so the position isn't left naked at a high.
+      if (cancelledStopIds.length > 0) {
+        // placeProtectiveStop audits its own success; only the double failure
+        // needs a loud signal here.
+        const restore = await placeProtectiveStop(entry.id, userId, { ignoreCancelledStops: true });
+        if (!restore.ok) {
+          await appendAudit(userId, {
+            actor: 'system',
+            actorId: 'system',
+            eventType: 'order.protective_stop_skipped',
+            entityType: 'order',
+            entityId: entry.id,
+            note: `⚠️ ${entry.symbol} position is UNPROTECTED — take-profit failed AND the stop could not be re-placed (${restore.reason ?? restore.code}).`,
+          });
+        }
+      }
+      return { ok: false, code: 'failed', reason: message, order: failed ?? staged };
+    }
+  } finally {
+    await redis.del(lockKey).catch(() => {});
+  }
+}
+
+/**
  * Chain a protective stop off an entry order when its latest transition left
  * protectable shares (filled, or terminal with a partial fill). Failures never
  * break the caller — the audit trail carries the story and the poll cron
@@ -432,7 +633,9 @@ export async function cancelOrder(orderId: string, actorId: string, userId: stri
     detail: `cancel via ${adapter.name}`,
   });
   await appendAudit(userId, {
-    actor: 'user',
+    // Auto-expiry and the take-profit flow cancel with a 'system:*' actorId —
+    // don't misattribute those to the user in the audit trail.
+    actor: actorId.startsWith('system') ? 'system' : 'user',
     actorId,
     eventType: 'order.cancelled',
     entityType: 'order',

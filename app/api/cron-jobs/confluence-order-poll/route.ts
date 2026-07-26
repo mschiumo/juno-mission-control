@@ -10,12 +10,19 @@
  *      setup that justified it. Protective stops are NEVER auto-cancelled
  *      (they guard a live position). A cancel that reveals a partial fill
  *      still chains a stop for the held shares (see execution.cancelOrder).
+ *   3. Take-profit completion: when a held position trades at/through the
+ *      target the human approved at entry, place a GTC LIMIT exit at the
+ *      target (fills at target or better) via execution.placeTakeProfit —
+ *      deterministic completion of the approved plan, exit-only.
  *
- * PLACES NO ENTRIES — refresh, protective completion, and expiry only.
+ * PLACES NO ENTRIES — refresh, exit completion, and expiry only. When the
+ * bots acted (fills, take-profits, expiries), an execution report email goes
+ * to the owner.
  * Auth: /api/cron-jobs/* is gated by CRON_SECRET in middleware.ts.
  */
 
 import { NextResponse } from 'next/server';
+import React from 'react';
 import { getUserByEmail } from '@/lib/db/users';
 import { OWNER_EMAIL } from '@/lib/owner';
 import { postToCronResults } from '@/lib/cron-helpers';
@@ -24,10 +31,26 @@ import { appendAudit } from '@/lib/db/confluence/audit';
 import { getRedisClient } from '@/lib/redis';
 import { callRobinhoodTool, isRobinhoodConfigured } from '@/lib/confluence/robinhood/mcp-client';
 import { getSystemState } from '@/lib/db/confluence/system-state';
-import { cancelOrder, refreshOrderStatus } from '@/lib/confluence/execution';
+import { cancelOrder, placeTakeProfit, refreshOrderStatus } from '@/lib/confluence/execution';
 import { reconcileOrders } from '@/lib/confluence/reconcile';
+import { sendEmail } from '@/lib/email';
+import {
+  ConfluenceExecutionEmail,
+  type ExecutionEmailEvent,
+} from '@/lib/emails/ConfluenceExecutionEmail';
+import type { ExecutionOrder, SystemState } from '@/types/confluence';
 
 export const dynamic = 'force-dynamic';
+
+const KIND_LABEL: Record<string, string> = {
+  entry: 'entry',
+  protective_stop: 'protective stop',
+  take_profit: 'take-profit',
+};
+
+function kindLabel(o: ExecutionOrder): string {
+  return KIND_LABEL[o.kind ?? 'entry'] ?? 'order';
+}
 
 export async function GET() {
   try {
@@ -41,17 +64,13 @@ export async function GET() {
     // broker) so the refresh pass below can poll them like any other order.
     // Cheap no-op when nothing is desynced; never throws the poll over.
     const events: string[] = [];
+    const emailEvents: ExecutionEmailEvent[] = [];
     try {
       const rec = await reconcileOrders(userId);
       for (const l of rec.linked) events.push(`reconciled ${l}`);
       for (const c of rec.corrected) events.push(`corrected ${c}`);
     } catch (err) {
       events.push(`reconcile failed: ${err instanceof Error ? err.message : 'unknown'}`);
-    }
-
-    const active = await getActiveOrders(userId);
-    if (active.length === 0 && events.length === 0) {
-      return NextResponse.json({ success: true, refreshed: 0, note: 'no active orders' });
     }
 
     const state = await getSystemState(userId);
@@ -61,6 +80,7 @@ export async function GET() {
     let refreshed = 0;
     let expired = 0;
 
+    const active = await getActiveOrders(userId);
     for (const order of active) {
       const before = order.status;
       const beforeFilled = order.filledQuantity;
@@ -68,6 +88,17 @@ export async function GET() {
       refreshed++;
       if (latest && (latest.status !== before || latest.filledQuantity !== beforeFilled)) {
         events.push(`${latest.symbol} ${latest.kind ?? 'entry'} → ${latest.status}`);
+        // Executions (full or growing partial fills) go in the owner report.
+        if (latest.filledQuantity > beforeFilled) {
+          emailEvents.push({
+            tone: 'fill',
+            headline: `${latest.symbol} ${kindLabel(latest)} ${latest.status === 'filled' ? 'FILLED' : 'partially filled'}`,
+            detail:
+              `${latest.side === 'buy' ? 'Bought' : 'Sold'} ${latest.filledQuantity}/${latest.quantity}` +
+              `${latest.avgFillPrice != null ? ` @ $${latest.avgFillPrice}` : ''}` +
+              ` (${latest.isPaper ? 'paper' : 'live'})`,
+          });
+        }
       }
 
       // Expiry applies to entries that are still working after the refresh.
@@ -80,17 +111,55 @@ export async function GET() {
         events.push(
           `${order.symbol} entry auto-expired after ${state.entryOrderMaxAgeDays}d (unfilled ${cancelled?.status ?? 'cancel requested'})`,
         );
+        emailEvents.push({
+          tone: 'action',
+          headline: `${order.symbol} entry auto-expired`,
+          detail: `Unfilled after ${state.entryOrderMaxAgeDays} days — resting limit cancelled.`,
+        });
       }
     }
 
-    // ── Take-profit watch: flag held positions trading at/above the APPROVED
-    // target (from the filled entry). Notification only — nothing is sold;
-    // the sell stays a human decision. One notification per entry order.
+    // ── Take-profit completion: held positions trading at/through the
+    // APPROVED target (from the filled entry) get their limit exit placed.
     try {
-      const notified = await checkTargetsReached(userId);
-      events.push(...notified);
+      const tp = await processTakeProfits(userId, state);
+      events.push(...tp.lines);
+      emailEvents.push(...tp.emailEvents);
     } catch {
       /* advisory — never fails the poll */
+    }
+
+    // ── Owner report: the bots acted (or tried to) without a human present.
+    if (emailEvents.length > 0 && owner.email) {
+      const generatedAt = new Date().toLocaleString('en-US', {
+        timeZone: 'America/New_York',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      const fills = emailEvents.filter((e) => e.tone === 'fill').length;
+      const warns = emailEvents.filter((e) => e.tone === 'warn').length;
+      const subject =
+        warns > 0
+          ? `⚠️ Confluence bot report: action needed (${emailEvents.length} events)`
+          : fills > 0
+            ? `⚡ Confluence bot report: ${fills} order${fills === 1 ? '' : 's'} executed`
+            : `Confluence bot report: ${emailEvents.length} event${emailEvents.length === 1 ? '' : 's'}`;
+      try {
+        await sendEmail({
+          to: owner.email,
+          subject,
+          react: React.createElement(ConfluenceExecutionEmail, {
+            generatedAt: `${generatedAt} ET`,
+            events: emailEvents,
+            paperMode: state.paperMode,
+          }),
+        });
+      } catch (err) {
+        events.push(`report email failed: ${err instanceof Error ? err.message : 'unknown'}`);
+      }
     }
 
     if (events.length > 0) {
@@ -104,14 +173,20 @@ export async function GET() {
   }
 }
 
-
 /**
- * One-time "target reached" notifications for held positions. Compares live
- * quotes (read-only) against the target approved on each filled entry; the
- * Redis flag makes each entry notify exactly once. Nothing is sold here.
+ * Place take-profit exits for held positions trading at/through the approved
+ * target. Quotes are read once per poll; placeTakeProfit's pure guard makes
+ * re-invocation idempotent (an existing working take-profit blocks, a FAILED
+ * one is retried next poll). The one-time Redis flag only throttles the
+ * "target reached" notification, never the placement itself.
  */
-async function checkTargetsReached(userId: string): Promise<string[]> {
-  if (!isRobinhoodConfigured()) return [];
+async function processTakeProfits(
+  userId: string,
+  state: SystemState,
+): Promise<{ lines: string[]; emailEvents: ExecutionEmailEvent[] }> {
+  const lines: string[] = [];
+  const emailEvents: ExecutionEmailEvent[] = [];
+  if (!isRobinhoodConfigured()) return { lines, emailEvents };
   const all = await getAllOrders(userId);
 
   // Net held shares per symbol from the fill log.
@@ -130,7 +205,7 @@ async function checkTargetsReached(userId: string): Promise<string[]> {
       typeof o.targetPrice === 'number' &&
       (net.get(o.symbol.toUpperCase()) ?? 0) > 0,
   );
-  if (watch.length === 0) return [];
+  if (watch.length === 0) return { lines, emailEvents };
 
   const symbols = [...new Set(watch.map((o) => o.symbol.toUpperCase()))].slice(0, 20);
   const q = await callRobinhoodTool<{
@@ -144,23 +219,51 @@ async function checkTargetsReached(userId: string): Promise<string[]> {
   }
 
   const redis = await getRedisClient();
-  const out: string[] = [];
   for (const entry of watch) {
     const price = last.get(entry.symbol.toUpperCase());
     if (price == null || price < entry.targetPrice!) continue;
+
+    // One-time "target reached" note per entry (notification only — the
+    // placement below is governed by the pure guard, not this flag).
     const flagKey = `confluence:target-notified:${userId}:${entry.id}`;
     const first = await redis.set(flagKey, '1', { NX: true, EX: 14 * 24 * 60 * 60 });
-    if (first !== 'OK') continue; // already notified
-    await appendAudit(userId, {
-      actor: 'system',
-      actorId: 'system',
-      eventType: 'position.target_reached',
-      entityType: 'order',
-      entityId: entry.id,
-      after: { symbol: entry.symbol, lastPrice: price, targetPrice: entry.targetPrice },
-      note: `🎯 ${entry.symbol} reached its approved target: last $${price} ≥ target $${entry.targetPrice}. Take-profit is your call — sell via a manual sell proposal or in the Robinhood app (the protective stop stays working).`,
-    });
-    out.push(`🎯 ${entry.symbol} AT TARGET ($${price} ≥ $${entry.targetPrice})`);
+    if (first === 'OK') {
+      await appendAudit(userId, {
+        actor: 'system',
+        actorId: 'system',
+        eventType: 'position.target_reached',
+        entityType: 'order',
+        entityId: entry.id,
+        after: { symbol: entry.symbol, lastPrice: price, targetPrice: entry.targetPrice },
+        note: `🎯 ${entry.symbol} reached its approved target: last $${price} ≥ target $${entry.targetPrice}. Placing the take-profit limit at the target.`,
+      });
+      lines.push(`🎯 ${entry.symbol} AT TARGET ($${price} ≥ $${entry.targetPrice})`);
+    }
+
+    const result = await placeTakeProfit(entry.id, price, userId);
+    if (result.ok) {
+      lines.push(`take-profit placed: ${entry.symbol} ${result.order?.quantity} limit $${entry.targetPrice}`);
+      emailEvents.push({
+        tone: 'action',
+        headline: `🎯 ${entry.symbol} take-profit placed at target`,
+        detail: `Last $${price} reached target $${entry.targetPrice} — sell ${result.order?.quantity} limit $${entry.targetPrice} GTC (${entry.isPaper ? 'paper' : 'live'}). Protective stop cancelled to free the shares.`,
+      });
+    } else if (result.code === 'failed' || result.code === 'stop_not_cancelled') {
+      lines.push(`take-profit ${result.code}: ${entry.symbol} (${result.reason})`);
+      emailEvents.push({
+        tone: 'warn',
+        headline: `${entry.symbol} take-profit ${result.code === 'failed' ? 'FAILED' : 'stood down'}`,
+        detail: result.reason,
+      });
+    } else if (result.code === 'kill_switch' && first === 'OK') {
+      // Disarmed system: surface it in the first at-target report only — the
+      // audit throttle inside placeTakeProfit handles the ongoing reminders.
+      emailEvents.push({
+        tone: 'warn',
+        headline: `${entry.symbol} AT TARGET but trading is disarmed`,
+        detail: `Take-profit NOT placed. Arm execution in Agents → Settings to lock in the profit.`,
+      });
+    }
   }
-  return out;
+  return { lines, emailEvents };
 }

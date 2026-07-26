@@ -14,7 +14,7 @@
  */
 
 import type { ExecutionOrder, SystemState, TradeDirection } from '@/types/confluence';
-import { isTerminalOrderStatus } from '@/types/confluence';
+import { isActiveOrderStatus, isTerminalOrderStatus } from '@/types/confluence';
 
 /** The exit side for a filled entry: sell protects a buy, buy covers a sell. */
 export function oppositeSide(side: TradeDirection): TradeDirection {
@@ -24,8 +24,24 @@ export function oppositeSide(side: TradeDirection): TradeDirection {
 export interface ProtectiveStopDecision {
   place: boolean;
   /** Populated when place = false. */
-  code?: 'not_entry' | 'not_filled' | 'no_stop_price' | 'already_protected' | 'kill_switch';
+  code?:
+    | 'not_entry'
+    | 'not_filled'
+    | 'no_stop_price'
+    | 'already_protected'
+    | 'take_profit_active'
+    | 'kill_switch';
   reason?: string;
+}
+
+export interface ProtectiveStopOptions {
+  /**
+   * Fail-safe re-placement after a take-profit attempt: the take-profit flow
+   * cancels the resting stop before placing its limit exit, so if that
+   * placement then fails, the stop it cancelled must be allowed back even
+   * though a cancelled child normally reads as "owner removed protection".
+   */
+  ignoreCancelledStops?: boolean;
 }
 
 /**
@@ -35,11 +51,16 @@ export interface ProtectiveStopDecision {
  * cheapest/structural first; the kill switch is evaluated LAST so a disarmed
  * system only produces the loud "position unprotected" signal when a stop
  * would actually have been placed.
+ *
+ * `existingChildren` may include ALL exit children (protective stops and
+ * take-profits): a working or filled take-profit blocks a stop — its shares
+ * are already committed to the limit exit (or gone).
  */
 export function shouldPlaceProtectiveStop(
   entryOrder: ExecutionOrder,
   existingChildren: ExecutionOrder[],
   systemState: SystemState,
+  opts: ProtectiveStopOptions = {},
 ): ProtectiveStopDecision {
   // Only entries chain stops (absent kind = legacy entry). A protective_stop
   // filling must never chain another order.
@@ -59,13 +80,36 @@ export function shouldPlaceProtectiveStop(
   if (!(typeof entryOrder.stopPrice === 'number' && entryOrder.stopPrice > 0)) {
     return { place: false, code: 'no_stop_price', reason: 'Entry order carries no approved stop price.' };
   }
+  // A working or filled take-profit blocks a stop: the shares are reserved
+  // by the resting limit exit (a second sell would be rejected at the broker)
+  // or already sold. Cancelled/rejected/failed take-profits don't block —
+  // those shares need their protection back.
+  const takeProfit = existingChildren.find(
+    (c) =>
+      c.kind === 'take_profit' &&
+      c.protectsOrderId === entryOrder.id &&
+      (isActiveOrderStatus(c.status) || c.status === 'filled'),
+  );
+  if (takeProfit) {
+    return {
+      place: false,
+      code: 'take_profit_active',
+      reason: `Entry's shares are committed to a take-profit order (${takeProfit.status}).`,
+    };
+  }
   // Ignore FAILED children so the poll cron re-attempts after a failed
   // placement. Everything else blocks: active/filled = already protected;
-  // cancelled = the owner deliberately removed protection; rejected = the
-  // broker deterministically refused (a retry would just repeat it). The
-  // unprotected cases still surface as NO STOP in the Positions card.
+  // cancelled = the owner deliberately removed protection (unless the
+  // take-profit flow cancelled it and is now failing safe — see
+  // ProtectiveStopOptions); rejected = the broker deterministically refused
+  // (a retry would just repeat it). The unprotected cases still surface as
+  // NO STOP in the Positions card.
   const blocking = existingChildren.filter(
-    (c) => c.kind === 'protective_stop' && c.protectsOrderId === entryOrder.id && c.status !== 'failed',
+    (c) =>
+      c.kind === 'protective_stop' &&
+      c.protectsOrderId === entryOrder.id &&
+      c.status !== 'failed' &&
+      !(opts.ignoreCancelledStops && c.status === 'cancelled'),
   );
   if (blocking.length > 0) {
     return {

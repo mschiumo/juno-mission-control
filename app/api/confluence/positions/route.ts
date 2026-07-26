@@ -53,7 +53,11 @@ export async function GET(): Promise<NextResponse> {
     // the approved TARGET from the most recent filled entry, and the live
     // quote so the UI can flag positions trading at/above take-profit.
     const allOrders = await getAllOrders(userId);
-    const activeStops = (await getActiveOrders(userId)).filter((o) => o.kind === 'protective_stop');
+    const activeOrders = await getActiveOrders(userId);
+    const activeStops = activeOrders.filter((o) => o.kind === 'protective_stop');
+    // A working take-profit means the stop was deliberately cancelled to free
+    // the shares — the UI shows the limit exit instead of a NO STOP alarm.
+    const activeTakeProfits = activeOrders.filter((o) => o.kind === 'take_profit');
     const targetFor = (symbol: string): number | undefined => {
       const entries = allOrders
         .filter(
@@ -90,6 +94,7 @@ export async function GET(): Promise<NextResponse> {
         const quantity = num(p.quantity) ?? 0;
         if (!symbol || quantity === 0) return null;
         const stop = activeStops.find((o) => o.symbol.toUpperCase() === symbol);
+        const takeProfit = activeTakeProfits.find((o) => o.symbol.toUpperCase() === symbol);
         const target = targetFor(symbol);
         const last = lastPrices.get(symbol);
         return {
@@ -97,6 +102,7 @@ export async function GET(): Promise<NextResponse> {
           quantity,
           avgCost: num(p.average_buy_price ?? p.avg_cost ?? p.average_price),
           stop: stop ? { stopPrice: stop.stopPrice ?? stop.limitPrice, quantity: stop.quantity } : null,
+          takeProfit: takeProfit ? { limitPrice: takeProfit.limitPrice, quantity: takeProfit.quantity } : null,
           target: target ?? null,
           lastPrice: last ?? null,
           atTarget: target != null && last != null ? last >= target : false,

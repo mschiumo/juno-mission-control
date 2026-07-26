@@ -57,6 +57,19 @@ export async function getProtectiveStopsForEntry(entryOrderId: string, userId: s
   return all.filter((o) => o.kind === 'protective_stop' && o.protectsOrderId === entryOrderId);
 }
 
+/**
+ * ALL exit children of an entry order (protective stops AND take-profits),
+ * any status. The take-profit and protective-stop guards both need the full
+ * set: stop fills shrink the shares a take-profit may close, and a working
+ * take-profit blocks a stop re-place (the shares are reserved at the broker).
+ */
+export async function getExitChildrenForEntry(entryOrderId: string, userId: string): Promise<ExecutionOrder[]> {
+  const all = await getAllOrders(userId);
+  return all.filter(
+    (o) => (o.kind === 'protective_stop' || o.kind === 'take_profit') && o.protectsOrderId === entryOrderId,
+  );
+}
+
 export async function saveOrder(order: ExecutionOrder, userId: string): Promise<ExecutionOrder> {
   const redis = await getRedisClient();
   const existing = await getAllOrders(userId);
