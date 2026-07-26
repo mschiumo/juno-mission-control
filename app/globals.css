@@ -719,3 +719,192 @@ body {
 .glow-negative {
   box-shadow: 0 0 20px rgba(255,61,87,0.15);
 }
+
+/* ============================================================
+   AGENTIC TRADING TERMINAL — design-handoff tokens + primitives
+   Scoped under .ct-terminal so nothing else in the app changes.
+   ============================================================ */
+
+.ct-terminal {
+  /* surfaces */
+  --ct-bg:            #07080a;
+  --ct-bg-elevated:   #0b0d10;
+  --ct-surface:       #0f1216;
+  --ct-surface-2:     #14181d;
+  --ct-surface-3:     #1c2127;
+  /* borders */
+  --ct-border:        rgba(255,255,255,0.07);
+  --ct-border-row:    rgba(255,255,255,0.045);
+  --ct-border-strong: rgba(255,255,255,0.13);
+  /* text ramp */
+  --ct-text:          #f2f4f6;
+  --ct-text-body:     #e8eaed;
+  --ct-muted:         #c8ced6;
+  --ct-dim:           #a9b0b9;
+  --ct-dimmer:        #8b929c;
+  --ct-faint:         #7d848d;
+  --ct-label:         #6f767f;
+  --ct-ghost:         #5f666f;
+  /* accent */
+  --ct-accent:        #ff7a1a;
+  --ct-accent-text:   #ffab6b;
+  --ct-accent-bg:     rgba(255,122,26,0.12);
+  --ct-accent-border: rgba(255,122,26,0.30);
+  --ct-accent-fg:     #0b0b0b;
+  /* semantic */
+  --ct-pos:           #34d399;
+  --ct-pos-text:      #6ee7b7;
+  --ct-pos-bg:        rgba(52,211,153,0.11);
+  --ct-neg:           #f87171;
+  --ct-neg-text:      #fca5a5;
+  --ct-neg-text-strong: #fecaca;
+  --ct-neg-bg:        rgba(248,113,113,0.08);
+  --ct-neg-border:    rgba(248,113,113,0.26);
+  --ct-info:          #93c5fd;
+  --ct-info-bg:       rgba(96,165,250,0.13);
+  --ct-track:         rgba(255,255,255,0.07);
+  --ct-progress-mid:  #5f9ea0;
+  --ct-progress-none: #5f666f;
+  /* type */
+  --ct-sans: var(--font-plex-sans), system-ui, sans-serif;
+  --ct-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  background: var(--ct-bg);
+  color: var(--ct-text-body);
+  font-family: var(--ct-sans);
+}
+
+/* every numeral in the terminal stacks its decimals */
+.ct-num {
+  font-family: var(--ct-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* MONO all-caps micro-label (column headers, eyebrows, group labels) */
+.ct-eyebrow {
+  font-family: var(--ct-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ct-label);
+}
+
+/* status pill — sentence case, one vocabulary everywhere */
+.ct-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-family: var(--ct-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* segmented control (desktop sub-tabs) */
+.ct-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+}
+.ct-seg-item {
+  padding: 7px 14px;
+  border-radius: 7px;
+  font-family: var(--ct-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ct-muted);
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.ct-seg-item:hover { color: var(--ct-text); }
+.ct-seg-item.active {
+  background: var(--ct-surface-3);
+  color: var(--ct-text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* sidebar nav item */
+.ct-navitem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 8px;
+  border-radius: 8px;
+  font-family: var(--ct-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ct-dim);
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ct-navitem:hover { background: rgba(255,255,255,0.04); color: var(--ct-text); }
+.ct-navitem.active { background: var(--ct-accent-bg); color: var(--ct-accent-text); font-weight: 600; }
+
+/* filter chip (orders lifecycle) */
+.ct-chip {
+  flex: none;
+  border-radius: 999px;
+  font-family: var(--ct-sans);
+  font-weight: 500;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.09);
+  color: var(--ct-muted);
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ct-chip.active {
+  background: #f2f4f6;
+  border-color: #f2f4f6;
+  color: #0b0d10;
+  font-weight: 600;
+}
+
+/* desktop orders grid — CSS grid, not <table>, so cells align cleanly */
+.ct-ordergrid {
+  display: grid;
+  grid-template-columns: 96px 84px 1fr 62px 62px 96px 56px 104px 84px;
+  align-items: center;
+  padding: 11px 18px;
+}
+
+/* progress bar width animates on data change (never on first mount — the
+   transition only runs when the width style actually changes) */
+.ct-progress-fill { transition: width 400ms ease-out; border-radius: 999px; height: 100%; }
+
+/* bottom sheet + scrim */
+@keyframes ct-sheet-in {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes ct-scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.ct-sheet { animation: ct-sheet-in 260ms cubic-bezier(0.32, 0.72, 0, 1); }
+.ct-scrim { animation: ct-scrim-in 200ms ease-out; }
+
+/* skeleton shimmer for loading rows */
+@keyframes ct-shimmer {
+  0% { opacity: 0.55; }
+  50% { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+.ct-skeleton {
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+  animation: ct-shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-sheet, .ct-scrim, .ct-skeleton { animation: none; }
+  .ct-progress-fill, .ct-seg-item, .ct-navitem, .ct-chip { transition: none; }
+}
