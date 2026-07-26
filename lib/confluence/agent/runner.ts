@@ -20,6 +20,8 @@ import { getActiveOrders, getAllOrders } from '@/lib/db/confluence/orders';
 import { getSystemState } from '@/lib/db/confluence/system-state';
 import { appendAudit } from '@/lib/db/confluence/audit';
 import { getFundamentalsProvider, type Fundamentals } from '@/lib/confluence/fundamentals';
+import { getBuyingPower } from '@/lib/confluence/broker/live-adapter';
+import { applyBuyingPowerGate } from './buying-power-gate';
 import { getTechnicalsProvider, type Technicals } from '@/lib/confluence/technicals';
 import { chunk, formatSkip, MCP_SYMBOL_BATCH_SIZE } from '@/lib/confluence/batching';
 import { ConfluenceNotConfigured } from '@/lib/confluence/robinhood/mcp-client';
@@ -324,9 +326,33 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
     const skippedInPlay = candidates
       .filter((c) => inPlay.has(c.symbol.toUpperCase()))
       .map((c) => c.symbol.toUpperCase());
-    const fresh = candidates.filter((c) => !inPlay.has(c.symbol.toUpperCase()));
+    let fresh = candidates.filter((c) => !inPlay.has(c.symbol.toUpperCase()));
     if (skippedInPlay.length > 0) {
       metaSource = { ...metaSource, alreadyInPlay: skippedInPlay };
+    }
+
+    // Buying-power gate (live only): never propose a buy the account can't
+    // fund at the suggested price × quantity. Runs BEFORE the proposal budget
+    // slice so an unfundable candidate doesn't eat a slot. If the balance
+    // can't be fetched, the run proceeds ungated — proposals are suggestions
+    // and the execution service still blocks authoritatively — but the
+    // failure is recorded so a silent non-filter is auditable.
+    if (!state.paperMode && state.agenticAccount) {
+      try {
+        const buyingPowerUsd = await getBuyingPower(state.agenticAccount);
+        const gated = applyBuyingPowerGate(fresh, buyingPowerUsd);
+        fresh = gated.kept;
+        metaSource = {
+          ...metaSource,
+          buyingPowerUsd,
+          ...(gated.ruledOut.length ? { insufficientBuyingPower: gated.ruledOut } : {}),
+        };
+      } catch (err) {
+        metaSource = {
+          ...metaSource,
+          buyingPowerCheck: `failed: ${err instanceof Error ? err.message : 'unknown error'}`,
+        };
+      }
     }
 
     let generated = 0;
