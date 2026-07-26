@@ -6,19 +6,15 @@
  * Decision-support with a hard human gate: the agent proposes, the user
  * approves/edits/rejects, and only an approval places an order. This container
  * fetches the data domains (system state, proposals, orders, audit, positions,
- * performance) and renders the redesigned terminal:
+ * performance) and renders the redesigned Agents page in the normal app flow
+ * (the product / trading navigation above it stays):
  *
- *  - Desktop (≥768px): full-viewport shell — sidebar (icon rail below 1280px)
- *    + top bar + one segmented sub-tab row. The old three stacked nav tiers
- *    collapse into the sidebar; other sections navigate back to the standard
- *    app shell.
- *  - Mobile (<768px): a companion surface — approve proposals, watch stops,
- *    kill orders. Bottom tab bar; deep analysis stays on desktop under More.
+ *  - one segmented sub-tab row, lifecycle-grouped orders grid with a
+ *    positions / next-proposals rail on desktop;
+ *  - card-based positions & orders (no tables) on mobile.
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import { Inbox, Play } from 'lucide-react';
 import type { AgentRun, AuditEvent, ExecutionOrder, PerformanceStats, Proposal, SystemState } from '@/types/confluence';
 import ProposalCard from './ProposalCard';
@@ -28,16 +24,11 @@ import AuditLog from './AuditLog';
 import SettingsPanel from './SettingsPanel';
 import PerformancePanel from './PerformancePanel';
 import ReviewPanel from './ReviewPanel';
-import Sidebar, { type TradingDestination } from './terminal/Sidebar';
-import TopBar from './terminal/TopBar';
 import OrdersTable from './terminal/OrdersTable';
 import { NextProposalsPanel, PositionsPanel } from './terminal/RightRail';
-import MobileShell, { type MobileTab } from './terminal/MobileShell';
 import MobileHome from './terminal/MobileHome';
-import MobileMore from './terminal/MobileMore';
-import ProposalSheet from './terminal/ProposalSheet';
-import { DangerBanner } from './terminal/atoms';
-import { money, proposalNotional } from './terminal/format';
+import { DangerBanner, ModePill } from './terminal/atoms';
+import { maskAcct, money, proposalNotional } from './terminal/format';
 
 type SubTab = 'queue' | 'orders' | 'performance' | 'review' | 'audit' | 'strategy' | 'settings';
 
@@ -56,10 +47,7 @@ const SUBTABS: { id: SubTab; label: string }[] = [
 const REFRESH_MS = 60_000;
 
 export default function ConfluenceView() {
-  const router = useRouter();
-  const { data: session } = useSession();
   const [subTab, setSubTab] = useState<SubTab>('queue');
-  const [mobileTab, setMobileTab] = useState<MobileTab>('home');
   const [state, setState] = useState<SystemState | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [orders, setOrders] = useState<ExecutionOrder[]>([]);
@@ -72,8 +60,6 @@ export default function ConfluenceView() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<{ kind: 'error' | 'ok'; msg: string } | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const [proposalIndex, setProposalIndex] = useState(0);
 
   const loadAll = useCallback(async () => {
     try {
@@ -147,15 +133,6 @@ export default function ConfluenceView() {
     return () => clearInterval(interval);
   }, []);
 
-  // The terminal owns the viewport; keep the page behind it from scrolling.
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
-
   // Keep the Agents-tab notification badge honest: broadcast the pending
   // count whenever proposals change (approve/reject/run/refresh), so the
   // badge clears the moment the queue empties instead of waiting for the
@@ -184,20 +161,7 @@ export default function ConfluenceView() {
       .catch(() => {});
   }, [proposals]);
 
-  // Toast auto-dismiss.
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
-  }, [toast]);
-
   const pending = proposals.filter((p) => p.status === 'pending');
-
-  // Keep the sheet index valid as the queue shrinks.
-  useEffect(() => {
-    if (proposalIndex >= pending.length && pending.length > 0) setProposalIndex(pending.length - 1);
-    if (pending.length === 0) setProposalIndex(0);
-  }, [pending.length, proposalIndex]);
 
   const buyingPower = perfStats?.buyingPower ?? null;
   const blocked = buyingPower != null ? pending.filter((p) => proposalNotional(p) > buyingPower) : [];
@@ -224,15 +188,12 @@ export default function ConfluenceView() {
         const data = await res.json();
         if (!res.ok || !data.success) {
           setBanner({ kind: 'error', msg: data.error || 'Approval failed.' });
-          setToast(data.error || 'Approval failed.');
         } else {
           const sym = data.order?.symbol ?? '';
           setBanner({ kind: 'ok', msg: `Approved ${sym} — order ${data.order?.status ?? 'staged'}.` });
-          setToast(`Order submitted — ${sym}${data.order?.stopPrice != null ? ' stop attached' : ''}`);
         }
       } catch {
         setBanner({ kind: 'error', msg: 'Approval request failed.' });
-        setToast('Approval request failed.');
       } finally {
         setBusy(false);
         await loadAll();
@@ -340,18 +301,6 @@ export default function ConfluenceView() {
     }
   }, [loadAll]);
 
-  // Sidebar / More-list navigation back to the standard Trading shell.
-  const navigateTo = useCallback(
-    (dest: TradingDestination) => {
-      router.replace(`/?tab=trading&subtab=${dest}`, { scroll: false });
-    },
-    [router],
-  );
-  const exitTerminal = useCallback(() => {
-    // Full navigation: the page shell reads ?tab= only on mount.
-    window.location.href = '/?tab=dashboard';
-  }, []);
-
   // Keyboard: 1–7 jump the segmented tabs (desktop).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -379,30 +328,11 @@ export default function ConfluenceView() {
     ? (lastRun.metadata.sizedOutSymbols as { symbol: string; riskPerShare: number; riskBudgetUsd: number }[])
     : [];
 
-  const userInitial = session?.user?.name?.charAt(0).toUpperCase() || 'U';
   const paperMode = state?.paperMode ?? true;
   const tradingEnabled = state?.tradingEnabled ?? false;
   const account = state?.agenticAccount;
 
-  const openProposalReview = () => {
-    setSubTab('queue');
-    const firstBlocked = blocked[0];
-    if (firstBlocked) {
-      const i = pending.findIndex((p) => p.id === firstBlocked.id);
-      if (i >= 0) setProposalIndex(i);
-    }
-    setMobileTab('proposals');
-  };
-
-  const sheetApprove = (p: Proposal) => {
-    handleApprove(p.id, {
-      limitPrice: p.suggestedLimitPrice ?? 0,
-      quantity: p.suggestedQuantity ?? 0,
-      stopPrice: p.suggestedStopPrice,
-      targetPrice: p.suggestedTargetPrice,
-      timeInForce: 'gfd',
-    });
-  };
+  const openProposalReview = () => setSubTab('queue');
 
   /* ---------- shared blocks ---------- */
 
@@ -562,144 +492,116 @@ export default function ConfluenceView() {
   /* ---------- render ---------- */
 
   return (
-    <div className="ct-terminal fixed inset-0 z-50 overflow-hidden" style={{ height: '100dvh' }}>
-      {/* Desktop / tablet (≥768px) */}
-      <div className="hidden md:flex h-full">
-        <Sidebar
-          pendingCount={pending.length}
-          buyingPower={buyingPower}
-          buyingPowerConstrained={blocked.length > 0}
-          account={account}
-          paperMode={paperMode}
-          onNavigate={navigateTo}
-          onExit={exitTerminal}
-        />
-        <div className="flex-1 min-w-0 flex flex-col">
-          <TopBar paperMode={paperMode} tradingEnabled={tradingEnabled} userInitial={userInitial} />
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="mx-auto flex flex-col" style={{ maxWidth: 1560, padding: '18px 26px 26px', gap: 16 }}>
-              {buyingPowerBanner}
-
-              {banner && (
-                <div
-                  style={{
-                    padding: '11px 16px',
-                    borderRadius: 10,
-                    background: banner.kind === 'error' ? 'var(--ct-neg-bg)' : 'var(--ct-pos-bg)',
-                    border: `1px solid ${banner.kind === 'error' ? 'var(--ct-neg-border)' : 'rgba(52,211,153,0.25)'}`,
-                    color: banner.kind === 'error' ? 'var(--ct-neg-text)' : 'var(--ct-pos-text)',
-                    fontFamily: 'var(--ct-sans)',
-                    fontSize: 13,
-                  }}
-                >
-                  {banner.msg}
-                </div>
-              )}
-
-              {/* Segmented sub-tab row */}
-              <div className="ct-seg self-start max-w-full overflow-x-auto">
-                {SUBTABS.map((t) => {
-                  const active = subTab === t.id;
-                  const count = t.id === 'queue' ? pending.length : t.id === 'orders' ? orders.length : 0;
-                  return (
-                    <button key={t.id} className={`ct-seg-item ${active ? 'active' : ''}`} onClick={() => setSubTab(t.id)}>
-                      {t.label}
-                      {count > 0 && (
-                        <span className="ct-num" style={{ marginLeft: 5, fontSize: 11, fontWeight: 600, color: active ? 'var(--ct-dim)' : 'var(--ct-dimmer)' }}>
-                          {count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {loading ? (
-                skeleton
-              ) : (
-                <>
-                  {subTab === 'queue' && queuePanel}
-
-                  {subTab === 'orders' && (
-                    <div className="flex flex-col xl:grid xl:grid-cols-[minmax(0,1fr)_360px] items-start" style={{ gap: 18 }}>
-                      <div className="order-2 xl:order-1 w-full min-w-0">
-                        <OrdersTable orders={orders} account={account} busy={busy} onRefresh={handleRefreshOrders} onCancel={handleCancel} />
-                      </div>
-                      <div className="order-1 xl:order-2 w-full flex flex-col" style={{ gap: 14 }}>
-                        <PositionsPanel positions={positions} note={positionsNote} connected={!positionsNote} />
-                        <NextProposalsPanel proposals={pending} buyingPower={buyingPower} onReview={() => setSubTab('queue')} />
-                      </div>
-                    </div>
-                  )}
-
-                  {subTab === 'performance' && <PerformancePanel />}
-                  {subTab === 'review' && <ReviewPanel />}
-                  {subTab === 'audit' && <AuditLog events={audit} />}
-                  {subTab === 'strategy' && <StrategyPanel />}
-                  {subTab === 'settings' && state && <SettingsPanel state={state} busy={busy} onSave={handleSaveState} />}
-                </>
-              )}
-            </div>
-          </div>
+    <div className="ct-terminal animate-fade-up flex flex-col" style={{ background: 'transparent', gap: 16 }}>
+      {/* Header: title + status. The app's own nav lives above this page. */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span style={{ fontFamily: 'var(--ct-sans)', fontSize: 17, fontWeight: 600, letterSpacing: '-0.015em', color: 'var(--ct-text)' }}>
+            Agentic Trading
+          </span>
+          <p style={{ fontFamily: 'var(--ct-sans)', fontSize: 12.5, color: 'var(--ct-faint)', margin: 0 }}>
+            Agent proposes · you approve · service executes
+          </p>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          {buyingPower != null && (
+            <span className="flex items-baseline gap-1.5" title={`acct ${maskAcct(account)}`}>
+              <span className="ct-eyebrow" style={{ fontSize: 9.5, fontWeight: 500, letterSpacing: '0.1em' }}>BUYING POWER</span>
+              <span className="ct-num" style={{ fontSize: 14, fontWeight: 600, color: blocked.length > 0 ? 'var(--ct-neg)' : 'var(--ct-text)' }}>
+                {money(buyingPower)}
+              </span>
+            </span>
+          )}
+          {!tradingEnabled && (
+            <span
+              className="ct-pill"
+              style={{ background: 'var(--ct-neg-bg)', color: 'var(--ct-neg-text)', border: '1px solid var(--ct-neg-border)' }}
+              title="Kill switch — execution is disarmed; approvals will not place orders"
+            >
+              Disarmed
+            </span>
+          )}
+          <ModePill paperMode={paperMode} label={paperMode ? 'PAPER MODE' : 'LIVE MODE'} />
         </div>
       </div>
 
-      {/* Mobile (<768px) — companion surface */}
-      <div className="md:hidden h-full relative">
-        <MobileShell
-          active={mobileTab}
-          pendingCount={pending.length}
-          paperMode={paperMode}
-          toast={toast}
-          onSelect={(tab) => {
-            if (tab === 'journal') {
-              navigateTo('overview');
-              return;
-            }
-            setMobileTab(tab);
-          }}
-          onExit={exitTerminal}
-        >
-          {loading ? (
-            <div style={{ padding: '0 20px' }}>{skeleton}</div>
-          ) : mobileTab === 'more' ? (
-            <MobileMore state={state} audit={audit} busy={busy} onSaveState={handleSaveState} onNavigate={navigateTo} onExit={exitTerminal} />
-          ) : mobileTab === 'proposals' && pending.length === 0 ? (
-            <div className="flex flex-col items-center justify-center flex-1" style={{ padding: '0 20px', gap: 8 }}>
-              <Inbox className="w-8 h-8" style={{ color: 'var(--ct-ghost)' }} />
-              <p style={{ fontFamily: 'var(--ct-sans)', fontSize: 13, color: 'var(--ct-faint)', textAlign: 'center' }}>
-                The agent has nothing to propose.
-              </p>
-            </div>
-          ) : (
-            <MobileHome
-              positions={positions}
-              positionsNote={positionsNote}
-              orders={orders}
-              account={account}
-              buyingPower={buyingPower}
-              blockedCount={blocked.length}
-              blockedNotional={blocked.length > 0 ? proposalNotional(blocked[0]) : null}
-              busy={busy}
-              onReviewProposal={openProposalReview}
-              onCancelOrder={handleCancel}
-            />
-          )}
-        </MobileShell>
+      {buyingPowerBanner}
 
-        {mobileTab === 'proposals' && pending.length > 0 && (
-          <ProposalSheet
-            proposals={pending}
-            index={proposalIndex}
-            buyingPower={buyingPower}
-            tradingEnabled={tradingEnabled}
-            busy={busy}
-            onIndexChange={setProposalIndex}
-            onApprove={sheetApprove}
-            onClose={() => setMobileTab('home')}
-          />
-        )}
+      {banner && (
+        <div
+          style={{
+            padding: '11px 16px',
+            borderRadius: 10,
+            background: banner.kind === 'error' ? 'var(--ct-neg-bg)' : 'var(--ct-pos-bg)',
+            border: `1px solid ${banner.kind === 'error' ? 'var(--ct-neg-border)' : 'rgba(52,211,153,0.25)'}`,
+            color: banner.kind === 'error' ? 'var(--ct-neg-text)' : 'var(--ct-pos-text)',
+            fontFamily: 'var(--ct-sans)',
+            fontSize: 13,
+          }}
+        >
+          {banner.msg}
+        </div>
+      )}
+
+      {/* Segmented sub-tab row */}
+      <div className="ct-seg self-start max-w-full overflow-x-auto">
+        {SUBTABS.map((t) => {
+          const active = subTab === t.id;
+          const count = t.id === 'queue' ? pending.length : t.id === 'orders' ? orders.length : 0;
+          return (
+            <button key={t.id} className={`ct-seg-item ${active ? 'active' : ''}`} onClick={() => setSubTab(t.id)}>
+              {t.label}
+              {count > 0 && (
+                <span className="ct-num" style={{ marginLeft: 5, fontSize: 11, fontWeight: 600, color: active ? 'var(--ct-dim)' : 'var(--ct-dimmer)' }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      {loading ? (
+        skeleton
+      ) : (
+        <>
+          {subTab === 'queue' && queuePanel}
+
+          {subTab === 'orders' && (
+            <>
+              {/* Desktop: grouped grid + reference rail */}
+              <div className="hidden md:flex flex-col xl:grid xl:grid-cols-[minmax(0,1fr)_360px] items-start" style={{ gap: 18 }}>
+                <div className="order-2 xl:order-1 w-full min-w-0">
+                  <OrdersTable orders={orders} account={account} busy={busy} onRefresh={handleRefreshOrders} onCancel={handleCancel} />
+                </div>
+                <div className="order-1 xl:order-2 w-full flex flex-col" style={{ gap: 14 }}>
+                  <PositionsPanel positions={positions} note={positionsNote} connected={!positionsNote} />
+                  <NextProposalsPanel proposals={pending} buyingPower={buyingPower} onReview={() => setSubTab('queue')} />
+                </div>
+              </div>
+              {/* Mobile: cards, not tables */}
+              <div className="md:hidden">
+                <MobileHome
+                  positions={positions}
+                  positionsNote={positionsNote}
+                  orders={orders}
+                  account={account}
+                  buyingPower={buyingPower}
+                  blockedCount={blocked.length}
+                  busy={busy}
+                  onCancelOrder={handleCancel}
+                />
+              </div>
+            </>
+          )}
+
+          {subTab === 'performance' && <PerformancePanel />}
+          {subTab === 'review' && <ReviewPanel />}
+          {subTab === 'audit' && <AuditLog events={audit} />}
+          {subTab === 'strategy' && <StrategyPanel />}
+          {subTab === 'settings' && state && <SettingsPanel state={state} busy={busy} onSave={handleSaveState} />}
+        </>
+      )}
     </div>
   );
 }

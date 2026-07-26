@@ -1,30 +1,12 @@
 'use client';
 
 /**
- * Small shared pieces of the Agentic Trading terminal: wordmark, LIVE/PAPER
- * pill, status pill, danger banner, progress bar, ticking clock.
+ * Small shared pieces of the Agentic Trading page: LIVE/PAPER pill, status
+ * pill, danger banner, progress bar.
  */
 
-import { useEffect, useState } from 'react';
 import type { OrderStatus } from '@/types/confluence';
 import { statusPill } from './format';
-
-/** The app's chevron mark in the terminal's orange rounded square. */
-export function Mark({ size = 26 }: { size?: number }) {
-  return (
-    <div
-      className="flex items-center justify-center flex-none"
-      style={{ width: size, height: size, borderRadius: 8, background: 'var(--ct-accent)' }}
-    >
-      <svg viewBox="0 0 48 48" fill="none" style={{ width: size * 0.55, height: size * 0.55 }}>
-        <line x1="7" y1="13" x2="24" y2="24" stroke="#0b0b0b" strokeWidth="5" strokeLinecap="round" />
-        <line x1="7" y1="35" x2="24" y2="24" stroke="#0b0b0b" strokeWidth="5" strokeLinecap="round" />
-        <line x1="24" y1="24" x2="41" y2="24" stroke="#0b0b0b" strokeWidth="5" strokeLinecap="round" />
-        <circle cx="24" cy="24" r="3" fill="#0b0b0b" />
-      </svg>
-    </div>
-  );
-}
 
 /** LIVE pill (orange, dotted) vs PAPER pill (dimmed, no dot). */
 export function ModePill({ paperMode, label }: { paperMode: boolean; label?: string }) {
@@ -147,20 +129,3 @@ export function ProgressBar({ pct, fill, height = 5 }: { pct: number | null; fil
   );
 }
 
-/** "11:51:40 · Sun Jul 26 EST" — ticks every second, isolated so only it re-renders. */
-export function Clock() {
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => {
-    setNow(new Date());
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  if (!now) return null;
-  const time = now.toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/New_York' });
-  const date = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York' });
-  return (
-    <span className="ct-num" style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ct-dimmer)' }}>
-      {time} · {date} EST
-    </span>
-  );
-}

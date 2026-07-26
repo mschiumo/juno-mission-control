@@ -1,16 +1,17 @@
 'use client';
 
 /**
- * Mobile home — the glance screen ("am I in danger, and is anything close to
- * target?"): KPI pair, risk banner when a proposal is blocked, and the
- * Positions / Orders sub-tabs. No tables on mobile — everything is a card.
+ * Mobile orders & positions — the glance surface ("am I in danger, and is
+ * anything close to target?"): KPI pair and the Positions / Orders sub-tabs.
+ * No tables on mobile — everything is a card. Renders in the normal page flow
+ * under the app's own navigation.
  */
 
 import { useState } from 'react';
 import type { ExecutionOrder } from '@/types/confluence';
 import { ACTIVE_ORDER_STATUSES } from '@/types/confluence';
 import type { LivePosition } from '../OrdersMonitor';
-import { DangerBanner, ProgressBar, StatusPill } from './atoms';
+import { ProgressBar, StatusPill } from './atoms';
 import { groupOrders, maskAcct, money, openRisk, pctColors, pctToTarget, type OrderGroup } from './format';
 
 interface Props {
@@ -20,9 +21,7 @@ interface Props {
   account?: string;
   buyingPower: number | null;
   blockedCount: number;
-  blockedNotional: number | null;
   busy: boolean;
-  onReviewProposal: () => void;
   onCancelOrder: (id: string) => void;
 }
 
@@ -160,9 +159,7 @@ export default function MobileHome({
   account,
   buyingPower,
   blockedCount,
-  blockedNotional,
   busy,
-  onReviewProposal,
   onCancelOrder,
 }: Props) {
   const [view, setView] = useState<'positions' | 'orders'>('positions');
@@ -185,7 +182,7 @@ export default function MobileHome({
   const protectiveOnly = groups.working.length > 0 && groups.working.every((o) => o.kind === 'protective_stop');
 
   return (
-    <div className="flex flex-col" style={{ padding: '0 20px' }}>
+    <div className="flex flex-col">
       {view === 'positions' && (
         <div className="flex flex-col" style={{ gap: 14, paddingBottom: 14 }}>
           {/* KPI pair */}
@@ -210,28 +207,11 @@ export default function MobileHome({
               </div>
             </div>
           </div>
-
-          {/* Risk banner — only when a proposal is blocked */}
-          {constrained && blockedNotional != null && (
-            <DangerBanner radius={13} padding="12px 13px" action="Review proposal" onAction={onReviewProposal}>
-              Order notional <b className="ct-num" style={{ fontWeight: 600 }}>{money(blockedNotional)}</b> exceeds buying power.{' '}
-              {blockedCount} {blockedCount === 1 ? 'proposal' : 'proposals'} blocked.
-            </DangerBanner>
-          )}
         </div>
       )}
 
-      {view === 'orders' && (
-        <div className="flex items-center justify-between" style={{ padding: '2px 0 12px' }}>
-          <span style={{ fontFamily: 'var(--ct-sans)', fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ct-text)' }}>
-            Orders
-          </span>
-          <span className="ct-num" style={{ fontSize: 12, fontWeight: 500, color: 'var(--ct-dimmer)' }}>acct {maskAcct(account)}</span>
-        </div>
-      )}
-
-      {/* Positions / Orders sub-tabs */}
-      <div className="flex" style={{ gap: 22, borderBottom: '1px solid var(--ct-border)', marginBottom: 14 }}>
+      {/* Positions / Orders sub-tabs (+ masked account on the orders view) */}
+      <div className="flex items-baseline" style={{ gap: 22, borderBottom: '1px solid var(--ct-border)', marginBottom: 14 }}>
         {(['positions', 'orders'] as const).map((v) => {
           const active = view === v;
           const count = v === 'positions' ? positions.length : orders.length;
@@ -253,6 +233,11 @@ export default function MobileHome({
             </button>
           );
         })}
+        {view === 'orders' && (
+          <span className="ct-num ml-auto" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--ct-dimmer)' }}>
+            acct {maskAcct(account)}
+          </span>
+        )}
       </div>
 
       {view === 'positions' ? (

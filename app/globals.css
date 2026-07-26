@@ -327,7 +327,9 @@ body {
 
 /* ── Tab underline nav (e.g. TradingView sub-tabs) ── */
 .tab-underline-nav {
-  display: flex;
+  /* display comes from the markup's `hidden md:flex` utilities — an un-layered
+     display:flex here would override the layered `hidden` and leak the desktop
+     tab row into the mobile view. */
   gap: 0;
   border-bottom: 1px solid var(--border-subtle);
   overflow-x: auto;
@@ -831,24 +833,6 @@ body {
   box-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 
-/* sidebar nav item */
-.ct-navitem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 8px;
-  border-radius: 8px;
-  font-family: var(--ct-sans);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ct-dim);
-  width: 100%;
-  text-align: left;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.ct-navitem:hover { background: rgba(255,255,255,0.04); color: var(--ct-text); }
-.ct-navitem.active { background: var(--ct-accent-bg); color: var(--ct-accent-text); font-weight: 600; }
-
 /* filter chip (orders lifecycle) */
 .ct-chip {
   flex: none;
@@ -880,18 +864,6 @@ body {
    transition only runs when the width style actually changes) */
 .ct-progress-fill { transition: width 400ms ease-out; border-radius: 999px; height: 100%; }
 
-/* bottom sheet + scrim */
-@keyframes ct-sheet-in {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
-}
-@keyframes ct-scrim-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-.ct-sheet { animation: ct-sheet-in 260ms cubic-bezier(0.32, 0.72, 0, 1); }
-.ct-scrim { animation: ct-scrim-in 200ms ease-out; }
-
 /* skeleton shimmer for loading rows */
 @keyframes ct-shimmer {
   0% { opacity: 0.55; }
@@ -905,6 +877,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ct-sheet, .ct-scrim, .ct-skeleton { animation: none; }
-  .ct-progress-fill, .ct-seg-item, .ct-navitem, .ct-chip { transition: none; }
+  .ct-skeleton { animation: none; }
+  .ct-progress-fill, .ct-seg-item, .ct-chip { transition: none; }
 }
