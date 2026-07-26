@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
 import "./globals.css";
 
@@ -10,6 +10,20 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+// IBM Plex powers the Agentic Trading terminal (components/confluence): Sans
+// for labels/prose, Mono for every numeral (tabular alignment is the point).
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-plex-sans",
+  weight: ["400", "500", "600", "700"],
+  subsets: ["latin"],
+});
+
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
 });
 
@@ -58,7 +72,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#0d1117] text-[#e6edf3] min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} ${plexSans.variable} ${plexMono.variable} antialiased bg-[#0d1117] text-[#e6edf3] min-h-screen`}
       >
         <SessionProvider>
           {children}

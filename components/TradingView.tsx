@@ -126,6 +126,13 @@ export default function TradingView() {
     }
   }, [isOwner, activeSubTab]);
 
+  // Follow URL changes made elsewhere (the Agents terminal's sidebar navigates
+  // by rewriting ?subtab=), so leaving the terminal lands on the right sub-tab.
+  useEffect(() => {
+    const fromUrl = getSubTabFromUrl();
+    setActiveSubTabState((cur) => (cur === fromUrl ? cur : fromUrl));
+  }, [getSubTabFromUrl]);
+
   function handleTourComplete() {
     setShowTour(false);
     fetch('/api/user/prefs', {
