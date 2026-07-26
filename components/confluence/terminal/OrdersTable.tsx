@@ -120,8 +120,7 @@ function OrderRow({
           </button>
         )}
         {cancelable && confirming && (
-          <span className="flex items-center gap-2 whitespace-nowrap" style={{ fontFamily: 'var(--ct-sans)', fontSize: 11 }}>
-            <span style={{ color: 'var(--ct-dimmer)' }}>Cancel?</span>
+          <span className="flex items-center gap-1.5 whitespace-nowrap" style={{ fontFamily: 'var(--ct-sans)', fontSize: 11 }}>
             <button onClick={onConfirmCancel} disabled={busy} style={{ color: 'var(--ct-neg-text)', fontWeight: 600 }}>
               Confirm
             </button>
