@@ -22,6 +22,13 @@
 import type { ExecutionOrder, SystemState } from '@/types/confluence';
 import { isActiveOrderStatus, isTerminalOrderStatus } from '@/types/confluence';
 
+/**
+ * Restore hysteresis: price must retreat this far through the target (0.5%)
+ * before the stop is re-armed, so a symbol oscillating on the target line
+ * doesn't flap between stop and take-profit every poll.
+ */
+export const TP_RETREAT_FRACTION = 0.995;
+
 export interface TakeProfitDecision {
   place: boolean;
   /** Populated when place = true: shares still held from this entry. */
@@ -127,4 +134,66 @@ export function shouldPlaceTakeProfit(
     .filter((c) => c.kind === 'protective_stop' && isActiveOrderStatus(c.status))
     .map((c) => c.id);
   return { place: true, quantity: remaining, cancelStopIds };
+}
+
+export interface RestoreStopDecision {
+  restore: boolean;
+  /** Populated when restore = true: the unfilled take-profit to cancel. */
+  takeProfitOrderId?: string;
+  /** Populated when restore = false. */
+  code?:
+    | 'not_entry'
+    | 'no_active_take_profit'
+    | 'not_retreated'
+    | 'no_stop_price'
+    | 'kill_switch';
+  reason?: string;
+}
+
+/**
+ * The other half of the synthetic OCO: should the working take-profit be
+ * pulled and the protective stop re-armed because price RETREATED from the
+ * target before the limit filled?
+ *
+ * Hysteresis-bounded (see TP_RETREAT_FRACTION) so the machine never flaps.
+ * A disarmed system does NOTHING — cancelling the take-profit without being
+ * able to place the stop would leave the position with no exit at all.
+ */
+export function shouldRestoreProtectiveStop(
+  entryOrder: ExecutionOrder,
+  existingChildren: ExecutionOrder[],
+  lastPrice: number,
+  systemState: SystemState,
+): RestoreStopDecision {
+  if ((entryOrder.kind ?? 'entry') !== 'entry') {
+    return { restore: false, code: 'not_entry', reason: 'Only entry orders own the OCO state.' };
+  }
+  const children = existingChildren.filter((c) => c.protectsOrderId === entryOrder.id);
+  const activeTp = children.find((c) => c.kind === 'take_profit' && isActiveOrderStatus(c.status));
+  if (!activeTp) {
+    return { restore: false, code: 'no_active_take_profit', reason: 'No working take-profit to pull.' };
+  }
+  const target = entryOrder.targetPrice;
+  const retreated =
+    typeof target === 'number' &&
+    Number.isFinite(lastPrice) &&
+    (entryOrder.side === 'buy'
+      ? lastPrice <= target * TP_RETREAT_FRACTION
+      : lastPrice >= target * (2 - TP_RETREAT_FRACTION));
+  if (!retreated) {
+    return { restore: false, code: 'not_retreated', reason: 'Price is still holding near the target.' };
+  }
+  // Without an approved stop there is nothing to restore — the resting limit
+  // is the position's only exit; cancelling it would leave NO exit at all.
+  if (!(typeof entryOrder.stopPrice === 'number' && entryOrder.stopPrice > 0)) {
+    return { restore: false, code: 'no_stop_price', reason: 'Entry carries no approved stop to restore.' };
+  }
+  if (!systemState.tradingEnabled) {
+    return {
+      restore: false,
+      code: 'kill_switch',
+      reason: 'Trading is disarmed — leaving the take-profit resting rather than pulling the only exit.',
+    };
+  }
+  return { restore: true, takeProfitOrderId: activeTp.id };
 }

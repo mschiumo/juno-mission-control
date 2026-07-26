@@ -8,7 +8,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { shouldPlaceTakeProfit, targetReached } from '@/lib/confluence/take-profit';
+import {
+  shouldPlaceTakeProfit,
+  shouldRestoreProtectiveStop,
+  targetReached,
+  TP_RETREAT_FRACTION,
+} from '@/lib/confluence/take-profit';
 import { shouldPlaceProtectiveStop } from '@/lib/confluence/protective-stop';
 import type { ExecutionOrder, SystemState } from '@/types/confluence';
 
@@ -18,6 +23,7 @@ const armedState: SystemState = {
   perPositionCapUsd: 2000,
   totalExposureCapUsd: 10000,
   entryOrderMaxAgeDays: 5,
+  autoTakeProfit: true,
   updatedAt: new Date(0).toISOString(),
 };
 
@@ -176,6 +182,36 @@ describe('shouldPlaceTakeProfit', () => {
   });
 });
 
+describe('shouldRestoreProtectiveStop (OCO retreat)', () => {
+  const target = 61.5;
+  const retreatAt = target * TP_RETREAT_FRACTION;
+
+  it('restores when price retreats through the hysteresis band with a take-profit working', () => {
+    const d = shouldRestoreProtectiveStop(order({}), [tpChild()], retreatAt, armedState);
+    expect(d).toMatchObject({ restore: true, takeProfitOrderId: 't1' });
+  });
+
+  it('holds inside the hysteresis band (no flapping)', () => {
+    const d = shouldRestoreProtectiveStop(order({}), [tpChild()], retreatAt + 0.01, armedState);
+    expect(d).toMatchObject({ restore: false, code: 'not_retreated' });
+  });
+
+  it('nothing to restore without a working take-profit', () => {
+    const d = shouldRestoreProtectiveStop(order({}), [tpChild({ status: 'filled', filledQuantity: 10 })], 55, armedState);
+    expect(d).toMatchObject({ restore: false, code: 'no_active_take_profit' });
+  });
+
+  it('never pulls the only exit when the entry has no stop to restore', () => {
+    const d = shouldRestoreProtectiveStop(order({ stopPrice: undefined }), [tpChild()], 55, armedState);
+    expect(d).toMatchObject({ restore: false, code: 'no_stop_price' });
+  });
+
+  it('a disarmed system leaves the take-profit resting (cannot re-arm the stop)', () => {
+    const d = shouldRestoreProtectiveStop(order({}), [tpChild()], 55, { ...armedState, tradingEnabled: false });
+    expect(d).toMatchObject({ restore: false, code: 'kill_switch' });
+  });
+});
+
 describe('shouldPlaceProtectiveStop × take-profit interplay', () => {
   it('a working take-profit blocks a stop (shares reserved at the broker)', () => {
     const d = shouldPlaceProtectiveStop(order({}), [tpChild()], armedState);
@@ -202,5 +238,25 @@ describe('shouldPlaceProtectiveStop × take-profit interplay', () => {
     expect(
       shouldPlaceProtectiveStop(order({}), children, armedState, { ignoreCancelledStops: true }).place,
     ).toBe(true);
+  });
+
+  it('re-armed stop sizes to shares the exits have not already sold', () => {
+    // Take-profit sold 4 of 10 at the target, then got pulled on the retreat.
+    const children = [
+      stopChild({ status: 'cancelled' }),
+      tpChild({ status: 'cancelled', filledQuantity: 4 }),
+    ];
+    const d = shouldPlaceProtectiveStop(order({}), children, armedState, { ignoreCancelledStops: true });
+    expect(d.place).toBe(true);
+    expect(d.quantity).toBe(6);
+  });
+
+  it('fully-exited entries get position_closed, not a zero-share stop', () => {
+    const children = [
+      stopChild({ status: 'cancelled' }),
+      tpChild({ status: 'cancelled', filledQuantity: 10 }),
+    ];
+    const d = shouldPlaceProtectiveStop(order({}), children, armedState, { ignoreCancelledStops: true });
+    expect(d).toMatchObject({ place: false, code: 'position_closed' });
   });
 });

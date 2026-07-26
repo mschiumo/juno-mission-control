@@ -10,10 +10,13 @@
  *      setup that justified it. Protective stops are NEVER auto-cancelled
  *      (they guard a live position). A cancel that reveals a partial fill
  *      still chains a stop for the held shares (see execution.cancelOrder).
- *   3. Take-profit completion: when a held position trades at/through the
- *      target the human approved at entry, place a GTC LIMIT exit at the
- *      target (fills at target or better) via execution.placeTakeProfit —
- *      deterministic completion of the approved plan, exit-only.
+ *   3. Take-profit completion (system_state.autoTakeProfit, synthetic OCO):
+ *      when a held position trades at/through the target the human approved
+ *      at entry, cancel the protective stop and place a GTC LIMIT exit at the
+ *      target (fills at target or better) via execution.placeTakeProfit; if
+ *      price then RETREATS ≥0.5% below the target before the limit fills,
+ *      pull it and re-arm the stop (execution.restoreProtectiveStop). With
+ *      the toggle off this is notification-only, as before.
  *
  * PLACES NO ENTRIES — refresh, exit completion, and expiry only. When the
  * bots acted (fills, take-profits, expiries), an execution report email goes
@@ -31,7 +34,7 @@ import { appendAudit } from '@/lib/db/confluence/audit';
 import { getRedisClient } from '@/lib/redis';
 import { callRobinhoodTool, isRobinhoodConfigured } from '@/lib/confluence/robinhood/mcp-client';
 import { getSystemState } from '@/lib/db/confluence/system-state';
-import { cancelOrder, placeTakeProfit, refreshOrderStatus } from '@/lib/confluence/execution';
+import { cancelOrder, placeTakeProfit, refreshOrderStatus, restoreProtectiveStop } from '@/lib/confluence/execution';
 import { reconcileOrders } from '@/lib/confluence/reconcile';
 import { sendEmail } from '@/lib/email';
 import {
@@ -221,7 +224,31 @@ async function processTakeProfits(
   const redis = await getRedisClient();
   for (const entry of watch) {
     const price = last.get(entry.symbol.toUpperCase());
-    if (price == null || price < entry.targetPrice!) continue;
+    if (price == null) continue;
+
+    // Below target: the only possible OCO move is the retreat restore —
+    // pull an unfilled take-profit and re-arm the stop. The guard inside is
+    // hysteresis-bounded and a no-op unless a take-profit is working.
+    if (price < entry.targetPrice!) {
+      if (!state.autoTakeProfit) continue;
+      const restored = await restoreProtectiveStop(entry.id, price, userId);
+      if (restored.ok) {
+        lines.push(`↩️ ${entry.symbol} retreated from target — stop re-armed`);
+        emailEvents.push({
+          tone: 'action',
+          headline: `↩️ ${entry.symbol} retreated from target — stop re-armed`,
+          detail: `Last $${price} fell back from target $${entry.targetPrice} before the take-profit filled — it was cancelled and the protective stop re-placed (${entry.isPaper ? 'paper' : 'live'}).`,
+        });
+      } else if (restored.code === 'failed') {
+        // The take-profit was pulled but the stop couldn't come back — the
+        // loud audit is written inside restoreProtectiveStop; email it too.
+        lines.push(`↩️ ${entry.symbol} retreat restore FAILED: ${restored.reason}`);
+        emailEvents.push({ tone: 'warn', headline: `⚠️ ${entry.symbol} stop NOT re-armed`, detail: restored.reason });
+      } else if (restored.code === 'kill_switch') {
+        lines.push(`↩️ ${entry.symbol} retreated but trading is disarmed — take-profit left resting`);
+      }
+      continue;
+    }
 
     // One-time "target reached" note per entry (notification only — the
     // placement below is governed by the pure guard, not this flag).
@@ -235,10 +262,20 @@ async function processTakeProfits(
         entityType: 'order',
         entityId: entry.id,
         after: { symbol: entry.symbol, lastPrice: price, targetPrice: entry.targetPrice },
-        note: `🎯 ${entry.symbol} reached its approved target: last $${price} ≥ target $${entry.targetPrice}. Placing the take-profit limit at the target.`,
+        note: state.autoTakeProfit
+          ? `🎯 ${entry.symbol} reached its approved target: last $${price} ≥ target $${entry.targetPrice}. Placing the take-profit limit at the target.`
+          : `🎯 ${entry.symbol} reached its approved target: last $${price} ≥ target $${entry.targetPrice}. Auto take-profit is OFF — sell via a manual sell proposal or in the Robinhood app (the protective stop stays working).`,
       });
       lines.push(`🎯 ${entry.symbol} AT TARGET ($${price} ≥ $${entry.targetPrice})`);
+      if (!state.autoTakeProfit) {
+        emailEvents.push({
+          tone: 'action',
+          headline: `🎯 ${entry.symbol} AT TARGET (auto take-profit is off)`,
+          detail: `Last $${price} ≥ target $${entry.targetPrice}. Take-profit is your call — or enable Auto take-profit in Agents → Settings.`,
+        });
+      }
     }
+    if (!state.autoTakeProfit) continue;
 
     const result = await placeTakeProfit(entry.id, price, userId);
     if (result.ok) {

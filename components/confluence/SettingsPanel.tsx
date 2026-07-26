@@ -138,6 +138,38 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
         </p>
       </div>
 
+      {/* Auto take-profit (synthetic OCO) */}
+      <div className="card">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Auto take-profit</div>
+            <p className="text-[12px] mt-0.5 max-w-md" style={{ color: 'var(--text-secondary)' }}>
+              When a position trades at/through the target you approved at entry, the market-hours poll cancels the
+              protective stop and places a GTC limit sell at the target (fills at target or better). If price retreats
+              ≥0.5% below the target before it fills, the sell is pulled and the stop re-armed. Off = notification only.
+            </p>
+          </div>
+          <div className="flex rounded-lg overflow-hidden flex-shrink-0" style={{ border: '1px solid var(--border-default)' }}>
+            <button
+              className="px-3.5 py-2 text-sm font-medium"
+              style={{ background: state.autoTakeProfit ? 'var(--positive-dim)' : 'transparent', color: state.autoTakeProfit ? 'var(--positive)' : 'var(--text-secondary)' }}
+              disabled={busy}
+              onClick={() => onSave({ autoTakeProfit: true })}
+            >
+              On
+            </button>
+            <button
+              className="px-3.5 py-2 text-sm font-medium"
+              style={{ background: !state.autoTakeProfit ? 'var(--surface-3)' : 'transparent', color: !state.autoTakeProfit ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+              disabled={busy}
+              onClick={() => onSave({ autoTakeProfit: false })}
+            >
+              Off
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Exposure caps */}
       <div className="card">
         <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Exposure caps</div>

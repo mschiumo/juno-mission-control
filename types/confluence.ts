@@ -94,6 +94,13 @@ export interface SystemState {
    * Protective stops are NEVER auto-cancelled (they guard a live position).
    */
   entryOrderMaxAgeDays: number;
+  /**
+   * Automatic take-profit: when a held position trades at/through the target
+   * approved at entry, the poll cancels the protective stop and places a GTC
+   * limit exit at the target (and restores the stop if price retreats before
+   * it fills). OFF = notification-only ("AT TARGET" chip + alert).
+   */
+  autoTakeProfit: boolean;
   updatedAt: string; // ISO
   updatedBy?: string;
 }
@@ -104,6 +111,7 @@ export const DEFAULT_SYSTEM_STATE: Omit<SystemState, 'updatedAt'> = {
   perPositionCapUsd: 2000,
   totalExposureCapUsd: 10000,
   entryOrderMaxAgeDays: 5,
+  autoTakeProfit: true,
 };
 
 /** agent_runs — observability for each scheduled scan (populated in Milestone 2). */

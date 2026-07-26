@@ -23,11 +23,15 @@ export function oppositeSide(side: TradeDirection): TradeDirection {
 
 export interface ProtectiveStopDecision {
   place: boolean;
+  /** Populated when place = true: shares still held from this entry (its
+   * exits' fills subtracted) — what the stop must cover. */
+  quantity?: number;
   /** Populated when place = false. */
   code?:
     | 'not_entry'
     | 'not_filled'
     | 'no_stop_price'
+    | 'position_closed'
     | 'already_protected'
     | 'take_profit_active'
     | 'kill_switch';
@@ -118,6 +122,16 @@ export function shouldPlaceProtectiveStop(
       reason: `Entry already has a protective stop (${blocking[0].status}).`,
     };
   }
+  // Size to the shares the entry's exits haven't already closed — a stop for
+  // the full fill would oversell after a partial take-profit or stop fill
+  // (e.g. re-arming on an OCO retreat after some shares sold at the target).
+  const closed = existingChildren
+    .filter((c) => c.protectsOrderId === entryOrder.id && (c.kind === 'protective_stop' || c.kind === 'take_profit'))
+    .reduce((sum, c) => sum + Math.max(0, c.filledQuantity), 0);
+  const remaining = entryOrder.filledQuantity - closed;
+  if (!(remaining > 0)) {
+    return { place: false, code: 'position_closed', reason: 'The entry’s shares are already exited.' };
+  }
   // The kill switch is absolute — a disarmed system places NOTHING, even an
   // exposure-reducing stop. The caller writes the loud audit for this code.
   if (!systemState.tradingEnabled) {
@@ -127,5 +141,5 @@ export function shouldPlaceProtectiveStop(
       reason: 'Trading is disarmed (kill switch) — protective stop NOT placed; the position is unprotected.',
     };
   }
-  return { place: true };
+  return { place: true, quantity: remaining };
 }

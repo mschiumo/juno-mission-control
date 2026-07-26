@@ -30,7 +30,7 @@ import { checkPreTradeReviewRules } from './review/rules';
 import { getBrokerAdapter } from './broker';
 import { getBuyingPower } from './broker/live-adapter';
 import { oppositeSide, shouldPlaceProtectiveStop, type ProtectiveStopOptions } from './protective-stop';
-import { shouldPlaceTakeProfit } from './take-profit';
+import { shouldPlaceTakeProfit, shouldRestoreProtectiveStop } from './take-profit';
 import type { ExecutionOrder, OrderParams, Proposal } from '@/types/confluence';
 import { isTerminalOrderStatus } from '@/types/confluence';
 
@@ -258,6 +258,9 @@ export async function placeProtectiveStop(
 
     // Stage the stop. limitPrice mirrors the trigger so legacy notional/display
     // readers see a sane number; exposure math excludes protective stops anyway.
+    // Quantity comes from the guard: the entry's fill minus shares its exits
+    // already closed (a partial take-profit fill must shrink the stop).
+    const stopQuantity = decision.quantity ?? entry.filledQuantity;
     const now = new Date().toISOString();
     const staged: ExecutionOrder = {
       id: crypto.randomUUID(),
@@ -272,7 +275,7 @@ export async function placeProtectiveStop(
       protectsOrderId: entry.id,
       limitPrice: entry.stopPrice!,
       stopPrice: entry.stopPrice,
-      quantity: entry.filledQuantity,
+      quantity: stopQuantity,
       timeInForce: 'gtc',
       refId: crypto.randomUUID(),
       status: 'staged',
@@ -307,7 +310,7 @@ export async function placeProtectiveStop(
         symbol: entry.symbol,
         side: staged.side,
         stopPrice: entry.stopPrice!,
-        quantity: entry.filledQuantity,
+        quantity: stopQuantity,
         timeInForce: 'gtc',
       });
       const submitted = await transitionOrder(staged.id, userId, {
@@ -542,6 +545,82 @@ export async function placeTakeProfit(
       }
       return { ok: false, code: 'failed', reason: message, order: failed ?? staged };
     }
+  } finally {
+    await redis.del(lockKey).catch(() => {});
+  }
+}
+
+/**
+ * The retreat half of the synthetic OCO: price reached the target (a
+ * take-profit is resting, the stop was pulled) but has now RETREATED through
+ * the hysteresis band without filling — cancel the take-profit and re-arm
+ * the protective stop for the remaining shares. Shares that DID fill at the
+ * target stay sold; only the unfilled remainder gets its stop back.
+ *
+ * Shares the same per-entry lock as placeTakeProfit so the two OCO
+ * transitions serialize. A disarmed system does nothing (the guard refuses
+ * to pull the position's only working exit).
+ */
+export async function restoreProtectiveStop(
+  entryOrderId: string,
+  lastPrice: number,
+  userId: string,
+): Promise<ExecuteResult> {
+  const redis = await getRedisClient();
+  const lockKey = `confluence:tp-lock:${userId}:${entryOrderId}`;
+  const acquired = await redis.set(lockKey, '1', { NX: true, EX: 60 });
+  if (acquired !== 'OK') {
+    return { ok: false, code: 'in_flight', reason: 'OCO transition already in flight for this entry.' };
+  }
+  try {
+    const entry = await getOrderById(entryOrderId, userId);
+    if (!entry) return { ok: false, code: 'not_found', reason: 'Entry order not found.' };
+
+    const state = await getSystemState(userId);
+    const decision = shouldRestoreProtectiveStop(
+      entry,
+      await getExitChildrenForEntry(entry.id, userId),
+      lastPrice,
+      state,
+    );
+    if (!decision.restore) {
+      return { ok: false, code: decision.code, reason: decision.reason };
+    }
+
+    // Pull the unfilled take-profit. If it actually FILLED while we acted,
+    // the profit is locked — nothing to restore for those shares.
+    const pulled = await cancelOrder(decision.takeProfitOrderId!, 'system:oco-retreat', userId);
+    if (pulled && pulled.status !== 'cancelled') {
+      return {
+        ok: false,
+        code: 'take_profit_not_cancelled',
+        reason: `Take-profit resolved ${pulled.status} instead of cancelled — no restore needed.`,
+      };
+    }
+
+    // Re-arm the stop for whatever is still held (the guard sizes it).
+    const restored = await placeProtectiveStop(entry.id, userId, { ignoreCancelledStops: true });
+    if (restored.ok) {
+      await appendAudit(userId, {
+        actor: 'system',
+        actorId: 'system',
+        eventType: 'order.protective_stop_placed',
+        entityType: 'order',
+        entityId: entry.id,
+        after: { lastPrice, targetPrice: entry.targetPrice },
+        note: `↩️ ${entry.symbol} retreated from target (last $${lastPrice} vs $${entry.targetPrice}) — take-profit cancelled, protective stop re-armed.`,
+      });
+    } else if (restored.code !== 'position_closed') {
+      await appendAudit(userId, {
+        actor: 'system',
+        actorId: 'system',
+        eventType: 'order.protective_stop_skipped',
+        entityType: 'order',
+        entityId: entry.id,
+        note: `⚠️ ${entry.symbol} position is UNPROTECTED — take-profit pulled on retreat but the stop could not be re-placed (${restored.reason ?? restored.code}).`,
+      });
+    }
+    return restored;
   } finally {
     await redis.del(lockKey).catch(() => {});
   }

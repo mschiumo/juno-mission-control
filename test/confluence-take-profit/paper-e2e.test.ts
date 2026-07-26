@@ -119,4 +119,58 @@ describe.runIf(redisUp)('take-profit paper-mode integration (local redis)', () =
     const sold = children.reduce((s, c) => s + c.filledQuantity, 0);
     expect(sold).toBe(10);
   });
+
+  it('retreat cycle: pulls the unfilled take-profit and re-arms the stop', async () => {
+    const { getOrderById, saveOrder } = await import('@/lib/db/confluence/orders');
+    const { placeProtectiveStop, placeTakeProfit, restoreProtectiveStop } = await import(
+      '@/lib/confluence/execution'
+    );
+
+    const now = new Date().toISOString();
+    const entry = {
+      id: randomUUID(),
+      proposalId: randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+      symbol: 'KO',
+      accountNumber: 'PAPER',
+      side: 'buy',
+      type: 'limit',
+      kind: 'entry',
+      limitPrice: 60,
+      quantity: 5,
+      timeInForce: 'gfd',
+      stopPrice: 56,
+      targetPrice: 66,
+      refId: randomUUID(),
+      status: 'filled',
+      filledQuantity: 5,
+      avgFillPrice: 60,
+      isPaper: true,
+      history: [{ status: 'filled', ts: now }],
+    } as ExecutionOrder;
+    await saveOrder(entry, userId);
+
+    const stop1 = await placeProtectiveStop(entry.id, userId);
+    expect(stop1.ok).toBe(true);
+
+    // Target touched → OCO switches to the take-profit.
+    const tp = await placeTakeProfit(entry.id, 66.1, userId);
+    expect(tp.ok).toBe(true);
+
+    // Inside the hysteresis band nothing moves…
+    const hold = await restoreProtectiveStop(entry.id, 65.9, userId);
+    expect(hold.ok).toBe(false);
+    expect(hold.code).toBe('not_retreated');
+
+    // …but a real retreat pulls the take-profit and re-arms the stop.
+    const restored = await restoreProtectiveStop(entry.id, 65.0, userId);
+    expect(restored.ok).toBe(true);
+    expect(restored.order?.kind).toBe('protective_stop');
+    expect(restored.order?.status).toBe('submitted');
+    expect(restored.order?.quantity).toBe(5);
+
+    const pulledTp = await getOrderById(tp.order!.id, userId);
+    expect(pulledTp?.status).toBe('cancelled');
+  });
 });

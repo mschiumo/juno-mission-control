@@ -9,6 +9,7 @@ const baseState: SystemState = {
   perPositionCapUsd: 100,
   totalExposureCapUsd: 400,
   entryOrderMaxAgeDays: 5,
+  autoTakeProfit: true,
   updatedAt: new Date(0).toISOString(),
 };
 
@@ -38,7 +39,7 @@ function order(over: Partial<ExecutionOrder>): ExecutionOrder {
 
 describe('shouldPlaceProtectiveStop', () => {
   it('places for a filled entry with a stop and no children', () => {
-    expect(shouldPlaceProtectiveStop(order({}), [], baseState)).toEqual({ place: true });
+    expect(shouldPlaceProtectiveStop(order({}), [], baseState)).toEqual({ place: true, quantity: 1 });
   });
 
   it('places for a cancelled entry holding a partial fill', () => {
@@ -68,7 +69,8 @@ describe('shouldPlaceProtectiveStop', () => {
   });
 
   it('re-attempts after a FAILED child (failed placements must not block)', () => {
-    const child = order({ id: 's1', kind: 'protective_stop', protectsOrderId: 'e1', status: 'failed' });
+    // A failed placement never sold anything — filledQuantity 0.
+    const child = order({ id: 's1', kind: 'protective_stop', protectsOrderId: 'e1', status: 'failed', filledQuantity: 0 });
     expect(shouldPlaceProtectiveStop(order({}), [child], baseState).place).toBe(true);
   });
 
