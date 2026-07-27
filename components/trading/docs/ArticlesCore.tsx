@@ -11,10 +11,10 @@ export function GettingStartedArticle() {
   return (
     <div className="space-y-8">
       <P>
-        Welcome to <Em>ConfluenceTrading</Em> — the trading hub inside Juno Mission Control. Everything lives under one
-        Trading tab: a calendar-first journal, live market tools, trade planning and position sizing, auto-tracked goals,
-        and a full performance suite. This guide walks the whole platform, feature by feature, with step-by-step
-        tutorials. New here? Read this page, then follow the Quick Start at the bottom.
+        Welcome to <Em>ConfluenceTrading</Em> — your trading command center. Everything lives in one place: a
+        calendar-first journal, live market tools, trade planning and position sizing, auto-tracked goals, and a full
+        performance suite. This guide walks the whole platform, feature by feature, with step-by-step tutorials. New
+        here? Read this page, then follow the Quick Start at the bottom.
       </P>
 
       <DocSection title="The Trading tab at a glance">
@@ -65,8 +65,8 @@ export function GettingStartedArticle() {
 
       <DocSection title="Navigation and deep links">
         <P>
-          The top navigation switches between the app’s main tabs; within Trading, the underline tab bar (a dropdown on
-          mobile) switches sections. Every section updates the URL — for example{' '}
+          The underline tab bar at the top (a dropdown on mobile) switches between the platform’s sections. Every
+          section updates the URL — for example{' '}
           <UI>/?tab=trading&amp;subtab=performance</UI> — so you can bookmark a section, share a link, or use your
           browser’s back button freely. These docs are a section too: <UI>/?tab=trading&amp;subtab=docs</UI>, and each
           article has its own <UI>&amp;doc=</UI> link.

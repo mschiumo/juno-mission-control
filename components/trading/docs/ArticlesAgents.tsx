@@ -249,10 +249,6 @@ export function FaqArticle() {
       <>Blank journals can’t be saved — the three main prompts are required, and the server rejects empty entries too. Write at least a sentence per prompt; <Em>Other</Em> is the only optional field.</>,
     ],
     [
-      'What’s the difference between the Trading journal and the Dashboard journal?',
-      <>They’re separate systems. The <DocLink doc="journal">Trading journal</DocLink> is the per-trading-day reflection on the Journal calendar (what went well, what to improve, plan adherence). The Dashboard’s daily journal is a personal/mindset journal with mood and sleep tracking. Neither shares data with the other.</>,
-    ],
-    [
       'Which parts of Trading are owner-only?',
       <>Just the <DocLink doc="agents">Agents</DocLink> tab (the agentic terminal, including <DocLink doc="review">Review</DocLink>) — it drives a real brokerage account, so it’s restricted to the app owner. Everything else — Journal, imports, Market, Trade Management, Goals, Performance, Profit Projection, and these docs — is available to every signed-in user, and each user’s data is fully private to their account.</>,
     ],
