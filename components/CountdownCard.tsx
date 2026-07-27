@@ -139,7 +139,7 @@ export default function CountdownCard() {
   const sorted = [...events].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col xl:flex-1 xl:min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -228,7 +228,7 @@ export default function CountdownCard() {
       )}
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto max-h-72 min-h-0">
+      <div className="flex-1 overflow-y-auto max-h-72 xl:max-h-none min-h-0">
         {loading ? (
           <div className="flex items-center justify-center py-8 text-[#8b949e]">
             <Loader2 className="w-5 h-5 animate-spin" />
