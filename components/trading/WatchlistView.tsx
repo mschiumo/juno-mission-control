@@ -63,17 +63,17 @@ const ORDER_PLACED_STORAGE_KEY = 'ct:active-trades-orders';
 // LocalStorage key for collapsed sections state
 const COLLAPSED_SECTIONS_STORAGE_KEY = 'ct:watchlist-collapsed-sections';
 
-// Card grids collapse to 2 columns on phones (<sm) and restore the configured
-// column count at sm/lg so desktop layout is unchanged.
+// Card grids collapse to 1 column on phones (<sm) and restore the configured
+// column count at sm/md/lg so desktop layout is unchanged.
 const CARD_GRID: Record<number, string> = {
-  2: 'grid-cols-2',
-  3: 'grid-cols-2 sm:grid-cols-3',
-  4: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4',
-  5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
+  2: 'grid-cols-1 sm:grid-cols-2',
+  3: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3',
+  4: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
+  5: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5',
 };
 
 export default function WatchlistView({ hideActiveTrades = false, hideClosedPositions = false, cardColumns = 3, emptyMessage }: { hideActiveTrades?: boolean; hideClosedPositions?: boolean; cardColumns?: number; emptyMessage?: string }) {
-  const cardGridClass = CARD_GRID[cardColumns] ?? 'grid-cols-2 sm:grid-cols-3';
+  const cardGridClass = CARD_GRID[cardColumns] ?? CARD_GRID[3];
   // Watchlist (Potential Trades) state
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
@@ -1619,7 +1619,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
       {/* ===== ACTIVE TRADES SECTION ===== */}
       {!hideActiveTrades && <div className="space-y-4 p-3 rounded-xl border-2 border-green-500/50 bg-green-500/5">
         {/* Section Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-500/10 rounded-lg">
               <Activity className="w-5 h-5 text-green-400" />
@@ -1651,7 +1651,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 placeholder="Search ticker..."
                 value={activeTradesSearchQuery}
                 onChange={(e) => setActiveTradesSearchQuery(e.target.value)}
-                className="w-40 px-3 py-1.5 bg-[#0F0F0F] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#6e7681] focus:outline-none focus:border-green-500 transition-colors"
+                className="w-28 sm:w-40 px-3 py-1.5 bg-[#0F0F0F] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#6e7681] focus:outline-none focus:border-green-500 transition-colors"
               />
               {activeTradesSearchQuery && (
                 <button
@@ -1731,7 +1731,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
           }`}
         >
         {activeTradesLoading && activeTrades.length === 0 ? (
-          <div className="grid grid-cols-2 gap-3 animate-pulse">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-pulse">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="bg-[#0d1117] border border-[#30363d] rounded-xl p-4 space-y-2">
                 <div className="flex justify-between">
@@ -1750,7 +1750,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
             <p className="text-xs text-[#6e7681] mt-1">Start a trade from Potential Trades below</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {(() => {
               // Filter by search query and preserve the user's manual ordering.
               // Order changes only on close/delete or drag-drop — no automatic
@@ -1889,7 +1889,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 {/* Card Body */}
                 <div className="p-3 space-y-3">
                   {/* Unified Stats Row - All States */}
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 min-[480px]:grid-cols-3 gap-2">
                     {/* Entry Price - Inline Editable */}
                     <div className="cursor-pointer hover:bg-[#262626] rounded-lg px-1 -mx-1 transition-colors"
                          onClick={() => handleInlineEditStart(trade, 'actualEntry')}>
@@ -2063,7 +2063,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
         )}
         
         {/* Section Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-[#F97316]/10 rounded-lg">
               <BarChart3 className="w-5 h-5 text-[#F97316]" />
@@ -2083,7 +2083,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Side Filter - Pill Buttons */}
             <div className="flex items-center bg-[#0d1117] border border-[#30363d] rounded-lg p-1">
               <button
@@ -2126,7 +2126,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search ticker..."
-                className="pl-9 pr-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] w-40 sm:w-48"
+                className="pl-9 pr-4 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#F97316] w-32 sm:w-48"
               />
               {searchQuery && (
                 <button
@@ -2528,7 +2528,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
       {/* ===== CLOSED POSITIONS SECTION ===== */}
       {!hideClosedPositions && <div className="space-y-4 p-3 rounded-xl border-2 border-red-500/50 bg-red-500/5">
         {/* Section Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-500/10 rounded-lg">
               <Archive className="w-5 h-5 text-blue-400" />
@@ -2555,7 +2555,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
               )}
             </button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Search Input */}
             <div className="relative">
               <input
@@ -2563,7 +2563,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 placeholder="Search ticker..."
                 value={closedPositionsSearchQuery}
                 onChange={(e) => setClosedPositionsSearchQuery(e.target.value)}
-                className="w-40 px-3 py-1.5 bg-[#0F0F0F] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#6e7681] focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-28 sm:w-40 px-3 py-1.5 bg-[#0F0F0F] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#6e7681] focus:outline-none focus:border-blue-500 transition-colors"
               />
               {closedPositionsSearchQuery && (
                 <button
@@ -2751,7 +2751,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 {/* Card Body */}
                 <div className="p-4 space-y-3">
                   {/* Unified Stats Row - All States */}
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                     <div>
                       <div className="text-xs text-[#8b949e]">Entry</div>
                       <div className="text-sm font-semibold">{formatCurrency(position.actualEntry || position.plannedEntry)}</div>
@@ -2793,7 +2793,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                   {position.exitPrice && (
                     <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-4">
                       <div className="text-xs text-blue-400 uppercase tracking-wide mb-2">Exit Info</div>
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         <div>
                           <div className="text-xs text-[#8b949e]">Exit Price</div>
                           <div className="text-sm font-semibold">{formatCurrency(position.exitPrice)}</div>
