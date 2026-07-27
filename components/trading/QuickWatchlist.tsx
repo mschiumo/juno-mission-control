@@ -664,21 +664,21 @@ export default function QuickWatchlist({
             <div className="border border-[#30363d] rounded-lg overflow-hidden flex flex-col flex-1 min-h-0">
               {/* Header */}
               <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[#0d1117] border-b border-[#30363d] text-xs shrink-0">
-                <button onClick={() => handleSort('ticker')} className="col-span-3 flex items-center gap-1 text-[#8b949e] hover:text-white">
+                <button onClick={() => handleSort('ticker')} className="col-span-4 sm:col-span-3 flex items-center gap-1 text-[#8b949e] hover:text-white">
                   Ticker {getSortIcon('ticker')}
                 </button>
-                <div className="col-span-3 text-[#8b949e]">Prev Close</div>
-                <button onClick={() => handleSort('premarket')} className="col-span-3 flex items-center gap-1 text-[#8b949e] hover:text-white">
+                <div className="hidden sm:block sm:col-span-3 text-[#8b949e]">Prev Close</div>
+                <button onClick={() => handleSort('premarket')} className="col-span-4 sm:col-span-3 flex items-center gap-1 text-[#8b949e] hover:text-white">
                   Pre-market {getSortIcon('premarket')}
                 </button>
-                <div className="col-span-3 text-right text-[#8b949e]">Actions</div>
+                <div className="col-span-4 sm:col-span-3 text-right text-[#8b949e]">Actions</div>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto">
                 {filteredAndSortedWatchlist.map((item) => {
                   const premarket = premarketData[item.ticker];
                   return (
                     <div key={`${item.source}-${item.id}`} className="grid grid-cols-12 gap-2 px-3 py-2 border-b border-[#30363d] last:border-b-0 hover:bg-[#0d1117]/50 transition-colors items-center">
-                      <div className="col-span-3 flex items-center gap-2">
+                      <div className="col-span-4 sm:col-span-3 flex items-center gap-2 min-w-0">
                         <button
                           onClick={() => handleSelectTicker(item.ticker, item.id)}
                           className="text-sm font-medium text-white hover:text-[#F97316] transition-colors cursor-pointer"
@@ -694,7 +694,7 @@ export default function QuickWatchlist({
                       </div>
                       
                       {/* Previous Close */}
-                      <div className="col-span-3 text-xs">
+                      <div className="hidden sm:block sm:col-span-3 text-xs">
                         {premarket ? (
                           <span className="text-[#8b949e]">${premarket.previousClose.toFixed(2)}</span>
                         ) : (
@@ -703,7 +703,7 @@ export default function QuickWatchlist({
                       </div>
                       
                       {/* Premarket Price */}
-                      <div className="col-span-3 text-xs">
+                      <div className="col-span-4 sm:col-span-3 text-xs">
                         {premarket ? (
                           <div className="flex flex-col">
                             <span className={`font-medium ${premarket.status === 'up' ? 'text-green-400' : premarket.status === 'down' ? 'text-red-400' : 'text-[#8b949e]'}`}>
@@ -718,7 +718,7 @@ export default function QuickWatchlist({
                         )}
                       </div>
                       
-                      <div className="col-span-3 flex justify-end gap-1">
+                      <div className="col-span-4 sm:col-span-3 flex justify-end gap-1">
                         {onSelectTicker && (
                           <button
                             onClick={() => handleSelectTicker(item.ticker, item.id)}

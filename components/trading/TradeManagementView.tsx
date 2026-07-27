@@ -42,7 +42,7 @@ export default function TradeManagementView() {
       {/* Normal view */}
       <div className="space-y-4">
         <MarketTickerBar />
-        <div className="flex justify-end">
+        <div className="hidden md:flex justify-end">
           <button
             data-tour="trading-mode"
             onClick={enterTradingMode}
