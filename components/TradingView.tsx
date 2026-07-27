@@ -291,10 +291,10 @@ export default function TradingView() {
         <div className="space-y-6">
           <MarketEventsCard onOpenBriefing={() => setShowBriefingModal(true)} />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 lg:h-[640px]">
-            <div data-tour="gap-scanner" className="lg:col-span-2 h-[640px] lg:h-full overflow-hidden">
+            <div data-tour="gap-scanner" className="lg:col-span-2 h-[70vh] max-h-[640px] lg:h-full lg:max-h-none overflow-hidden">
               <GapScannerCard />
             </div>
-            <div className="lg:col-span-1 h-[640px] lg:h-full overflow-hidden">
+            <div className="lg:col-span-1 h-[70vh] max-h-[640px] lg:h-full lg:max-h-none overflow-hidden">
               <MarketCard />
             </div>
           </div>
