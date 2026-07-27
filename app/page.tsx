@@ -209,7 +209,7 @@ function DashboardContent() {
             <MotivationalBanner compact variant="orange" />
             <EveningCheckinReminder />
             <FitnessCard />
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 md:gap-6 xl:items-start">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 md:gap-6">
               <div>
                 <HabitCard />
               </div>
