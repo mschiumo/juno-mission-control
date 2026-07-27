@@ -235,12 +235,14 @@ export function DocLink({ doc, children }: { doc: string; children: ReactNode })
 export function Figure({ caption, children }: { caption: string; children: ReactNode }) {
   return (
     <figure className="space-y-2">
+      {/* The outer div stays interactive so wide figures can scroll horizontally;
+          only the mock content itself is inert. */}
       <div
         aria-hidden="true"
-        className="rounded-xl p-4 sm:p-5 overflow-x-auto pointer-events-none select-none"
+        className="rounded-xl p-4 sm:p-5 overflow-x-auto"
         style={{ background: 'var(--bg-base, #050709)', border: '1px solid var(--border-default)' }}
       >
-        {children}
+        <div className="pointer-events-none select-none">{children}</div>
       </div>
       <figcaption className="text-xs px-1" style={{ color: 'var(--text-tertiary)' }}>
         {caption}

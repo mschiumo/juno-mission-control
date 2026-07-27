@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, ComponentType } from 'react';
+import { useCallback, useEffect, useMemo, useState, ComponentType } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Rocket,
@@ -183,7 +183,6 @@ export default function DocsView() {
 
   const [activeId, setActiveIdState] = useState<string>(getDocFromUrl);
   const [query, setQuery] = useState('');
-  const contentRef = useRef<HTMLDivElement>(null);
 
   // Keep ?doc= in the URL so articles are bookmarkable/shareable.
   const setActiveId = useCallback(
@@ -196,7 +195,7 @@ export default function DocsView() {
         params.set('doc', id);
       }
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-      contentRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     [pathname, router, searchParams],
   );
@@ -290,7 +289,7 @@ export default function DocsView() {
       </aside>
 
       {/* Article */}
-      <main ref={contentRef} className="card p-5 sm:p-8 min-w-0 scroll-mt-4">
+      <main className="card p-5 sm:p-8 min-w-0">
         <header className="space-y-2 mb-8 pb-6" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
             <span>Docs</span>
