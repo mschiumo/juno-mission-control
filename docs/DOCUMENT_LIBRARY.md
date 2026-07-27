@@ -150,7 +150,6 @@ Required in Vercel:
 - `FINNHUB_API_KEY` - Market data
 - `POLYGON_API_KEY` - Gap scanner
 - `GITHUB_TOKEN` - PR monitoring (needs refresh)
-- `GOOGLE_CALENDAR_CREDENTIALS` - Calendar API (base64)
 
 ---
 

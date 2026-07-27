@@ -3,9 +3,8 @@
 import { useState } from 'react';
 import { 
   Zap, 
-  Mail, 
-  Calendar, 
-  FileText, 
+  Mail,
+  FileText,
   Github, 
   MessageSquare,
   Music,
@@ -28,13 +27,6 @@ const quickActions: QuickAction[] = [
     icon: <Mail className="w-5 h-5" />,
     color: '#ea4335',
     href: 'https://mail.google.com'
-  },
-  {
-    id: '2',
-    name: 'Calendar',
-    icon: <Calendar className="w-5 h-5" />,
-    color: '#4285f4',
-    href: 'https://calendar.google.com'
   },
   {
     id: '3',

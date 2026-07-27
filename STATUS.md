@@ -16,7 +16,6 @@
 
 ### 2. Dashboard UI Components (6 components)
 - [x] **CronJobCard.tsx** - View 5 sample cron jobs, run them, status indicators
-- [x] **CalendarCard.tsx** - View events by date, add event modal
 - [x] **HabitCard.tsx** - 5 habits with streaks, completion toggle, weekly stats
 - [x] **MarketCard.tsx** - Tabs for Indices/Stocks/Crypto, auto-refresh every 60s
 - [x] **ProjectsCard.tsx** - 4 sample projects with progress bars
@@ -24,11 +23,9 @@
 
 ### 3. API Routes (6 routes)
 - [x] `GET /api/cron-status` - Returns cron jobs array
-- [x] `GET /api/calendar-events` - Returns events array
 - [x] `GET /api/market-data` - Returns indices, stocks, crypto
 - [x] `GET /api/habit-status` - Returns habits + stats
 - [x] `POST /api/run-cron` - Accepts {jobId}, triggers job
-- [x] `POST /api/create-event` - Accepts event data, creates event
 
 ### 4. Layout & Styling
 - [x] Dark theme (#0d1117 background, #ff6b35 tangerine accents)
@@ -39,7 +36,6 @@
 - [x] Animations (pulse-tangerine, status-pulse)
 
 ### 5. Library Utilities
-- [x] `lib/google-calendar.ts` - Full Google Calendar API integration ready
 - [x] `lib/gmail.ts` - Full Gmail API integration ready
 - [x] `lib/market-api.ts` - Finnhub & Alpha Vantage support
 
@@ -73,7 +69,6 @@
 ## ⏳ PENDING (After Repo Creation)
 
 ### Real Data Integration
-- [ ] Connect Google Calendar API (needs credentials)
 - [ ] Connect Gmail API (needs credentials)
 - [ ] Connect Market Data API (needs API key)
 - [ ] Set up database for habits (optional)

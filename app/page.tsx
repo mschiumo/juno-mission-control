@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import CalendarCard from "@/components/CalendarCard";
 import HabitCard from "@/components/HabitCard";
 import GapScannerCard from "@/components/GapScannerCard";
 import DailyJournalCard from "@/components/DailyJournalCard";
@@ -214,13 +213,10 @@ function DashboardContent() {
               <div>
                 <HabitCard />
               </div>
-              <div className="flex flex-col gap-5 xl:h-[900px]">
+              <div className="flex flex-col gap-5">
                 <CountdownCard />
                 <DaysSinceCard />
                 <DailyJournalCard />
-                <div className="h-[360px] min-h-0 xl:h-auto xl:flex-1">
-                  <CalendarCard />
-                </div>
               </div>
             </div>
           </div>
