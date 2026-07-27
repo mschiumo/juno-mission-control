@@ -317,8 +317,8 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         No goals yet
       </h3>
       <p className="text-xs mb-4 max-w-md mx-auto" style={{ color: 'var(--text-secondary)' }}>
-        Set a target like “earn $1,050 by July 13” and Juno tracks it automatically from your imported trades — with the
-        daily run-rate you need to stay on pace.
+        Set a target like “earn $1,050 by July 13” and ConfluenceTrading tracks it automatically from your imported
+        trades — with the daily run-rate you need to stay on pace.
       </p>
       <button
         onClick={onCreate}
