@@ -262,7 +262,7 @@ function EquityTooltip({ active, payload, label }: { active?: boolean; payload?:
   const isPositive = pnl >= 0;
 
   return (
-    <div className="rounded-xl shadow-xl px-4 py-3 min-w-[180px]" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-default)' }}>
+    <div className="rounded-xl shadow-xl px-4 py-3 min-w-[140px] sm:min-w-[180px]" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-default)' }}>
       <p className="text-xs mb-2 font-medium" style={{ color: 'var(--text-secondary)' }}>{label}</p>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4">
@@ -286,7 +286,7 @@ function DayOfWeekTooltip({ active, payload }: { active?: boolean; payload?: Arr
   const isPositive = d.pnl >= 0;
 
   return (
-    <div className="rounded-xl shadow-xl px-4 py-3 min-w-[160px]" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-default)' }}>
+    <div className="rounded-xl shadow-xl px-4 py-3 min-w-[140px] sm:min-w-[160px]" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-default)' }}>
       <p className="text-xs mb-2 font-semibold" style={{ color: 'var(--text-secondary)' }}>{d.name}</p>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4">
@@ -576,7 +576,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
                 <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Equity Curve</p>
                 <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Net Liquidating Value — {PERIOD_LABELS[period]}</p>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {/* Starting Balance */}
                 <div className="flex items-center gap-2">
                   {editingBalance ? (

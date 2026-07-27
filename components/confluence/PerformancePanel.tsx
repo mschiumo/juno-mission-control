@@ -91,7 +91,7 @@ export default function PerformancePanel() {
     <div className="flex flex-col gap-4">
       {/* Header + source badge */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <span
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold"
             style={{ background: stats.source === 'live' ? 'var(--negative-dim)' : 'var(--warning-dim)', color: stats.source === 'live' ? 'var(--negative)' : 'var(--warning)' }}
