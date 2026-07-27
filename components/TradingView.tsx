@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   HelpCircle,
+  GraduationCap,
 } from 'lucide-react';
 import MarketEventsCard from '@/components/MarketEventsCard';
 import GapScannerCard from '@/components/GapScannerCard';
@@ -32,8 +33,9 @@ import PerformanceView from '@/components/trading/PerformanceView';
 import GoalsView from '@/components/trading/GoalsView';
 import TradingTour from '@/components/trading/TradingTour';
 import AgentsView from '@/components/confluence/ConfluenceView';
+import DocsView from '@/components/trading/docs/DocsView';
 
-type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management' | 'agents';
+type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management' | 'agents' | 'docs';
 
 export default function TradingView() {
   const router = useRouter();
@@ -47,7 +49,7 @@ export default function TradingView() {
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
     const subtab = searchParams.get('subtab');
     if (subtab === 'agents') return isOwner ? 'agents' : 'overview';
-    if (subtab === 'market' || subtab === 'market-news' || subtab === 'performance' || subtab === 'goals' || subtab === 'projection' || subtab === 'trade-management') {
+    if (subtab === 'market' || subtab === 'market-news' || subtab === 'performance' || subtab === 'goals' || subtab === 'projection' || subtab === 'trade-management' || subtab === 'docs') {
       return subtab;
     }
     return 'overview';
@@ -152,6 +154,7 @@ export default function TradingView() {
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
     // Agents (agentic swing-trading) is owner-only.
     ...(isOwner ? [{ id: 'agents' as const, label: 'Agents', icon: Sparkles }] : []),
+    { id: 'docs' as const, label: 'Docs', icon: GraduationCap },
   ];
 
   const activeTabLabel = subTabs.find((t) => t.id === activeSubTab)?.label || 'Journal';
@@ -306,6 +309,8 @@ export default function TradingView() {
 
       {activeSubTab === 'agents' && isOwner && <AgentsView />}
 
+      {activeSubTab === 'docs' && <DocsView />}
+
       {activeSubTab === 'projection' && (
         <div data-tour="profit-projection">
           <ProfitProjectionView />
@@ -325,8 +330,8 @@ export default function TradingView() {
       {showTour && (
         <TradingTour
           // The onboarding tour only covers the standard sub-tabs; 'agents' (owner-only)
-          // isn't part of it, so present it as 'overview' to the tour's narrower type.
-          activeSubTab={activeSubTab === 'agents' ? 'overview' : activeSubTab}
+          // and 'docs' aren't part of it, so present them as 'overview' to the tour's narrower type.
+          activeSubTab={activeSubTab === 'agents' || activeSubTab === 'docs' ? 'overview' : activeSubTab}
           onNavigate={setActiveSubTab}
           onComplete={handleTourComplete}
         />
