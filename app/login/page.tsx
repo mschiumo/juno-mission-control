@@ -1,16 +1,29 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
+
+const REMEMBERED_EMAIL_KEY = 'confluence_remembered_email';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      const remembered = localStorage.getItem(REMEMBERED_EMAIL_KEY);
+      if (remembered) {
+        setEmail(remembered);
+        setRememberMe(true);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +39,13 @@ export default function LoginPage() {
       setError('Invalid email or password');
       setLoading(false);
     } else {
+      try {
+        if (rememberMe) {
+          localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+        } else {
+          localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+        }
+      } catch { /* ignore */ }
       window.location.href = '/';
     }
   };
@@ -146,6 +166,17 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                className="w-3.5 h-3.5 rounded cursor-pointer"
+                style={{ accentColor: 'var(--accent)' }}
+              />
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Remember me</span>
+            </label>
 
             {error && (
               <p className="text-xs text-center py-2 px-3 rounded-lg" style={{ color: 'var(--negative)', background: 'var(--negative-dim)', border: '1px solid rgba(255,61,87,0.15)' }}>
