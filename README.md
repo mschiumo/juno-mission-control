@@ -1,6 +1,6 @@
 # Juno Mission Control Dashboard
 
-A production-ready Next.js personal dashboard for managing cron jobs, calendar events, habits, market data, and projects.
+A production-ready Next.js personal dashboard for managing cron jobs, habits, market data, and projects.
 
 Live at https://juno-mission-control.vercel.app/
 
@@ -8,7 +8,6 @@ Live at https://juno-mission-control.vercel.app/
 
 - **📊 Dashboard UI** - Dark theme with tangerine accents, responsive grid layout
 - **⏰ Cron Jobs** - View and trigger cron jobs with status indicators
-- **📅 Calendar** - View upcoming events and create new ones
 - **✅ Habit Tracking** - Track daily habits with streak counters
 - **📈 Market Overview** - Real-time market data with auto-refresh
 - **📁 Projects** - Track active projects and their progress
@@ -71,11 +70,11 @@ NEXTAUTH_SECRET=your-nextauth-secret
 NEXTAUTH_URL=http://localhost:3000
 ```
 
-### Google Calendar Integration
+### Gmail Integration
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select existing
-3. Enable the Google Calendar API
+3. Enable the Gmail API
 4. Create OAuth 2.0 credentials
 5. Add authorized redirect URIs
 6. Copy credentials to `.env.local`:
@@ -86,10 +85,6 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/callback
 GOOGLE_REFRESH_TOKEN=your-refresh-token
 ```
-
-### Gmail Integration
-
-Follow the same steps as Calendar, but also enable the Gmail API in Google Cloud Console.
 
 ### Market Data API
 
@@ -117,11 +112,9 @@ MARKET_DATA_PROVIDER=alphavantage
 | Route | Method | Description |
 |-------|--------|-------------|
 | `/api/cron-status` | GET | List active cron jobs |
-| `/api/calendar-events` | GET | Fetch upcoming calendar events |
 | `/api/market-data` | GET | Get current market prices |
 | `/api/habit-status` | GET | Get habit tracking data |
 | `/api/run-cron` | POST | Trigger a specific cron job |
-| `/api/create-event` | POST | Create a new calendar event |
 
 ### API Examples
 
@@ -137,17 +130,6 @@ curl -X POST http://localhost:3000/api/run-cron \
   -d '{"jobId": "1"}'
 ```
 
-**Create calendar event:**
-```bash
-curl -X POST http://localhost:3000/api/create-event \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Team Meeting",
-    "description": "Weekly sync",
-    "startDate": "2024-01-20T10:00:00Z",
-    "endDate": "2024-01-20T11:00:00Z"
-  }'
-```
 
 ## Deployment
 

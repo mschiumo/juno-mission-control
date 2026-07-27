@@ -87,12 +87,6 @@ const DOC_CATEGORIES: DocCategory[] = [
         tags: ['env', 'setup', 'config']
       },
       {
-        title: 'Calendar Setup',
-        description: 'Google Calendar sync and event management setup',
-        url: 'https://github.com/mschiumo/juno-mission-control/blob/main/CALENDAR_SETUP.md',
-        tags: ['calendar', 'google', 'setup']
-      },
-      {
         title: 'Cron Migration Guide',
         description: 'Scheduled tasks and cron job migration instructions',
         url: 'https://github.com/mschiumo/juno-mission-control/blob/main/docs/CRON_MIGRATION.md',

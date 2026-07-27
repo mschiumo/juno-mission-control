@@ -43,7 +43,7 @@ export async function createUser(email: string, name: string, password: string):
   try {
     await redis.set(
       `user:prefs:${id}`,
-      JSON.stringify({ calendarUrl: null, tradingTourCompleted: false }),
+      JSON.stringify({ tradingTourCompleted: false }),
     );
   } catch (err) {
     console.error('Failed to seed default prefs for new user:', err);

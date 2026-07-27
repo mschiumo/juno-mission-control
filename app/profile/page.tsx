@@ -28,7 +28,6 @@ interface EmailAlerts {
 }
 
 interface UserPrefs {
-  calendarUrl: string | null;
   emailAlerts?: EmailAlerts;
 }
 
