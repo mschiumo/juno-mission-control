@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, ClipboardList, AlertTriangle, CheckCircle2, Minus } from 'lucide-react';
+import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, ClipboardList, AlertTriangle, CheckCircle2, Minus, Moon } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -80,6 +80,23 @@ function computeStats(habits: Habit[]): HabitStats {
   const totalGoal = habits.reduce((acc, h) => acc + frequencyGoal(h.frequency), 0);
   const weeklyCompletion = totalGoal > 0 ? Math.round((totalCompletions / totalGoal) * 100) : 0;
   return { totalHabits, completedToday, longestStreak, weeklyCompletion };
+}
+
+// Trading habits are hidden on Sat/Sun (market closed). Habit ids aren't stable
+// slugs across users, so match the seeded ids AND names, plus anything the user
+// has explicitly marked as weekdays-frequency or trading-category.
+const TRADING_HABIT_IDS = ['market-brief', 'trade', 'trade-journal'];
+
+function isWeekdayOnlyHabit(habit: Habit): boolean {
+  if (habit.frequency === 'weekdays' || habit.category === 'trading') return true;
+  if (TRADING_HABIT_IDS.includes(habit.id)) return true;
+  const name = habit.name.trim().toLowerCase();
+  return name === 'trade' || name === 'trade journal' || name.startsWith('read market brief');
+}
+
+function isMarketClosedToday(): boolean {
+  const weekday = new Date().toLocaleDateString('en-US', { weekday: 'short', timeZone: 'America/New_York' });
+  return weekday === 'Sat' || weekday === 'Sun';
 }
 
 type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
@@ -516,8 +533,15 @@ export default function HabitCard() {
     }).replace(',', ' @');
   };
 
-  const completionRate = stats.totalHabits > 0 
-    ? Math.round((stats.completedToday / stats.totalHabits) * 100) 
+  // On weekends, trading habits drop out of the visible list and today's
+  // numbers, so a completed weekend doesn't read as a partial day.
+  const marketClosed = isMarketClosedToday();
+  const visibleHabits = marketClosed ? habits.filter(h => !isWeekdayOnlyHabit(h)) : habits;
+  const hiddenTradingCount = habits.length - visibleHabits.length;
+  const visibleCompletedToday = visibleHabits.filter(h => h.completedToday).length;
+
+  const completionRate = visibleHabits.length > 0
+    ? Math.round((visibleCompletedToday / visibleHabits.length) * 100)
     : 0;
 
   const getDayLabels = () => {
@@ -608,7 +632,7 @@ export default function HabitCard() {
           <Activity className="w-4 h-4 text-[#F97316]" />
           <h2 className="text-sm font-semibold text-white">Habits</h2>
           <span className="text-[10px] text-[#8b949e]">
-            {stats.completedToday}/{stats.totalHabits} today
+            {visibleCompletedToday}/{visibleHabits.length} today
           </span>
           {getSyncIndicator()}
         </div>
@@ -653,7 +677,7 @@ export default function HabitCard() {
             { value: `${completionRate}%`, label: 'Today' },
             { value: stats.longestStreak, label: 'Best Streak' },
             { value: `${stats.weeklyCompletion}%`, label: 'This Week' },
-            { value: habits.length, label: 'Total' }
+            { value: visibleHabits.length, label: 'Total' }
           ].map((stat, i) => (
             <div key={i} className="bg-[#0d1117] rounded-lg p-2 text-center border border-[#30363d]">
               <div className="text-sm font-bold text-[#F97316]">{stat.value}</div>
@@ -705,10 +729,10 @@ export default function HabitCard() {
               </div>
             ) : (
               <SortableContext
-                items={habits.map(h => h.id)}
+                items={visibleHabits.map(h => h.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {habits.map((habit) => (
+                {visibleHabits.map((habit) => (
                   <SortableHabitItem
                     key={habit.id}
                     habit={habit}
@@ -720,6 +744,14 @@ export default function HabitCard() {
                   />
                 ))}
               </SortableContext>
+            )}
+            {hiddenTradingCount > 0 && !loading && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[#30363d] text-[10px] text-[#8b949e]">
+                <Moon className="w-3 h-3 flex-shrink-0" />
+                <span>
+                  Market closed — {hiddenTradingCount} trading habit{hiddenTradingCount !== 1 ? 's' : ''} hidden until Monday
+                </span>
+              </div>
             )}
           </div>
         </DndContext>
