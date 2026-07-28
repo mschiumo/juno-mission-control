@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   BookmarkX,
   TrendingUp,
@@ -640,29 +640,24 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     }
   };
 
-  const handleDrop = (e: React.DragEvent, targetId: string, type: 'watchlist' | 'active' | 'closed') => {
-    e.preventDefault();
-    setDragOverItem(null);
-    
-    if (!draggedItem || draggedItem.type !== type || draggedItem.id === targetId) {
-      setDraggedItem(null);
-      return;
-    }
+  // Shared by the native (mouse) drop handler and the touch long-press drag.
+  const performReorder = (sourceId: string, targetId: string, type: 'watchlist' | 'active' | 'closed') => {
+    if (sourceId === targetId) return;
 
     // Reorder locally only - no API calls
     if (type === 'watchlist') {
       const items = [...watchlist];
-      const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
+      const draggedIndex = items.findIndex(i => i.id === sourceId);
       const targetIndex = items.findIndex(i => i.id === targetId);
-      
+
       if (draggedIndex === -1 || targetIndex === -1) return;
-      
+
       const [removed] = items.splice(draggedIndex, 1);
       items.splice(targetIndex, 0, removed);
       setWatchlist(items);
     } else if (type === 'active') {
       const items = [...activeTrades];
-      const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
+      const draggedIndex = items.findIndex(i => i.id === sourceId);
       const targetIndex = items.findIndex(i => i.id === targetId);
 
       if (draggedIndex === -1 || targetIndex === -1) return;
@@ -681,18 +676,166 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
       }).catch(err => console.error('Failed to persist active trades order:', err));
     } else if (type === 'closed') {
       const items = [...closedPositions];
-      const draggedIndex = items.findIndex(i => i.id === draggedItem.id);
+      const draggedIndex = items.findIndex(i => i.id === sourceId);
       const targetIndex = items.findIndex(i => i.id === targetId);
-      
+
       if (draggedIndex === -1 || targetIndex === -1) return;
-      
+
       const [removed] = items.splice(draggedIndex, 1);
       items.splice(targetIndex, 0, removed);
       setClosedPositions(items);
     }
-    
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string, type: 'watchlist' | 'active' | 'closed') => {
+    e.preventDefault();
+    setDragOverItem(null);
+
+    if (!draggedItem || draggedItem.type !== type || draggedItem.id === targetId) {
+      setDraggedItem(null);
+      return;
+    }
+
+    performReorder(draggedItem.id, targetId, type);
     setDraggedItem(null);
   };
+
+  // ===== TOUCH DRAG (long-press) =====
+  // Native HTML5 drag-and-drop never fires on touch devices, so phones get a
+  // long-press fallback that drives the same performReorder / move-to-potential
+  // logic. Desktop mouse DnD above is untouched.
+  const [touchDragId, setTouchDragId] = useState<string | null>(null);
+  const touchDragRef = useRef<{
+    id: string;
+    type: 'watchlist' | 'active' | 'closed';
+    ticker: string;
+    active: boolean;        // long-press fired, drag in progress
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    timer: ReturnType<typeof setTimeout> | null;
+    raf: number | null;
+  } | null>(null);
+  const touchGhostRef = useRef<HTMLDivElement | null>(null);
+
+  const clearTouchDrag = useCallback(() => {
+    const st = touchDragRef.current;
+    if (st) {
+      if (st.timer) clearTimeout(st.timer);
+      if (st.raf) cancelAnimationFrame(st.raf);
+    }
+    touchDragRef.current = null;
+    setTouchDragId(null);
+    setDragOverItem(null);
+    setDraggingActiveTradeId(null);
+    setIsDraggingOverPotential(false);
+  }, []);
+
+  // Auto-scroll the page while the finger is held near the top/bottom edge.
+  const touchAutoScroll = useCallback(() => {
+    const st = touchDragRef.current;
+    if (!st || !st.active) return;
+    const EDGE = 90;
+    const vh = window.innerHeight;
+    if (st.lastY < EDGE) window.scrollBy(0, -Math.ceil((EDGE - st.lastY) / 8));
+    else if (st.lastY > vh - EDGE) window.scrollBy(0, Math.ceil((st.lastY - (vh - EDGE)) / 8));
+    st.raf = requestAnimationFrame(touchAutoScroll);
+  }, []);
+
+  const dropTargetAt = (x: number, y: number) => {
+    const st = touchDragRef.current;
+    const el = document.elementFromPoint(x, y);
+    if (!st || !el) return { cardId: null as string | null, overPotential: false };
+    const card = (el as HTMLElement).closest<HTMLElement>(`[data-dnd-type="${st.type}"]`);
+    const cardId = card && card.dataset.dndId !== st.id ? card.dataset.dndId ?? null : null;
+    const overPotential = st.type === 'active' && !!(el as HTMLElement).closest('[data-dnd-potential]');
+    return { cardId, overPotential };
+  };
+
+  const handleCardTouchStart = (e: React.TouchEvent, id: string, type: 'watchlist' | 'active' | 'closed', ticker: string) => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    if (touchDragRef.current?.timer) clearTimeout(touchDragRef.current.timer);
+    const st = {
+      id,
+      type,
+      ticker,
+      active: false,
+      startX: t.clientX,
+      startY: t.clientY,
+      lastX: t.clientX,
+      lastY: t.clientY,
+      timer: null as ReturnType<typeof setTimeout> | null,
+      raf: null as number | null,
+    };
+    st.timer = setTimeout(() => {
+      st.active = true;
+      st.timer = null;
+      setTouchDragId(id);
+      setDraggedItem({ id, type });
+      if (type === 'active') setDraggingActiveTradeId(id);
+      if (navigator.vibrate) navigator.vibrate(10);
+      st.raf = requestAnimationFrame(touchAutoScroll);
+    }, 300);
+    touchDragRef.current = st;
+  };
+
+  // Window-level listeners: touchmove must be non-passive so an in-progress
+  // drag can preventDefault (block scrolling); React's synthetic handlers
+  // register passively, so this has to be manual.
+  useEffect(() => {
+    const onMove = (e: TouchEvent) => {
+      const st = touchDragRef.current;
+      if (!st) return;
+      const t = e.touches[0];
+      st.lastX = t.clientX;
+      st.lastY = t.clientY;
+      if (!st.active) {
+        // Finger moved before long-press fired — it's a scroll, not a drag.
+        if (Math.hypot(t.clientX - st.startX, t.clientY - st.startY) > 12) clearTouchDrag();
+        return;
+      }
+      e.preventDefault();
+      if (touchGhostRef.current) {
+        touchGhostRef.current.style.transform = `translate(${t.clientX + 12}px, ${t.clientY - 40}px)`;
+      }
+      const { cardId, overPotential } = dropTargetAt(t.clientX, t.clientY);
+      setDragOverItem(cardId);
+      setIsDraggingOverPotential(overPotential);
+    };
+    const onEnd = (e: TouchEvent) => {
+      const st = touchDragRef.current;
+      if (!st) return;
+      if (!st.active) {
+        clearTouchDrag();
+        return;
+      }
+      e.preventDefault(); // suppress the synthesized click (would open the edit modal)
+      const t = e.changedTouches[0];
+      const { cardId, overPotential } = dropTargetAt(t.clientX, t.clientY);
+      if (cardId) {
+        performReorder(st.id, cardId, st.type);
+      } else if (overPotential) {
+        const trade = activeTrades.find(tr => tr.id === st.id);
+        if (trade) void moveActiveTradeToPotential(trade);
+      }
+      setDraggedItem(null);
+      clearTouchDrag();
+    };
+    const onCancel = () => {
+      setDraggedItem(null);
+      clearTouchDrag();
+    };
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd, { passive: false });
+    window.addEventListener('touchcancel', onCancel);
+    return () => {
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      window.removeEventListener('touchcancel', onCancel);
+    };
+  });
 
   // ===== MOVE: Potential → Active =====
   const handleStartTrade = (item: WatchlistItem) => {
@@ -1584,7 +1727,21 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   }
 
   return (
-    <div className="w-full space-y-6">
+    <div className={`w-full space-y-6 ${touchDragId ? 'select-none' : ''}`}>
+      {/* Floating ghost chip that tracks the finger during a touch drag */}
+      {touchDragId && touchDragRef.current && (
+        <div
+          ref={(el) => {
+            touchGhostRef.current = el;
+            const st = touchDragRef.current;
+            if (el && st) el.style.transform = `translate(${st.lastX + 12}px, ${st.lastY - 40}px)`;
+          }}
+          className="fixed left-0 top-0 z-[100] pointer-events-none px-2.5 py-1.5 rounded-lg text-xs font-bold text-white bg-[#161b22] border border-[#F97316] shadow-xl"
+        >
+          {touchDragRef.current.ticker}
+        </div>
+      )}
+
       {/* Error & Success Display */}
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3">
@@ -1779,6 +1936,9 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
               <div
                 key={trade.id}
                 draggable
+                data-dnd-id={trade.id}
+                data-dnd-type="active"
+                onTouchStart={(e) => handleCardTouchStart(e, trade.id, 'active', trade.ticker)}
                 onDragStart={(e) => handleDragStart(e, trade.id, 'active')}
                 onDragEnd={handleDragEnd}
                 onDragOver={(e) => handleDragOver(e, trade.id)}
@@ -2047,6 +2207,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
             ? 'bg-[#F97316]/5 ring-2 ring-[#F97316]/50 ring-inset p-4 border-2 border-dashed border-[#F97316] rounded-xl' 
             : ''
         }`}
+        data-dnd-potential
         onDragOver={handlePotentialTradesDragOver}
         onDragEnter={handlePotentialTradesDragEnter}
         onDragLeave={handlePotentialTradesDragLeave}
@@ -2268,12 +2429,15 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     <div
                       key={item.id}
                       draggable
+                      data-dnd-id={item.id}
+                      data-dnd-type="watchlist"
+                      onTouchStart={(e) => handleCardTouchStart(e, item.id, 'watchlist', item.ticker)}
                       onDragStart={(e) => handleDragStart(e, item.id, 'watchlist')}
                       onDragOver={(e) => handleDragOver(e, item.id)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, item.id, 'watchlist')}
                       onClick={() => handleEdit(item)}
-                      className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
+                      className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'} ${touchDragId === item.id ? 'opacity-50 ring-2 ring-[#F97316]/40 scale-[1.02]' : ''}`}
                     >
                       {/* Card Header */}
                       <div className="flex flex-wrap items-center justify-between px-3 py-2.5 bg-[#161b22] group-hover:bg-[#1c2128] transition-colors gap-y-1.5">
@@ -2419,12 +2583,15 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     <div
                       key={item.id}
                       draggable
+                      data-dnd-id={item.id}
+                      data-dnd-type="watchlist"
+                      onTouchStart={(e) => handleCardTouchStart(e, item.id, 'watchlist', item.ticker)}
                       onDragStart={(e) => handleDragStart(e, item.id, 'watchlist')}
                       onDragOver={(e) => handleDragOver(e, item.id)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, item.id, 'watchlist')}
                       onClick={() => handleEdit(item)}
-                      className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'}`}
+                      className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-[#F97316]/50 hover:bg-[#161b22] transition-all cursor-pointer group ${dragOverItem === item.id ? 'border-[#F97316] ring-2 ring-[#F97316]/20' : 'border-[#262626]'} ${touchDragId === item.id ? 'opacity-50 ring-2 ring-[#F97316]/40 scale-[1.02]' : ''}`}
                     >
                       {/* Card Header */}
                       <div className="flex flex-wrap items-center justify-between px-3 py-2.5 bg-[#161b22] group-hover:bg-[#1c2128] transition-colors gap-y-1.5">
@@ -2669,11 +2836,14 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
               <div
                 key={position.id}
                 draggable
+                data-dnd-id={position.id}
+                data-dnd-type="closed"
+                onTouchStart={(e) => handleCardTouchStart(e, position.id, 'closed', position.ticker)}
                 onDragStart={(e) => handleDragStart(e, position.id, 'closed')}
                 onDragOver={(e) => handleDragOver(e, position.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, position.id, 'closed')}
-                className={`bg-[#0F0F0F] border rounded-xl overflow-hidden ${dragOverItem === position.id ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-blue-500/20'}`}
+                className={`bg-[#0F0F0F] border rounded-xl overflow-hidden ${dragOverItem === position.id ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-blue-500/20'} ${touchDragId === position.id ? 'opacity-50 ring-2 ring-blue-500/40 scale-[1.02]' : ''}`}
               >
                 {/* Card Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626] bg-blue-500/5 gap-4">
