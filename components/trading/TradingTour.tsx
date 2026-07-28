@@ -356,6 +356,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
+  const [locateFailed, setLocateFailed] = useState(false);
 
   const current = STEPS[step];
   const isFirst = step === 0;
@@ -372,20 +373,28 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
       return;
     }
     const el = document.querySelector<HTMLElement>(`[data-tour="${current.targetDataTour}"]`);
-    if (!el) {
+    // Missing or display:none targets (e.g. desktop-only controls on mobile) fall back to a centered card
+    if (!el || el.offsetParent === null) {
       setTargetRect(null);
+      setLocateFailed(true);
       return;
     }
     // Scroll to top so elements are measured at their natural page position
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => {
       const r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) {
+        setTargetRect(null);
+        setLocateFailed(true);
+        return;
+      }
       setTargetRect({ top: r.top, left: r.left, width: r.width, height: r.height });
     }, 320);
   }, [current.targetDataTour]);
 
   useEffect(() => {
     setTargetRect(null);
+    setLocateFailed(false);
     if (current.subtab !== activeSubTab) {
       onNavigate(current.subtab);
       const t = setTimeout(locateTarget, 480);
@@ -458,7 +467,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
       }
     }
 
-    const style: React.CSSProperties = { position: 'fixed', width: TOOLTIP_WIDTH, zIndex: 10004 };
+    const tw = Math.min(TOOLTIP_WIDTH, vw - 32);
+    const style: React.CSSProperties = { position: 'fixed', width: tw, zIndex: 10004 };
 
     const sTop = top - PAD;
     const sLeft = left - PAD;
@@ -469,16 +479,16 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
 
     if (side === 'bottom') {
       style.top = Math.min(sBottom + GAP, vh - CARD_H - 8);
-      style.left = Math.max(8, Math.min(cx - TOOLTIP_WIDTH / 2, vw - TOOLTIP_WIDTH - 8));
+      style.left = Math.max(8, Math.min(cx - tw / 2, vw - tw - 8));
     } else if (side === 'top') {
       style.top = Math.max(8, sTop - GAP - CARD_H);
-      style.left = Math.max(8, Math.min(cx - TOOLTIP_WIDTH / 2, vw - TOOLTIP_WIDTH - 8));
+      style.left = Math.max(8, Math.min(cx - tw / 2, vw - tw - 8));
     } else if (side === 'right') {
       style.top = Math.max(8, Math.min(cy - CARD_H / 2, vh - CARD_H - 8));
-      style.left = Math.min(sRight + GAP, vw - TOOLTIP_WIDTH - 8);
+      style.left = Math.min(sRight + GAP, vw - tw - 8);
     } else {
       style.top = Math.max(8, Math.min(cy - CARD_H / 2, vh - CARD_H - 8));
-      style.left = Math.max(8, sLeft - GAP - TOOLTIP_WIDTH);
+      style.left = Math.max(8, sLeft - GAP - tw);
     }
 
     return style;
@@ -538,7 +548,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
   const hasTarget = !!targetRect;
   const side = current.tooltipSide;
   // Don't render the card until position is known — prevents flash to wrong spot
-  const cardReady = !current.targetDataTour || hasTarget;
+  const cardReady = !current.targetDataTour || hasTarget || locateFailed;
 
   return (
     <div
@@ -579,8 +589,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
         </div>
 
         {/* Body */}
-        <div className="px-8 py-7">
-          <div className="flex items-start gap-5">
+        <div className="px-5 py-5 sm:px-8 sm:py-7">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-5">
             {/* Preview mockup (left side, when present) */}
             {current.preview}
 

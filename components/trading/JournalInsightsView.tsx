@@ -606,7 +606,7 @@ function ReportModal({ report, onClose }: { report: SavedReport; onClose: () => 
       {/* Modal content — wide */}
       <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl">
         {/* Modal header */}
-        <div className="sticky top-0 bg-[#161b22] border-b border-[#30363d] px-8 py-5 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-[#161b22] border-b border-[#30363d] px-4 sm:px-8 py-4 sm:py-5 flex items-center justify-between z-10">
           <div>
             <h2 className="text-lg font-semibold text-white">{report.periodLabel} Report</h2>
             <div className="flex items-center gap-3 mt-1 text-xs text-[#8b949e]">
@@ -641,7 +641,7 @@ function ReportModal({ report, onClose }: { report: SavedReport; onClose: () => 
         </div>
 
         {/* Modal body */}
-        <div className="px-8 py-6">
+        <div className="px-4 sm:px-8 py-6">
           {structured ? (
             <div className="space-y-6">
               {/* Key Takeaway — full width card */}
@@ -714,7 +714,7 @@ function ReportModal({ report, onClose }: { report: SavedReport; onClose: () => 
         </div>
 
         {/* Modal footer */}
-        <div className="px-8 py-3 border-t border-[#21262d]">
+        <div className="px-4 sm:px-8 py-3 border-t border-[#21262d]">
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-3 h-3 text-[#8957e5]" />
             <span className="text-[10px] text-[#484f58]">

@@ -296,7 +296,7 @@ function Dashboard({ data, onSyncAgentic, busy }: { data: MetricsResponse; onSyn
       {/* R distribution */}
       <div className="card">
         <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>R-multiple distribution</h3>
-        <div className="flex items-end gap-2" style={{ height: 90 }}>
+        <div className="flex items-end gap-1 sm:gap-2" style={{ height: 90 }}>
           {all.rDistribution.map((b) => {
             const max = Math.max(1, ...all.rDistribution.map((x) => x.count));
             const negative = b.bucket.includes('-') || b.bucket.startsWith('<');
@@ -547,8 +547,8 @@ function ViolationsSection({ violations }: { violations: RuleViolation[] }) {
 function WeeklySection({ reviews, busy, onRun }: { reviews: WeeklyReview[]; busy: boolean; onRun: () => void }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <p className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[12px] min-w-0 flex-1 basis-52" style={{ color: 'var(--text-tertiary)' }}>
           Written every Saturday by the review agent — it narrates numbers the metrics engine computed; it never does
           its own arithmetic and has no tools.
         </p>

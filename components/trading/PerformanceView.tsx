@@ -262,7 +262,7 @@ function EquityTooltip({ active, payload, label }: { active?: boolean; payload?:
   const isPositive = pnl >= 0;
 
   return (
-    <div className="rounded-xl shadow-xl px-4 py-3 min-w-[180px]" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-default)' }}>
+    <div className="rounded-xl shadow-xl px-4 py-3 min-w-[140px] sm:min-w-[180px]" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-default)' }}>
       <p className="text-xs mb-2 font-medium" style={{ color: 'var(--text-secondary)' }}>{label}</p>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4">
@@ -286,7 +286,7 @@ function DayOfWeekTooltip({ active, payload }: { active?: boolean; payload?: Arr
   const isPositive = d.pnl >= 0;
 
   return (
-    <div className="rounded-xl shadow-xl px-4 py-3 min-w-[160px]" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-default)' }}>
+    <div className="rounded-xl shadow-xl px-4 py-3 min-w-[140px] sm:min-w-[160px]" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-default)' }}>
       <p className="text-xs mb-2 font-semibold" style={{ color: 'var(--text-secondary)' }}>{d.name}</p>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4">
@@ -576,7 +576,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
                 <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Equity Curve</p>
                 <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Net Liquidating Value — {PERIOD_LABELS[period]}</p>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {/* Starting Balance */}
                 <div className="flex items-center gap-2">
                   {editingBalance ? (
@@ -899,7 +899,7 @@ function InfoTooltip({
       <Info className="w-3 h-3 cursor-help" style={{ color: 'var(--text-tertiary)' }} />
       <span
         role="tooltip"
-        className={`pointer-events-none absolute bottom-full mb-1.5 ${horizontal} w-56 px-3 py-2 text-[11px] leading-snug rounded-lg shadow-xl opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all duration-150 z-50 normal-case tracking-normal font-normal whitespace-normal text-left`}
+        className={`pointer-events-none absolute bottom-full mb-1.5 ${horizontal} w-56 max-w-[75vw] px-3 py-2 text-[11px] leading-snug rounded-lg shadow-xl hidden opacity-0 group-hover/tip:inline-block group-hover/tip:opacity-100 transition-opacity duration-150 z-50 normal-case tracking-normal font-normal whitespace-normal text-left`}
         style={{
           background: 'var(--surface-1, #0d1117)',
           border: '1px solid var(--border-default, #30363d)',

@@ -40,8 +40,8 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
     <div className="flex flex-col gap-4">
       {/* Kill switch / arm execution */}
       <div className="card" style={{ borderColor: state.tradingEnabled ? 'var(--border-default)' : 'var(--negative)' }}>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--negative-dim)' }}>
               <ShieldAlert className="w-4.5 h-4.5" style={{ color: 'var(--negative)' }} />
             </div>
@@ -70,7 +70,7 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
 
       {/* Mode + agentic account */}
       <div className="card">
-        <div className="flex items-center justify-between gap-4 mb-4 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--warning-dim)' }}>
               <FlaskConical className="w-4.5 h-4.5" style={{ color: 'var(--warning)' }} />
@@ -78,7 +78,7 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
             <div>
               <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Execution mode</div>
               <p className="text-[12px] mt-0.5 max-w-md" style={{ color: 'var(--text-secondary)' }}>
-                <b>Paper</b> simulates fills with no money at risk. <b>Live</b> places REAL orders in the pinned agentic account — requires the server flag <code>CONFLUENCE_ALLOW_LIVE</code> and a pinned account.
+                <b>Paper</b> simulates fills with no money at risk. <b>Live</b> places REAL orders in the pinned agentic account — requires the server flag <code className="break-all">CONFLUENCE_ALLOW_LIVE</code> and a pinned account.
               </p>
             </div>
           </div>
@@ -140,8 +140,8 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
 
       {/* Auto take-profit (synthetic OCO) */}
       <div className="card">
-        <div className="flex items-center justify-between gap-4">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="min-w-0">
             <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Auto take-profit</div>
             <p className="text-[12px] mt-0.5 max-w-md" style={{ color: 'var(--text-secondary)' }}>
               When a position trades at/through the target you approved at entry, the market-hours poll cancels the

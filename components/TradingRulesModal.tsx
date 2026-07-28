@@ -193,7 +193,7 @@ export default function TradingRulesModal() {
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4">
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="bg-gradient-to-r from-[#1a1f2e] to-[#161b22] border-b border-[#30363d] p-6">
+        <div className="bg-gradient-to-r from-[#1a1f2e] to-[#161b22] border-b border-[#30363d] p-4 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="p-2.5 bg-[#F97316]/10 rounded-xl flex-shrink-0">
@@ -222,7 +222,7 @@ export default function TradingRulesModal() {
           </div>
         </div>
 
-        <div className="p-6 space-y-5 overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto">
           {!isEditing && (
             <div className="flex items-start gap-3 p-4 bg-[#F97316]/5 border border-[#F97316]/20 rounded-lg">
               <Quote className="w-4 h-4 text-[#F97316] flex-shrink-0 mt-0.5" />

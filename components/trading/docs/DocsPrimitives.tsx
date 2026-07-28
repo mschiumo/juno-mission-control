@@ -254,7 +254,7 @@ export function Figure({ caption, children }: { caption: string; children: React
 /** Simple two-column reference table (label → description). */
 export function RefTable({ rows, headers }: { rows: [ReactNode, ReactNode][]; headers?: [string, string] }) {
   return (
-    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
+    <div className="rounded-xl overflow-hidden overflow-x-auto" style={{ border: '1px solid var(--border-default)' }}>
       <table className="w-full text-sm">
         {headers && (
           <thead>

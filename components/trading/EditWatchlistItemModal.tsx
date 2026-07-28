@@ -311,7 +311,7 @@ export default function EditWatchlistItemModal({
                 </button>
               </div>
 
-              <div className={`grid gap-3 ${optimizeMode ? 'grid-cols-4' : 'grid-cols-3'}`}>
+              <div className={`grid gap-3 grid-cols-2 ${optimizeMode ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
                 <div>
                   <label className="block text-xs font-medium text-[#8b949e] mb-2 uppercase tracking-wide">
                     Entry Price

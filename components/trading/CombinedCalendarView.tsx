@@ -501,7 +501,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
           {/* Day cells */}
           <div className="grid grid-cols-7">
             {Array.from({ length: 35 }).map((_, i) => (
-              <div key={i} className="aspect-square border-r border-b border-[#30363d] p-1.5 last:border-r-0">
+              <div key={i} className="min-h-[88px] sm:min-h-0 sm:aspect-square border-r border-b border-[#30363d] p-1.5 last:border-r-0">
                 <div className="h-3 w-5 bg-[#30363d] rounded mb-1" />
                 <div className="h-2 w-full bg-[#30363d]/50 rounded" />
               </div>
@@ -637,9 +637,9 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
           {calendarDays.map((dayData, index) => {
             if (!dayData) {
               return (
-                <div 
-                  key={`empty-${index}`} 
-                  className="aspect-square border-r border-b border-[#21262d] bg-[#0d1117]/30"
+                <div
+                  key={`empty-${index}`}
+                  className="min-h-[88px] sm:min-h-0 sm:aspect-square border-r border-b border-[#21262d] bg-[#0d1117]/30"
                 />
               );
             }
@@ -654,7 +654,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
               <div
                 key={dayData.date}
                 className={`
-                  aspect-square border-r border-b border-[#21262d] p-1.5 sm:p-2
+                  min-h-[88px] sm:min-h-0 sm:aspect-square border-r border-b border-[#21262d] p-1 sm:p-2
                   relative flex flex-col
                   ${hasTrades ? 'bg-[#21262d]' : 'bg-[#161b22]'}
                   ${today ? 'ring-2 ring-inset ring-[#F97316]' : ''}
@@ -662,26 +662,26 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                 `}
               >
                 {/* Day Number - Top Left, P&L - Top Right */}
-                <div className="flex justify-between items-start shrink-0">
+                <div className="flex flex-wrap justify-between items-start gap-x-1 shrink-0">
                   <span className={`text-xs sm:text-sm font-medium ${today ? 'text-[#F97316]' : 'text-white'}`}>
                     {dayData.dayNumber}
                   </span>
                   {hasTrades && (
-                    <span className={`text-[10px] sm:text-xs font-bold ${isProfitable ? 'text-[#3fb950]' : isLoss ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
+                    <span className={`text-[9px] sm:text-xs font-bold ${isProfitable ? 'text-[#3fb950]' : isLoss ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
                       {dayData.trades?.pnl && dayData.trades.pnl > 0 ? '+' : ''}{formatCurrency(dayData.trades?.pnl || 0)}
                     </span>
                   )}
                 </div>
 
                 {/* Icons - Perfectly Centered */}
-                <div className="flex-1 flex flex-col items-center justify-center gap-2 min-h-0">
+                <div className="flex-1 flex flex-col items-center justify-center gap-1 sm:gap-2 min-h-0">
                   {/* Trade Icon */}
                   {hasTrades && (
                     <button
                       onClick={(e) => handleTradeIconClick(dayData.date, e)}
                       className={`
                         relative flex items-center justify-center shrink-0
-                        w-9 h-9 sm:w-10 sm:h-10 rounded-xl transition-all duration-200
+                        w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl transition-all duration-200
                         hover:scale-110 hover:shadow-xl
                         ${isProfitable
                           ? 'bg-gradient-to-br from-[#3fb950]/30 to-[#238636]/20 text-[#3fb950] hover:from-[#3fb950]/40 hover:to-[#238636]/30 ring-1 ring-[#3fb950]/50 shadow-[0_2px_8px_-2px_rgba(63,185,80,0.3)]'
@@ -692,7 +692,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                       `}
                       title={`${dayData.trades?.trades} trade(s) - Click to view`}
                     >
-                      <BarChart3 className="w-5 h-5 sm:w-5 sm:h-5" strokeWidth={2} />
+                      <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
                       {/* Trade count badge */}
                       {dayData.trades && dayData.trades.trades > 1 && (
                         <span className={`
@@ -719,7 +719,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                     onClick={(e) => handleJournalIconClick(dayData.date, e)}
                     className={`
                       relative flex items-center justify-center shrink-0
-                      w-9 h-9 sm:w-10 sm:h-10 rounded-xl
+                      w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl
                       transition-all duration-200
                       hover:scale-110 hover:shadow-xl
                       ${hasJournal
@@ -729,7 +729,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                     `}
                     title={hasJournal ? 'Journal entry - Click to view/edit' : 'Add journal entry'}
                   >
-                    <BookOpen className="w-5 h-5 sm:w-5 sm:h-5" strokeWidth={hasJournal ? 2 : 1.5} />
+                    <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={hasJournal ? 2 : 1.5} />
                     {hasJournal && (
                       <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center bg-[#58a6ff] text-[#0d1117] rounded-full border-2 border-[#161b22]">
                         <CheckCircle className="w-2.5 h-2.5" strokeWidth={3} />
@@ -817,7 +817,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                 <BarChart3 className="w-5 h-5 text-[#F97316]" />
                 <h3 className="text-lg font-semibold text-white">All Trades</h3>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-[#8b949e]" />
                   <input
@@ -825,7 +825,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                     placeholder="Filter by symbol..."
                     value={filterSymbol}
                     onChange={(e) => setFilterSymbol(e.target.value)}
-                    className="px-3 py-1.5 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm focus:outline-none focus:border-[#F97316]"
+                    className="w-36 sm:w-auto px-3 py-1.5 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm focus:outline-none focus:border-[#F97316]"
                   />
                 </div>
                 
@@ -849,7 +849,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                 </button>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {selectedTrades.size > 0 && (
                   <button
                     onClick={() => setShowDeleteModal(true)}

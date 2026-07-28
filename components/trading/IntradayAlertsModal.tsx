@@ -104,7 +104,7 @@ export default function IntradayAlertsModal({ open, onClose, snapshot, muted, on
         </div>
 
         {/* Body */}
-        <div className="overflow-y-auto">
+        <div className="overflow-y-auto overflow-x-auto">
           {alerts.length === 0 ? (
             <div className="px-5 py-12 text-center text-[#8b949e]">
               <Clock className="w-6 h-6 mx-auto mb-2 opacity-50" />
@@ -113,7 +113,7 @@ export default function IntradayAlertsModal({ open, onClose, snapshot, muted, on
               </p>
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead className="sticky top-0 bg-[#0d1117] text-[#8b949e] text-xs z-10">
                 <tr className="border-b border-[#30363d]">
                   <th className="text-left font-medium px-4 py-2.5">Ticker</th>

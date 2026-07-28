@@ -216,20 +216,20 @@ export default function ProfitProjectionView() {
         {/* Edge summary strip */}
         {isValid && (
           <div className={`rounded-xl border p-4 ${isPositive ? 'bg-[#3fb950]/5 border-[#3fb950]/20' : 'bg-[#f85149]/5 border-[#f85149]/20'}`}>
-            <div className="grid grid-cols-3 divide-x divide-[#30363d] text-center">
-              <div className="px-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#30363d] text-center">
+              <div className="px-4 py-2 sm:py-0">
                 <p className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Daily Net</p>
                 <p className={`text-base font-bold ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
                   {fmt(projection.netPerDay)}
                 </p>
               </div>
-              <div className="px-4">
+              <div className="px-4 py-2 sm:py-0">
                 <p className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Edge per Trade</p>
                 <p className={`text-base font-bold ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
                   {fmt(projection.netPerDay / (params.tradesPerDay || 1))}
                 </p>
               </div>
-              <div className="px-4">
+              <div className="px-4 py-2 sm:py-0">
                 <p className="text-[10px] text-[#8b949e] uppercase tracking-wide mb-1">Strategy</p>
                 <p className="text-base font-bold text-white flex items-center justify-center gap-1">
                   <Target className="w-3.5 h-3.5 text-[#F97316]" />
@@ -242,7 +242,7 @@ export default function ProfitProjectionView() {
 
         {/* Hero yearly call-out */}
         {isValid && (
-          <div className="flex items-center justify-between bg-gradient-to-r from-[#F97316]/15 to-transparent border border-[#F97316]/25 rounded-xl px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-[#F97316]/15 to-transparent border border-[#F97316]/25 rounded-xl px-5 py-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-[#F97316]/10 rounded-lg">
                 <DollarSign className="w-5 h-5 text-[#F97316]" />
