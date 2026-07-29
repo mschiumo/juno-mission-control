@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   applySnapshot,
-  overridesAfterEdit,
+  applyManualEdit,
   clearOverrides,
   isLinked,
   isPinned,
@@ -122,33 +122,82 @@ describe('applySnapshot', () => {
   });
 });
 
-describe('overridesAfterEdit', () => {
-  const linked = account({ source: 'plaid', plaidAccountId: 'plaid-acct-1', balance: 5010.42, apr: 29.99 });
+describe('applyManualEdit', () => {
+  const linked = account({
+    source: 'plaid',
+    plaidAccountId: 'plaid-acct-1',
+    balance: 5010.42,
+    apr: 29.99,
+    monthlyPayment: 250,
+  });
+  const seen = { balance: 5010.42, apr: 29.99 };
+
+  function edit(over: Partial<{ name: string; balance: number; apr: number; monthlyPayment: number }> = {}) {
+    return { name: linked.name, balance: 5010.42, apr: 29.99, monthlyPayment: 250, ...over };
+  }
 
   it('pins nothing when only the planned payment changed', () => {
-    expect(overridesAfterEdit(linked, { balance: 5010.42, apr: 29.99 })).toEqual([]);
+    const next = applyManualEdit(linked, edit({ monthlyPayment: 400 }), seen, NOW);
+    expect(next.manualOverrides).toBeUndefined();
+    expect(next.monthlyPayment).toBe(400);
   });
 
   it('pins just the field the user actually changed', () => {
-    expect(overridesAfterEdit(linked, { balance: 4900, apr: 29.99 })).toEqual(['balance']);
-    expect(overridesAfterEdit(linked, { balance: 5010.42, apr: 24 })).toEqual(['apr']);
+    expect(applyManualEdit(linked, edit({ balance: 4900 }), seen, NOW).manualOverrides).toEqual(['balance']);
+    expect(applyManualEdit(linked, edit({ apr: 24 }), seen, NOW).manualOverrides).toEqual(['apr']);
   });
 
   it('pins both when both changed', () => {
-    expect(overridesAfterEdit(linked, { balance: 4900, apr: 24 }).sort()).toEqual(['apr', 'balance']);
+    const next = applyManualEdit(linked, edit({ balance: 4900, apr: 24 }), seen, NOW);
+    expect([...next.manualOverrides!].sort()).toEqual(['apr', 'balance']);
+    expect(next.balance).toBe(4900);
+    expect(next.apr).toBe(24);
   });
 
   it('ignores sub-cent float noise from a JSON round-trip', () => {
-    expect(overridesAfterEdit(linked, { balance: 5010.4200000001, apr: 29.99 })).toEqual([]);
+    expect(applyManualEdit(linked, edit({ balance: 5010.4200000001 }), seen, NOW).manualOverrides).toBeUndefined();
   });
 
   it('keeps pins that were already set', () => {
     const alreadyPinned = { ...linked, manualOverrides: ['apr' as const] };
-    expect(overridesAfterEdit(alreadyPinned, { balance: 4900, apr: 29.99 }).sort()).toEqual(['apr', 'balance']);
+    const next = applyManualEdit(alreadyPinned, edit({ balance: 4900 }), seen, NOW);
+    expect([...next.manualOverrides!].sort()).toEqual(['apr', 'balance']);
   });
 
   it('never pins anything on a manual (unlinked) account', () => {
-    expect(overridesAfterEdit(account(), { balance: 1, apr: 2 })).toEqual([]);
+    const next = applyManualEdit(account(), edit({ balance: 1, apr: 2 }), undefined, NOW);
+    expect(next.manualOverrides).toBeUndefined();
+    expect(next.balance).toBe(1);
+  });
+
+  // The regression this API exists for: a sync lands while the edit form is open.
+  it('does not pin a stale balance the user never touched', () => {
+    // Form was opened when the balance read 5010.42; a sync then moved it to 4800.
+    const synced = { ...linked, balance: 4800 };
+    const next = applyManualEdit(synced, edit({ monthlyPayment: 300 }), seen, NOW);
+
+    expect(next.manualOverrides).toBeUndefined(); // no accidental pin
+    expect(next.balance).toBe(4800); // fresher stored value survives, not the stale 5010.42
+    expect(next.monthlyPayment).toBe(300); // the intended change lands
+  });
+
+  it('still honours a real override when the value also moved underneath', () => {
+    const synced = { ...linked, balance: 4800 };
+    const next = applyManualEdit(synced, edit({ balance: 5200 }), seen, NOW);
+
+    expect(next.manualOverrides).toEqual(['balance']);
+    expect(next.balance).toBe(5200);
+  });
+
+  it('falls back to comparing against stored values when seen is absent', () => {
+    const next = applyManualEdit(linked, edit({ balance: 4900 }), undefined, NOW);
+    expect(next.manualOverrides).toEqual(['balance']);
+  });
+
+  it('always takes the name and payment from the edit', () => {
+    const next = applyManualEdit(linked, edit({ name: 'Renamed Card', monthlyPayment: 0 }), seen, NOW);
+    expect(next.name).toBe('Renamed Card');
+    expect(next.monthlyPayment).toBe(0);
   });
 });
 

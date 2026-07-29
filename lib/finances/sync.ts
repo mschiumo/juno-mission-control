@@ -6,7 +6,7 @@
  * keep their last known values and carry an error state the UI can show.
  */
 
-import { type BalanceSnapshot, type CreditAccount } from './credit-cards';
+import { type BalanceSnapshot, type CreditAccount, type PlaidAccountSnapshot } from './credit-cards';
 import { mergeSnapshots } from './merge';
 import { fetchCreditSnapshots, PlaidError } from './plaid';
 import { accessTokenOf, markItemStatus, readItems, type StoredPlaidItem } from './plaid-items';
@@ -41,8 +41,22 @@ function markAccountsFailed(
 }
 
 /**
+ * One institution's fetch result, before any account state is touched.
+ * Network work is deliberately separated from the account read/merge/write so
+ * that slow Plaid calls do not sit inside the critical section.
+ */
+type FetchResult =
+  | { item: StoredPlaidItem; ok: true; snapshots: PlaidAccountSnapshot[] }
+  | { item: StoredPlaidItem; ok: false; status: 'reauth-required' | 'error'; message: string };
+
+/**
  * Refresh every linked institution. Returns the persisted accounts and history
  * so callers can answer the request without a second read.
+ *
+ * Accounts are read *after* every Plaid call completes and written immediately
+ * afterwards. Reading up front instead would leave a multi-second window (the
+ * duration of the network calls) in which a concurrent edit or Refresh could be
+ * silently overwritten by this write.
  */
 export async function syncAllItems(
   userId: string,
@@ -54,17 +68,41 @@ export async function syncAllItems(
     ? allItems.filter((i) => i.itemId === options.onlyItemId)
     : allItems;
 
+  // Phase 1 — all network I/O, touching no account state.
+  const fetched: FetchResult[] = [];
+  for (const item of items) {
+    fetched.push(await fetchForItem(userId, item));
+  }
+
+  // Phase 2 — fold results into the freshest account list and persist at once.
   let accounts = (await readAccounts(userId)) ?? [];
   const outcomes: SyncItemOutcome[] = [];
   let totalCreated = 0;
   let totalUpdated = 0;
 
-  for (const item of items) {
-    const outcome = await syncOneItem(userId, item, now, accounts);
-    accounts = outcome.accounts;
-    totalCreated += outcome.result.accountsCreated;
-    totalUpdated += outcome.result.accountsUpdated;
-    outcomes.push(outcome.result);
+  for (const result of fetched) {
+    const base = { itemId: result.item.itemId, institutionName: result.item.institutionName };
+    if (result.ok) {
+      const merged = mergeSnapshots(accounts, result.snapshots, now);
+      accounts = merged.accounts;
+      totalCreated += merged.created;
+      totalUpdated += merged.updated;
+      outcomes.push({
+        ...base,
+        status: 'ok',
+        accountsCreated: merged.created,
+        accountsUpdated: merged.updated,
+      });
+    } else {
+      accounts = markAccountsFailed(accounts, result.item.itemId, result.status, result.message);
+      outcomes.push({
+        ...base,
+        status: result.status,
+        message: result.message,
+        accountsCreated: 0,
+        accountsUpdated: 0,
+      });
+    }
   }
 
   await writeAccounts(userId, accounts);
@@ -77,14 +115,8 @@ export async function syncAllItems(
   };
 }
 
-async function syncOneItem(
-  userId: string,
-  item: StoredPlaidItem,
-  now: string,
-  accounts: CreditAccount[],
-): Promise<{ accounts: CreditAccount[]; result: SyncItemOutcome }> {
-  const base = { itemId: item.itemId, institutionName: item.institutionName };
-
+/** Fetch one Item's balances, translating every failure into a stored status. */
+async function fetchForItem(userId: string, item: StoredPlaidItem): Promise<FetchResult> {
   let token: string;
   try {
     token = accessTokenOf(item);
@@ -93,10 +125,7 @@ async function syncOneItem(
     // no longer be opened, so reconnecting is the only route forward.
     const message = 'Stored credentials could not be read — reconnect this bank.';
     await markItemStatus(userId, item.itemId, 'reauth-required', message);
-    return {
-      accounts: markAccountsFailed(accounts, item.itemId, 'reauth-required', message),
-      result: { ...base, status: 'reauth-required', message, accountsCreated: 0, accountsUpdated: 0 },
-    };
+    return { item, ok: false, status: 'reauth-required', message };
   }
 
   try {
@@ -104,17 +133,8 @@ async function syncOneItem(
       itemId: item.itemId,
       institutionName: item.institutionName,
     });
-    const merged = mergeSnapshots(accounts, snapshots, now);
     await markItemStatus(userId, item.itemId, 'ok');
-    return {
-      accounts: merged.accounts,
-      result: {
-        ...base,
-        status: 'ok',
-        accountsCreated: merged.created,
-        accountsUpdated: merged.updated,
-      },
-    };
+    return { item, ok: true, snapshots };
   } catch (error) {
     const plaidError =
       error instanceof PlaidError
@@ -126,12 +146,10 @@ async function syncOneItem(
     const status = plaidError.isReauthRequired ? 'reauth-required' : 'error';
     const message = plaidError.userMessage;
 
+    // Log the code only — never the token, the response body, or credentials.
     console.error(`Plaid sync failed for item ${item.itemId} (${plaidError.errorCode})`);
     await markItemStatus(userId, item.itemId, status, message);
 
-    return {
-      accounts: markAccountsFailed(accounts, item.itemId, status, message),
-      result: { ...base, status, message, accountsCreated: 0, accountsUpdated: 0 },
-    };
+    return { item, ok: false, status, message };
   }
 }

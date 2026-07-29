@@ -126,20 +126,70 @@ export function applySnapshot(
   return next;
 }
 
+export interface ManualEdit {
+  name: string;
+  balance: number;
+  apr: number;
+  monthlyPayment: number;
+}
+
 /**
- * Pin the plaid-owned fields whose values a manual edit actually changed.
- * Editing only `monthlyPayment` (or re-submitting identical numbers) pins
- * nothing, so routine payment planning never disables sync by accident.
+ * What the client displayed when the user opened the edit form. Sent back on
+ * save so intent can be judged against what the user actually saw.
  */
-export function overridesAfterEdit(
+export interface SeenValues {
+  balance?: number;
+  apr?: number;
+}
+
+/**
+ * Apply a manual edit, pinning only the plaid-owned fields the user genuinely
+ * changed.
+ *
+ * Intent is measured against `seen` — the values the edit form was populated
+ * with — not against what is currently stored. Otherwise a sync landing between
+ * page load and save makes the user's untouched, now-stale form value look like
+ * a deliberate override, permanently pinning a balance they never edited. When
+ * a field wasn't changed, the stored value is kept rather than being rewritten
+ * with stale data.
+ *
+ * `seen` is optional: without it (an older client, or a direct API call) this
+ * falls back to comparing against the stored values.
+ */
+export function applyManualEdit(
   existing: CreditAccount,
-  edit: { balance: number; apr: number },
-): OverridableField[] {
-  if (!isLinked(existing)) return [];
+  edit: ManualEdit,
+  seen: SeenValues | undefined,
+  now: string,
+): CreditAccount {
+  const next: CreditAccount = {
+    ...existing,
+    name: edit.name,
+    monthlyPayment: edit.monthlyPayment,
+    updatedAt: now,
+  };
+
+  const linked = isLinked(existing);
   const pinned = new Set<OverridableField>(existing.manualOverrides ?? []);
-  if (!nearlyEqual(edit.balance, existing.balance)) pinned.add('balance');
-  if (!nearlyEqual(edit.apr, existing.apr)) pinned.add('apr');
-  return [...pinned];
+
+  for (const field of ['balance', 'apr'] as const) {
+    const baseline = seen?.[field] ?? existing[field];
+    const changed = !nearlyEqual(edit[field], baseline);
+
+    if (changed) {
+      next[field] = edit[field];
+      if (linked) pinned.add(field);
+    } else if (seen?.[field] !== undefined) {
+      // Untouched by the user — keep whatever is stored, which may be fresher
+      // than the value their form was holding.
+      next[field] = existing[field];
+    } else {
+      next[field] = edit[field];
+    }
+  }
+
+  if (pinned.size) next.manualOverrides = [...pinned];
+  return next;
 }
 
 /** Dollar/percent comparison tolerant of float round-trips through JSON. */

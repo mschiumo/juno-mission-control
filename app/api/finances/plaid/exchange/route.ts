@@ -47,18 +47,35 @@ export async function POST(request: NextRequest) {
     }
 
     const { accessToken, itemId } = await exchangePublicToken(publicToken);
-    await upsertItem(userId, {
-      itemId,
-      accessToken,
-      institutionName: sanitizeInstitutionName(body?.institutionName),
-      institutionId: typeof body?.institutionId === 'string' ? body.institutionId.slice(0, 60) : undefined,
-    });
+    const institutionName = sanitizeInstitutionName(body?.institutionName);
+    const institutionId =
+      typeof body?.institutionId === 'string' ? body.institutionId.slice(0, 60) : undefined;
+
+    // Running Link (rather than update mode) against an already-connected bank
+    // yields a *new* item_id, and Plaid bills Liabilities per Item — so the old
+    // one would keep charging silently. Warn instead of failing: the user may
+    // genuinely be adding a second login at the same institution.
+    const existingItems = await readItems(userId);
+    const duplicate = institutionId
+      ? existingItems.find((i) => i.institutionId === institutionId && i.itemId !== itemId)
+      : undefined;
+
+    await upsertItem(userId, { itemId, accessToken, institutionName, institutionId });
 
     // Sync just the new connection — leaves other banks' timestamps untouched.
     const { summary, accounts, history } = await syncAllItems(userId, { onlyItemId: itemId });
     const items = (await readItems(userId)).map(toPublicItem);
 
-    return NextResponse.json({ success: true, accounts, history, summary, items });
+    return NextResponse.json({
+      success: true,
+      accounts,
+      history,
+      summary,
+      items,
+      warning: duplicate
+        ? `${institutionName} was already connected. You now have two connections to it, and Plaid bills each one — disconnect the older entry below if this was meant to be a reconnect.`
+        : undefined,
+    });
   } catch (error) {
     const message = error instanceof PlaidError ? error.userMessage : 'Failed to link this bank';
     console.error('Plaid exchange failed:', error instanceof Error ? error.message : error);

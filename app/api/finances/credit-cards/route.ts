@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { requireOwner } from '@/lib/auth-session';
 import {
+  applyManualEdit,
   clearOverrides,
-  overridesAfterEdit,
   SEED_ACCOUNTS,
-  type CreditAccount,
+  type SeenValues,
 } from '@/lib/finances/credit-cards';
 import { readAccounts, readHistory, recordSnapshot, writeAccounts } from '@/lib/finances/store';
 import { isProductionEnvironment, plaidConfigured } from '@/lib/finances/plaid';
@@ -130,16 +130,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
     }
 
-    const existing = accounts[idx];
-    const pinned = overridesAfterEdit(existing, { balance: parsed.balance, apr: parsed.apr });
-    const updated: CreditAccount = {
-      ...existing,
-      ...parsed,
-      updatedAt: new Date().toISOString(),
+    // What the edit form was showing, so we can tell a deliberate override from
+    // a stale value the user never touched.
+    const seen: SeenValues = {
+      balance: Number.isFinite(Number(body.seenBalance)) ? Number(body.seenBalance) : undefined,
+      apr: Number.isFinite(Number(body.seenApr)) ? Number(body.seenApr) : undefined,
     };
-    if (pinned.length) updated.manualOverrides = pinned;
 
-    accounts[idx] = updated;
+    accounts[idx] = applyManualEdit(accounts[idx], parsed, seen, new Date().toISOString());
     await writeAccounts(userId, accounts);
     const history = await recordSnapshot(userId, accounts);
     return NextResponse.json({ success: true, accounts, history, plaid: await plaidState(userId) });

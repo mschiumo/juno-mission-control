@@ -11,6 +11,27 @@ import type { SyncStatus } from './credit-cards';
 
 export const PLAID_ITEMS_KEY = (userId: string) => `finances:${userId}:plaid-items`;
 
+const KEY_PREFIX = 'finances:';
+const KEY_SUFFIX = ':plaid-items';
+
+/**
+ * Redis MATCH pattern for finding every user with linked banks.
+ *
+ * Note the wildcard sits in the *middle*: the user id is infixed, so a naive
+ * `PLAID_ITEMS_KEY('') + '*'` produces `finances::plaid-items*` and matches
+ * nothing at all — which would make the nightly sweep silently no-op.
+ */
+export const PLAID_ITEMS_SCAN_PATTERN = `${KEY_PREFIX}*${KEY_SUFFIX}`;
+
+/** Recover the user id from a scanned items key, or null if it isn't one. */
+export function userIdFromItemsKey(key: string): string | null {
+  if (!key.startsWith(KEY_PREFIX) || !key.endsWith(KEY_SUFFIX)) return null;
+  const userId = key.slice(KEY_PREFIX.length, key.length - KEY_SUFFIX.length);
+  // Reject ids containing the delimiter — those would be a different key shape.
+  if (!userId || userId.includes(':')) return null;
+  return userId;
+}
+
 export interface StoredPlaidItem {
   itemId: string;
   institutionName: string;

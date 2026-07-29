@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireCronSecret } from '@/lib/auth-session';
 import { plaidConfigured } from '@/lib/finances/plaid';
-import { PLAID_ITEMS_KEY } from '@/lib/finances/plaid-items';
+import { PLAID_ITEMS_SCAN_PATTERN, userIdFromItemsKey } from '@/lib/finances/plaid-items';
 import { syncAllItems } from '@/lib/finances/sync';
 
 /**
@@ -27,10 +27,9 @@ export async function GET(request: Request) {
 
   try {
     const redis = await getRedisClient();
-    const prefix = PLAID_ITEMS_KEY('');
     const userIds: string[] = [];
-    for await (const key of redis.scanIterator({ MATCH: `${prefix}*`, COUNT: 100 })) {
-      const userId = String(key).slice(prefix.length);
+    for await (const key of redis.scanIterator({ MATCH: PLAID_ITEMS_SCAN_PATTERN, COUNT: 100 })) {
+      const userId = userIdFromItemsKey(String(key));
       if (userId) userIds.push(userId);
     }
 

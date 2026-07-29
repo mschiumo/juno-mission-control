@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fetchCreditSnapshots, PlaidError, plaidConfigured } from '../lib/finances/plaid';
 import { encryptToken, decryptToken } from '../lib/finances/crypto';
+import {
+  PLAID_ITEMS_KEY,
+  PLAID_ITEMS_SCAN_PATTERN,
+  userIdFromItemsKey,
+} from '../lib/finances/plaid-items';
 
 /**
  * Exercises the Plaid client against a payload shaped like the documented
@@ -248,5 +253,29 @@ describe('token encryption', () => {
     const stored = encryptToken('access-token');
     vi.stubEnv('FINANCE_TOKEN_SECRET', 'a-completely-different-secret-value');
     expect(() => decryptToken(stored)).toThrow();
+  });
+});
+
+describe('nightly sweep key scanning', () => {
+  it('builds a pattern that actually matches real item keys', () => {
+    // The user id is infixed, so the wildcard must sit in the middle. A trailing
+    // wildcard on PLAID_ITEMS_KEY('') matches nothing and the cron no-ops.
+    expect(PLAID_ITEMS_SCAN_PATTERN).toBe('finances:*:plaid-items');
+    expect(PLAID_ITEMS_KEY('abc123')).toBe('finances:abc123:plaid-items');
+
+    const asRegex = new RegExp(`^${PLAID_ITEMS_SCAN_PATTERN.replace('*', '[^:]+')}$`);
+    expect(asRegex.test(PLAID_ITEMS_KEY('abc123'))).toBe(true);
+  });
+
+  it('recovers the user id from a scanned key', () => {
+    expect(userIdFromItemsKey('finances:abc123:plaid-items')).toBe('abc123');
+    expect(userIdFromItemsKey('finances:user-with-dashes:plaid-items')).toBe('user-with-dashes');
+  });
+
+  it('rejects keys belonging to other features or with a malformed id', () => {
+    expect(userIdFromItemsKey('finances:abc123:credit-cards')).toBeNull();
+    expect(userIdFromItemsKey('finances::plaid-items')).toBeNull();
+    expect(userIdFromItemsKey('other:abc:plaid-items')).toBeNull();
+    expect(userIdFromItemsKey('finances:a:b:plaid-items')).toBeNull();
   });
 });

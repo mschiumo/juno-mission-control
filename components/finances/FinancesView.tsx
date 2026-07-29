@@ -138,6 +138,10 @@ interface Draft {
   balance: string;
   apr: string;
   monthlyPayment: string;
+  /** Values shown when the form opened — lets the server tell a real override
+   *  from a stale field the user never touched. */
+  seenBalance?: number;
+  seenApr?: number;
 }
 
 const EMPTY_DRAFT: Draft = { name: '', balance: '', apr: '', monthlyPayment: '' };
@@ -148,6 +152,8 @@ function draftFrom(a: CreditAccount): Draft {
     balance: String(a.balance),
     apr: String(a.apr),
     monthlyPayment: a.monthlyPayment ? String(a.monthlyPayment) : '',
+    seenBalance: a.balance,
+    seenApr: a.apr,
   };
 }
 
@@ -328,8 +334,16 @@ export default function FinancesView() {
       apr: parseFloat(draft.apr) || 0,
       monthlyPayment: parseFloat(draft.monthlyPayment) || 0,
     };
-    if (editingId) mutate('PUT', { id: editingId, ...body });
-    else mutate('POST', body);
+    if (editingId) {
+      mutate('PUT', {
+        id: editingId,
+        ...body,
+        seenBalance: draft.seenBalance,
+        seenApr: draft.seenApr,
+      });
+    } else {
+      mutate('POST', body);
+    }
   }
 
   function summarize(outcomes: SyncOutcome[] | undefined): string {
@@ -411,10 +425,14 @@ export default function FinancesView() {
             const data = await res.json();
             if (data.success) {
               applyPayload(data);
-              setNotice({
-                kind: 'ok',
-                text: `${metadata?.institution?.name ?? 'Bank'} connected — ${summarize(data.summary?.outcomes)}`,
-              });
+              setNotice(
+                data.warning
+                  ? { kind: 'warn', text: data.warning }
+                  : {
+                      kind: 'ok',
+                      text: `${metadata?.institution?.name ?? 'Bank'} connected — ${summarize(data.summary?.outcomes)}`,
+                    },
+              );
             } else {
               setNotice({ kind: 'error', text: data.error || 'Could not finish linking' });
             }
