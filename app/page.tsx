@@ -13,13 +13,14 @@ import LiveClock from "@/components/LiveClock";
 import MotivationalBanner from "@/components/MotivationalBanner";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
+import FinancesView from "@/components/finances/FinancesView";
 import LandingPage from "@/components/landing/LandingPage";
 import Link from 'next/link';
-import { LayoutDashboard, Target, TrendingUp, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, Target, TrendingUp, Wallet, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
 
-type TabId = 'dashboard' | 'trading' | 'goals';
+type TabId = 'dashboard' | 'finances' | 'trading' | 'goals';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -34,6 +35,7 @@ function DashboardContent() {
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
     if (tab === 'trading') return 'trading';
+    if (tab === 'finances' && isOwner) return 'finances';
     if (tab === 'goals' && isOwner) return 'goals';
     if (isOwner) return 'dashboard';
     return 'trading';
@@ -42,9 +44,9 @@ function DashboardContent() {
   const [activeTab, setActiveTabState] = useState<TabId>(getTabFromUrl);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Redirect non-owners away from owner-only tabs (dashboard, goals)
+  // Redirect non-owners away from owner-only tabs (dashboard, finances, goals)
   useEffect(() => {
-    if (!isOwner && (activeTab === 'dashboard' || activeTab === 'goals')) {
+    if (!isOwner && (activeTab === 'dashboard' || activeTab === 'finances' || activeTab === 'goals')) {
       setActiveTab('trading');
     }
   }, [isOwner, activeTab]);
@@ -64,6 +66,7 @@ function DashboardContent() {
   const tabs = isOwner
     ? [
         { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'finances' as const, label: 'Finances', icon: Wallet },
         { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
         { id: 'goals' as const, label: 'Goals', icon: Target },
       ]
@@ -219,6 +222,11 @@ function DashboardContent() {
                 <DailyJournalCard />
               </div>
             </div>
+          </div>
+        ) : activeTab === 'finances' ? (
+          /* Finances View */
+          <div className="max-w-[1600px] mx-auto">
+            <FinancesView />
           </div>
         ) : activeTab === 'trading' ? (
           /* Trading View */
