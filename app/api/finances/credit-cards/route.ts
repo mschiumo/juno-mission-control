@@ -1,55 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { getRedisClient } from '@/lib/redis';
 import { requireOwner } from '@/lib/auth-session';
-import { getTodayInEST } from '@/lib/date-utils';
 import {
-  CreditAccount,
-  BalanceSnapshot,
-  CREDIT_ACCOUNTS_KEY,
-  CREDIT_HISTORY_KEY,
+  applyManualEdit,
+  clearOverrides,
   SEED_ACCOUNTS,
+  type SeenValues,
 } from '@/lib/finances/credit-cards';
+import { readAccounts, readHistory, recordSnapshot, writeAccounts } from '@/lib/finances/store';
+import { isProductionEnvironment, plaidConfigured } from '@/lib/finances/plaid';
+import { readItems, toPublicItem } from '@/lib/finances/plaid-items';
 
 // Credit Card Balance tracker — owner-only CRUD over a JSON array of accounts,
-// plus a per-day balance history that records itself on every mutation.
+// plus a per-day balance history that records itself on every mutation. Accounts
+// linked to a bank through Plaid stay editable: a manual edit pins that field so
+// the next sync leaves it alone (see lib/finances/credit-cards.ts).
 
-async function readAccounts(userId: string): Promise<CreditAccount[] | null> {
-  const redis = await getRedisClient();
-  const raw = await redis.get(CREDIT_ACCOUNTS_KEY(userId));
-  return raw ? (JSON.parse(raw) as CreditAccount[]) : null;
-}
-
-async function writeAccounts(userId: string, accounts: CreditAccount[]) {
-  const redis = await getRedisClient();
-  await redis.set(CREDIT_ACCOUNTS_KEY(userId), JSON.stringify(accounts));
-}
-
-async function readHistory(userId: string): Promise<BalanceSnapshot[]> {
-  const redis = await getRedisClient();
-  const raw = await redis.get(CREDIT_HISTORY_KEY(userId));
-  return raw ? (JSON.parse(raw) as BalanceSnapshot[]) : [];
-}
-
-// Upsert today's snapshot (one per EST day) so intraday edits don't spam the chart.
-async function recordSnapshot(userId: string, accounts: CreditAccount[]): Promise<BalanceSnapshot[]> {
-  const redis = await getRedisClient();
-  const history = await readHistory(userId);
-  const today = getTodayInEST();
-  const snapshot: BalanceSnapshot = {
-    date: today,
-    total: accounts.reduce((s, a) => s + a.balance, 0),
-    balances: Object.fromEntries(accounts.map((a) => [a.id, a.balance])),
+/** Sync state the client needs to render badges and the connect button. */
+async function plaidState(userId: string) {
+  const configured = plaidConfigured();
+  if (!configured) return { configured: false, sandbox: false, items: [] };
+  return {
+    configured: true,
+    sandbox: !isProductionEnvironment(),
+    items: (await readItems(userId)).map(toPublicItem),
   };
-  const idx = history.findIndex((h) => h.date === today);
-  if (idx >= 0) history[idx] = snapshot;
-  else history.push(snapshot);
-  history.sort((a, b) => a.date.localeCompare(b.date));
-  await redis.set(CREDIT_HISTORY_KEY(userId), JSON.stringify(history));
-  return history;
 }
 
-function parseAccountFields(body: Record<string, unknown>): { name: string; balance: number; apr: number; monthlyPayment: number } | NextResponse {
+function parseAccountFields(
+  body: Record<string, unknown>,
+): { name: string; balance: number; apr: number; monthlyPayment: number } | NextResponse {
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   const balance = Number(body.balance);
   const apr = Number(body.apr);
@@ -57,10 +37,18 @@ function parseAccountFields(body: Record<string, unknown>): { name: string; bala
   if (!name) {
     return NextResponse.json({ success: false, error: 'Name is required' }, { status: 400 });
   }
-  if (!Number.isFinite(balance) || balance < 0 || !Number.isFinite(apr) || apr < 0 || apr > 100 || !Number.isFinite(monthlyPayment) || monthlyPayment < 0) {
+  if (
+    !Number.isFinite(balance) ||
+    balance < 0 ||
+    !Number.isFinite(apr) ||
+    apr < 0 ||
+    apr > 100 ||
+    !Number.isFinite(monthlyPayment) ||
+    monthlyPayment < 0
+  ) {
     return NextResponse.json({ success: false, error: 'Invalid balance, APR, or payment' }, { status: 400 });
   }
-  return { name, balance, apr, monthlyPayment };
+  return { name: name.slice(0, 80), balance, apr, monthlyPayment };
 }
 
 // GET — list accounts + history; seeds the owner's initial accounts on first run.
@@ -70,16 +58,22 @@ export async function GET() {
 
   try {
     let accounts = await readAccounts(userId);
-    let history: BalanceSnapshot[];
+    let history;
     if (accounts === null) {
       const now = new Date().toISOString();
-      accounts = SEED_ACCOUNTS.map((s) => ({ ...s, id: randomUUID(), monthlyPayment: 0, createdAt: now, updatedAt: now }));
+      accounts = SEED_ACCOUNTS.map((s) => ({
+        ...s,
+        id: randomUUID(),
+        monthlyPayment: 0,
+        createdAt: now,
+        updatedAt: now,
+      }));
       await writeAccounts(userId, accounts);
       history = await recordSnapshot(userId, accounts);
     } else {
       history = await readHistory(userId);
     }
-    return NextResponse.json({ success: true, accounts, history });
+    return NextResponse.json({ success: true, accounts, history, plaid: await plaidState(userId) });
   } catch (error) {
     console.error('Error fetching credit accounts:', error);
     return NextResponse.json(
@@ -100,10 +94,10 @@ export async function POST(request: NextRequest) {
 
     const accounts = (await readAccounts(userId)) ?? [];
     const now = new Date().toISOString();
-    accounts.push({ ...parsed, id: randomUUID(), createdAt: now, updatedAt: now });
+    accounts.push({ ...parsed, id: randomUUID(), source: 'manual', createdAt: now, updatedAt: now });
     await writeAccounts(userId, accounts);
     const history = await recordSnapshot(userId, accounts);
-    return NextResponse.json({ success: true, accounts, history });
+    return NextResponse.json({ success: true, accounts, history, plaid: await plaidState(userId) });
   } catch (error) {
     console.error('Error adding credit account:', error);
     return NextResponse.json(
@@ -113,7 +107,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT — update an account. Body: { id, name, balance, apr, monthlyPayment }
+/**
+ * PUT — update an account. Body: { id, name, balance, apr, monthlyPayment }
+ *
+ * On a Plaid-linked account, any balance/APR the user actually changes gets
+ * pinned so the nightly sync won't quietly revert the correction. Editing only
+ * the planned payment pins nothing.
+ */
 export async function PUT(request: NextRequest) {
   const { userId, error: authError } = await requireOwner();
   if (authError) return authError;
@@ -129,14 +129,56 @@ export async function PUT(request: NextRequest) {
     if (idx < 0) {
       return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
     }
-    accounts[idx] = { ...accounts[idx], ...parsed, updatedAt: new Date().toISOString() };
+
+    // What the edit form was showing, so we can tell a deliberate override from
+    // a stale value the user never touched.
+    const seen: SeenValues = {
+      balance: Number.isFinite(Number(body.seenBalance)) ? Number(body.seenBalance) : undefined,
+      apr: Number.isFinite(Number(body.seenApr)) ? Number(body.seenApr) : undefined,
+    };
+
+    accounts[idx] = applyManualEdit(accounts[idx], parsed, seen, new Date().toISOString());
     await writeAccounts(userId, accounts);
     const history = await recordSnapshot(userId, accounts);
-    return NextResponse.json({ success: true, accounts, history });
+    return NextResponse.json({ success: true, accounts, history, plaid: await plaidState(userId) });
   } catch (error) {
     console.error('Error updating credit account:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Failed to update account' },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * PATCH — un-pin a linked account's manual edits and restore the last values
+ * Plaid reported. Body: { id, action: 'resume-sync' }
+ */
+export async function PATCH(request: NextRequest) {
+  const { userId, error: authError } = await requireOwner();
+  if (authError) return authError;
+
+  try {
+    const body = await request.json();
+    const id = typeof body.id === 'string' ? body.id : '';
+    if (body.action !== 'resume-sync') {
+      return NextResponse.json({ success: false, error: 'Unsupported action' }, { status: 400 });
+    }
+
+    const accounts = (await readAccounts(userId)) ?? [];
+    const idx = accounts.findIndex((a) => a.id === id);
+    if (idx < 0) {
+      return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
+    }
+
+    accounts[idx] = clearOverrides(accounts[idx], new Date().toISOString());
+    await writeAccounts(userId, accounts);
+    const history = await recordSnapshot(userId, accounts);
+    return NextResponse.json({ success: true, accounts, history, plaid: await plaidState(userId) });
+  } catch (error) {
+    console.error('Error clearing overrides:', error);
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : 'Failed to resume sync' },
       { status: 500 },
     );
   }
@@ -156,7 +198,12 @@ export async function DELETE(request: NextRequest) {
     }
     await writeAccounts(userId, remaining);
     const history = await recordSnapshot(userId, remaining);
-    return NextResponse.json({ success: true, accounts: remaining, history });
+    return NextResponse.json({
+      success: true,
+      accounts: remaining,
+      history,
+      plaid: await plaidState(userId),
+    });
   } catch (error) {
     console.error('Error deleting credit account:', error);
     return NextResponse.json(
