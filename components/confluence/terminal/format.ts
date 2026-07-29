@@ -3,9 +3,8 @@
  * derived, never stored (see the handoff spec's State section).
  */
 
-import type { ExecutionOrder, OrderStatus, Proposal } from '@/types/confluence';
+import type { ExecutionOrder, LivePosition, OrderStatus, Proposal } from '@/types/confluence';
 import { ACTIVE_ORDER_STATUSES } from '@/types/confluence';
-import type { LivePosition } from '../OrdersMonitor';
 
 export function money(n: number | null | undefined, digits = 2): string {
   if (n == null || !Number.isFinite(n)) return '—';
@@ -97,15 +96,85 @@ export function statusPill(status: OrderStatus): { label: string; bg: string; co
   }
 }
 
-/** Total $ at risk if every protective stop fires (entry − stop, per share). */
-export function openRisk(positions: LivePosition[]): number | null {
-  let risk = 0;
-  let any = false;
-  for (const p of positions) {
-    if (p.avgCost != null && p.stop?.stopPrice != null) {
-      risk += Math.max(0, p.avgCost - p.stop.stopPrice) * Math.min(p.quantity, p.stop.quantity);
-      any = true;
-    }
-  }
-  return any || positions.length === 0 ? Math.round(risk * 100) / 100 : null;
+/** Signed percent, one decimal: 3.14 → "+3.1%". */
+export function signedPct(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return '—';
+  return `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(1)}%`;
 }
+
+/** Signed dollars: -12.3 → "−$12.30". */
+export function signedMoney(n: number | null | undefined, digits = 2): string {
+  if (n == null || !Number.isFinite(n)) return '—';
+  return `${n < 0 ? '−' : '+'}${money(Math.abs(n), digits)}`;
+}
+
+/** Unrealized P&L vs the broker's average cost (null while the quote is missing). */
+export function positionPnl(p: LivePosition): { usd: number; pct: number } | null {
+  if (p.avgCost == null || p.lastPrice == null || p.avgCost === 0) return null;
+  return {
+    usd: (p.lastPrice - p.avgCost) * p.quantity,
+    pct: ((p.lastPrice - p.avgCost) / p.avgCost) * 100,
+  };
+}
+
+/** Today's move vs the prior close (null when the quote lacks a prev close). */
+export function positionDayPnl(p: LivePosition): { usd: number; pct: number } | null {
+  if (p.prevClose == null || p.lastPrice == null || p.prevClose === 0) return null;
+  return {
+    usd: (p.lastPrice - p.prevClose) * p.quantity,
+    pct: ((p.lastPrice - p.prevClose) / p.prevClose) * 100,
+  };
+}
+
+export function positionMarketValue(p: LivePosition): number | null {
+  if (p.lastPrice == null) return null;
+  return p.lastPrice * p.quantity;
+}
+
+/** The stop that governs this position: a live protective stop, else the approved plan's. */
+export function effectiveStop(p: LivePosition): number | null {
+  return p.stop?.stopPrice ?? p.planStop ?? null;
+}
+
+/** $ lost from here if the governing stop fires (per covered share). */
+export function positionRisk(p: LivePosition): number | null {
+  const stop = effectiveStop(p);
+  if (stop == null || p.avgCost == null) return null;
+  const coveredQty = p.stop ? Math.min(p.quantity, p.stop.quantity) : p.quantity;
+  return Math.max(0, (p.avgCost - stop) * coveredQty);
+}
+
+/** Whole days the position has been open (0 = opened today; null = untracked). */
+export function daysHeld(p: LivePosition): number | null {
+  if (!p.entryFilledAt) return null;
+  const opened = new Date(p.entryFilledAt).getTime();
+  if (!Number.isFinite(opened)) return null;
+  return Math.max(0, Math.floor((Date.now() - opened) / 86_400_000));
+}
+
+/** "Jul 22" (adds the year once it differs from today's). */
+export function shortDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+}
+
+/**
+ * Where stop / entry / last / target sit on a shared 0–100 ladder so the card
+ * can draw one bar with all four levels. Null until both rails exist.
+ */
+export function priceLadder(p: LivePosition): { stop: number; entry: number; last: number | null; target: number } | null {
+  const stop = effectiveStop(p);
+  if (stop == null || p.target == null || p.avgCost == null || p.target <= stop) return null;
+  const span = p.target - stop;
+  const at = (price: number) => Math.max(0, Math.min(100, ((price - stop) / span) * 100));
+  return {
+    stop: 0,
+    entry: at(p.avgCost),
+    last: p.lastPrice != null ? at(p.lastPrice) : null,
+    target: 100,
+  };
+}
+

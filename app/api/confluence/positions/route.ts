@@ -58,30 +58,39 @@ export async function GET(): Promise<NextResponse> {
     // A working take-profit means the stop was deliberately cancelled to free
     // the shares — the UI shows the limit exit instead of a NO STOP alarm.
     const activeTakeProfits = activeOrders.filter((o) => o.kind === 'take_profit');
-    const targetFor = (symbol: string): number | undefined => {
+    // The most recent filled entry for a symbol carries the approved plan
+    // (target + stop) and the fill provenance the Positions tab renders.
+    const entryFor = (symbol: string) => {
       const entries = allOrders
         .filter(
           (o) =>
             o.symbol.toUpperCase() === symbol &&
             (o.kind ?? 'entry') === 'entry' &&
-            o.filledQuantity > 0 &&
-            typeof o.targetPrice === 'number',
+            o.filledQuantity > 0,
         )
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      return entries[0]?.targetPrice;
+      return entries[0];
     };
 
     const symbols = [...new Set(raw.map((p) => (p.symbol || '').toUpperCase()).filter(Boolean))];
     const lastPrices = new Map<string, number>();
+    const prevCloses = new Map<string, number>();
     if (symbols.length > 0) {
       try {
         const q = await callRobinhoodTool<{
-          data?: { results?: { quote?: { symbol?: string; last_trade_price?: string } }[] };
+          data?: {
+            results?: {
+              quote?: { symbol?: string; last_trade_price?: string; adjusted_previous_close?: string; previous_close?: string };
+            }[];
+          };
         }>('get_equity_quotes', { symbols: symbols.slice(0, 20) }, { retries: 2 });
         for (const entry of q?.data?.results ?? []) {
           const sym = entry.quote?.symbol?.toUpperCase();
+          if (!sym) continue;
           const last = Number(entry.quote?.last_trade_price);
-          if (sym && Number.isFinite(last)) lastPrices.set(sym, last);
+          if (Number.isFinite(last)) lastPrices.set(sym, last);
+          const prev = Number(entry.quote?.adjusted_previous_close ?? entry.quote?.previous_close);
+          if (Number.isFinite(prev)) prevCloses.set(sym, prev);
         }
       } catch {
         /* quotes are advisory — positions still render without them */
@@ -95,7 +104,8 @@ export async function GET(): Promise<NextResponse> {
         if (!symbol || quantity === 0) return null;
         const stop = activeStops.find((o) => o.symbol.toUpperCase() === symbol);
         const takeProfit = activeTakeProfits.find((o) => o.symbol.toUpperCase() === symbol);
-        const target = targetFor(symbol);
+        const entry = entryFor(symbol);
+        const target = entry?.targetPrice;
         const last = lastPrices.get(symbol);
         return {
           symbol,
@@ -104,7 +114,11 @@ export async function GET(): Promise<NextResponse> {
           stop: stop ? { stopPrice: stop.stopPrice ?? stop.limitPrice, quantity: stop.quantity } : null,
           takeProfit: takeProfit ? { limitPrice: takeProfit.limitPrice, quantity: takeProfit.quantity } : null,
           target: target ?? null,
+          planStop: entry?.stopPrice ?? null,
           lastPrice: last ?? null,
+          prevClose: prevCloses.get(symbol) ?? null,
+          entryFilledAt: entry?.filledAt ?? entry?.submittedAt ?? entry?.createdAt ?? null,
+          entryFillPrice: entry?.avgFillPrice ?? null,
           atTarget: target != null && last != null ? last >= target : false,
         };
       })

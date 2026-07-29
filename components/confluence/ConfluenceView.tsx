@@ -16,24 +16,25 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Inbox, Play } from 'lucide-react';
-import type { AgentRun, AuditEvent, ExecutionOrder, PerformanceStats, Proposal, SystemState } from '@/types/confluence';
+import type { AgentRun, AuditEvent, ExecutionOrder, LivePosition, PerformanceStats, Proposal, SystemState } from '@/types/confluence';
 import ProposalCard from './ProposalCard';
-import { type LivePosition } from './OrdersMonitor';
 import StrategyPanel from './StrategyPanel';
 import AuditLog from './AuditLog';
 import SettingsPanel from './SettingsPanel';
 import PerformancePanel from './PerformancePanel';
 import ReviewPanel from './ReviewPanel';
 import OrdersTable from './terminal/OrdersTable';
-import { NextProposalsPanel, PositionsPanel } from './terminal/RightRail';
+import PositionsView from './terminal/PositionsView';
+import { NextProposalsPanel } from './terminal/RightRail';
 import MobileHome from './terminal/MobileHome';
 import { DangerBanner, ModePill } from './terminal/atoms';
 import { maskAcct, money, proposalNotional } from './terminal/format';
 
-type SubTab = 'queue' | 'orders' | 'performance' | 'review' | 'audit' | 'strategy' | 'settings';
+type SubTab = 'queue' | 'positions' | 'orders' | 'performance' | 'review' | 'audit' | 'strategy' | 'settings';
 
 const SUBTABS: { id: SubTab; label: string }[] = [
   { id: 'queue', label: 'Proposals' },
+  { id: 'positions', label: 'Positions' },
   { id: 'orders', label: 'Orders' },
   { id: 'performance', label: 'Performance' },
   { id: 'review', label: 'Review' },
@@ -547,7 +548,8 @@ export default function ConfluenceView() {
       <div className="ct-seg self-start max-w-full overflow-x-auto">
         {SUBTABS.map((t) => {
           const active = subTab === t.id;
-          const count = t.id === 'queue' ? pending.length : t.id === 'orders' ? orders.length : 0;
+          const count =
+            t.id === 'queue' ? pending.length : t.id === 'orders' ? orders.length : t.id === 'positions' ? positions.length : 0;
           return (
             <button key={t.id} className={`ct-seg-item ${active ? 'active' : ''}`} onClick={() => setSubTab(t.id)}>
               {t.label}
@@ -567,6 +569,16 @@ export default function ConfluenceView() {
         <>
           {subTab === 'queue' && queuePanel}
 
+          {subTab === 'positions' && (
+            <PositionsView
+              positions={positions}
+              note={positionsNote}
+              account={account}
+              busy={busy}
+              onRefresh={handleRefreshOrders}
+            />
+          )}
+
           {subTab === 'orders' && (
             <>
               {/* Desktop: grouped grid + reference rail */}
@@ -575,7 +587,6 @@ export default function ConfluenceView() {
                   <OrdersTable orders={orders} account={account} busy={busy} onRefresh={handleRefreshOrders} onCancel={handleCancel} />
                 </div>
                 <div className="order-1 xl:order-2 w-full flex flex-col" style={{ gap: 14 }}>
-                  <PositionsPanel positions={positions} note={positionsNote} connected={!positionsNote} />
                   <NextProposalsPanel proposals={pending} buyingPower={buyingPower} onReview={() => setSubTab('queue')} />
                 </div>
               </div>
@@ -583,11 +594,8 @@ export default function ConfluenceView() {
               <div className="md:hidden">
                 <MobileHome
                   positions={positions}
-                  positionsNote={positionsNote}
                   orders={orders}
                   account={account}
-                  buyingPower={buyingPower}
-                  blockedCount={blocked.length}
                   busy={busy}
                   onCancelOrder={handleCancel}
                 />

@@ -227,6 +227,35 @@ export interface ExecutionOrder {
   history: OrderStatusEvent[];
 }
 
+/**
+ * A live holding in the pinned agentic account, straight from the broker on
+ * every request (never cached), annotated with the app-ledger context the
+ * Positions tab renders: exit coverage, the approved plan, and entry-fill
+ * provenance.
+ */
+export interface LivePosition {
+  symbol: string;
+  quantity: number;
+  avgCost?: number;
+  /** Active protective-stop coverage from the app's ledger (null = uncovered). */
+  stop: { stopPrice?: number; quantity: number } | null;
+  /** Active take-profit limit (the stop is cancelled while this rests). */
+  takeProfit?: { limitPrice: number; quantity: number } | null;
+  /** The approved take-profit from the filled entry (null = untracked). */
+  target?: number | null;
+  /** The approved stop from the filled entry's plan (shown when no live stop rests). */
+  planStop?: number | null;
+  lastPrice?: number | null;
+  /** Prior session's close — powers the day-change readout (null = unavailable). */
+  prevClose?: number | null;
+  /** When the entry order filled (null = untracked / opened outside the app). */
+  entryFilledAt?: string | null;
+  /** The entry's actual average fill (broker avgCost can drift if shares were added manually). */
+  entryFillPrice?: number | null;
+  /** Live quote at/above the approved target — time to take profit. */
+  atTarget?: boolean;
+}
+
 export type AuditEntityType = 'proposal' | 'order' | 'system';
 
 /** event_type vocabulary the service emits (matches the canonical schema). */
