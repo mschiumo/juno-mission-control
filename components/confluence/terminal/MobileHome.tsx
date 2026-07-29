@@ -1,64 +1,24 @@
 'use client';
 
 /**
- * Mobile orders & positions — the glance surface ("am I in danger, and is
- * anything close to target?"): KPI pair and the Positions / Orders sub-tabs.
- * No tables on mobile — everything is a card. Renders in the normal page flow
- * under the app's own navigation.
+ * Mobile orders — lifecycle-filtered order cards (no tables on mobile).
+ * Positions live on their own sub-tab now; this surface is orders only.
+ * Renders in the normal page flow under the app's own navigation.
  */
 
 import { useState } from 'react';
-import type { ExecutionOrder } from '@/types/confluence';
+import type { ExecutionOrder, LivePosition } from '@/types/confluence';
 import { ACTIVE_ORDER_STATUSES } from '@/types/confluence';
-import type { LivePosition } from '../OrdersMonitor';
-import { ProgressBar, StatusPill } from './atoms';
-import { groupOrders, maskAcct, money, openRisk, pctColors, pctToTarget, type OrderGroup } from './format';
+import { StatusPill } from './atoms';
+import { groupOrders, maskAcct, money, type OrderGroup } from './format';
 
 interface Props {
+  /** Only used for the "N positions are protected" hint under an empty Working list. */
   positions: LivePosition[];
-  positionsNote?: string;
   orders: ExecutionOrder[];
   account?: string;
-  buyingPower: number | null;
-  blockedCount: number;
   busy: boolean;
   onCancelOrder: (id: string) => void;
-}
-
-function MobilePositionCard({ position }: { position: LivePosition }) {
-  const pct = pctToTarget(position);
-  const colors = pctColors(pct);
-  return (
-    <div
-      className="flex flex-col"
-      style={{ padding: 14, borderRadius: 14, background: 'var(--ct-surface)', border: '1px solid var(--ct-border)', gap: 11 }}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-baseline gap-2">
-          <span style={{ fontFamily: 'var(--ct-sans)', fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ct-text)' }}>
-            {position.symbol}
-          </span>
-          <span className="ct-num" style={{ fontSize: 11.5, color: 'var(--ct-label)' }}>
-            {position.quantity} @ {position.avgCost != null ? money(position.avgCost) : '—'}
-          </span>
-        </div>
-        <span className="ct-num" style={{ fontSize: 13, fontWeight: 600, color: colors.text }}>
-          {pct != null ? `${pct}% to target` : 'no target'}
-        </span>
-      </div>
-      <ProgressBar pct={pct} fill={colors.fill} />
-      <div className="flex justify-between ct-num" style={{ fontSize: 11.5, fontWeight: 500 }}>
-        {position.stop?.stopPrice != null ? (
-          <span style={{ color: 'var(--ct-neg)' }}>stop {money(position.stop.stopPrice)}</span>
-        ) : (
-          <span style={{ color: 'var(--ct-neg)', fontWeight: 600 }}>NO STOP</span>
-        )}
-        <span style={{ color: 'var(--ct-dimmer)' }}>
-          {position.target != null ? `target ${money(position.target)}` : '—'}
-        </span>
-      </div>
-    </div>
-  );
 }
 
 function sideTag(order: ExecutionOrder) {
@@ -152,21 +112,9 @@ function MobileOrderCard({ order, busy, onCancel }: { order: ExecutionOrder; bus
   );
 }
 
-export default function MobileHome({
-  positions,
-  positionsNote,
-  orders,
-  account,
-  buyingPower,
-  blockedCount,
-  busy,
-  onCancelOrder,
-}: Props) {
-  const [view, setView] = useState<'positions' | 'orders'>('positions');
+export default function MobileHome({ positions, orders, account, busy, onCancelOrder }: Props) {
   const [filter, setFilter] = useState<OrderGroup>('working');
   const groups = groupOrders(orders);
-  const risk = openRisk(positions);
-  const constrained = blockedCount > 0;
 
   const chip = (id: OrderGroup, label: string, count: number) => (
     <button
@@ -180,126 +128,59 @@ export default function MobileHome({
   );
 
   const protectiveOnly = groups.working.length > 0 && groups.working.every((o) => o.kind === 'protective_stop');
+  const protectedCount = positions.filter((p) => p.stop).length;
 
   return (
-    <div className="flex flex-col">
-      {view === 'positions' && (
-        <div className="flex flex-col" style={{ gap: 14, paddingBottom: 14 }}>
-          {/* KPI pair */}
-          <div className="grid grid-cols-2" style={{ gap: 10 }}>
-            <div style={{ padding: '13px 14px', borderRadius: 14, background: 'var(--ct-surface)', border: '1px solid var(--ct-border)' }}>
-              <div className="ct-eyebrow" style={{ fontWeight: 500, letterSpacing: '0.09em', marginBottom: 7 }}>OPEN RISK</div>
-              <div className="ct-num" style={{ fontSize: 21, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ct-text)' }}>
-                {risk != null ? money(risk) : '—'}
-              </div>
-            </div>
-            <div
-              style={{
-                padding: '13px 14px',
-                borderRadius: 14,
-                background: 'var(--ct-surface)',
-                border: `1px solid ${constrained ? 'rgba(248,113,113,0.28)' : 'var(--ct-border)'}`,
-              }}
-            >
-              <div className="ct-eyebrow" style={{ fontWeight: 500, letterSpacing: '0.09em', marginBottom: 7 }}>BUYING POWER</div>
-              <div className="ct-num" style={{ fontSize: 21, fontWeight: 600, letterSpacing: '-0.02em', color: constrained ? 'var(--ct-neg)' : 'var(--ct-text)' }}>
-                {buyingPower != null ? money(buyingPower) : '—'}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Positions / Orders sub-tabs (+ masked account on the orders view) */}
-      <div className="flex items-baseline" style={{ gap: 22, borderBottom: '1px solid var(--ct-border)', marginBottom: 14 }}>
-        {(['positions', 'orders'] as const).map((v) => {
-          const active = view === v;
-          const count = v === 'positions' ? positions.length : orders.length;
-          return (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              style={{
-                paddingBottom: 11,
-                fontFamily: 'var(--ct-sans)',
-                fontSize: 13.5,
-                fontWeight: active ? 600 : 500,
-                color: active ? 'var(--ct-text)' : 'var(--ct-faint)',
-                borderBottom: active ? '2px solid var(--ct-accent)' : '2px solid transparent',
-              }}
-            >
-              {v === 'positions' ? 'Positions' : 'Orders'}{' '}
-              <span className="ct-num" style={{ fontSize: 11, fontWeight: 600, color: active ? 'var(--ct-dimmer)' : undefined }}>{count}</span>
-            </button>
-          );
-        })}
-        {view === 'orders' && (
-          <span className="ct-num ml-auto" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--ct-dimmer)' }}>
-            acct {maskAcct(account)}
-          </span>
-        )}
+    <div className="flex flex-col" style={{ gap: 9, paddingBottom: 20 }}>
+      {/* Filter chips + masked account */}
+      <div className="flex items-center overflow-x-auto" style={{ gap: 7, paddingBottom: 5, marginBottom: 4 }}>
+        {chip('working', 'Working', groups.working.length)}
+        {chip('filled', 'Filled', groups.filled.length)}
+        {chip('cancelled', 'Cancelled', groups.cancelled.length)}
+        <span className="ct-num ml-auto" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--ct-dimmer)', paddingLeft: 8 }}>
+          acct {maskAcct(account)}
+        </span>
       </div>
 
-      {view === 'positions' ? (
-        <div className="flex flex-col" style={{ gap: 10, paddingBottom: 20 }}>
-          {positions.length === 0 ? (
+      {filter === 'working' && (
+        <>
+          <div className="ct-eyebrow" style={{ padding: '2px 0 3px' }}>
+            {protectiveOnly ? 'WORKING — PROTECTIVE STOPS' : 'WORKING'}
+          </div>
+          {groups.working.length === 0 ? (
             <p style={{ padding: '40px 0', textAlign: 'center', fontFamily: 'var(--ct-sans)', fontSize: 13, color: 'var(--ct-faint)' }}>
-              {positionsNote ?? 'No open positions in the agentic account.'}
+              No working orders.{' '}
+              {protectedCount > 0
+                ? `${protectedCount} ${protectedCount === 1 ? 'position is' : 'positions are'} protected.`
+                : ''}
             </p>
           ) : (
-            positions.map((p) => <MobilePositionCard key={p.symbol} position={p} />)
+            groups.working.map((o) => <MobileOrderCard key={o.id} order={o} busy={busy} onCancel={onCancelOrder} />)
           )}
-        </div>
-      ) : (
-        <div className="flex flex-col" style={{ gap: 9, paddingBottom: 20 }}>
-          {/* Filter chips */}
-          <div className="flex overflow-x-auto" style={{ gap: 7, paddingBottom: 5, marginBottom: 4 }}>
-            {chip('working', 'Working', groups.working.length)}
-            {chip('filled', 'Filled', groups.filled.length)}
-            {chip('cancelled', 'Cancelled', groups.cancelled.length)}
-          </div>
-
-          {filter === 'working' && (
+          {groups.filled.length > 0 && (
             <>
-              <div className="ct-eyebrow" style={{ padding: '2px 0 3px' }}>
-                {protectiveOnly ? 'WORKING — PROTECTIVE STOPS' : 'WORKING'}
-              </div>
-              {groups.working.length === 0 ? (
-                <p style={{ padding: '40px 0', textAlign: 'center', fontFamily: 'var(--ct-sans)', fontSize: 13, color: 'var(--ct-faint)' }}>
-                  No working orders.{' '}
-                  {positions.filter((p) => p.stop).length > 0
-                    ? `${positions.filter((p) => p.stop).length} ${positions.filter((p) => p.stop).length === 1 ? 'position is' : 'positions are'} protected.`
-                    : ''}
-                </p>
-              ) : (
-                groups.working.map((o) => <MobileOrderCard key={o.id} order={o} busy={busy} onCancel={onCancelOrder} />)
-              )}
-              {groups.filled.length > 0 && (
-                <>
-                  <div className="ct-eyebrow" style={{ padding: '8px 0 3px' }}>FILLED</div>
-                  {groups.filled.map((o) => <MobileOrderCard key={o.id} order={o} busy={busy} onCancel={onCancelOrder} />)}
-                </>
-              )}
+              <div className="ct-eyebrow" style={{ padding: '8px 0 3px' }}>FILLED</div>
+              {groups.filled.map((o) => <MobileOrderCard key={o.id} order={o} busy={busy} onCancel={onCancelOrder} />)}
             </>
           )}
-          {filter === 'filled' &&
-            (groups.filled.length === 0 ? (
-              <p style={{ padding: '40px 0', textAlign: 'center', fontFamily: 'var(--ct-sans)', fontSize: 13, color: 'var(--ct-faint)' }}>
-                No filled orders.
-              </p>
-            ) : (
-              groups.filled.map((o) => <MobileOrderCard key={o.id} order={o} busy={busy} onCancel={onCancelOrder} />)
-            ))}
-          {filter === 'cancelled' &&
-            (groups.cancelled.length === 0 ? (
-              <p style={{ padding: '40px 0', textAlign: 'center', fontFamily: 'var(--ct-sans)', fontSize: 13, color: 'var(--ct-faint)' }}>
-                No cancelled orders.
-              </p>
-            ) : (
-              groups.cancelled.map((o) => <MobileOrderCard key={o.id} order={o} busy={busy} onCancel={onCancelOrder} />)
-            ))}
-        </div>
+        </>
       )}
+      {filter === 'filled' &&
+        (groups.filled.length === 0 ? (
+          <p style={{ padding: '40px 0', textAlign: 'center', fontFamily: 'var(--ct-sans)', fontSize: 13, color: 'var(--ct-faint)' }}>
+            No filled orders.
+          </p>
+        ) : (
+          groups.filled.map((o) => <MobileOrderCard key={o.id} order={o} busy={busy} onCancel={onCancelOrder} />)
+        ))}
+      {filter === 'cancelled' &&
+        (groups.cancelled.length === 0 ? (
+          <p style={{ padding: '40px 0', textAlign: 'center', fontFamily: 'var(--ct-sans)', fontSize: 13, color: 'var(--ct-faint)' }}>
+            No cancelled orders.
+          </p>
+        ) : (
+          groups.cancelled.map((o) => <MobileOrderCard key={o.id} order={o} busy={busy} onCancel={onCancelOrder} />)
+        ))}
     </div>
   );
 }
