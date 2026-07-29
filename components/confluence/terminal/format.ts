@@ -99,7 +99,7 @@ export function statusPill(status: OrderStatus): { label: string; bg: string; co
 /** Signed percent, one decimal: 3.14 → "+3.1%". */
 export function signedPct(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return '—';
-  return `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
+  return `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(1)}%`;
 }
 
 /** Signed dollars: -12.3 → "−$12.30". */
