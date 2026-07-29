@@ -4,14 +4,161 @@
 // cannot collide with the older unmerged feat/finance-tracker branch (PR #431),
 // which owns lib/finance/* and finance:{userId}:* keys.
 
+/** Where an account's numbers come from. Absent = manual (pre-Plaid accounts). */
+export type AccountSource = 'manual' | 'plaid';
+
+/** Health of a Plaid-linked account's last sync attempt. */
+export type SyncStatus = 'ok' | 'reauth-required' | 'error';
+
+/**
+ * Fields a user may pin by hand on a *linked* account. Sync refuses to
+ * overwrite a pinned field, so a manual correction is never silently reverted
+ * by the nightly cron. `name` and `monthlyPayment` are always user-owned and so
+ * are deliberately not pinnable.
+ */
+export type OverridableField = 'balance' | 'apr';
+
 export interface CreditAccount {
   id: string;
-  name: string;
+  name: string; // user-owned label — sync never rewrites it after creation
   balance: number; // current balance, dollars
   apr: number; // annual percentage rate, e.g. 18.49
-  monthlyPayment: number; // planned monthly payment, dollars (0 = not set)
+  monthlyPayment: number; // user's PLANNED monthly payment (not Plaid's minimum)
   createdAt: string;
   updatedAt: string;
+
+  // --- Live sync (present only once linked through Plaid) ---
+  source?: AccountSource;
+  plaidItemId?: string; // the Plaid Item (one institution login) this came from
+  plaidAccountId?: string; // Plaid's account_id — the stable join key
+  institutionName?: string;
+  mask?: string; // last 4 digits, as reported by Plaid
+  lastSyncedAt?: string; // ISO timestamp of the last successful sync
+  syncStatus?: SyncStatus;
+  syncError?: string; // human-readable reason when syncStatus !== 'ok'
+
+  /** Fields the user pinned by hand; sync leaves these alone. */
+  manualOverrides?: OverridableField[];
+
+  /**
+   * Last values Plaid reported, retained even while a field is pinned, so the UI
+   * can show "Plaid says X, you set Y" and un-pinning can restore instantly.
+   */
+  syncedBalance?: number;
+  syncedApr?: number;
+
+  // --- Informational, always refreshed from Plaid (never user-edited) ---
+  creditLimit?: number;
+  minPayment?: number; // Plaid's statement minimum — distinct from monthlyPayment
+  nextDueDate?: string; // YYYY-MM-DD
+  lastStatementBalance?: number;
+}
+
+/** One credit account's worth of freshly-fetched Plaid data. */
+export interface PlaidAccountSnapshot {
+  plaidItemId: string;
+  plaidAccountId: string;
+  institutionName: string;
+  name: string; // Plaid's account name — used only when creating a new account
+  mask?: string;
+  balance: number; // amount owed, positive
+  apr?: number; // purchase APR, when the institution reports one
+  creditLimit?: number;
+  minPayment?: number;
+  nextDueDate?: string;
+  lastStatementBalance?: number;
+}
+
+export function isPinned(account: CreditAccount, field: OverridableField): boolean {
+  return !!account.manualOverrides?.includes(field);
+}
+
+export function isLinked(account: CreditAccount): boolean {
+  return account.source === 'plaid' && !!account.plaidAccountId;
+}
+
+/**
+ * Fold a fresh Plaid snapshot into an existing account.
+ *
+ * Ownership rules — deliberately conservative, because silently reverting a
+ * correction the user typed is worse than showing a slightly stale number:
+ *  - `name`, `monthlyPayment`: user-owned, never touched here.
+ *  - `balance`, `apr`: taken from Plaid unless pinned. `apr` additionally only
+ *    updates when Plaid actually reports one (many store cards report none, and
+ *    0% promotional cards like Affirm often omit it) — otherwise the existing
+ *    value stands rather than being zeroed out.
+ *  - informational fields: always replaced; they are pure Plaid data.
+ */
+export function applySnapshot(
+  existing: CreditAccount,
+  snap: PlaidAccountSnapshot,
+  now: string,
+): CreditAccount {
+  const next: CreditAccount = {
+    ...existing,
+    source: 'plaid',
+    plaidItemId: snap.plaidItemId,
+    plaidAccountId: snap.plaidAccountId,
+    institutionName: snap.institutionName,
+    mask: snap.mask ?? existing.mask,
+    lastSyncedAt: now,
+    syncStatus: 'ok',
+    syncError: undefined,
+    syncedBalance: snap.balance,
+    creditLimit: snap.creditLimit,
+    minPayment: snap.minPayment,
+    nextDueDate: snap.nextDueDate,
+    lastStatementBalance: snap.lastStatementBalance,
+    updatedAt: now,
+  };
+
+  if (!isPinned(existing, 'balance')) {
+    next.balance = snap.balance;
+  }
+
+  if (typeof snap.apr === 'number' && Number.isFinite(snap.apr)) {
+    next.syncedApr = snap.apr;
+    if (!isPinned(existing, 'apr')) {
+      next.apr = snap.apr;
+    }
+  }
+
+  return next;
+}
+
+/**
+ * Pin the plaid-owned fields whose values a manual edit actually changed.
+ * Editing only `monthlyPayment` (or re-submitting identical numbers) pins
+ * nothing, so routine payment planning never disables sync by accident.
+ */
+export function overridesAfterEdit(
+  existing: CreditAccount,
+  edit: { balance: number; apr: number },
+): OverridableField[] {
+  if (!isLinked(existing)) return [];
+  const pinned = new Set<OverridableField>(existing.manualOverrides ?? []);
+  if (!nearlyEqual(edit.balance, existing.balance)) pinned.add('balance');
+  if (!nearlyEqual(edit.apr, existing.apr)) pinned.add('apr');
+  return [...pinned];
+}
+
+/** Dollar/percent comparison tolerant of float round-trips through JSON. */
+function nearlyEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) < 0.005;
+}
+
+/**
+ * Drop pins and restore the last Plaid-reported values, so "resume syncing"
+ * takes effect immediately instead of waiting for the next refresh.
+ */
+export function clearOverrides(account: CreditAccount, now: string): CreditAccount {
+  return {
+    ...account,
+    manualOverrides: [],
+    balance: account.syncedBalance ?? account.balance,
+    apr: account.syncedApr ?? account.apr,
+    updatedAt: now,
+  };
 }
 
 // One snapshot per EST day — recorded on every mutation so the history chart

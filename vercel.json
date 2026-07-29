@@ -34,6 +34,12 @@
     },
     "app/api/cron-jobs/confluence-order-poll/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/cron-jobs/finances-refresh/route.ts": {
+      "maxDuration": 120
+    },
+    "app/api/finances/plaid/sync/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -88,6 +94,10 @@
     {
       "path": "/api/cron-jobs/confluence-order-poll",
       "schedule": "*/30 13-21 * * 1-5"
+    },
+    {
+      "path": "/api/cron-jobs/finances-refresh",
+      "schedule": "0 9 * * *"
     }
   ]
 }
