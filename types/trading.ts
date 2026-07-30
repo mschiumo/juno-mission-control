@@ -105,6 +105,12 @@ export interface Trade {
   isMerged?: boolean;
   mergedFrom?: string[];
   mergedAt?: string;
+
+  // Brokerage sync provenance (set by SnapTrade sync; absent on manual/CSV trades)
+  source?: 'manual' | 'csv' | 'broker';
+  externalId?: string;      // stable, deterministic id of the round-trip from the broker sync
+  brokerAccountId?: string; // SnapTrade account id this trade was synced from
+  brokerage?: string;       // brokerage display name (e.g. "Robinhood")
 }
 
 // ============================================================================
