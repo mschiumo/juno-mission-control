@@ -12,6 +12,7 @@ import {
   BarChart,
   Bar,
   Cell,
+  ReferenceLine,
 } from 'recharts';
 import {
   TrendingUp,
@@ -422,17 +423,6 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     return { total, commissions, borrow, hasBreakdown };
   }, [allDailyFees, period]);
 
-  // The earliest daily balance we hold at all (not period-filtered). Used to
-  // decide whether the visible window reaches back to the start of the
-  // account — only then does the manual starting balance belong on the curve.
-  const earliestBalanceDate = useMemo(
-    () => allDailyBalances.reduce<string | null>(
-      (min, b) => (min === null || b.date < min ? b.date : min),
-      null,
-    ),
-    [allDailyBalances],
-  );
-
   // Build equity curve. Prefer the broker's authoritative daily balances —
   // these handle deposits, withdrawals, interest, fees automatically. Fall
   // back to "starting balance + cumulative P&L" only when no balances are
@@ -481,19 +471,10 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         });
       }
 
-      // Anchor the curve at the user's manually-entered starting balance so
-      // editing it visibly re-shapes the chart. Only when the window reaches
-      // the oldest balance we have — on a shorter period the account's origin
-      // is off-screen and prepending it would distort the view.
-      if (startingBalance > 0 && filteredBalances[0].date === earliestBalanceDate) {
-        curve.unshift({
-          date: 'start',
-          label: 'Start',
-          cumPnL: 0,
-          nlv: Number(startingBalance.toFixed(2)),
-        });
-      }
-
+      // Deliberately no synthetic "start" point here: these balances are the
+      // broker's own record, and prepending a hand-entered figure in front of
+      // them invents account history that never happened. The starting balance
+      // is surfaced as a reference line on the chart instead.
       return curve;
     }
 
@@ -511,11 +492,13 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         nlv: Number((startingBalance + cumulative).toFixed(2)),
       };
     });
+    // Safe to anchor here — this series *is* "starting balance + P&L", so the
+    // starting balance is its genuine origin rather than an outside estimate.
     if (startingBalance > 0) {
       curve.unshift({ date: 'start', label: 'Start', cumPnL: 0, nlv: Number(startingBalance.toFixed(2)) });
     }
     return curve;
-  }, [closedTrades, startingBalance, filteredBalances, earliestBalanceDate]);
+  }, [closedTrades, startingBalance, filteredBalances]);
 
   // Day of week performance
   const dayOfWeekData = useMemo(() => {
@@ -542,6 +525,15 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         };
       });
   }, [closedTrades]);
+
+  // Y range must stretch to cover the starting-balance reference line —
+  // 'dataMin'/'dataMax' only see the curve, so a starting balance outside the
+  // curve's range would put the line off-chart.
+  const yDomain = useMemo<[number | string, number | string]>(() => {
+    if (!(startingBalance > 0) || equityCurve.length === 0) return ['dataMin', 'dataMax'];
+    const values = equityCurve.map((p) => p.nlv);
+    return [Math.min(...values, startingBalance), Math.max(...values, startingBalance)];
+  }, [equityCurve, startingBalance]);
 
   const hasData = allTrades.length > 0;
   // NLV = current broker balance (last point on the curve, which uses real
@@ -689,7 +681,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
                     tickLine={false}
                     axisLine={{ stroke: 'rgba(255,255,255,0.04)' }}
                     tickFormatter={(v: number) => formatNLV(v)}
-                    domain={['dataMin', 'dataMax']}
+                    domain={yDomain}
                     width={68}
                   />
                   <Tooltip content={<EquityTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.06)', strokeDasharray: '4 4' }} />
@@ -700,6 +692,23 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
                     strokeWidth={2}
                     fill="url(#equityGradient)"
                   />
+                  {/* Where the account started, per the user's own figure.
+                      Drawn as a line rather than a data point so it never
+                      implies account history the broker didn't record. */}
+                  {startingBalance > 0 && (
+                    <ReferenceLine
+                      y={startingBalance}
+                      stroke="rgba(255,255,255,0.3)"
+                      strokeDasharray="5 4"
+                      strokeWidth={1}
+                      label={{
+                        value: `Start ${formatNLV(startingBalance)}`,
+                        position: 'insideTopLeft',
+                        fill: '#6B7280',
+                        fontSize: 10,
+                      }}
+                    />
+                  )}
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
