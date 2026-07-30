@@ -422,6 +422,17 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     return { total, commissions, borrow, hasBreakdown };
   }, [allDailyFees, period]);
 
+  // The earliest daily balance we hold at all (not period-filtered). Used to
+  // decide whether the visible window reaches back to the start of the
+  // account — only then does the manual starting balance belong on the curve.
+  const earliestBalanceDate = useMemo(
+    () => allDailyBalances.reduce<string | null>(
+      (min, b) => (min === null || b.date < min ? b.date : min),
+      null,
+    ),
+    [allDailyBalances],
+  );
+
   // Build equity curve. Prefer the broker's authoritative daily balances —
   // these handle deposits, withdrawals, interest, fees automatically. Fall
   // back to "starting balance + cumulative P&L" only when no balances are
@@ -470,6 +481,19 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         });
       }
 
+      // Anchor the curve at the user's manually-entered starting balance so
+      // editing it visibly re-shapes the chart. Only when the window reaches
+      // the oldest balance we have — on a shorter period the account's origin
+      // is off-screen and prepending it would distort the view.
+      if (startingBalance > 0 && filteredBalances[0].date === earliestBalanceDate) {
+        curve.unshift({
+          date: 'start',
+          label: 'Start',
+          cumPnL: 0,
+          nlv: Number(startingBalance.toFixed(2)),
+        });
+      }
+
       return curve;
     }
 
@@ -477,7 +501,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     if (!closedTrades.length) return [];
     const sortedDays = [...pnlByDay.entries()].sort(([a], [b]) => a.localeCompare(b));
     let cumulative = 0;
-    return sortedDays.map(([date, pnl]) => {
+    const curve = sortedDays.map(([date, pnl]) => {
       cumulative += pnl;
       const dt = new Date(date + 'T12:00:00');
       return {
@@ -487,7 +511,11 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         nlv: Number((startingBalance + cumulative).toFixed(2)),
       };
     });
-  }, [closedTrades, startingBalance, filteredBalances]);
+    if (startingBalance > 0) {
+      curve.unshift({ date: 'start', label: 'Start', cumPnL: 0, nlv: Number(startingBalance.toFixed(2)) });
+    }
+    return curve;
+  }, [closedTrades, startingBalance, filteredBalances, earliestBalanceDate]);
 
   // Day of week performance
   const dayOfWeekData = useMemo(() => {
