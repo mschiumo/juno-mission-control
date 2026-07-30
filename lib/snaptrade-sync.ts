@@ -17,6 +17,8 @@ import { Trade } from '@/types/trading';
 import { listAccounts, getAllAccountActivities } from '@/lib/snaptrade';
 import { buildTradesFromActivities } from '@/lib/snaptrade-transform';
 import { getAllTrades, replaceAllTrades } from '@/lib/db/trades-v2';
+import { getAccountSettings } from '@/lib/db/account-settings';
+import { isAccountActive } from '@/lib/account-classification';
 import {
   BrokerConnection,
   BrokerAccount,
@@ -65,10 +67,21 @@ export async function syncUserTrades(connection: BrokerConnection): Promise<Sync
     console.error('syncUserTrades: listAccounts failed, using cached accounts:', error);
   }
 
+  // A single brokerage login can expose several accounts (Robinhood surfaces
+  // Individual, Crypto, …). Only pull the ones the user actually chose to use —
+  // skipping the rest avoids importing unwanted history and saves API calls.
+  const settings = await getAccountSettings(userId);
+  const activeAccounts = accounts.filter(a => isAccountActive(settings, a.id));
+  if (activeAccounts.length < accounts.length) {
+    console.info(
+      `syncUserTrades: skipping ${accounts.length - activeAccounts.length} deactivated account(s) for user ${userId}`,
+    );
+  }
+
   const perAccount: SyncResult['perAccount'] = [];
   const brokerTrades: Trade[] = [];
 
-  for (const acct of accounts) {
+  for (const acct of activeAccounts) {
     const activities = await getAllAccountActivities({
       snaptradeUserId,
       userSecret,
@@ -101,14 +114,15 @@ export async function syncUserTrades(connection: BrokerConnection): Promise<Sync
   //      backfills brokerage history asynchronously after a link).
   // In both cases the broker is NOT the source of truth for anything, so we skip
   // the write entirely and leave existing trades untouched.
-  if (accounts.length === 0 || brokerTrades.length === 0) {
+  if (activeAccounts.length === 0 || brokerTrades.length === 0) {
     console.warn(
       `syncUserTrades: no broker trades to write for user ${userId} ` +
-        `(accounts=${accounts.length}, brokerActivities=${perAccount.reduce((n, p) => n + p.activities, 0)}); ` +
+        `(activeAccounts=${activeAccounts.length}/${accounts.length}, ` +
+        `brokerActivities=${perAccount.reduce((n, p) => n + p.activities, 0)}); ` +
         `leaving ${existing.length} existing trades untouched.`
     );
     await setLastSyncedAt(userId, new Date().toISOString());
-    return { userId, accounts: accounts.length, tradesWritten: 0, backedUp: 0, perAccount };
+    return { userId, accounts: activeAccounts.length, tradesWritten: 0, backedUp: 0, perAccount };
   }
 
   // Carry user-authored journal fields forward (match by stable externalId).
@@ -138,7 +152,7 @@ export async function syncUserTrades(connection: BrokerConnection): Promise<Sync
 
   return {
     userId,
-    accounts: accounts.length,
+    accounts: activeAccounts.length,
     tradesWritten: merged.length,
     backedUp,
     perAccount,

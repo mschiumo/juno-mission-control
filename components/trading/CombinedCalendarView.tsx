@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 import BrokerageSyncBar from './BrokerageSyncBar';
 import { getTodayInEST } from '@/lib/date-utils';
+import { tradingJournalTrades } from '@/lib/account-classification';
+import type { AccountSettingsMap } from '@/lib/db/account-settings';
 
 // ============================================================================
 // Types
@@ -71,6 +73,8 @@ interface Trade {
   entryNotes?: string;
   exitNotes?: string;
   followedPlan?: boolean;
+  /** SnapTrade account this trade came from; absent on manual/imported trades. */
+  brokerAccountId?: string;
 }
 
 type SortField = 'date' | 'symbol' | 'side' | 'entryPrice' | 'shares' | 'pnl';
@@ -186,21 +190,29 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, journalRes, tradesRes] = await Promise.all([
+      const [statsRes, journalRes, tradesRes, settingsRes] = await Promise.all([
         fetch(`/api/trades/daily-stats?_t=${Date.now()}`),
         fetch(`/api/daily-journal?_t=${Date.now()}`),
-        fetch('/api/trades?userId=default&perPage=1000')
+        fetch('/api/trades?userId=default&perPage=1000'),
+        fetch('/api/user/account-settings')
       ]);
 
-      const [statsData, journalData, tradesData] = await Promise.all([
+      const [statsData, journalData, tradesData, settingsData] = await Promise.all([
         statsRes.json(),
         journalRes.json(),
-        tradesRes.json()
+        tradesRes.json(),
+        settingsRes.json().catch(() => ({}))
       ]);
 
       if (statsData.success) setDailyStats(statsData.dailyStats || []);
       if (journalData.success) setJournalEntries(journalData.entries || []);
-      if (tradesData.success && tradesData.data) setAllTrades(tradesData.data.trades || []);
+      if (tradesData.success && tradesData.data) {
+        // Keep long-term holdings and deactivated accounts out of the trading
+        // journal. /api/trades stays unfiltered because Performance needs the
+        // full set to render the long-term portfolio view.
+        const settings: AccountSettingsMap = settingsData?.settings ?? {};
+        setAllTrades(tradingJournalTrades<Trade>(tradesData.data.trades || [], settings));
+      }
     } catch (error) {
       console.error('Error fetching calendar data:', error);
     } finally {

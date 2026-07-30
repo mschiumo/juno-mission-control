@@ -14,7 +14,7 @@
  * link reports the reason instead of silently syncing nothing.
  */
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Link2, AlertTriangle } from 'lucide-react';
 
@@ -23,16 +23,21 @@ const JOURNAL_PATH = '/?tab=trading&subtab=overview';
 function BrokerageReturn() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [message, setMessage] = useState('Finishing up your connection…');
-  const [failed, setFailed] = useState(false);
-  // React 18/19 strict mode double-invokes effects; the sync POST must not run twice.
+
+  // Whether the portal itself reported a failure is known at first render, so
+  // it's derived here rather than latched through state in an effect.
+  const portalError = searchParams.get('error') || searchParams.get('errorCode');
+  const failed = Boolean(portalError);
+  const message = failed
+    ? 'That brokerage link didn’t complete.'
+    : 'Pulling your trades from the brokerage…';
+
+  // React strict mode double-invokes effects; the sync POST must not run twice.
   const started = useRef(false);
 
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-
-    const portalError = searchParams.get('error') || searchParams.get('errorCode');
 
     const go = (params: Record<string, string>) => {
       const qs = new URLSearchParams(params).toString();
@@ -41,15 +46,12 @@ function BrokerageReturn() {
 
     // The portal itself failed or was abandoned — don't bother syncing.
     if (portalError) {
-      setFailed(true);
-      setMessage('That brokerage link didn’t complete.');
       setTimeout(() => go({ brokerage: 'error', reason: portalError.slice(0, 120) }), 1400);
       return;
     }
 
     (async () => {
       try {
-        setMessage('Pulling your trades from the brokerage…');
         const res = await fetch('/api/snaptrade/sync', { method: 'POST' });
         const json = await res.json();
         if (json.success) {
@@ -65,7 +67,7 @@ function BrokerageReturn() {
         go({ brokerage: 'partial' });
       }
     })();
-  }, [router, searchParams]);
+  }, [router, portalError]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--surface-0, #0d1117)' }}>

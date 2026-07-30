@@ -2,14 +2,20 @@ import { NextResponse } from 'next/server';
 import { getAllTrades } from '@/lib/db/trades-v2';
 import { getESTDateFromTimestamp } from '@/lib/date-utils';
 import { requireUserId } from '@/lib/auth-session';
+import { getAccountSettings } from '@/lib/db/account-settings';
+import { tradingJournalTrades } from '@/lib/account-classification';
 
 export async function GET() {
   const { userId, error } = await requireUserId();
   if (error) return error;
 
   try {
-    const trades = await getAllTrades(userId);
-    
+    // The calendar is a short-term trading log: long-term (buy-and-hold)
+    // accounts and accounts the user switched off are excluded, so daily P&L
+    // and win rate describe trading activity only.
+    const settings = await getAccountSettings(userId);
+    const trades = tradingJournalTrades(await getAllTrades(userId), settings);
+
     if (trades.length === 0) {
       return NextResponse.json({
         success: true,

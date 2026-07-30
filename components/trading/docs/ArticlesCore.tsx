@@ -443,6 +443,48 @@ export function BrokerageSyncArticle() {
         </Tip>
       </DocSection>
 
+      <DocSection title="Choosing which accounts to use">
+        <P>
+          One brokerage login often exposes several accounts — a Robinhood connection alone can surface an Individual
+          account and a Crypto account. Linking the brokerage doesn&apos;t mean all of them feed the app. In the
+          <UI>Connect Brokerage</UI> dialog each discovered account has a checkbox, and you can turn on up to two.
+        </P>
+        <P>
+          Accounts you leave off are skipped entirely — the sync never requests their history, so nothing from them
+          reaches your Journal or Performance tab.
+        </P>
+        <Note>
+          Two separate limits are at play: up to two <Em>brokerage connections</Em> (logins), and up to two{' '}
+          <Em>accounts in use</Em> drawn from them. The dialog shows both counts.
+        </Note>
+      </DocSection>
+
+      <DocSection title="Trading vs. long-term accounts">
+        <P>
+          Each account you switch on is labelled either <UI>Trading</UI> or <UI>Long-term</UI>. The distinction decides
+          where its data shows up, because a short-term trade log and a buy-and-hold portfolio need to be measured
+          differently — win rate and daily P&amp;L say nothing useful about a position you intend to hold for years.
+        </P>
+        <RefTable
+          headers={['Designation', 'Where its data appears']}
+          rows={[
+            [
+              'Trading (default)',
+              'The Journal calendar, daily P&L, win rate, streaks, goals — the full short-term trading picture.',
+            ],
+            [
+              'Long-term',
+              'Its own portfolio view on the Performance tab: holdings with cost basis, market value, unrealised P&L, realised P&L by security, and per-ticker news. Deliberately kept out of the Journal and every trading statistic.',
+            ],
+          ]}
+        />
+        <P>
+          Switch between accounts using the selector at the top of <FeatureLink subtab="performance">Performance</FeatureLink>,
+          where you can also rename an account or change its designation later. <UI>All Accounts</UI> combines your
+          trading accounts only — long-term accounts stay separate so they can&apos;t distort the numbers.
+        </P>
+      </DocSection>
+
       <DocSection title="When it syncs">
         <Bullets
           items={[

@@ -13,7 +13,7 @@
  * The query params are stripped once read so a refresh doesn't replay it.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { CheckCircle2, AlertTriangle, Clock, X } from 'lucide-react';
 
@@ -23,24 +23,32 @@ export default function BrokerageConnectedBanner() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [state, setState] = useState<{ kind: Kind; synced: number; name: string; reason: string } | null>(null);
 
-  useEffect(() => {
+  // Read the one-shot result during the first render rather than in an effect —
+  // the params are stripped immediately afterwards, so this must not depend on
+  // a second render to latch.
+  const [state, setState] = useState<{ kind: Kind; synced: number; name: string; reason: string } | null>(() => {
     const brokerage = searchParams.get('brokerage');
-    if (brokerage !== 'connected' && brokerage !== 'error' && brokerage !== 'partial') return;
-
-    setState({
+    if (brokerage !== 'connected' && brokerage !== 'error' && brokerage !== 'partial') return null;
+    return {
       kind: brokerage,
       synced: Number(searchParams.get('synced') ?? 0),
       name: searchParams.get('name') ?? '',
       reason: searchParams.get('reason') ?? '',
-    });
+    };
+  });
 
-    // Drop the one-shot params but keep the tab/subtab the user landed on.
+  const strippedParams = useRef(false);
+
+  useEffect(() => {
+    if (!state || strippedParams.current) return;
+    strippedParams.current = true;
+    // Drop the one-shot params but keep the tab/subtab the user landed on, so
+    // a refresh doesn't replay the banner.
     const next = new URLSearchParams(searchParams.toString());
     for (const k of ['brokerage', 'synced', 'name', 'reason']) next.delete(k);
     router.replace(`${pathname}?${next.toString()}`, { scroll: false });
-  }, [searchParams, router, pathname]);
+  }, [state, searchParams, router, pathname]);
 
   if (!state) return null;
 
