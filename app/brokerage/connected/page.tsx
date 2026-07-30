@@ -16,13 +16,22 @@
 
 import { Suspense, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Link2, AlertTriangle } from 'lucide-react';
+import { isOwnerEmail } from '@/lib/owner';
 
 const JOURNAL_PATH = '/?tab=trading&subtab=overview';
 
 function BrokerageReturn() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Brokerage connect is owner-only. The sync this page fires would 403 for
+  // anyone else, so send them straight back rather than showing a failure
+  // banner for a flow they can't start in the first place.
+  const { data: session, status: sessionStatus } = useSession();
+  const isOwner = isOwnerEmail(session?.user?.email);
+  const sessionReady = sessionStatus !== 'loading';
 
   // Whether the portal itself reported a failure is known at first render, so
   // it's derived here rather than latched through state in an effect.
@@ -36,13 +45,20 @@ function BrokerageReturn() {
   const started = useRef(false);
 
   useEffect(() => {
-    if (started.current) return;
+    // Wait for the session before deciding anything — acting on a
+    // still-loading session would bounce the owner out of their own flow.
+    if (!sessionReady || started.current) return;
     started.current = true;
 
     const go = (params: Record<string, string>) => {
       const qs = new URLSearchParams(params).toString();
       router.replace(`${JOURNAL_PATH}&${qs}`);
     };
+
+    if (!isOwner) {
+      router.replace(JOURNAL_PATH);
+      return;
+    }
 
     // The portal itself failed or was abandoned — don't bother syncing.
     if (portalError) {
@@ -67,7 +83,7 @@ function BrokerageReturn() {
         go({ brokerage: 'partial' });
       }
     })();
-  }, [router, portalError]);
+  }, [router, portalError, isOwner, sessionReady]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--surface-0, #0d1117)' }}>

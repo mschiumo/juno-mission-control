@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireOwner } from '@/lib/auth-session';
 import {
   getAccountSettings,
   patchAccountSetting,
@@ -9,7 +9,7 @@ import { getBrokerConnection } from '@/lib/db/broker-connections';
 import { MANUAL_ACCOUNT_ID, MAX_ACTIVE_ACCOUNTS } from '@/lib/account-classification';
 
 export async function GET() {
-  const authResult = await requireUserId();
+  const authResult = await requireOwner();
   if (authResult.error) return authResult.error;
   const { userId } = authResult;
 
@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const authResult = await requireUserId();
+  const authResult = await requireOwner();
   if (authResult.error) return authResult.error;
   const { userId } = authResult;
 

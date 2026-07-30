@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, ComponentType } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { isOwnerEmail } from '@/lib/owner';
 import {
   Rocket,
   BookOpen,
@@ -179,17 +181,31 @@ const GROUPS: DocGroup[] = [
   },
 ];
 
-const ALL_ARTICLES = GROUPS.flatMap((g) => g.articles);
-
 export default function DocsView() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // Owner-only articles document owner-only features (agentic trading,
+  // brokerage sync). Until now `ownerOnly` was just a badge, so non-owners
+  // could read — and deep-link to — guides for things they can't reach.
+  const { data: session } = useSession();
+  const isOwner = isOwnerEmail(session?.user?.email);
+
+  const groups = useMemo(
+    () =>
+      (isOwner
+        ? GROUPS
+        : GROUPS.map((g) => ({ ...g, articles: g.articles.filter((a) => !a.ownerOnly) }))
+      ).filter((g) => g.articles.length > 0),
+    [isOwner],
+  );
+  const articles = useMemo(() => groups.flatMap((g) => g.articles), [groups]);
+
   const getDocFromUrl = useCallback((): string => {
     const doc = searchParams.get('doc');
-    return doc && ALL_ARTICLES.some((a) => a.id === doc) ? doc : 'getting-started';
-  }, [searchParams]);
+    return doc && articles.some((a) => a.id === doc) ? doc : 'getting-started';
+  }, [searchParams, articles]);
 
   const [activeId, setActiveIdState] = useState<string>(getDocFromUrl);
   const [query, setQuery] = useState('');
@@ -216,20 +232,20 @@ export default function DocsView() {
     setActiveIdState((cur) => (cur === fromUrl ? cur : fromUrl));
   }, [getDocFromUrl]);
 
-  const active = ALL_ARTICLES.find((a) => a.id === activeId) ?? ALL_ARTICLES[0];
-  const activeIndex = ALL_ARTICLES.indexOf(active);
-  const prev = activeIndex > 0 ? ALL_ARTICLES[activeIndex - 1] : null;
-  const next = activeIndex < ALL_ARTICLES.length - 1 ? ALL_ARTICLES[activeIndex + 1] : null;
+  const active = articles.find((a) => a.id === activeId) ?? articles[0];
+  const activeIndex = articles.indexOf(active);
+  const prev = activeIndex > 0 ? articles[activeIndex - 1] : null;
+  const next = activeIndex < articles.length - 1 ? articles[activeIndex + 1] : null;
 
   const q = query.trim().toLowerCase();
   const matches = useMemo(
     () =>
       q
-        ? ALL_ARTICLES.filter(
+        ? articles.filter(
             (a) => a.title.toLowerCase().includes(q) || a.blurb.toLowerCase().includes(q) || a.keywords.includes(q),
           )
         : null,
-    [q],
+    [q, articles],
   );
 
   const ArticleBody = active.Component;
@@ -284,7 +300,7 @@ export default function DocsView() {
           </nav>
         ) : (
           <nav className="space-y-4">
-            {GROUPS.map((group) => (
+            {groups.map((group) => (
               <div key={group.label} className="space-y-1">
                 <div className="text-[10px] font-bold uppercase tracking-widest px-1" style={{ color: 'var(--text-tertiary)' }}>
                   {group.label}
@@ -304,7 +320,7 @@ export default function DocsView() {
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
             <span>Docs</span>
             <ChevronRight className="w-3 h-3" />
-            <span>{GROUPS.find((g) => g.articles.includes(active))?.label}</span>
+            <span>{groups.find((g) => g.articles.includes(active))?.label}</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             {active.title}
