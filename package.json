@@ -26,7 +26,8 @@
     "react-dom": "19.2.3",
     "recharts": "^3.8.1",
     "redis": "^4.7.0",
-    "resend": "^6.9.4"
+    "resend": "^6.9.4",
+    "snaptrade-typescript-sdk": "^10.0.17"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
