@@ -32,6 +32,8 @@ interface AccountsStatus {
   connected: boolean;
   accounts: BrokerAccount[];
   lastSyncedAt: string | null;
+  /** Trade provenance split — see /api/snaptrade/accounts. */
+  counts?: { broker: number; imported: number };
 }
 
 interface BrokerageSyncBarProps {
@@ -131,12 +133,26 @@ export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSy
                 </span>
               ))}
             </div>
-            {status?.lastSyncedAt && (
+            {status?.lastSyncedAt ? (
               <span
                 className="text-xs text-[#8b949e]"
                 title={new Date(status.lastSyncedAt).toLocaleString()}
               >
                 Updated {relativeTime(status.lastSyncedAt)}
+              </span>
+            ) : (
+              <span className="text-xs text-[#d29922]" title="Linked, but no sync has run yet">
+                Never synced
+              </span>
+            )}
+            {/* Makes it obvious whether the calendar is showing live brokerage
+                data or only account-statement imports — they look identical. */}
+            {status?.counts && (
+              <span
+                className="text-xs text-[#8b949e]"
+                title="Trades written by the brokerage sync vs. brought in by manual/statement import"
+              >
+                {status.counts.broker} from broker · {status.counts.imported} imported
               </span>
             )}
             {msg && <span className="text-xs text-[#58a6ff]">{msg}</span>}

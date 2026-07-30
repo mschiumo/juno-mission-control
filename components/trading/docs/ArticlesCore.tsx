@@ -370,9 +370,123 @@ export function ImportingArticle() {
 
       <DocSection title="What about a live brokerage connection?">
         <P>
-          Direct broker sync (log in once, trades appear automatically) is not currently available — statement import is
-          the supported path, and it deliberately keeps the app read-only with respect to your brokerage: no credentials
-          stored, no orders placed. Import takes under a minute a day, and one file per day keeps every tab current.
+          There is one — trades can sync straight from your broker through SnapTrade, so you don&apos;t have to export a
+          file every day. It&apos;s <OwnerBadge /> for now, and it doesn&apos;t replace statement import: the two run side
+          by side, and statement balances still drive the equity curve. See{' '}
+          <DocLink doc="brokerage-sync">Brokerage Sync (SnapTrade)</DocLink> for how it works.
+        </P>
+      </DocSection>
+    </div>
+  );
+}
+
+export function BrokerageSyncArticle() {
+  return (
+    <div className="space-y-8">
+      <P>
+        Instead of exporting a statement every day, you can link your brokerage once and let trades flow in on their own.
+        That link runs through <Em>SnapTrade</Em>, and this page explains what that is, what it can and can&apos;t do,
+        and how synced trades sit alongside the ones you import by hand.
+      </P>
+      <div>
+        <FeatureLink>Open the Journal to connect</FeatureLink>
+      </div>
+
+      <DocSection title="What SnapTrade is">
+        <P>
+          SnapTrade is a licensed third-party service that specializes in brokerage connections. Rather than
+          ConfluenceTrading building and maintaining a separate integration for every broker — each with its own login
+          system, API, and approval process — SnapTrade maintains those connections and exposes one common interface for
+          reading your account data.
+        </P>
+        <P>
+          Practically, it means you log in to <Em>your broker</Em>, on your broker&apos;s own page, and the broker tells
+          SnapTrade it may read that account. ConfluenceTrading then reads your executed trades through SnapTrade.
+        </P>
+        <Note>
+          Your brokerage username and password are never typed into ConfluenceTrading and never stored here. The login
+          happens on the broker&apos;s side of the connection; this app only ever holds a revocable authorization.
+        </Note>
+      </DocSection>
+
+      <DocSection title="Read-only, by design">
+        <P>
+          The connection is requested in <Em>read</Em> mode. It can list your accounts and pull your trade history — it
+          cannot place, modify, or cancel an order, and it cannot move money. Nothing about linking a brokerage here
+          gives the app the ability to trade for you.
+        </P>
+        <Warn>
+          Agentic order placement is a completely separate system with its own credentials, arming switches, and kill
+          switch. Connecting a brokerage for journaling does not arm anything.
+        </Warn>
+      </DocSection>
+
+      <DocSection title="Connecting an account">
+        <Steps>
+          <Step title="Start from the Journal or Performance tab">
+            Both tabs carry the brokerage strip at the top. Click <UI>Connect Broker</UI> to open the dialog, then{' '}
+            <UI>Connect account</UI>.
+          </Step>
+          <Step title="Pick your broker and log in">
+            You&apos;re handed to SnapTrade&apos;s secure Connection Portal — Robinhood, Schwab, Fidelity, Webull, E*TRADE,
+            tastytrade, Interactive Brokers, Coinbase and others. Log in there and approve read access.
+          </Step>
+          <Step title="Come back and let the first sync run">
+            You land back on the Journal automatically. The first pull starts on its own and a banner reports how many
+            trades it wrote — you don&apos;t need to press anything.
+          </Step>
+        </Steps>
+        <Tip>
+          An empty first sync is normal and not a failure. Brokers backfill trade history asynchronously after a new
+          link, so the trades often arrive minutes later. Press <UI>Refresh data</UI> then, or let the overnight sync
+          pick them up.
+        </Tip>
+      </DocSection>
+
+      <DocSection title="When it syncs">
+        <Bullets
+          items={[
+            <>
+              <Em>On connect</Em> — the first pull runs the moment you return from the portal.
+            </>,
+            <>
+              <Em>On demand</Em> — <UI>Refresh data</UI> on the brokerage strip pulls immediately.
+            </>,
+            <>
+              <Em>Overnight</Em> — an automatic sync runs once a day, so the calendar stays current without you
+              touching it.
+            </>,
+          ]}
+        />
+      </DocSection>
+
+      <DocSection title="Synced trades vs. imported trades">
+        <P>
+          Both kinds live in the same trade list and look the same on the calendar, so the brokerage strip spells out the
+          split — for example <UI>142 from broker · 88 imported</UI>. That line is the quickest way to confirm live data
+          is actually arriving rather than assuming it is.
+        </P>
+        <RefTable
+          headers={['Behaviour', 'What to expect']}
+          rows={[
+            ['Ownership', 'A sync only ever rewrites broker-sourced trades. Trades you imported or typed in are never touched.'],
+            ['Your notes survive', 'Journal fields you wrote on a synced trade — notes, plan adherence, tags — carry forward across re-syncs.'],
+            ['Empty results are ignored', 'If a sync returns nothing, it writes nothing. An empty feed can never blank your trade list.'],
+            ['Equity curve', 'Account-statement balances remain the source of truth for NLV. Synced trades add P&L after the last statement balance date.'],
+          ]}
+        />
+        <Note>
+          That last row surprises people: if you connect a broker and the equity curve doesn&apos;t visibly move, it&apos;s
+          usually because the synced trades pre-date your most recent imported statement balance — the statement already
+          accounted for them. See <DocLink doc="performance">Performance &amp; Analytics</DocLink>.
+        </Note>
+      </DocSection>
+
+      <DocSection title="Disconnecting">
+        <P>
+          <UI>Manage</UI> on the brokerage strip opens the same dialog, where <UI>Disconnect</UI> removes the link and
+          stops all future syncing. Trades already pulled stay in your journal — disconnecting is not a delete. You can
+          also revoke access from your broker&apos;s own security settings at any time.
         </P>
       </DocSection>
     </div>

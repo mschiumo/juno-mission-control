@@ -14,6 +14,24 @@ import {
   setBrokerAccounts,
   type BrokerAccount,
 } from '@/lib/db/broker-connections';
+import { getAllTrades } from '@/lib/db/trades-v2';
+
+/**
+ * Split the stored trades by provenance. Trades written by the brokerage sync
+ * carry source === 'broker'; everything else came from a manual entry or an
+ * account-statement/CSV import. Surfacing both makes it possible to tell at a
+ * glance whether the calendar is actually showing live brokerage data or only
+ * imported statements — they otherwise look identical in the UI.
+ */
+async function tradeCounts(userId: string): Promise<{ broker: number; imported: number }> {
+  try {
+    const trades = await getAllTrades(userId);
+    const broker = trades.filter(t => t.source === 'broker').length;
+    return { broker, imported: trades.length - broker };
+  } catch {
+    return { broker: 0, imported: 0 };
+  }
+}
 
 // Minimal shape of a SnapTrade Account we depend on (see SDK `Account`).
 interface SnapTradeAccount {
@@ -71,6 +89,7 @@ export async function GET(): Promise<NextResponse> {
         connected: accounts.length > 0,
         accounts,
         lastSyncedAt: connection.lastSyncedAt ?? null,
+        counts: await tradeCounts(userId),
       },
     });
   } catch (error) {
