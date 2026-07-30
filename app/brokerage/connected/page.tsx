@@ -16,9 +16,8 @@
 
 import { Suspense, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import { Link2, AlertTriangle } from 'lucide-react';
-import { isOwnerEmail } from '@/lib/owner';
+import { useBrokerageAccess } from '@/lib/use-entitlements';
 
 const JOURNAL_PATH = '/?tab=trading&subtab=overview';
 
@@ -26,12 +25,11 @@ function BrokerageReturn() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Brokerage connect is owner-only. The sync this page fires would 403 for
-  // anyone else, so send them straight back rather than showing a failure
+  // Brokerage connect is a paid feature. The sync this page fires would 403 for
+  // a free account, so send them straight back rather than showing a failure
   // banner for a flow they can't start in the first place.
-  const { data: session, status: sessionStatus } = useSession();
-  const isOwner = isOwnerEmail(session?.user?.email);
-  const sessionReady = sessionStatus !== 'loading';
+  const { allowed: isOwner, loading: entitlementsLoading } = useBrokerageAccess();
+  const sessionReady = !entitlementsLoading;
 
   // Whether the portal itself reported a failure is known at first render, so
   // it's derived here rather than latched through state in an effect.

@@ -15,9 +15,8 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
-import { isOwnerEmail } from '@/lib/owner';
+import { useBrokerageAccess } from '@/lib/use-entitlements';
 import BrokerageSyncBar from '@/components/trading/BrokerageSyncBar';
 import AccountToggle, { type PerfAccount } from '@/components/trading/AccountToggle';
 import DayTradingPerformance from '@/components/trading/DayTradingPerformance';
@@ -44,11 +43,10 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
   const [accountSettings, setAccountSettings] = useState<AccountSettingsMap>({});
   const [selectedAccountId, setSelectedAccountId] = useState<string>(ALL_ACCOUNT_ID);
 
-  // Brokerage connections are owner-only (billing protection). Only owners hit
-  // the owner-gated /api/snaptrade/accounts route — non-owners just see the
-  // Manual/Imported slot and never make a doomed 403 call.
-  const { data: session } = useSession();
-  const isOwner = isOwnerEmail(session?.user?.email);
+  // The account layer rides on live brokerage sync, which is a paid feature.
+  // Only entitled users hit /api/snaptrade/accounts — free accounts get the
+  // single combined view and never make a doomed 403 call.
+  const { allowed: hasBrokerage } = useBrokerageAccess();
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -58,10 +56,10 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         fetch('/api/user/prefs').then((r) => r.json()).catch(() => ({})),
         fetch('/api/user/daily-balances').then((r) => r.json()).catch(() => ({})),
         fetch('/api/user/fees').then((r) => r.json()).catch(() => ({})),
-        isOwner
+        hasBrokerage
           ? fetch('/api/snaptrade/accounts').then((r) => r.json()).catch(() => ({}))
           : Promise.resolve({}),
-        isOwner
+        hasBrokerage
           ? fetch('/api/user/account-settings').then((r) => r.json()).catch(() => ({}))
           : Promise.resolve({}),
       ]);
@@ -77,7 +75,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     } finally {
       setLoading(false);
     }
-  }, [isOwner]);
+  }, [hasBrokerage]);
 
   useEffect(() => { loadData(); }, [loadData, refreshKey]);
 
@@ -93,7 +91,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     const list: PerfAccount[] = [
       { id: ALL_ACCOUNT_ID, label: 'All Accounts', type: 'day-trading', editable: false },
     ];
-    if (!isOwner) return list;
+    if (!hasBrokerage) return list;
     if (hasManualTrades) {
       const s = accountSettings[MANUAL_ACCOUNT_ID];
       list.push({
@@ -114,7 +112,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
       });
     }
     return list;
-  }, [isOwner, hasManualTrades, brokerAccounts, accountSettings]);
+  }, [hasBrokerage, hasManualTrades, brokerAccounts, accountSettings]);
 
   // Keep the selection valid if accounts change (e.g. a broker disconnects).
   useEffect(() => {

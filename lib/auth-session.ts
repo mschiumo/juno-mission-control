@@ -1,6 +1,7 @@
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 import { isOwnerEmail } from '@/lib/owner';
+import { getEntitlements } from '@/lib/db/entitlements';
 
 /**
  * Get the authenticated user's ID from the session.
@@ -40,6 +41,44 @@ export async function requireOwner(): Promise<
     };
   }
   return { userId, email: email! };
+}
+
+/**
+ * Require the authenticated user to be entitled to live brokerage sync.
+ *
+ * This is the paid-feature gate: the owner always passes, and everyone else
+ * needs an active 'pro' entitlement. Use it instead of requireOwner() on every
+ * route that can cause SnapTrade activity — SnapTrade bills per connected
+ * user, so an ungated route is a route that can spend money.
+ *
+ * Returns 403 for unauthenticated and unentitled alike so we don't leak which
+ * case applies, but includes a machine-readable code so the client can tell an
+ * upgrade prompt from a hard error.
+ */
+export async function requireBrokerageAccess(): Promise<
+  | { userId: string; email: string; error?: never }
+  | { userId?: never; email?: never; error: NextResponse }
+> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  const email = session?.user?.email;
+  if (!userId) {
+    return { error: NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 }) };
+  }
+  const entitlements = await getEntitlements(userId, email);
+  if (!entitlements.brokerageAccess) {
+    return {
+      error: NextResponse.json(
+        {
+          success: false,
+          code: 'UPGRADE_REQUIRED',
+          error: 'Live brokerage sync is available on the paid plan.',
+        },
+        { status: 403 },
+      ),
+    };
+  }
+  return { userId, email: email ?? '' };
 }
 
 /**

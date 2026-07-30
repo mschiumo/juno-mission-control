@@ -15,9 +15,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+
 import { Link2, RefreshCw, Plug } from 'lucide-react';
-import { isOwnerEmail } from '@/lib/owner';
+import { useBrokerageAccess } from '@/lib/use-entitlements';
 import BrokerageConnectModal from './BrokerageConnectModal';
 
 interface BrokerAccount {
@@ -56,11 +56,10 @@ function relativeTime(iso: string): string {
 }
 
 export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSyncBarProps) {
-  // Brokerage connections are owner-only (billing protection) — non-owner
-  // accounts only see the existing manual CSV import. The server enforces this
+  // Live brokerage sync is a paid feature — SnapTrade bills us per connected
+  // user, so free accounts get manual CSV import only. The server enforces this
   // on every /api/snaptrade/* route; this just hides the UI.
-  const { data: session } = useSession();
-  const isOwner = isOwnerEmail(session?.user?.email);
+  const { allowed: canConnect, loading: entitlementsLoading } = useBrokerageAccess();
 
   const [status, setStatus] = useState<AccountsStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,9 +80,9 @@ export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSy
   }, []);
 
   useEffect(() => {
-    if (isOwner) loadStatus();
+    if (canConnect) loadStatus();
     else setLoading(false);
-  }, [isOwner, loadStatus]);
+  }, [canConnect, loadStatus]);
 
   const handleRefresh = async () => {
     setSyncing(true);
@@ -106,9 +105,10 @@ export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSy
     }
   };
 
-  // Owner-only feature; render nothing for every other account (they keep the
-  // manual CSV import). Also hides during the brief session-loading window.
-  if (!isOwner || loading) return null;
+  // Paid feature; render nothing for free accounts (they keep the manual CSV
+  // import). Also hides while the plan or status is still loading, so a paying
+  // user never sees the bar flicker away.
+  if (!canConnect || entitlementsLoading || loading) return null;
 
   const accounts = status?.accounts ?? [];
   const connected = Boolean(status?.connected && accounts.length > 0);

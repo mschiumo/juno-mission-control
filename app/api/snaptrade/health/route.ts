@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-session';
+import { requireBrokerageAccess } from '@/lib/auth-session';
 import { isSnapTradeConfigured, checkCredentials } from '@/lib/snaptrade';
 import { getRedisClient } from '@/lib/redis';
 
 export async function GET() {
-  const ownerCheck = await requireOwner();
+  const ownerCheck = await requireBrokerageAccess();
   if ('error' in ownerCheck) return ownerCheck.error;
 
   const clientId = process.env.SNAPTRADE_CLIENT_ID ?? '';

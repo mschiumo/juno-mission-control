@@ -2,37 +2,26 @@
  * DELETE /api/snaptrade/disconnect
  *
  * Removes the user's brokerage connection: deregisters them with SnapTrade
- * (which disables all their brokerage authorizations) and deletes our stored
- * connection record. Imported trades already in trades-v2 are left intact.
+ * (which disables all their brokerage authorizations and stops the per-user
+ * charge) and deletes our stored connection record. Imported trades already in
+ * trades-v2 are left intact.
+ *
+ * The teardown lives in lib/brokerage-access.ts because losing the paid
+ * entitlement has to do exactly the same thing — and because a failed
+ * deregistration needs to be queued for retry rather than silently dropped.
  */
 
 import { NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-session';
-import { isSnapTradeConfigured, deleteUser } from '@/lib/snaptrade';
-import { getBrokerConnection, deleteBrokerConnection } from '@/lib/db/broker-connections';
+import { requireBrokerageAccess } from '@/lib/auth-session';
+import { disconnectBrokerage } from '@/lib/brokerage-access';
 
 export async function DELETE(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireOwner();
+  const { userId, error: authError } = await requireBrokerageAccess();
   if (authError) return authError;
 
-  const connection = await getBrokerConnection(userId);
-  if (!connection) {
-    return NextResponse.json({ success: true, data: { disconnected: true } });
-  }
-
-  // Best-effort deregister on SnapTrade's side; proceed to clear our record
-  // regardless so a SnapTrade outage can't leave the user unable to disconnect.
-  if (isSnapTradeConfigured()) {
-    try {
-      await deleteUser(connection.snaptradeUserId);
-    } catch (error) {
-      console.error('SnapTrade deleteUser error (continuing to clear local record):', error);
-    }
-  }
-
   try {
-    await deleteBrokerConnection(userId);
-    return NextResponse.json({ success: true, data: { disconnected: true } });
+    const result = await disconnectBrokerage(userId);
+    return NextResponse.json({ success: true, data: { disconnected: true, ...result } });
   } catch (error) {
     console.error('SnapTrade disconnect error:', error);
     return NextResponse.json(

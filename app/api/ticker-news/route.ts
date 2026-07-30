@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-session';
+import { requireBrokerageAccess } from '@/lib/auth-session';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +39,7 @@ function ymd(d: Date): string {
 }
 
 export async function GET(req: NextRequest) {
-  const authResult = await requireOwner();
+  const authResult = await requireBrokerageAccess();
   if (authResult.error) return authResult.error;
 
   const symbol = (req.nextUrl.searchParams.get('symbol') ?? '').trim().toUpperCase();

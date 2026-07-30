@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
+import { useBrokerageAccess } from '@/lib/use-entitlements';
 import {
   LayoutDashboard,
   TrendingUp,
@@ -45,6 +46,8 @@ export default function TradingView() {
   const { data: session } = useSession();
   // The Agents sub-tab is owner-only (agentic execution is billing/safety-sensitive).
   const isOwner = isOwnerEmail(session?.user?.email);
+  // Agents stays owner-only; brokerage sync is the paid feature.
+  const { allowed: hasBrokerage } = useBrokerageAccess();
 
   // Get subtab from URL or default to 'overview'
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
@@ -283,8 +286,8 @@ export default function TradingView() {
         </div>
       </div>
 
-      {/* Post-connect result from the SnapTrade portal return (owner-only flow) */}
-      {isOwner && (
+      {/* Post-connect result from the SnapTrade portal return (paid feature) */}
+      {hasBrokerage && (
         <div className="mb-4">
           <BrokerageConnectedBanner />
         </div>
