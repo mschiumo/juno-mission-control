@@ -18,9 +18,10 @@ import {
   ChevronRight,
   ChevronLeft,
   GraduationCap,
+  Link2,
   LucideIcon,
 } from 'lucide-react';
-import { GettingStartedArticle, JournalArticle, ImportingArticle } from './ArticlesCore';
+import { GettingStartedArticle, JournalArticle, ImportingArticle, BrokerageSyncArticle } from './ArticlesCore';
 import { TradeManagementArticle, MarketArticle, ProjectionArticle } from './ArticlesTools';
 import { PerformanceArticle, GoalsArticle } from './ArticlesAnalytics';
 import { AgentsArticle, ReviewArticle, FaqArticle } from './ArticlesAgents';
@@ -78,6 +79,15 @@ const GROUPS: DocGroup[] = [
         icon: Upload,
         keywords: 'import csv thinkorswim tos schwab account statement broker brokerage connect sync export template excel fees balances',
         Component: ImportingArticle,
+      },
+      {
+        id: 'brokerage-sync',
+        title: 'Brokerage Sync (SnapTrade)',
+        blurb: 'What SnapTrade is, how the connection works, and how synced trades differ from imports.',
+        icon: Link2,
+        keywords: 'snaptrade brokerage connect broker sync live data robinhood schwab fidelity webull etrade tastytrade interactive brokers read only connection portal authorization refresh disconnect provenance security oauth',
+        ownerOnly: true,
+        Component: BrokerageSyncArticle,
       },
       {
         id: 'trade-management',

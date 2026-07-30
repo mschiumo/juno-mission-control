@@ -21,6 +21,9 @@ import {
   MAX_BROKER_CONNECTIONS,
 } from '@/lib/db/broker-connections';
 
+/** Where SnapTrade drops the user after the Connection Portal flow. */
+const BROKERAGE_RETURN_PATH = '/brokerage/connected';
+
 export async function POST(): Promise<NextResponse> {
   const { userId, error: authError } = await requireOwner();
   if (authError) return authError;
@@ -74,8 +77,25 @@ export async function POST(): Promise<NextResponse> {
       }
     }
 
-    const customRedirect =
+    // Send the user back to the dedicated return page rather than the app root,
+    // so we can run the first sync and land them on the Journal with a result
+    // banner. A bare origin gets the path appended; an explicit
+    // SNAPTRADE_REDIRECT_URL that already carries a path is respected as-is
+    // (it may be whitelisted verbatim in the SnapTrade dashboard).
+    const redirectBase =
       process.env.SNAPTRADE_REDIRECT_URL || process.env.NEXT_PUBLIC_APP_URL || undefined;
+    let customRedirect = redirectBase;
+    if (redirectBase) {
+      try {
+        const u = new URL(redirectBase);
+        if (u.pathname === '/' || u.pathname === '') {
+          u.pathname = BROKERAGE_RETURN_PATH;
+          customRedirect = u.toString();
+        }
+      } catch {
+        // Not a parseable absolute URL — hand it to SnapTrade untouched.
+      }
+    }
 
     const url = await generateConnectionPortalUrl({
       snaptradeUserId: connection.snaptradeUserId,

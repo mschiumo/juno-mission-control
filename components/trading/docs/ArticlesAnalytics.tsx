@@ -38,7 +38,8 @@ export function PerformanceArticle() {
         <Steps>
           <Step title="Set your starting balance">
             Click <UI>Set Starting Balance</UI> on the card and enter what the account started with. Once set, it shows
-            as <Em>Starting: $…</Em> — hover it and click the pencil to change it later.
+            as <Em>Starting: $…</Em> — hover it and click the pencil to change it later. On an account fed by a
+            connected brokerage the figure is read-only, because the broker supplies the balances.
           </Step>
           <Step title="Import statements regularly">
             Each import adds broker-authoritative daily balances, so the curve tracks reality — including deposits,

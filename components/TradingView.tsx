@@ -27,6 +27,7 @@ import MarketBriefingModal from '@/components/MarketBriefingModal';
 import TradingRulesModal from '@/components/TradingRulesModal';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
+import BrokerageConnectedBanner from '@/components/trading/BrokerageConnectedBanner';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
 import PerformanceView from '@/components/trading/PerformanceView';
@@ -281,6 +282,13 @@ export default function TradingView() {
           )}
         </div>
       </div>
+
+      {/* Post-connect result from the SnapTrade portal return (owner-only flow) */}
+      {isOwner && (
+        <div className="mb-4">
+          <BrokerageConnectedBanner />
+        </div>
+      )}
 
       {/* Content */}
       {activeSubTab === 'overview' && <CombinedCalendarView onImportSuccess={() => setImportKey((k) => k + 1)} />}
