@@ -149,6 +149,20 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     return selectedAccountId === MANUAL_ACCOUNT_ID ? startingBalance : 0;
   }, [selectedAccountId, startingBalance, accountSettings]);
 
+  /**
+   * The starting balance is a manual stand-in for data we don't have. Once a
+   * brokerage feeds an account, its balances come from the broker, so editing
+   * the figure by hand would just fight the synced data.
+   *
+   * It stays editable while the user is still the source: the Manual/Imported
+   * account always, and the combined view until every trade is broker-sourced.
+   */
+  const canEditStartingBalance = useMemo(() => {
+    if (selectedAccountId === MANUAL_ACCOUNT_ID) return true;
+    if (selectedAccountId === ALL_ACCOUNT_ID) return brokerAccounts.length === 0 || hasManualTrades;
+    return false; // a connected brokerage account
+  }, [selectedAccountId, brokerAccounts.length, hasManualTrades]);
+
   const handleSaveStartingBalance = useCallback((val: number) => {
     if (selectedAccountId === ALL_ACCOUNT_ID) {
       setStartingBalance(val);
@@ -254,6 +268,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
           startingBalance={accountStartingBalance}
           onSaveStartingBalance={handleSaveStartingBalance}
           showJournalInsights={selectedAccountId === ALL_ACCOUNT_ID}
+          canEditStartingBalance={canEditStartingBalance}
         />
       )}
     </div>

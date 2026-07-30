@@ -515,6 +515,7 @@ export function BrokerageSyncArticle() {
             ['Your notes survive', 'Journal fields you wrote on a synced trade — notes, plan adherence, tags — carry forward across re-syncs.'],
             ['Empty results are ignored', 'If a sync returns nothing, it writes nothing. An empty feed can never blank your trade list.'],
             ['Equity curve', 'Account-statement balances remain the source of truth for NLV. Synced trades add P&L after the last statement balance date.'],
+            ['Starting balance', 'Editable only while you supply balances yourself. Once a brokerage feeds an account, its starting balance is read-only — a hand-entered figure would fight the synced data.'],
           ]}
         />
         <Note>

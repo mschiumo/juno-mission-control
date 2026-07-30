@@ -67,6 +67,12 @@ interface DayTradingPerformanceProps {
   onSaveStartingBalance: (val: number) => void;
   /** Journal insights cover the whole journal, so only show them on "All Accounts". */
   showJournalInsights?: boolean;
+  /**
+   * Whether the user still supplies balances by hand. False once a connected
+   * brokerage is the source of truth for this account — the figure is then
+   * shown read-only rather than offered for editing.
+   */
+  canEditStartingBalance?: boolean;
 }
 
 export default function DayTradingPerformance({
@@ -77,6 +83,7 @@ export default function DayTradingPerformance({
   startingBalance,
   onSaveStartingBalance,
   showJournalInsights = true,
+  canEditStartingBalance = true,
 }: DayTradingPerformanceProps) {
   const [balanceInput, setBalanceInput] = useState(startingBalance > 0 ? startingBalance.toString() : '');
   const [editingBalance, setEditingBalance] = useState(false);
@@ -287,9 +294,22 @@ export default function DayTradingPerformance({
                 <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Net Liquidating Value — {PERIOD_LABELS[period]}</p>
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {/* Starting Balance */}
+                {/* Starting Balance — editable only while the user is the one
+                    supplying balances. When a brokerage feeds this account the
+                    broker is the source of truth, so a hand-entered figure
+                    would silently fight the synced data. */}
                 <div className="flex items-center gap-2">
-                  {editingBalance ? (
+                  {!canEditStartingBalance ? (
+                    startingBalance > 0 ? (
+                      <span
+                        className="text-xs"
+                        style={{ color: 'var(--text-tertiary)' }}
+                        title="Balances come from your connected brokerage"
+                      >
+                        Starting: {formatNLV(startingBalance)}
+                      </span>
+                    ) : null
+                  ) : editingBalance ? (
                     <div className="flex items-center gap-1.5">
                       <DollarSign className="w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
                       <input
