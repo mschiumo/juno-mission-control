@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 import BrokerageSyncBar from './BrokerageSyncBar';
 import { getTodayInEST } from '@/lib/date-utils';
+import { useSession } from 'next-auth/react';
+import { isOwnerEmail } from '@/lib/owner';
 import { tradingJournalTrades } from '@/lib/account-classification';
 import type { AccountSettingsMap } from '@/lib/db/account-settings';
 
@@ -145,6 +147,10 @@ const isWeekday = (dateStr: string): boolean => {
 // ============================================================================
 
 export default function CombinedCalendarView({ onImportSuccess }: { onImportSuccess?: () => void }) {
+  // Brokerage-backed account classification is owner-only (see fetchData).
+  const { data: session } = useSession();
+  const isOwner = isOwnerEmail(session?.user?.email);
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dailyStats, setDailyStats] = useState<DayData[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
@@ -190,18 +196,22 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, journalRes, tradesRes, settingsRes] = await Promise.all([
+      // Account settings only exist for the owner (brokerage connections are
+      // owner-only), so non-owners skip the call and get no filtering — which
+      // is correct: every trade they have is manual.
+      const [statsRes, journalRes, tradesRes, settingsData] = await Promise.all([
         fetch(`/api/trades/daily-stats?_t=${Date.now()}`),
         fetch(`/api/daily-journal?_t=${Date.now()}`),
         fetch('/api/trades?userId=default&perPage=1000'),
-        fetch('/api/user/account-settings')
+        isOwner
+          ? fetch('/api/user/account-settings').then(r => r.json()).catch(() => ({}))
+          : Promise.resolve({})
       ]);
 
-      const [statsData, journalData, tradesData, settingsData] = await Promise.all([
+      const [statsData, journalData, tradesData] = await Promise.all([
         statsRes.json(),
         journalRes.json(),
-        tradesRes.json(),
-        settingsRes.json().catch(() => ({}))
+        tradesRes.json()
       ]);
 
       if (statsData.success) setDailyStats(statsData.dailyStats || []);

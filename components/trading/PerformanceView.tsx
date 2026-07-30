@@ -61,7 +61,9 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         isOwner
           ? fetch('/api/snaptrade/accounts').then((r) => r.json()).catch(() => ({}))
           : Promise.resolve({}),
-        fetch('/api/user/account-settings').then((r) => r.json()).catch(() => ({})),
+        isOwner
+          ? fetch('/api/user/account-settings').then((r) => r.json()).catch(() => ({}))
+          : Promise.resolve({}),
       ]);
       if (tradesRes.success && tradesRes.data) setAllTrades(tradesRes.data.trades || []);
       if (prefsRes.success && prefsRes.prefs) setStartingBalance(prefsRes.prefs.startingBalance || 0);
@@ -82,10 +84,16 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
   const hasManualTrades = useMemo(() => allTrades.some((t) => !t.brokerAccountId), [allTrades]);
 
   // Resolve the toggle's account list: All + Manual (if any) + connected brokers.
+  //
+  // The whole account-classification layer rides on brokerage connections,
+  // which are owner-only. Non-owners get the single combined view — no toggle,
+  // no long-term designation — so the feature can't be exercised (or broken)
+  // by anyone else while it's still being shaken out.
   const accounts = useMemo<PerfAccount[]>(() => {
     const list: PerfAccount[] = [
       { id: ALL_ACCOUNT_ID, label: 'All Accounts', type: 'day-trading', editable: false },
     ];
+    if (!isOwner) return list;
     if (hasManualTrades) {
       const s = accountSettings[MANUAL_ACCOUNT_ID];
       list.push({
@@ -106,7 +114,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
       });
     }
     return list;
-  }, [hasManualTrades, brokerAccounts, accountSettings]);
+  }, [isOwner, hasManualTrades, brokerAccounts, accountSettings]);
 
   // Keep the selection valid if accounts change (e.g. a broker disconnects).
   useEffect(() => {
