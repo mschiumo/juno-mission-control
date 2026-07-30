@@ -30,8 +30,7 @@ import {
 } from 'lucide-react';
 import BrokerageSyncBar from './BrokerageSyncBar';
 import { getTodayInEST } from '@/lib/date-utils';
-import { useSession } from 'next-auth/react';
-import { isOwnerEmail } from '@/lib/owner';
+import { useBrokerageAccess } from '@/lib/use-entitlements';
 import { tradingJournalTrades } from '@/lib/account-classification';
 import type { AccountSettingsMap } from '@/lib/db/account-settings';
 
@@ -147,9 +146,8 @@ const isWeekday = (dateStr: string): boolean => {
 // ============================================================================
 
 export default function CombinedCalendarView({ onImportSuccess }: { onImportSuccess?: () => void }) {
-  // Brokerage-backed account classification is owner-only (see fetchData).
-  const { data: session } = useSession();
-  const isOwner = isOwnerEmail(session?.user?.email);
+  // Brokerage-backed account classification is a paid feature (see fetchData).
+  const { allowed: hasBrokerage } = useBrokerageAccess();
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dailyStats, setDailyStats] = useState<DayData[]>([]);
@@ -203,7 +201,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
         fetch(`/api/trades/daily-stats?_t=${Date.now()}`),
         fetch(`/api/daily-journal?_t=${Date.now()}`),
         fetch('/api/trades?userId=default&perPage=1000'),
-        isOwner
+        hasBrokerage
           ? fetch('/api/user/account-settings').then(r => r.json()).catch(() => ({}))
           : Promise.resolve({})
       ]);

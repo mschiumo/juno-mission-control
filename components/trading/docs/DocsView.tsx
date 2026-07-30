@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, ComponentType } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
+import { useBrokerageAccess } from '@/lib/use-entitlements';
 import {
   Rocket,
   BookOpen,
@@ -41,6 +42,8 @@ interface DocArticle {
   icon: LucideIcon;
   keywords: string;
   ownerOnly?: boolean;
+  /** Documents a paid feature — visible to entitled users, not just the owner. */
+  requiresBrokerage?: boolean;
   Component: ComponentType;
 }
 
@@ -87,8 +90,8 @@ const GROUPS: DocGroup[] = [
         title: 'Brokerage Sync (SnapTrade)',
         blurb: 'What SnapTrade is, how the connection works, and how synced trades differ from imports.',
         icon: Link2,
-        keywords: 'snaptrade brokerage connect broker sync live data robinhood schwab fidelity webull etrade tastytrade interactive brokers read only connection portal authorization refresh disconnect provenance security oauth',
-        ownerOnly: true,
+        keywords: 'snaptrade brokerage connect broker sync live data robinhood schwab fidelity webull etrade tastytrade interactive brokers read only connection portal authorization refresh disconnect provenance security oauth plan upgrade paid',
+        requiresBrokerage: true,
         Component: BrokerageSyncArticle,
       },
       {
@@ -191,14 +194,19 @@ export default function DocsView() {
   // could read — and deep-link to — guides for things they can't reach.
   const { data: session } = useSession();
   const isOwner = isOwnerEmail(session?.user?.email);
+  const { allowed: hasBrokerage } = useBrokerageAccess();
 
+  // Hide guides for features the reader can't reach: owner-only ones (agentic
+  // trading) and paid ones (brokerage sync) they aren't entitled to.
   const groups = useMemo(
     () =>
-      (isOwner
-        ? GROUPS
-        : GROUPS.map((g) => ({ ...g, articles: g.articles.filter((a) => !a.ownerOnly) }))
-      ).filter((g) => g.articles.length > 0),
-    [isOwner],
+      GROUPS.map((g) => ({
+        ...g,
+        articles: g.articles.filter(
+          (a) => (!a.ownerOnly || isOwner) && (!a.requiresBrokerage || hasBrokerage),
+        ),
+      })).filter((g) => g.articles.length > 0),
+    [isOwner, hasBrokerage],
   );
   const articles = useMemo(() => groups.flatMap((g) => g.articles), [groups]);
 

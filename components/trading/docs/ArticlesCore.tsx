@@ -1,7 +1,6 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
-import { isOwnerEmail } from '@/lib/owner';
+import { useBrokerageAccess } from '@/lib/use-entitlements';
 import { DocSection, P, Em, Bullets, Steps, Step, Tip, Note, Warn, UI, OwnerBadge, FeatureLink, DocLink, Figure, RefTable } from './DocsPrimitives';
 import { SubTabBarFigure, CalendarWeekFigure, JournalModalFigure, TradesTableFigure, ImportDropzoneFigure } from './DocsFigures';
 
@@ -275,8 +274,7 @@ export function JournalArticle() {
 // ---------------------------------------------------------------------------
 
 export function ImportingArticle() {
-  const { data: session } = useSession();
-  const isOwner = isOwnerEmail(session?.user?.email);
+  const { allowed: hasBrokerage } = useBrokerageAccess();
 
   return (
     <div className="space-y-8">
@@ -373,13 +371,12 @@ export function ImportingArticle() {
         </P>
       </DocSection>
 
-      {/* Owner-only: brokerage sync isn't available to other accounts, and the
-          article this points at is hidden from them. */}
-      {isOwner && (
+      {/* Paid feature: the article this points at is hidden from free accounts. */}
+      {hasBrokerage && (
         <DocSection title="What about a live brokerage connection?">
           <P>
             There is one — trades can sync straight from your broker through SnapTrade, so you don&apos;t have to export
-            a file every day. It&apos;s <OwnerBadge /> for now, and it doesn&apos;t replace statement import: the two run
+            a file every day. It doesn&apos;t replace statement import: the two run
             side by side, and statement balances still drive the equity curve. See{' '}
             <DocLink doc="brokerage-sync">Brokerage Sync (SnapTrade)</DocLink> for how it works.
           </P>
