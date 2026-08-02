@@ -5,9 +5,14 @@
  *
  * SnapTrade sends the user here after they finish (or abandon) the brokerage
  * login. Connecting an account does NOT pull any trades on its own, so this
- * page runs the first sync immediately rather than leaving the user to
- * discover the Refresh button or wait for the nightly cron. Once the pull
- * finishes it hands off to the Journal with a result banner.
+ * page runs the first pull immediately rather than leaving the user to
+ * discover the Refresh button or wait for the nightly cron. Once it finishes it
+ * hands off to the Journal with a result banner.
+ *
+ * It calls /connect/complete rather than /sync: a completed link makes the
+ * broker the sole source of the Journal, so that route pulls the live history
+ * and then clears the hand-imported trades it replaces (the connect modal
+ * discloses this before the user starts).
  *
  * SnapTrade appends its own query params on return (an `error`/`errorCode`
  * pair when the link failed or was abandoned); those are read here so a failed
@@ -68,12 +73,21 @@ function BrokerageReturn() {
 
     (async () => {
       try {
-        const res = await fetch('/api/snaptrade/sync', { method: 'POST' });
+        const res = await fetch('/api/snaptrade/connect/complete', { method: 'POST' });
         const json = await res.json();
-        if (json.success) {
+        if (json.success && json.data?.connected) {
           const n = json.data?.tradesWritten ?? 0;
-          const brokerage = json.data?.perAccount?.[0]?.brokerage ?? '';
-          go({ brokerage: 'connected', synced: String(n), ...(brokerage ? { name: brokerage } : {}) });
+          const cleared = json.data?.cleared ?? 0;
+          const brokerage = json.data?.brokerage ?? '';
+          go({
+            brokerage: 'connected',
+            synced: String(n),
+            cleared: String(cleared),
+            ...(brokerage ? { name: brokerage } : {}),
+          });
+        } else if (json.success) {
+          // Portal closed without linking anything — nothing synced, nothing wiped.
+          go({ brokerage: 'error', reason: 'No brokerage account was linked.' });
         } else {
           go({ brokerage: 'error', reason: (json.error || 'Sync failed').slice(0, 120) });
         }

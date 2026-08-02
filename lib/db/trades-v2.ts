@@ -114,6 +114,43 @@ export async function replaceAllTrades(
   return { written: trades.length, backedUp };
 }
 
+/**
+ * Drop every hand-entered trade (manual / CSV / account-statement import),
+ * keeping only broker-sourced ones.
+ *
+ * Called once when a user links a live brokerage: from that point the broker is
+ * the sole source of the Journal, so the pre-broker history is removed rather
+ * than left to sit alongside the synced trades. The full pre-clear list is
+ * snapshotted to the same backup key replaceAllTrades() uses (first write wins),
+ * so restoreTradesBackup() can bring it back.
+ *
+ * Trades written before the `source` field existed have no source and count as
+ * hand-entered — the only way they got there was an import or manual entry.
+ */
+export async function clearManualTrades(
+  userId: string
+): Promise<{ removed: number; kept: number; backedUp: number }> {
+  const redis = await getRedisClient();
+  const current = await getAllTrades(userId);
+  const kept = current.filter(t => t.source === 'broker');
+  const removed = current.length - kept.length;
+
+  let backedUp = 0;
+  const alreadyBackedUp = await redis.exists(tradesBackupKey(userId));
+  if (!alreadyBackedUp) {
+    backedUp = current.length;
+    await redis.set(
+      tradesBackupKey(userId),
+      JSON.stringify({ trades: current, savedAt: new Date().toISOString() })
+    );
+  }
+
+  if (removed > 0) {
+    await redis.set(tradesKey(userId), JSON.stringify({ trades: kept }));
+  }
+  return { removed, kept: kept.length, backedUp };
+}
+
 /** Restore the most recent pre-sync backup. Returns the restored count, or null if none. */
 export async function restoreTradesBackup(userId: string): Promise<number | null> {
   try {

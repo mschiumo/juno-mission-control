@@ -6,12 +6,17 @@
  * Instructs the user how to link a brokerage (via SnapTrade) and drives the
  * connect flow: POST /api/snaptrade/connect -> redirect to the secure
  * Connection Portal. Shows current connection status (GET /api/snaptrade/
- * accounts) and lets the user disconnect. Manual CSV/statement import remains
- * available via the `onOpenImport` hand-off.
+ * accounts) and lets the user disconnect.
+ *
+ * Linking a brokerage is destructive: it makes the broker the sole source of
+ * the Journal and clears the trades the user imported by hand (see
+ * /api/snaptrade/connect/complete). The first connect is therefore gated behind
+ * an explicit acknowledgement of that. Manual CSV/statement import stays
+ * available via the `onOpenImport` hand-off *until* a brokerage is linked.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Link2, Download, CheckCircle, RefreshCw } from 'lucide-react';
+import { Link2, Download, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import {
   isAccountActive,
   accountType,
@@ -58,6 +63,9 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [accountSettings, setAccountSettings] = useState<AccountSettingsMap>({});
   const [savingAccount, setSavingAccount] = useState<string | null>(null);
+  // Gates the first connect: the user must acknowledge that linking replaces
+  // their imported trade history before we hand off to the portal.
+  const [acknowledged, setAcknowledged] = useState(false);
 
   const loadStatus = async () => {
     setLoadingStatus(true);
@@ -382,6 +390,34 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
               </div>
             </div>
 
+            {/* Destructive-action disclaimer. Linking makes the broker the only
+                source of the Journal, so the hand-imported history goes away. */}
+            <div className="mb-5 p-4 rounded-lg border border-[#d29922]/40 bg-[#d29922]/10">
+              <p className="flex items-center gap-2 text-sm font-semibold text-[#d29922] mb-2">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                This replaces your existing trade history
+              </p>
+              <p className="text-sm text-[#c9d1d9] leading-relaxed mb-3">
+                Once a brokerage is linked it becomes the{' '}
+                <span className="text-white font-medium">only</span> source of your Journal. Every
+                trade you added by hand or imported from a CSV / account statement is{' '}
+                <span className="text-white font-medium">removed</span>, and manual imports are
+                turned off for as long as the brokerage stays connected. Your written journal
+                entries, notes and goals are not touched.
+              </p>
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acknowledged}
+                  onChange={e => setAcknowledged(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-[#F97316] flex-shrink-0"
+                />
+                <span className="text-sm text-[#c9d1d9]">
+                  I understand my imported trades will be replaced by my live brokerage data.
+                </span>
+              </label>
+            </div>
+
             {notConfigured && (
               <div className="p-3 rounded-lg mb-4 bg-[#1f6feb]/15 text-[#58a6ff] text-sm">
                 Brokerage connections aren&apos;t enabled yet — this is coming soon. In the meantime you
@@ -394,7 +430,7 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
 
             <button
               onClick={handleConnect}
-              disabled={connecting || loadingStatus}
+              disabled={connecting || loadingStatus || !acknowledged}
               className="w-full px-4 py-3 bg-[#F97316] hover:bg-[#ea6c0a] text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {connecting ? (

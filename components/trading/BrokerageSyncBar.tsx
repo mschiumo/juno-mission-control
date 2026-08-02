@@ -41,6 +41,12 @@ interface BrokerageSyncBarProps {
   onSynced?: () => void;
   /** Passed through to the modal to offer manual CSV/Excel import (Journal only). */
   onOpenImport?: () => void;
+  /**
+   * Reports whether a live brokerage is linked. The Journal uses it to hide the
+   * manual import entry points — a linked broker is the sole source of trades.
+   * Pass a stable reference (e.g. a useState setter).
+   */
+  onConnectedChange?: (connected: boolean) => void;
 }
 
 function relativeTime(iso: string): string {
@@ -55,7 +61,11 @@ function relativeTime(iso: string): string {
   return `${d} day${d === 1 ? '' : 's'} ago`;
 }
 
-export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSyncBarProps) {
+export default function BrokerageSyncBar({
+  onSynced,
+  onOpenImport,
+  onConnectedChange,
+}: BrokerageSyncBarProps) {
   // Brokerage connections are owner-only (billing protection) — non-owner
   // accounts only see the existing manual CSV import. The server enforces this
   // on every /api/snaptrade/* route; this just hides the UI.
@@ -85,6 +95,15 @@ export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSy
     else setLoading(false);
   }, [isOwner, loadStatus]);
 
+  const accounts = status?.accounts ?? [];
+  const connected = Boolean(status?.connected && accounts.length > 0);
+
+  // Declared above the owner/loading early return so the embedding view is told
+  // "not connected" for non-owners too, and keeps its manual import.
+  useEffect(() => {
+    onConnectedChange?.(connected);
+  }, [connected, onConnectedChange]);
+
   const handleRefresh = async () => {
     setSyncing(true);
     setMsg(null);
@@ -109,9 +128,6 @@ export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSy
   // Owner-only feature; render nothing for every other account (they keep the
   // manual CSV import). Also hides during the brief session-loading window.
   if (!isOwner || loading) return null;
-
-  const accounts = status?.accounts ?? [];
-  const connected = Boolean(status?.connected && accounts.length > 0);
 
   return (
     <>
