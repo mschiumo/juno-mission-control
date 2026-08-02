@@ -15,6 +15,8 @@ interface Scoreboard {
   week: { start: string; today: string };
   numbers: {
     pnl: number;
+    pnlGross?: number;
+    pnlFees?: number;
     pnlTrades: number;
     journal: number;
     training: number;
@@ -98,7 +100,8 @@ export default function WeeklyScoreboard() {
               {numbers!.pnl > 0 ? '+' : ''}{fmtUSD(numbers!.pnl)}
             </span>
             <p className="text-[10px] text-[#484f58] mt-0.5">
-              auto · {numbers!.pnlTrades} closed trade{numbers!.pnlTrades !== 1 ? 's' : ''} this week
+              auto · {numbers!.pnlTrades} closed trade{numbers!.pnlTrades !== 1 ? 's' : ''}
+              {numbers!.pnlFees ? ` · after ${fmtUSD(numbers!.pnlFees)} fees` : ' this week'}
             </p>
           </div>
 

@@ -3,7 +3,10 @@ import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
 import { fetchRecentActivities } from '@/lib/strava';
 import { getAllTrades } from '@/lib/db/trades-v2';
-import { getESTDateFromTimestamp } from '@/lib/date-utils';
+import { getDailyFees } from '@/lib/db/fees';
+import { getAccountSettings } from '@/lib/db/account-settings';
+import { tradingJournalTrades } from '@/lib/account-classification';
+import { computeWeeklyPnl, type WeeklyPnl } from '@/lib/trading/weekly-pnl';
 import { pctPaid, projectDebtFreeDate, paceStatus, DEBT_TARGET, type BalanceEntry } from '@/lib/debt-math';
 import { isTrainingHabit } from '@/lib/habit-sync';
 
@@ -141,24 +144,25 @@ async function trainingDays(userId: string, weekStart: string, today: string): P
   return days.size;
 }
 
-/** Realized P&L this week: closed trades whose EST exit date falls in the week. */
-async function weeklyPnl(userId: string, weekStart: string, today: string): Promise<{ pnl: number; trades: number }> {
+/**
+ * Realized P&L this week, net of what the broker actually charged.
+ *
+ * Scope matters as much as the arithmetic: only day-trading accounts the user
+ * still has switched on count, the same set the Journal and the P&L calendar
+ * use. A long-term account's closed positions are not the week's trading
+ * profit. The netting itself lives in computeWeeklyPnl().
+ */
+async function weeklyPnl(userId: string, weekStart: string, today: string): Promise<WeeklyPnl> {
   try {
-    const trades = await getAllTrades(userId);
-    let pnl = 0;
-    let count = 0;
-    for (const t of trades) {
-      if (t.status !== 'CLOSED' || !t.exitDate) continue;
-      const d = getESTDateFromTimestamp(t.exitDate);
-      if (d >= weekStart && d <= today) {
-        pnl += t.netPnL || 0;
-        count++;
-      }
-    }
-    return { pnl: Math.round(pnl * 100) / 100, trades: count };
+    const [allTrades, settings, dailyFees] = await Promise.all([
+      getAllTrades(userId),
+      getAccountSettings(userId),
+      getDailyFees(userId),
+    ]);
+    return computeWeeklyPnl(tradingJournalTrades(allTrades, settings), dailyFees, weekStart, today);
   } catch (err) {
     console.error('weeklyPnl error:', err);
-    return { pnl: 0, trades: 0 };
+    return { pnl: 0, gross: 0, fees: 0, trades: 0 };
   }
 }
 
@@ -268,6 +272,8 @@ async function buildResponse(userId: string) {
       cardBalance: entry.cardBalance ?? null,
       prevCardBalance: prevBalance,
       pnl: pnl.pnl,
+      pnlGross: pnl.gross,
+      pnlFees: pnl.fees,
       pnlTrades: pnl.trades,
       journal,
       training,
