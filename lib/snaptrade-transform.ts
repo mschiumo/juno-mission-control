@@ -30,6 +30,8 @@ export interface SnapTradeActivity {
   units?: number;
   price?: number;
   fee?: number;
+  /** Cash amount for non-trade activities (dividends, contributions, fees, …). */
+  amount?: number | null;
   trade_date?: string | null;
   symbol?: { symbol?: string; raw_symbol?: string; description?: string | null } | null;
   option_symbol?: unknown | null;

@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { requireUserId } from '@/lib/auth-session';
-import { getDailyFees } from '@/lib/db/fees';
+import { getCombinedDailyFees } from '@/lib/db/fees';
 
 export async function GET() {
   const authResult = await requireUserId();
   if (authResult.error) return authResult.error;
   const { userId } = authResult;
 
-  const fees = await getDailyFees(userId);
+  // Statement-upload fees merged with the broker-derived series (broker wins
+  // per date) — same dual-source model as daily balances.
+  const fees = await getCombinedDailyFees(userId);
   return NextResponse.json({ success: true, fees });
 }

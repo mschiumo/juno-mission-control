@@ -206,6 +206,25 @@ export async function getAllAccountActivities(params: {
   return all;
 }
 
+/**
+ * Fetch the open positions for one account. Used to strip unrealized P&L out of
+ * the broker's marked-to-market total value so the derived balance history is
+ * anchored at cost (see lib/snaptrade-balances.ts).
+ */
+export async function listAccountPositions(params: {
+  snaptradeUserId: string;
+  userSecret: string;
+  accountId: string;
+}): Promise<{ open_pnl?: number | null }[]> {
+  const snaptrade = getSnapTradeClient();
+  const res = await snaptrade.accountInformation.getUserAccountPositions({
+    userId: params.snaptradeUserId,
+    userSecret: params.userSecret,
+    accountId: params.accountId,
+  });
+  return (res.data as { open_pnl?: number | null }[]) ?? [];
+}
+
 /** Count a user's brokerage authorizations (connections) — used to enforce limits. */
 export async function countConnections(params: {
   snaptradeUserId: string;

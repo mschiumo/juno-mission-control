@@ -541,13 +541,6 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
 
   return (
     <div className="space-y-4">
-      {/* Brokerage connection + sync status */}
-      <BrokerageSyncBar
-        onSynced={fetchData}
-        onOpenImport={() => setShowImportModal(true)}
-        onConnectedChange={setBrokerConnected}
-      />
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
@@ -617,6 +610,13 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
+
+        {/* Brokerage status pill — the one place connection state lives. */}
+        <BrokerageSyncBar
+          onSynced={fetchData}
+          onOpenImport={() => setShowImportModal(true)}
+          onConnectedChange={setBrokerConnected}
+        />
       </div>
 
       {/* Mobile Month Stats */}
