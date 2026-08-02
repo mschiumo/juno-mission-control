@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   CreditCard,
   Loader2,
@@ -16,6 +16,9 @@ import {
   Pin,
   Link2,
   Unlink,
+  ArrowUp,
+  ArrowDown,
+  ChevronsUpDown,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -157,6 +160,57 @@ function draftFrom(a: CreditAccount): Draft {
   };
 }
 
+/* --------------------------------- sorting -------------------------------- */
+
+type SortKey = 'name' | 'balance' | 'apr' | 'interest' | 'payment' | 'payoff';
+type SortDir = 'asc' | 'desc';
+interface SortState {
+  key: SortKey;
+  dir: SortDir;
+}
+
+/** First click on a column picks the direction people actually want. */
+const DEFAULT_DIR: Record<SortKey, SortDir> = {
+  name: 'asc',
+  balance: 'desc',
+  apr: 'desc',
+  interest: 'desc',
+  payment: 'desc',
+  payoff: 'asc',
+};
+
+/** Months until payoff, with paid-off first and never-pays-off last. */
+function payoffRank(a: CreditAccount): number {
+  if (a.balance <= 0) return -1;
+  const p = projectPayoff(a.balance, a.apr, a.monthlyPayment);
+  return p.status === 'ok' ? p.months : Number.POSITIVE_INFINITY;
+}
+
+function sortValue(a: CreditAccount, key: SortKey): number {
+  switch (key) {
+    case 'balance':
+      return a.balance;
+    case 'apr':
+      return a.apr;
+    case 'interest':
+      return monthlyInterest(a.balance, a.apr);
+    case 'payment':
+      return a.monthlyPayment;
+    case 'payoff':
+      return payoffRank(a);
+    default:
+      return 0;
+  }
+}
+
+function compareAccounts(a: CreditAccount, b: CreditAccount, key: SortKey): number {
+  if (key === 'name') return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  const va = sortValue(a, key);
+  const vb = sortValue(b, key);
+  // Comparison, not subtraction — Infinity - Infinity is NaN.
+  return va === vb ? 0 : va < vb ? -1 : 1;
+}
+
 let plaidScriptPromise: Promise<void> | null = null;
 
 /** Load Plaid Link's CDN bundle once per page. */
@@ -193,6 +247,41 @@ function ChartTooltip({
       <p className="text-[#8b949e] mb-0.5">{label}</p>
       <p className="text-white font-semibold">{usd(payload[0].value)}</p>
     </div>
+  );
+}
+
+/** Clickable column header. `align` matches the cells underneath it. */
+function SortHeader({
+  label,
+  sortKey,
+  sort,
+  onToggle,
+  align = 'right',
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: SortState | null;
+  onToggle: (key: SortKey) => void;
+  align?: 'left' | 'right';
+}) {
+  const active = sort?.key === sortKey;
+  const Icon = active ? (sort.dir === 'asc' ? ArrowUp : ArrowDown) : ChevronsUpDown;
+  return (
+    <th
+      className={`${align === 'left' ? 'text-left px-4' : 'text-right px-3'} font-medium py-2.5`}
+      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <button
+        onClick={() => onToggle(sortKey)}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-white ${
+          align === 'right' ? 'flex-row-reverse' : ''
+        } ${active ? 'text-white' : ''}`}
+        title={`Sort by ${label}`}
+      >
+        {label}
+        <Icon className={`w-3 h-3 ${active ? 'text-[#F97316]' : 'opacity-40'}`} />
+      </button>
+    </th>
   );
 }
 
@@ -269,6 +358,8 @@ export default function FinancesView() {
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDisconnectId, setConfirmDisconnectId] = useState<string | null>(null);
+  /** null = the order the server returned. */
+  const [sort, setSort] = useState<SortState | null>(null);
 
   const applyPayload = useCallback((data: Record<string, unknown>) => {
     if (Array.isArray(data.accounts)) setAccounts(data.accounts as CreditAccount[]);
@@ -487,6 +578,28 @@ export default function FinancesView() {
   const liveCount = accounts.filter((a) => isLinked(a) && a.syncStatus === 'ok').length;
 
   const avalancheId = accounts.filter((a) => a.balance > 0).sort((a, b) => b.apr - a.apr)[0]?.id;
+
+  /** What both the table and the mobile cards render. Stable — ties keep server order. */
+  const sortedAccounts = useMemo(() => {
+    if (!sort) return accounts;
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return accounts
+      .map((a, i) => ({ a, i }))
+      .sort((x, y) => {
+        const c = compareAccounts(x.a, y.a, sort.key);
+        return c !== 0 ? c * dir : x.i - y.i;
+      })
+      .map(({ a }) => a);
+  }, [accounts, sort]);
+
+  /** Click a header: sort by it, or flip the direction if it's already active. */
+  function toggleSort(key: SortKey) {
+    setSort((prev) =>
+      prev?.key === key
+        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: DEFAULT_DIR[key] },
+    );
+  }
 
   const carried = accounts.filter((a) => a.balance > 0);
   const projections = carried.map((a) => ({ a, p: projectPayoff(a.balance, a.apr, a.monthlyPayment) }));
@@ -776,17 +889,17 @@ export default function FinancesView() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[11px] uppercase tracking-wide text-[#8b949e] border-b border-[#30363d]">
-                <th className="text-left font-medium px-4 py-2.5">Account</th>
-                <th className="text-right font-medium px-3 py-2.5">Balance</th>
-                <th className="text-right font-medium px-3 py-2.5">APR</th>
-                <th className="text-right font-medium px-3 py-2.5">Interest/mo</th>
-                <th className="text-right font-medium px-3 py-2.5">Payment/mo</th>
-                <th className="text-right font-medium px-3 py-2.5">Payoff</th>
+                <SortHeader label="Account" sortKey="name" sort={sort} onToggle={toggleSort} align="left" />
+                <SortHeader label="Balance" sortKey="balance" sort={sort} onToggle={toggleSort} />
+                <SortHeader label="APR" sortKey="apr" sort={sort} onToggle={toggleSort} />
+                <SortHeader label="Interest/mo" sortKey="interest" sort={sort} onToggle={toggleSort} />
+                <SortHeader label="Payment/mo" sortKey="payment" sort={sort} onToggle={toggleSort} />
+                <SortHeader label="Payoff" sortKey="payoff" sort={sort} onToggle={toggleSort} />
                 <th className="px-3 py-2.5 w-20" />
               </tr>
             </thead>
             <tbody>
-              {accounts.map((a) => {
+              {sortedAccounts.map((a) => {
                 const editing = editingId === a.id;
                 const proj = projectPayoff(a.balance, a.apr, a.monthlyPayment);
                 return (
@@ -1010,7 +1123,7 @@ export default function FinancesView() {
 
         {/* Mobile cards */}
         <div className="md:hidden divide-y divide-[#30363d]/60">
-          {accounts.map((a) => {
+          {sortedAccounts.map((a) => {
             const editing = editingId === a.id;
             const proj = projectPayoff(a.balance, a.apr, a.monthlyPayment);
             return (
