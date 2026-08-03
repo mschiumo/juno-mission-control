@@ -3,20 +3,20 @@
 /**
  * BrokerageSyncBar
  *
- * Persistent status strip for the linked brokerage, shown atop both the Journal
- * and Performance tabs. Displays connected accounts + last-synced time, a
- * Refresh button that re-pulls live data, and a Manage button (connect /
- * disconnect via BrokerageConnectModal).
+ * Compact status pill for the linked brokerage, shown once in the Journal
+ * header (deliberately not on every tab). Connected: a green dot, the broker
+ * name(s) and last-synced age, plus an inline refresh icon; clicking the pill
+ * opens BrokerageConnectModal for everything else (accounts, sync, connect /
+ * disconnect). Disconnected: a slim "Connect broker" pill.
  *
- * Both tabs read the same trades-v2 source, so a refresh here updates the
- * current view via `onSynced` and the other view refetches when it next mounts
- * — keeping Performance and Journal in sync. When no brokerage is linked it
- * shows a slim connect prompt.
+ * Journal and Performance read the same trades-v2 source, so a refresh here
+ * updates the current view via `onSynced` and the other view refetches when it
+ * next mounts.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { Link2, RefreshCw, Plug } from 'lucide-react';
+import { RefreshCw, Plug } from 'lucide-react';
 import { isOwnerEmail } from '@/lib/owner';
 import BrokerageConnectModal from './BrokerageConnectModal';
 
@@ -41,6 +41,12 @@ interface BrokerageSyncBarProps {
   onSynced?: () => void;
   /** Passed through to the modal to offer manual CSV/Excel import (Journal only). */
   onOpenImport?: () => void;
+  /**
+   * Reports whether a live brokerage is linked. The Journal uses it to hide the
+   * manual import entry points — a linked broker is the sole source of trades.
+   * Pass a stable reference (e.g. a useState setter).
+   */
+  onConnectedChange?: (connected: boolean) => void;
 }
 
 function relativeTime(iso: string): string {
@@ -55,7 +61,11 @@ function relativeTime(iso: string): string {
   return `${d} day${d === 1 ? '' : 's'} ago`;
 }
 
-export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSyncBarProps) {
+export default function BrokerageSyncBar({
+  onSynced,
+  onOpenImport,
+  onConnectedChange,
+}: BrokerageSyncBarProps) {
   // Brokerage connections are owner-only (billing protection) — non-owner
   // accounts only see the existing manual CSV import. The server enforces this
   // on every /api/snaptrade/* route; this just hides the UI.
@@ -85,6 +95,15 @@ export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSy
     else setLoading(false);
   }, [isOwner, loadStatus]);
 
+  const accounts = status?.accounts ?? [];
+  const connected = Boolean(status?.connected && accounts.length > 0);
+
+  // Declared above the owner/loading early return so the embedding view is told
+  // "not connected" for non-owners too, and keeps its manual import.
+  useEffect(() => {
+    onConnectedChange?.(connected);
+  }, [connected, onConnectedChange]);
+
   const handleRefresh = async () => {
     setSyncing(true);
     setMsg(null);
@@ -110,86 +129,64 @@ export default function BrokerageSyncBar({ onSynced, onOpenImport }: BrokerageSy
   // manual CSV import). Also hides during the brief session-loading window.
   if (!isOwner || loading) return null;
 
-  const accounts = status?.accounts ?? [];
-  const connected = Boolean(status?.connected && accounts.length > 0);
+  // "Charles Schwab" / "Robinhood · Schwab" — one name per distinct brokerage.
+  const brokerNames = [...new Set(accounts.map(a => a.brokerage))].join(' · ');
+  const tooltip = [
+    accounts.map(a => `${a.brokerage}${a.number ? ` ··${a.number.slice(-4)}` : ''}`).join(', '),
+    status?.lastSyncedAt
+      ? `Last synced ${new Date(status.lastSyncedAt).toLocaleString()}`
+      : 'Linked, but no sync has run yet',
+    status?.counts
+      ? `${status.counts.broker} trades from broker · ${status.counts.imported} imported`
+      : '',
+    'Click to manage',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   return (
     <>
       {connected ? (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-[#30363d] bg-[#161b22]">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-[#3fb950]">
-              <span className="w-2 h-2 rounded-full bg-[#3fb950]" />
-              Brokerage synced
-            </span>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {accounts.map(a => (
-                <span
-                  key={a.id}
-                  className="px-2 py-0.5 text-xs rounded-md bg-[#0d1117] border border-[#30363d] text-[#c9d1d9]"
-                >
-                  {a.brokerage}
-                  {a.number ? ` ··${a.number.slice(-4)}` : ''}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-full border border-[#30363d] bg-[#161b22] hover:border-[#3fb950]/40 transition-colors">
+            <button
+              onClick={() => setShowModal(true)}
+              title={tooltip}
+              className="flex items-center gap-1.5 pl-2.5 pr-1 py-1.5"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] flex-shrink-0" />
+              <span className="text-xs text-[#c9d1d9] whitespace-nowrap">{brokerNames}</span>
+              {status?.lastSyncedAt ? (
+                <span className="text-[11px] text-[#8b949e] whitespace-nowrap hidden sm:inline">
+                  {relativeTime(status.lastSyncedAt)}
                 </span>
-              ))}
-            </div>
-            {status?.lastSyncedAt ? (
-              <span
-                className="text-xs text-[#8b949e]"
-                title={new Date(status.lastSyncedAt).toLocaleString()}
-              >
-                Updated {relativeTime(status.lastSyncedAt)}
-              </span>
-            ) : (
-              <span className="text-xs text-[#d29922]" title="Linked, but no sync has run yet">
-                Never synced
-              </span>
-            )}
-            {/* Makes it obvious whether the calendar is showing live brokerage
-                data or only account-statement imports — they look identical. */}
-            {status?.counts && (
-              <span
-                className="text-xs text-[#8b949e]"
-                title="Trades written by the brokerage sync vs. brought in by manual/statement import"
-              >
-                {status.counts.broker} from broker · {status.counts.imported} imported
-              </span>
-            )}
-            {msg && <span className="text-xs text-[#58a6ff]">{msg}</span>}
-          </div>
-
-          <div className="flex items-center gap-2 flex-shrink-0">
+              ) : (
+                <span className="text-[11px] text-[#d29922] whitespace-nowrap hidden sm:inline">
+                  never synced
+                </span>
+              )}
+            </button>
             <button
               onClick={handleRefresh}
               disabled={syncing}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+              aria-label="Pull the latest trades from your brokerage"
               title="Pull the latest trades from your brokerage"
+              className="p-1.5 pr-2 text-[#8b949e] hover:text-[#3fb950] transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Refreshing…' : 'Refresh data'}
-            </button>
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-3 py-1.5 border border-[#30363d] hover:border-[#F97316]/50 text-[#c9d1d9] hover:text-white rounded-lg text-sm transition-colors"
-            >
-              Manage
+              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
             </button>
           </div>
+          {msg && <span className="text-[11px] text-[#58a6ff] whitespace-nowrap">{msg}</span>}
         </div>
       ) : (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-dashed border-[#30363d] bg-[#161b22]/50">
-          <span className="flex items-center gap-2 text-sm text-[#8b949e]">
-            <Plug className="w-4 h-4 text-[#F97316] flex-shrink-0" />
-            Connect your brokerage to auto-sync trades into Performance &amp; Journal.
-          </span>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#F97316] hover:bg-[#ea6c0a] text-white rounded-lg text-sm font-medium transition-colors flex-shrink-0"
-          >
-            <Link2 className="w-4 h-4" />
-            Connect Broker
-          </button>
-        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          title="Auto-sync your trades into Performance & Journal"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-dashed border-[#30363d] text-xs text-[#8b949e] hover:text-[#F97316] hover:border-[#F97316]/50 transition-colors whitespace-nowrap"
+        >
+          <Plug className="w-3.5 h-3.5 flex-shrink-0" />
+          Connect broker
+        </button>
       )}
 
       {showModal && (

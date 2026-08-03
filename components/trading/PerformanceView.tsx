@@ -18,7 +18,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
 import { isOwnerEmail } from '@/lib/owner';
-import BrokerageSyncBar from '@/components/trading/BrokerageSyncBar';
 import AccountToggle, { type PerfAccount } from '@/components/trading/AccountToggle';
 import DayTradingPerformance from '@/components/trading/DayTradingPerformance';
 import LongTermPerformance from '@/components/trading/LongTermPerformance';
@@ -222,10 +221,9 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
 
   return (
     <div className="space-y-5">
-      {/* Brokerage connection + sync status (shared with the Journal tab) */}
-      <BrokerageSyncBar onSynced={loadData} />
-
-      {/* Header with period selector */}
+      {/* Header with period selector. Brokerage status lives in the Journal
+          header only (compact pill) — this tab refetches on mount, so it
+          always reflects the latest sync. */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Performance</h2>

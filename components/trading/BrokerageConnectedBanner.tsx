@@ -27,12 +27,19 @@ export default function BrokerageConnectedBanner() {
   // Read the one-shot result during the first render rather than in an effect —
   // the params are stripped immediately afterwards, so this must not depend on
   // a second render to latch.
-  const [state, setState] = useState<{ kind: Kind; synced: number; name: string; reason: string } | null>(() => {
+  const [state, setState] = useState<{
+    kind: Kind;
+    synced: number;
+    cleared: number;
+    name: string;
+    reason: string;
+  } | null>(() => {
     const brokerage = searchParams.get('brokerage');
     if (brokerage !== 'connected' && brokerage !== 'error' && brokerage !== 'partial') return null;
     return {
       kind: brokerage,
       synced: Number(searchParams.get('synced') ?? 0),
+      cleared: Number(searchParams.get('cleared') ?? 0),
       name: searchParams.get('name') ?? '',
       reason: searchParams.get('reason') ?? '',
     };
@@ -46,7 +53,7 @@ export default function BrokerageConnectedBanner() {
     // Drop the one-shot params but keep the tab/subtab the user landed on, so
     // a refresh doesn't replay the banner.
     const next = new URLSearchParams(searchParams.toString());
-    for (const k of ['brokerage', 'synced', 'name', 'reason']) next.delete(k);
+    for (const k of ['brokerage', 'synced', 'cleared', 'name', 'reason']) next.delete(k);
     router.replace(`${pathname}?${next.toString()}`, { scroll: false });
   }, [state, searchParams, router, pathname]);
 
@@ -72,11 +79,20 @@ export default function BrokerageConnectedBanner() {
       ? `${broker} connected — first sync didn’t finish`
       : 'Brokerage connection failed';
 
+  // The link makes the broker the sole source of the Journal, so the pre-broker
+  // imports are gone — say so plainly rather than letting the count vanish.
+  const clearedNote =
+    state.cleared > 0
+      ? ` ${state.cleared} previously imported trade${state.cleared === 1 ? '' : 's'} ${
+          state.cleared === 1 ? 'was' : 'were'
+        } removed — your brokerage is now the only source for the Journal.`
+      : '';
+
   const detail =
     state.kind === 'connected'
       ? state.synced > 0
-        ? 'Your trades are on the calendar below and in Performance.'
-        : 'No trades came back yet — brokerages backfill history for a while after linking. Hit “Refresh data” in a few minutes, or it will pull automatically overnight.'
+        ? `Your trades are on the calendar below and in Performance.${clearedNote}`
+        : `No trades came back yet — brokerages backfill history for a while after linking. Hit “Refresh data” in a few minutes, or it will pull automatically overnight.${clearedNote}`
       : state.kind === 'partial'
       ? 'The account is linked; only the initial pull failed. Use “Refresh data” to retry.'
       : state.reason || 'Please try connecting again.';

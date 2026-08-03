@@ -29,10 +29,27 @@ import { parseFlexibleCSV, detectCSVFormat, validateCSVFormat, CSVFormat, getFor
 import { getNowInEST } from '@/lib/date-utils';
 import { requireUserId } from '@/lib/auth-session';
 import { getRedisClient } from '@/lib/redis';
+import { getBrokerConnection } from '@/lib/db/broker-connections';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const { userId, error: authError } = await requireUserId();
   if (authError) return authError;
+
+  // A linked brokerage is the sole source of the Journal — its history replaced
+  // the hand-imported trades at connect time, and syncs preserve anything
+  // non-broker, so an import here would quietly reintroduce a second source.
+  const brokerConnection = await getBrokerConnection(userId);
+  if (brokerConnection && brokerConnection.accounts.length > 0) {
+    return NextResponse.json(
+      {
+        success: false,
+        code: 'BROKERAGE_CONNECTED',
+        error:
+          'Your brokerage is connected and now supplies your Journal automatically. Disconnect it first if you want to import statements by hand.',
+      },
+      { status: 409 }
+    );
+  }
 
   try {
     const contentType = request.headers.get('content-type') || '';

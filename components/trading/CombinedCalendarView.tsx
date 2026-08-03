@@ -187,6 +187,10 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
 
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
+  // A linked brokerage is the sole source of the Journal, so manual import is
+  // hidden while one is connected (the API rejects it too). Reported by
+  // BrokerageSyncBar, which already knows the connection status.
+  const [brokerConnected, setBrokerConnected] = useState(false);
 
   // Fetch data on mount
   useEffect(() => {
@@ -537,9 +541,6 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
 
   return (
     <div className="space-y-4">
-      {/* Brokerage connection + sync status */}
-      <BrokerageSyncBar onSynced={fetchData} onOpenImport={() => setShowImportModal(true)} />
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
@@ -587,16 +588,18 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
             </div>
           </div>
 
-          {/* Import Button */}
-          <button
-            data-tour="trading-import"
-            onClick={() => setShowImportModal(true)}
-            className="hidden sm:flex items-center gap-2 px-3 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors font-medium text-sm"
-            title="Import trades from CSV"
-          >
-            <Upload className="w-4 h-4" />
-            <span>Import</span>
-          </button>
+          {/* Import Button — hidden once a brokerage feeds the Journal. */}
+          {!brokerConnected && (
+            <button
+              data-tour="trading-import"
+              onClick={() => setShowImportModal(true)}
+              className="hidden sm:flex items-center gap-2 px-3 py-2 bg-[#238636] hover:bg-[#2ea043] text-white rounded-lg transition-colors font-medium text-sm"
+              title="Import trades from CSV"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Import</span>
+            </button>
+          )}
 
           <button
             onClick={fetchData}
@@ -607,6 +610,13 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
+
+        {/* Brokerage status pill — the one place connection state lives. */}
+        <BrokerageSyncBar
+          onSynced={fetchData}
+          onOpenImport={() => setShowImportModal(true)}
+          onConnectedChange={setBrokerConnected}
+        />
       </div>
 
       {/* Mobile Month Stats */}
@@ -832,7 +842,11 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
             <div className="p-8 text-center">
               <TrendingUp className="w-12 h-12 text-[#8b949e] mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-white mb-2">No Trades Yet</h3>
-              <p className="text-[#8b949e] mb-4">Import your trades from ThinkOrSwim to see them here.</p>
+              <p className="text-[#8b949e] mb-4">
+                {brokerConnected
+                  ? 'Your brokerage hasn’t sent any trades yet — history can take a while to backfill after linking. Use “Refresh data” above to check again.'
+                  : 'Import your trades from ThinkOrSwim to see them here.'}
+              </p>
             </div>
           </div>
         ) : (
@@ -886,13 +900,15 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                   </button>
                 )}
 
-                <button
-                  onClick={() => setShowImportModal(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-[#238636]/20 hover:bg-[#238636]/30 text-[#3fb950] rounded-lg text-sm transition-colors"
-                >
-                  <Upload className="w-4 h-4" />
-                  Import CSV
-                </button>
+                {!brokerConnected && (
+                  <button
+                    onClick={() => setShowImportModal(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-[#238636]/20 hover:bg-[#238636]/30 text-[#3fb950] rounded-lg text-sm transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Import CSV
+                  </button>
+                )}
                 
                 <button
                   onClick={exportToCSV}

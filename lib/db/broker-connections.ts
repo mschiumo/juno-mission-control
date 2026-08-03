@@ -45,6 +45,13 @@ export interface BrokerConnection {
   connectedAt: string;
   /** ISO timestamp of the last successful trade sync, if any. */
   lastSyncedAt?: string;
+  /**
+   * ISO timestamp of the last time linking a brokerage wiped the user's
+   * hand-imported (manual / CSV / account-statement) trades. Once a live
+   * brokerage is linked it is the sole source of the Journal, so the pre-broker
+   * history is cleared — see /api/snaptrade/connect/complete.
+   */
+  manualTradesClearedAt?: string;
 }
 
 function connectionKey(userId: string): string {
@@ -103,6 +110,16 @@ export async function setLastSyncedAt(userId: string, isoTimestamp: string): Pro
   const existing = await getBrokerConnection(userId);
   if (!existing) return;
   await saveBrokerConnection({ ...existing, lastSyncedAt: isoTimestamp });
+}
+
+/** Stamp the time the pre-broker (hand-imported) trades were cleared. */
+export async function setManualTradesClearedAt(
+  userId: string,
+  isoTimestamp: string
+): Promise<void> {
+  const existing = await getBrokerConnection(userId);
+  if (!existing) return;
+  await saveBrokerConnection({ ...existing, manualTradesClearedAt: isoTimestamp });
 }
 
 /**
