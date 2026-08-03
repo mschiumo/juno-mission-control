@@ -66,16 +66,33 @@ export async function clearDailyBalances(userId: string): Promise<void> {
   }
 }
 
-export async function getBrokerDailyBalances(userId: string): Promise<DailyBalance[]> {
+/**
+ * Broker-derived balances: the aggregate series plus one series per account
+ * (keyed by SnapTrade account id). The per-account series feed each account's
+ * own Performance view; the aggregate feeds "All Accounts".
+ */
+export interface BrokerBalances {
+  aggregate: DailyBalance[];
+  byAccount: Record<string, DailyBalance[]>;
+}
+
+const EMPTY_BROKER_BALANCES: BrokerBalances = { aggregate: [], byAccount: {} };
+
+export async function getBrokerDailyBalances(userId: string): Promise<BrokerBalances> {
   try {
     const redis = await getRedisClient();
     const raw = await redis.get(brokerBalancesKey(userId));
-    if (!raw) return [];
+    if (!raw) return EMPTY_BROKER_BALANCES;
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    return Array.isArray(parsed) ? parsed : [];
+    // Records written before the per-account split were a bare aggregate array.
+    if (Array.isArray(parsed)) return { aggregate: parsed, byAccount: {} };
+    return {
+      aggregate: Array.isArray(parsed?.aggregate) ? parsed.aggregate : [],
+      byAccount: parsed?.byAccount && typeof parsed.byAccount === 'object' ? parsed.byAccount : {},
+    };
   } catch (error) {
     console.error('Error getting broker daily balances:', error);
-    return [];
+    return EMPTY_BROKER_BALANCES;
   }
 }
 
@@ -85,13 +102,13 @@ export async function getBrokerDailyBalances(userId: string): Promise<DailyBalan
  * so merging with a previous derivation would only preserve stale points.
  */
 export async function saveBrokerDailyBalances(
-  balances: DailyBalance[],
+  balances: BrokerBalances,
   userId: string
 ): Promise<number> {
   try {
     const redis = await getRedisClient();
     await redis.set(brokerBalancesKey(userId), JSON.stringify(balances));
-    return balances.length;
+    return balances.aggregate.length;
   } catch (error) {
     console.error('Error saving broker daily balances:', error);
     throw error;
@@ -113,16 +130,23 @@ export async function clearBrokerDailyBalances(userId: string): Promise<void> {
  * (it reflects the live ledger); statement uploads keep supplying the dates
  * the broker's backfill doesn't reach.
  */
-export async function getCombinedDailyBalances(userId: string): Promise<DailyBalance[]> {
+export async function getCombinedDailyBalances(
+  userId: string
+): Promise<{ balances: DailyBalance[]; byAccount: Record<string, DailyBalance[]> }> {
   const [manual, broker] = await Promise.all([
     getDailyBalances(userId),
     getBrokerDailyBalances(userId),
   ]);
-  if (broker.length === 0) return manual;
+  if (broker.aggregate.length === 0) {
+    return { balances: manual, byAccount: broker.byAccount };
+  }
   const merged = new Map<string, number>();
   manual.forEach(b => merged.set(b.date, b.balance));
-  broker.forEach(b => merged.set(b.date, b.balance));
-  return [...merged.entries()]
-    .map(([date, balance]) => ({ date, balance }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  broker.aggregate.forEach(b => merged.set(b.date, b.balance));
+  return {
+    balances: [...merged.entries()]
+      .map(([date, balance]) => ({ date, balance }))
+      .sort((a, b) => a.date.localeCompare(b.date)),
+    byAccount: broker.byAccount,
+  };
 }
