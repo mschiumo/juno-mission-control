@@ -244,6 +244,15 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
               </button>
             </div>
 
+            {/* Data-freshness expectation: SnapTrade relays brokerage data on a
+                once-daily cycle, so "Sync now" can't surface same-day trades. */}
+            <p className="text-xs text-[#8b949e] leading-relaxed">
+              Brokerages share trade data <span className="text-[#c9d1d9]">once a day</span>, usually
+              overnight — today&apos;s trades typically appear by the next morning. The nightly
+              auto-sync picks them up; &ldquo;Sync now&rdquo; pulls the latest your brokerage has
+              shared so far.
+            </p>
+
             {syncMsg && (
               <div className="p-3 rounded-lg bg-[#1f6feb]/15 text-[#58a6ff] text-sm">{syncMsg}</div>
             )}
@@ -374,6 +383,14 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
                 </li>
               ))}
             </ol>
+
+            {/* Set the freshness expectation before they connect: brokerage
+                data arrives on a once-daily cycle, not live. */}
+            <p className="text-xs text-[#8b949e] leading-relaxed mb-5">
+              Note: brokerages share trade data once a day, usually overnight — so a day&apos;s
+              trades and P&amp;L typically appear in your Journal by the next morning, not in
+              real time.
+            </p>
 
             <div className="mb-5">
               <p className="text-xs text-[#8b949e] uppercase tracking-wide mb-2">Supported brokers</p>

@@ -169,8 +169,12 @@ export default function BrokerageSyncBar({
             <button
               onClick={handleRefresh}
               disabled={syncing}
-              aria-label="Pull the latest trades from your brokerage"
-              title="Pull the latest trades from your brokerage"
+              aria-label="Pull the latest data your brokerage has shared"
+              title={
+                'Pull the latest data your brokerage has shared.\n' +
+                'Brokerages send trades once a day (usually overnight), so ' +
+                'today’s trades typically appear by tomorrow morning.'
+              }
               className="p-1.5 pr-2 text-[#8b949e] hover:text-[#3fb950] transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
