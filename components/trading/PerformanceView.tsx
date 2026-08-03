@@ -39,6 +39,10 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
   const [startingBalance, setStartingBalance] = useState(0);
   const [allDailyBalances, setAllDailyBalances] = useState<DailyBalance[]>([]);
   const [allDailyFees, setAllDailyFees] = useState<DailyFee[]>([]);
+  // Broker-derived per-account series (keyed by SnapTrade account id) — feed
+  // each connected account's own view with real NLV.
+  const [balancesByAccount, setBalancesByAccount] = useState<Record<string, DailyBalance[]>>({});
+  const [feesByAccount, setFeesByAccount] = useState<Record<string, DailyFee[]>>({});
   const [brokerAccounts, setBrokerAccounts] = useState<BrokerAccount[]>([]);
   const [accountSettings, setAccountSettings] = useState<AccountSettingsMap>({});
   const [selectedAccountId, setSelectedAccountId] = useState<string>(ALL_ACCOUNT_ID);
@@ -67,7 +71,9 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
       if (tradesRes.success && tradesRes.data) setAllTrades(tradesRes.data.trades || []);
       if (prefsRes.success && prefsRes.prefs) setStartingBalance(prefsRes.prefs.startingBalance || 0);
       if (balancesRes.success && Array.isArray(balancesRes.balances)) setAllDailyBalances(balancesRes.balances);
+      if (balancesRes.success) setBalancesByAccount(balancesRes.byAccount ?? {});
       if (feesRes.success && Array.isArray(feesRes.fees)) setAllDailyFees(feesRes.fees);
+      if (feesRes.success) setFeesByAccount(feesRes.byAccount ?? {});
       if (accountsRes.success && accountsRes.data?.accounts) setBrokerAccounts(accountsRes.data.accounts);
       else setBrokerAccounts([]);
       if (settingsRes.success && settingsRes.settings) setAccountSettings(settingsRes.settings);
@@ -142,10 +148,18 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     return allTrades.filter((t) => t.brokerAccountId === selectedAccountId);
   }, [allTrades, selectedAccountId, longTermAccountIds]);
 
-  // Daily balances and broker fees come from imported Account Statements, so
-  // they're aggregate figures — only meaningful on the combined view.
-  const accountBalances = selectedAccountId === ALL_ACCOUNT_ID ? allDailyBalances : [];
-  const accountFees = selectedAccountId === ALL_ACCOUNT_ID ? allDailyFees : [];
+  // Balance/fee series for the selected view. "All Accounts" gets the merged
+  // aggregate (statement uploads + broker-derived). A connected brokerage
+  // account gets its own broker-derived series, so its equity curve shows real
+  // NLV rather than falling back to cumulative P&L. The Manual/Imported slot
+  // stays empty — statement figures are aggregate and can't be attributed to
+  // one account.
+  const accountBalances =
+    selectedAccountId === ALL_ACCOUNT_ID
+      ? allDailyBalances
+      : balancesByAccount[selectedAccountId] ?? [];
+  const accountFees =
+    selectedAccountId === ALL_ACCOUNT_ID ? allDailyFees : feesByAccount[selectedAccountId] ?? [];
 
   // Starting balance: combined + manual reuse the global prefs value (that's
   // where today's ToS statements set it); broker accounts store their own.

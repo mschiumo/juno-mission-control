@@ -8,7 +8,8 @@ export async function GET() {
   const { userId } = authResult;
 
   // Statement-upload fees merged with the broker-derived series (broker wins
-  // per date) — same dual-source model as daily balances.
-  const fees = await getCombinedDailyFees(userId);
-  return NextResponse.json({ success: true, fees });
+  // per date) — same dual-source model as daily balances, including the
+  // per-account split.
+  const { fees, byAccount } = await getCombinedDailyFees(userId);
+  return NextResponse.json({ success: true, fees, byAccount });
 }

@@ -231,17 +231,21 @@ async function deriveAndStoreBalances(
   ledgers: AccountLedger[]
 ): Promise<number> {
   try {
-    const { balances, skipped } = deriveDailyBalances(ledgers);
+    const { balances, byAccount, skipped } = deriveDailyBalances(ledgers);
     if (skipped.length > 0) {
       console.warn(
         `syncUserTrades: no balance anchor for account(s) ${skipped.join(', ')} — ` +
           'excluded from the derived series this sync.'
       );
     }
-    if (balances.length > 0) await saveBrokerDailyBalances(balances, userId);
+    if (balances.length > 0) {
+      await saveBrokerDailyBalances({ aggregate: balances, byAccount }, userId);
+    }
 
-    const fees = deriveDailyFees(ledgers);
-    if (fees.length > 0) await saveBrokerDailyFees(fees, userId);
+    const { fees, byAccount: feesByAccount } = deriveDailyFees(ledgers);
+    if (fees.length > 0) {
+      await saveBrokerDailyFees({ aggregate: fees, byAccount: feesByAccount }, userId);
+    }
 
     return balances.length;
   } catch (error) {

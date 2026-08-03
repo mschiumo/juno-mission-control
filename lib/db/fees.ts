@@ -49,25 +49,38 @@ export async function saveDailyFees(incoming: DailyFee[], userId: string): Promi
   }
 }
 
-export async function getBrokerDailyFees(userId: string): Promise<DailyFee[]> {
+/** Broker-derived fees: aggregate series + one series per account (mirrors BrokerBalances). */
+export interface BrokerFees {
+  aggregate: DailyFee[];
+  byAccount: Record<string, DailyFee[]>;
+}
+
+const EMPTY_BROKER_FEES: BrokerFees = { aggregate: [], byAccount: {} };
+
+export async function getBrokerDailyFees(userId: string): Promise<BrokerFees> {
   try {
     const redis = await getRedisClient();
     const raw = await redis.get(brokerFeesKey(userId));
-    if (!raw) return [];
+    if (!raw) return EMPTY_BROKER_FEES;
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    return Array.isArray(parsed) ? parsed : [];
+    // Records written before the per-account split were a bare aggregate array.
+    if (Array.isArray(parsed)) return { aggregate: parsed, byAccount: {} };
+    return {
+      aggregate: Array.isArray(parsed?.aggregate) ? parsed.aggregate : [],
+      byAccount: parsed?.byAccount && typeof parsed.byAccount === 'object' ? parsed.byAccount : {},
+    };
   } catch (error) {
     console.error('Error getting broker daily fees:', error);
-    return [];
+    return EMPTY_BROKER_FEES;
   }
 }
 
 /** Full overwrite — the series is recomputed from the complete ledger each sync. */
-export async function saveBrokerDailyFees(fees: DailyFee[], userId: string): Promise<number> {
+export async function saveBrokerDailyFees(fees: BrokerFees, userId: string): Promise<number> {
   try {
     const redis = await getRedisClient();
     await redis.set(brokerFeesKey(userId), JSON.stringify(fees));
-    return fees.length;
+    return fees.aggregate.length;
   } catch (error) {
     console.error('Error saving broker daily fees:', error);
     throw error;
@@ -84,14 +97,21 @@ export async function clearBrokerDailyFees(userId: string): Promise<void> {
 }
 
 /** Statement-upload fees extended/overridden by broker-derived ones (broker wins per date). */
-export async function getCombinedDailyFees(userId: string): Promise<DailyFee[]> {
+export async function getCombinedDailyFees(
+  userId: string
+): Promise<{ fees: DailyFee[]; byAccount: Record<string, DailyFee[]> }> {
   const [manual, broker] = await Promise.all([
     getDailyFees(userId),
     getBrokerDailyFees(userId),
   ]);
-  if (broker.length === 0) return manual;
+  if (broker.aggregate.length === 0) {
+    return { fees: manual, byAccount: broker.byAccount };
+  }
   const merged = new Map<string, DailyFee>();
   manual.forEach(f => merged.set(f.date, f));
-  broker.forEach(f => merged.set(f.date, f));
-  return [...merged.values()].sort((a, b) => a.date.localeCompare(b.date));
+  broker.aggregate.forEach(f => merged.set(f.date, f));
+  return {
+    fees: [...merged.values()].sort((a, b) => a.date.localeCompare(b.date)),
+    byAccount: broker.byAccount,
+  };
 }

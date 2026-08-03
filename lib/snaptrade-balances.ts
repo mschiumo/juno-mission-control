@@ -133,58 +133,92 @@ function valueAt(series: AccountSeries, date: string): number {
 }
 
 /**
- * Derive the aggregate daily balance series across the given accounts.
- * Accounts without a usable anchor are skipped (logged by the caller via the
- * returned `skipped` list) rather than dragging the whole series to garbage.
+ * Derive the daily balance series — per account AND aggregated across them.
+ * The per-account series feed each account's own Performance view (the account
+ * selector); the aggregate feeds "All Accounts". Accounts without a usable
+ * anchor are skipped (logged by the caller via the returned `skipped` list)
+ * rather than dragging the whole series to garbage.
  */
 export function deriveDailyBalances(
   ledgers: AccountLedger[],
   today = getTodayInEST()
-): { balances: DailyBalance[]; skipped: string[] } {
+): {
+  balances: DailyBalance[];
+  byAccount: Record<string, DailyBalance[]>;
+  skipped: string[];
+} {
   const series: AccountSeries[] = [];
+  const byAccount: Record<string, DailyBalance[]> = {};
   const skipped: string[] = [];
 
   for (const ledger of ledgers) {
     const s = buildAccountSeries(ledger, today);
-    if (s) series.push(s);
-    else skipped.push(ledger.accountId);
+    if (s) {
+      series.push(s);
+      byAccount[ledger.accountId] = s.dates.map((date, i) => ({
+        date,
+        balance: round2(s.values[i]),
+      }));
+    } else {
+      skipped.push(ledger.accountId);
+    }
   }
-  if (series.length === 0) return { balances: [], skipped };
+  if (series.length === 0) return { balances: [], byAccount, skipped };
 
   const allDates = [...new Set(series.flatMap(s => s.dates))].sort();
   const balances = allDates.map(date => ({
     date,
     balance: round2(series.reduce((sum, s) => sum + valueAt(s, date), 0)),
   }));
-  return { balances, skipped };
+  return { balances, byAccount, skipped };
 }
 
 /**
- * Derive the aggregate daily fee series: BUY/SELL commissions plus FEE/TAX
- * ledger debits, in the same total/breakdown shape statement imports produce.
+ * Derive the daily fee series — per account and aggregated — from BUY/SELL
+ * commissions plus FEE/TAX ledger debits, in the same total/breakdown shape
+ * statement imports produce.
  */
 export function deriveDailyFees(
   ledgers: AccountLedger[],
   today = getTodayInEST()
-): DailyFee[] {
+): { fees: DailyFee[]; byAccount: Record<string, DailyFee[]> } {
+  const byAccount: Record<string, DailyFee[]> = {};
+  // Aggregate accumulators across all accounts.
   const commissions = new Map<string, number>();
   const other = new Map<string, number>();
 
   for (const ledger of ledgers) {
+    const acctCommissions = new Map<string, number>();
+    const acctOther = new Map<string, number>();
     for (const a of ledger.activities) {
       const type = (a.type || '').toUpperCase();
       const date = a.trade_date ? getESTDateFromTimestamp(a.trade_date) : '';
       if (!date || date > today) continue;
       if (type === 'BUY' || type === 'SELL') {
         const fee = Math.abs(a.fee ?? 0);
-        if (fee > 0) addTo(commissions, date, fee);
+        if (fee > 0) {
+          addTo(commissions, date, fee);
+          addTo(acctCommissions, date, fee);
+        }
       } else if (type === 'FEE' || type === 'TAX') {
         const amt = Math.abs(a.amount ?? 0);
-        if (amt > 0) addTo(other, date, amt);
+        if (amt > 0) {
+          addTo(other, date, amt);
+          addTo(acctOther, date, amt);
+        }
       }
     }
+    const acctFees = toFeeSeries(acctCommissions, acctOther);
+    if (acctFees.length > 0) byAccount[ledger.accountId] = acctFees;
   }
 
+  return { fees: toFeeSeries(commissions, other), byAccount };
+}
+
+function toFeeSeries(
+  commissions: Map<string, number>,
+  other: Map<string, number>
+): DailyFee[] {
   const allDates = [...new Set([...commissions.keys(), ...other.keys()])].sort();
   return allDates.map(date => {
     const c = commissions.get(date) || 0;
