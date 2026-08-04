@@ -12,25 +12,30 @@ import {
 
 const SUPPORT_EMAIL = 'confluencetradingsupport@gmail.com';
 
-/* ─── Candlestick data (pre-calculated, trending upward) ─── */
-const CANDLES = [
-  { x: 25,  wt: 155, bt: 160, bb: 172, wb: 178, bull: true  },
-  { x: 55,  wt: 148, bt: 153, bb: 163, wb: 169, bull: true  },
-  { x: 85,  wt: 144, bt: 148, bb: 162, wb: 168, bull: false },
-  { x: 115, wt: 135, bt: 140, bb: 155, wb: 162, bull: true  },
-  { x: 145, wt: 125, bt: 130, bb: 145, wb: 153, bull: true  },
-  { x: 175, wt: 122, bt: 128, bb: 140, wb: 148, bull: false },
-  { x: 205, wt: 108, bt: 114, bb: 132, wb: 140, bull: true  },
-  { x: 235, wt:  95, bt: 100, bb: 120, wb: 128, bull: true  },
-  { x: 265, wt:  97, bt: 103, bb: 115, wb: 122, bull: false },
-  { x: 295, wt:  82, bt:  88, bb: 106, wb: 114, bull: true  },
-  { x: 325, wt:  70, bt:  76, bb:  96, wb: 104, bull: true  },
-  { x: 355, wt:  72, bt:  78, bb:  90, wb:  98, bull: false },
-  { x: 385, wt:  58, bt:  64, bb:  82, wb:  90, bull: true  },
-  { x: 415, wt:  48, bt:  54, bb:  72, wb:  80, bull: true  },
-  { x: 445, wt:  40, bt:  46, bb:  64, wb:  72, bull: true  },
-];
-const VOL = [12, 18, 8, 22, 15, 10, 25, 20, 14, 16, 28, 11, 19, 24, 17];
+/* ─── Hero trade-plan chart geometry ───
+   The price chops sideways, pulls back to the entry at (208,141) — where
+   the EMA and VWAP converge (the "confluence" moment, echoing the logo) —
+   then breaks out through the target. All three paths draw in on load. */
+const HERO_PRICE =
+  'M 0,160 L 16,155 L 30,161 L 46,150 L 60,157 L 76,146 L 92,152 L 106,144 ' +
+  'L 122,150 L 138,137 L 154,144 L 170,133 L 186,138 L 200,146 L 208,141 ' +
+  'L 230,124 L 244,130 L 266,108 L 280,114 L 306,90 L 320,97 L 348,74 ' +
+  'L 362,80 L 392,56 L 406,62 L 434,44 L 452,49 L 476,38';
+const HERO_EMA =
+  'M 0,176 C 50,172 110,164 160,152 C 185,146 200,143 208,141 ' +
+  'C 250,131 300,114 350,94 C 400,74 440,60 476,52';
+const HERO_VWAP =
+  'M 0,116 C 50,122 110,130 160,138 C 185,140 200,141 208,141 ' +
+  'C 255,133 310,118 360,100 C 415,79 450,68 476,62';
+
+/* one-shot hero animations (document timeline — hero is visible on load);
+   data-loop opts them out under prefers-reduced-motion, leaving end states */
+const heroDraw = (delay: string, dur = '1.3s') => ({
+  animation: `draw ${dur} cubic-bezier(.4,.6,.3,1) ${delay} both`,
+} as CSSProperties);
+const heroFade = (delay: string, dur = '.5s') => ({
+  animation: `fadeIn ${dur} ease-out ${delay} both`,
+} as CSSProperties);
 
 /* ─── Gap scanner rows ─── */
 const GAPS = [
@@ -310,65 +315,79 @@ export default function LandingPage() {
           {/* Chart mockup */}
           <div className="relative">
             <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-hidden shadow-2xl shadow-black/50">
-              {/* Window chrome */}
+              {/* Header — the card is a trade plan, not a generic chart window */}
               <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#30363d]">
-                <div className="flex items-center gap-3">
-                  <div className="flex gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-[#f85149]" />
-                    <div className="w-3 h-3 rounded-full bg-[#d29922]" />
-                    <div className="w-3 h-3 rounded-full bg-[#3fb950]" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-6 h-6 rounded-md bg-[#F97316]/10 flex items-center justify-center">
+                    <TrendingUp className="w-3.5 h-3.5 text-[#F97316]" />
                   </div>
-                  <span className="text-xs text-[#8b949e] font-mono ml-1">SPY — Daily Chart</span>
+                  <span className="text-xs font-semibold text-white">NVDA — Trade Plan</span>
+                  <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-[#3fb950]/15 text-[#3fb950] tracking-wider">LONG</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="px-2 py-0.5 rounded bg-[#3fb950]/10 text-[#3fb950] font-mono">+2.48%</span>
-                  <span className="text-[#8b949e] font-mono">$512.40</span>
+                  <span className="px-2 py-0.5 rounded bg-[#F97316]/10 text-[#F97316] font-mono font-semibold">+2.4R</span>
+                  <span className="text-[#8b949e] font-mono">$151.84</span>
                 </div>
               </div>
 
-              {/* Candlestick SVG */}
+              {/* Trade-plan SVG — entry/stop/target levels, EMA+VWAP converging
+                  at the entry (the confluence moment), breakout to target */}
               <div className="px-4 pt-4 pb-2">
-                <svg viewBox="0 0 480 210" className="w-full h-[200px]">
-                  {/* Grid lines */}
-                  {[40, 80, 120, 160].map(y => (
-                    <line key={y} x1="0" y1={y} x2="480" y2={y} stroke="#21262d" strokeWidth="1" />
-                  ))}
-                  {/* Price labels */}
-                  {[
-                    { y: 42,  label: '$520' },
-                    { y: 82,  label: '$510' },
-                    { y: 122, label: '$500' },
-                    { y: 162, label: '$490' },
-                  ].map(item => (
-                    <text key={item.y} x="2" y={item.y} fill="#484f58" fontSize="8" fontFamily="monospace">{item.label}</text>
-                  ))}
+                <svg viewBox="0 0 480 230" className="w-full h-[200px]">
+                  <defs>
+                    <linearGradient id="heroGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3fb950" stopOpacity="0.16" />
+                      <stop offset="100%" stopColor="#3fb950" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
 
-                  {/* Volume bars */}
-                  {CANDLES.map((c, i) => (
-                    <rect key={`v${c.x}`} x={c.x - 8} y={210 - VOL[i]} width={16} height={VOL[i]}
-                          fill={c.bull ? '#3fb950' : '#f85149'} opacity="0.18" />
-                  ))}
+                  {/* level lines + labels (static baseline — always visible) */}
+                  <line x1="0" y1="100" x2="480" y2="100" stroke="#21262d" strokeWidth="1" />
+                  <line x1="0" y1="58"  x2="480" y2="58"  stroke="#3fb950" strokeWidth="1" strokeDasharray="5 4" opacity="0.35" />
+                  <line x1="0" y1="140" x2="480" y2="140" stroke="#8b949e" strokeWidth="1" strokeDasharray="5 4" opacity="0.30" />
+                  <line x1="0" y1="185" x2="480" y2="185" stroke="#f85149" strokeWidth="1" strokeDasharray="5 4" opacity="0.35" />
+                  <text x="4" y="54"  fill="#3fb950" fontSize="8" fontFamily="monospace" opacity="0.9">TARGET 151.10</text>
+                  <text x="4" y="136" fill="#8b949e" fontSize="8" fontFamily="monospace" opacity="0.9">ENTRY 142.50</text>
+                  <text x="4" y="181" fill="#f85149" fontSize="8" fontFamily="monospace" opacity="0.9">STOP 138.20</text>
 
-                  {/* Candles */}
-                  {CANDLES.map(c => (
-                    <g key={c.x}>
-                      <line x1={c.x} y1={c.wt} x2={c.x} y2={c.wb}
-                            stroke={c.bull ? '#3fb950' : '#f85149'} strokeWidth="1.5" />
-                      <rect x={c.x - 8} y={c.bt} width={16} height={Math.max(c.bb - c.bt, 2)}
-                            fill={c.bull ? '#3fb950' : '#f85149'} rx="1" />
-                    </g>
-                  ))}
+                  {/* risk / reward zones from the entry forward, priced in R */}
+                  <g data-loop style={heroFade('.9s')}>
+                    <rect x="208" y="58"  width="272" height="82" fill="#3fb950" opacity="0.06" />
+                    <rect x="208" y="140" width="272" height="45" fill="#f85149" opacity="0.05" />
+                    <text x="472" y="74"  textAnchor="end" fill="#3fb950" fontSize="9" fontFamily="monospace" fontWeight="bold" opacity="0.9">+2.4R</text>
+                    <text x="472" y="178" textAnchor="end" fill="#f85149" fontSize="9" fontFamily="monospace" fontWeight="bold" opacity="0.7">-1R</text>
+                  </g>
 
-                  {/* EMA 21 */}
-                  <path d="M 10,170 C 60,162 100,152 130,142 S 175,130 205,120 S 250,106 280,95 S 330,80 370,70 S 420,56 470,48"
-                        stroke="#F97316" strokeWidth="2" fill="none" opacity="0.85" />
-                  <rect x="378" y="40" width="44" height="15" rx="3" fill="#F97316" opacity="0.12" />
-                  <text x="400" y="51" textAnchor="middle" fill="#F97316" fontSize="8.5" fontFamily="monospace" fontWeight="bold">EMA 21</text>
+                  {/* area under price */}
+                  <path d={`${HERO_PRICE} L 476,230 L 0,230 Z`} fill="url(#heroGrad)" data-loop style={heroFade('.9s', '.8s')} />
 
-                  {/* EMA 9 */}
-                  <path d="M 10,175 C 50,165 90,150 120,138 S 165,125 200,113 S 248,100 280,88 S 330,74 375,62 S 420,50 470,44"
-                        stroke="#58a6ff" strokeWidth="1.5" fill="none" opacity="0.55" strokeDasharray="4 3" />
-                  <text x="450" y="40" fill="#58a6ff" fontSize="8" fontFamily="monospace" opacity="0.7">EMA 9</text>
+                  {/* VWAP + EMA — converge exactly at the entry point */}
+                  <path d={HERO_VWAP} stroke="#58a6ff" strokeWidth="1.3" fill="none" opacity="0.5"
+                        strokeDasharray="1400" data-loop style={heroDraw('.7s')} />
+                  <path d={HERO_EMA} stroke="#F97316" strokeWidth="1.6" fill="none" opacity="0.8"
+                        strokeLinecap="round" strokeDasharray="1400" data-loop style={heroDraw('.55s')} />
+                  {/* price */}
+                  <path d={HERO_PRICE} stroke="#3fb950" strokeWidth="2.2" fill="none"
+                        strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1400"
+                        data-loop style={heroDraw('.2s', '1.5s')} />
+
+                  {/* entry marker — the confluence moment */}
+                  <g data-loop style={heroFade('1.5s')}>
+                    <circle cx="208" cy="141" r="4.5" fill="#F97316" data-loop
+                            style={{ transformBox: 'fill-box', transformOrigin: 'center', animation: 'dotRing var(--lp-pulse) 1.9s infinite' } as CSSProperties} />
+                    <circle cx="208" cy="141" r="4.5" fill="#F97316" />
+                    <rect x="218" y="150" width="92" height="15" rx="3" fill="#F97316" opacity="0.14" />
+                    <text x="224" y="160.5" fill="#F97316" fontSize="7.5" fontFamily="monospace" fontWeight="bold">CONFLUENCE ✓</text>
+                  </g>
+
+                  {/* live price dot at target */}
+                  <g data-loop style={heroFade('1.8s')}>
+                    <circle cx="476" cy="40" r="4" fill="#3fb950" data-loop
+                            style={{ transformBox: 'fill-box', transformOrigin: 'center', animation: 'dotRing var(--lp-pulse) 2.2s infinite' } as CSSProperties} />
+                    <circle cx="476" cy="40" r="4" fill="#3fb950" />
+                    <rect x="428" y="24" width="42" height="15" rx="3" fill="#3fb950" opacity="0.15" />
+                    <text x="449" y="35" textAnchor="middle" fill="#3fb950" fontSize="8" fontFamily="monospace" fontWeight="bold">151.84</text>
+                  </g>
                 </svg>
               </div>
 
