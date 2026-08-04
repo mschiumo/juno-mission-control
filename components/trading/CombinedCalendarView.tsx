@@ -111,13 +111,16 @@ const parseDateAsEST = (dateStr: string): Date => {
   return new Date(y, (m || 1) - 1, d || 1);
 };
 
+// Format in the viewer's local zone: parseDateAsEST built local midnight of
+// the calendar date, so an ET override would re-shift it — local midnight in
+// any timezone east of ET is still the previous evening in New York, which
+// rendered day headers one day early (e.g. "Sunday, August 2" for 2026-08-03).
 const formatDateEST = (dateStr: string): string => {
   return parseDateAsEST(dateStr).toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
-    day: 'numeric',
-    timeZone: 'America/New_York'
+    day: 'numeric'
   });
 };
 
