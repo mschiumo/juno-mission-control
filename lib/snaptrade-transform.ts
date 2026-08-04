@@ -14,6 +14,9 @@
  *  - An over-fill that flips the sign closes the current cycle and opens a new
  *    one with the remainder.
  *  - A position still open at the end of the window is emitted as an OPEN Trade.
+ *  - Fills sharing one identical timestamp (day-granularity brokers) are
+ *    ordered deterministically: position-extending fills first, flat starts
+ *    default to LONG unless the description marks a short sale.
  *  - Trade ids are deterministic (`st_<account>_<symbol>_<cycleIndex>`) so a
  *    re-sync upserts the same trade instead of duplicating it.
  *
@@ -54,6 +57,8 @@ interface Execution {
   price: number;
   fee: number;
   date: string;
+  /** Broker's description explicitly marks a short sale ("Sell Short"). */
+  shortSale: boolean;
 }
 
 interface Cycle {
@@ -105,13 +110,54 @@ function toExecutions(activities: SnapTradeActivity[]): Execution[] {
     const price = a.price ?? 0;
     const date = a.trade_date || '';
     if (!ticker || qty <= 0 || price <= 0 || !date) continue;
-    out.push({ symbol: ticker, action, qty, price, fee: Math.abs(a.fee ?? 0), date: toETTimestamp(date) });
+    out.push({
+      symbol: ticker,
+      action,
+      qty,
+      price,
+      fee: Math.abs(a.fee ?? 0),
+      date: toETTimestamp(date),
+      shortSale: action === 'SELL' && /\bshort\b/i.test(a.description || ''),
+    });
   }
   return out;
 }
 
 function sign(n: number): number {
   return n > 0 ? 1 : n < 0 ? -1 : 0;
+}
+
+/**
+ * Day-granularity brokers stamp every fill of a session with one identical
+ * trade_date, so same-stamp fills carry no intra-day sequence and the feed's
+ * order for them is arbitrary — processing a session's sell before its buy
+ * reconstructs a long round trip as a SHORT with entry/exit swapped (the P&L
+ * survives, proceeds-minus-cost being order-independent, which made the bad
+ * labels look self-consistent). Make the order deterministic instead: within
+ * each identical-timestamp run, fills that extend the current position process
+ * before fills that reduce it, and a flat start is LONG (buys first) unless
+ * the broker's description explicitly marks a short sale. A true intraday
+ * short without such a description is labeled LONG — with one stamp per day
+ * the real sequence is unknowable, and the long default matches the common
+ * retail case; the side stays editable in the Journal.
+ */
+function orderSameStampRuns(execs: Execution[]): Execution[] {
+  const out: Execution[] = [];
+  let pos = 0; // simulated running position, mirrors the cycle builder's
+  let i = 0;
+  while (i < execs.length) {
+    let j = i;
+    while (j < execs.length && execs[j].date === execs[i].date) j++;
+    const run = execs.slice(i, j);
+    const sellsFirst = pos < 0 || (pos === 0 && run.some(e => e.shortSale));
+    const sells = run.filter(e => e.action === 'SELL');
+    const buys = run.filter(e => e.action === 'BUY');
+    const ordered = sellsFirst ? [...sells, ...buys] : [...buys, ...sells];
+    out.push(...ordered);
+    for (const e of ordered) pos += e.action === 'BUY' ? e.qty : -e.qty;
+    i = j;
+  }
+  return out;
 }
 
 export function buildTradesFromActivities(
@@ -131,8 +177,9 @@ export function buildTradesFromActivities(
 
   const trades: Trade[] = [];
 
-  for (const [symbol, execs] of bySymbol) {
-    execs.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  for (const [symbol, rawExecs] of bySymbol) {
+    rawExecs.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    const execs = orderSameStampRuns(rawExecs);
 
     let pos = 0; // signed net position
     let cycle: Cycle | null = null;
