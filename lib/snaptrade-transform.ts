@@ -77,12 +77,19 @@ interface Cycle {
  * ET day window. A raw UTC timestamp breaks both for evening fills (8pm ET is
  * already the next day in UTC), so convert to ET here at ingestion.
  */
-function toETTimestamp(raw: string): string {
+export function toETTimestamp(raw: string): string {
   // Bare date: keep the calendar day exactly as the broker reported it; noon
   // can't drift into a neighboring day under any consumer's date math.
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return `${raw}T12:00:00-05:00`;
   const parsed = new Date(raw);
   if (isNaN(parsed.getTime())) return raw; // unknown format — pass through
+  // A timestamp of exactly midnight UTC is a day-granularity stamp, not a real
+  // fill time — Schwab reports every fill as "<trading day>T00:00:00Z".
+  // Converting it as an instant would land on the previous ET evening (8pm)
+  // and shift the whole session back a calendar day, so keep the stamped day.
+  if (parsed.getTime() % 86_400_000 === 0) {
+    return `${parsed.toISOString().slice(0, 10)}T12:00:00-05:00`;
+  }
   return toESTISOString(parsed);
 }
 
