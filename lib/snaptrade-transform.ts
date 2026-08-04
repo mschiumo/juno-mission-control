@@ -22,6 +22,7 @@
  */
 
 import { Trade, TradeSide, TradeStatus, Strategy } from '@/types/trading';
+import { toESTISOString } from '@/lib/date-utils';
 
 /** Minimal shape of a SnapTrade UniversalActivity we depend on. */
 export interface SnapTradeActivity {
@@ -67,6 +68,24 @@ interface Cycle {
   exitDateLast: string;
 }
 
+/**
+ * SnapTrade's trade_date is a UTC timestamp (or, for brokerages that only
+ * report day granularity, a bare YYYY-MM-DD). The app's storage convention —
+ * set by the CSV import parsers — is an Eastern-time wall-clock ISO string,
+ * and every consumer derives the trading day from it: the Journal calendar's
+ * daily buckets take the string's leading date, and /api/trades filters by an
+ * ET day window. A raw UTC timestamp breaks both for evening fills (8pm ET is
+ * already the next day in UTC), so convert to ET here at ingestion.
+ */
+function toETTimestamp(raw: string): string {
+  // Bare date: keep the calendar day exactly as the broker reported it; noon
+  // can't drift into a neighboring day under any consumer's date math.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return `${raw}T12:00:00-05:00`;
+  const parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) return raw; // unknown format — pass through
+  return toESTISOString(parsed);
+}
+
 /** Normalize raw activities into equity BUY/SELL executions, dropping the rest. */
 function toExecutions(activities: SnapTradeActivity[]): Execution[] {
   const out: Execution[] = [];
@@ -79,7 +98,7 @@ function toExecutions(activities: SnapTradeActivity[]): Execution[] {
     const price = a.price ?? 0;
     const date = a.trade_date || '';
     if (!ticker || qty <= 0 || price <= 0 || !date) continue;
-    out.push({ symbol: ticker, action, qty, price, fee: Math.abs(a.fee ?? 0), date });
+    out.push({ symbol: ticker, action, qty, price, fee: Math.abs(a.fee ?? 0), date: toETTimestamp(date) });
   }
   return out;
 }

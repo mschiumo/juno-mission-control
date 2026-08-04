@@ -78,9 +78,11 @@ export function toESTISOString(dateInput: string | Date): string {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false
+    // h23, not hour12:false — the latter renders the midnight hour as "24:15:00",
+    // which produces an unparseable timestamp downstream
+    hourCycle: 'h23'
   });
-  
+
   const [datePart, timePart] = estDateStr.split(', ');
   const [month, day, year] = datePart.split('/');
   return `${year}-${month}-${day}T${timePart}${EST_OFFSET}`;
