@@ -355,6 +355,7 @@ export default function DayTradingPerformance({
                       <InfoTooltip
                         text={`This value may differ slightly from your broker balance. Broker fees (${formatDollars(feeTotals.total)} this period) are tracked separately and reduce your actual account value. The equity curve uses authoritative broker balances from imported Account Statements when available.`}
                         align="right"
+                        side="bottom"
                       />
                     )}
                   </div>

@@ -306,9 +306,12 @@ export function DayOfWeekTooltip({ active, payload }: { active?: boolean; payloa
 export function InfoTooltip({
   text,
   align = 'center',
+  side = 'top',
 }: {
   text: string;
   align?: 'left' | 'center' | 'right';
+  /** Open upward (default) or downward — use 'bottom' when the trigger sits near the top of an overflow-hidden card. */
+  side?: 'top' | 'bottom';
 }) {
   const horizontal =
     align === 'left'
@@ -316,12 +319,13 @@ export function InfoTooltip({
       : align === 'right'
         ? 'right-0'
         : 'left-1/2 -translate-x-1/2';
+  const vertical = side === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5';
   return (
     <span className="group/tip relative inline-flex items-center align-middle ml-1">
       <Info className="w-3 h-3 cursor-help" style={{ color: 'var(--text-tertiary)' }} />
       <span
         role="tooltip"
-        className={`pointer-events-none absolute bottom-full mb-1.5 ${horizontal} w-56 max-w-[75vw] px-3 py-2 text-[11px] leading-snug rounded-lg shadow-xl hidden opacity-0 group-hover/tip:inline-block group-hover/tip:opacity-100 transition-opacity duration-150 z-50 normal-case tracking-normal font-normal whitespace-normal text-left`}
+        className={`pointer-events-none absolute ${vertical} ${horizontal} w-56 max-w-[75vw] px-3 py-2 text-[11px] leading-snug rounded-lg shadow-xl hidden opacity-0 group-hover/tip:inline-block group-hover/tip:opacity-100 transition-opacity duration-150 z-50 normal-case tracking-normal font-normal whitespace-normal text-left`}
         style={{
           background: 'var(--surface-1, #0d1117)',
           border: '1px solid var(--border-default, #30363d)',
