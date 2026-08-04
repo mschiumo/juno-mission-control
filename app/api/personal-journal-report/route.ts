@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
 import Anthropic from '@anthropic-ai/sdk';
+import { consumeReportGeneration, rateLimitMessage } from '@/lib/report-rate-limit';
 
 // AI report over the personal (mindset/goals) journal. Mirrors the trading
 // `journal-insights` route but reads only personal-journal entries (no trades)
@@ -201,6 +202,14 @@ export async function POST(request: NextRequest) {
     // Build context for Claude
     const context = buildStructuredSummary(entries);
     const periodLabel = period === 'week' ? 'this week' : 'this month';
+
+    const rate = await consumeReportGeneration(userId, 'personal-journal-report');
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { success: false, error: rateLimitMessage(rate.limit) },
+        { status: 429 },
+      );
+    }
 
     const client = new Anthropic({ apiKey });
 

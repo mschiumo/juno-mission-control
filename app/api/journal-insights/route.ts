@@ -3,6 +3,7 @@ import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
 import { hasJournalContentRaw } from '@/lib/journal-content';
 import Anthropic from '@anthropic-ai/sdk';
+import { consumeReportGeneration, rateLimitMessage } from '@/lib/report-rate-limit';
 
 interface JournalPrompt {
   id: string;
@@ -282,6 +283,14 @@ export async function POST(request: NextRequest) {
     // Build context for Claude
     const context = buildStructuredSummary(entries, periodTrades);
     const periodLabel = period === 'week' ? 'this week' : 'this month';
+
+    const rate = await consumeReportGeneration(userId, 'journal-insights');
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { success: false, error: rateLimitMessage(rate.limit) },
+        { status: 429 },
+      );
+    }
 
     const client = new Anthropic({ apiKey });
 
