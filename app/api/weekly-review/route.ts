@@ -147,10 +147,9 @@ async function trainingDays(userId: string, weekStart: string, today: string): P
 /**
  * Realized P&L this week, net of what the broker actually charged.
  *
- * Scope matters as much as the arithmetic: only day-trading accounts the user
- * still has switched on count, the same set the Journal and the P&L calendar
- * use. A long-term account's closed positions are not the week's trading
- * profit. The netting itself lives in computeWeeklyPnl().
+ * Scope matters as much as the arithmetic: only accounts the user still has
+ * switched on count, the same set the Journal and the P&L calendar use. The
+ * netting itself lives in computeWeeklyPnl().
  */
 async function weeklyPnl(userId: string, weekStart: string, today: string): Promise<WeeklyPnl> {
   try {

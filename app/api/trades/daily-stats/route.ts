@@ -11,9 +11,9 @@ export async function GET() {
   if (error) return error;
 
   try {
-    // The calendar is a short-term trading log: long-term (buy-and-hold)
-    // accounts and accounts the user switched off are excluded, so daily P&L
-    // and win rate describe trading activity only.
+    // The calendar is a short-term trading log: accounts the user switched
+    // off are excluded, so daily P&L and win rate describe trading activity
+    // only.
     const settings = await getAccountSettings(userId);
     const trades = tradingJournalTrades(await getAllTrades(userId), settings);
 

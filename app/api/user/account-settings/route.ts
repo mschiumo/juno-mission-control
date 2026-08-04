@@ -52,7 +52,7 @@ export async function PATCH(request: Request) {
             success: false,
             code: 'ACCOUNT_LIMIT',
             limit: MAX_ACTIVE_ACCOUNTS,
-            error: `You can use up to ${MAX_ACTIVE_ACCOUNTS} brokerage accounts. Turn one off before enabling another.`,
+            error: `Only ${MAX_ACTIVE_ACCOUNTS} brokerage account can be in use. Turn the other one off first.`,
           },
           { status: 409 },
         );
@@ -62,7 +62,6 @@ export async function PATCH(request: Request) {
 
   const settings = await patchAccountSetting(userId, accountId, {
     label: body.label,
-    type: body.type,
     startingBalance: body.startingBalance,
     enabled: body.enabled,
   });

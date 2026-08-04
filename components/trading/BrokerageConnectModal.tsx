@@ -17,12 +17,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link2, Download, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
-import {
-  isAccountActive,
-  accountType,
-  MAX_ACTIVE_ACCOUNTS,
-} from '@/lib/account-classification';
-import type { AccountSettingsMap, AccountType } from '@/lib/db/account-settings';
+import { isAccountActive, MAX_ACTIVE_ACCOUNTS } from '@/lib/account-classification';
+import type { AccountSettingsMap } from '@/lib/db/account-settings';
 
 // Keep in sync with MAX_BROKER_CONNECTIONS on the server.
 const MAX_CONNECTIONS = 1;
@@ -153,23 +149,19 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
     (accountId: string) => isAccountActive(accountSettings, accountId),
     [accountSettings],
   );
-  const typeOf = useCallback(
-    (accountId: string) => accountType(accountSettings, accountId),
-    [accountSettings],
-  );
 
   /**
    * Persist one field of an account's settings, rolling back the optimistic
    * update if the server rejects it (e.g. the active-account cap).
    */
   const patchAccount = useCallback(
-    async (accountId: string, patch: { enabled?: boolean; type?: AccountType }) => {
+    async (accountId: string, patch: { enabled?: boolean }) => {
       const previous = accountSettings;
       setSavingAccount(accountId);
       setError(null);
       setAccountSettings(prev => ({
         ...prev,
-        [accountId]: { ...(prev[accountId] ?? { type: 'day-trading' as AccountType }), ...patch },
+        [accountId]: { ...(prev[accountId] ?? {}), ...patch },
       }));
       try {
         const res = await fetch('/api/user/account-settings', {
@@ -196,10 +188,6 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
 
   const setAccountActive = useCallback(
     (accountId: string, enabled: boolean) => patchAccount(accountId, { enabled }),
-    [patchAccount],
-  );
-  const setAccountType = useCallback(
-    (accountId: string, type: AccountType) => patchAccount(accountId, { type }),
     [patchAccount],
   );
 
@@ -233,7 +221,7 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
               <p className="text-xs text-[#8b949e] uppercase tracking-wide">
                 {connectionCount} of {MAX_CONNECTIONS} brokerage
                 {MAX_CONNECTIONS === 1 ? '' : 's'} linked
-                {accounts.length > 0 && ` · ${activeCount} of ${MAX_ACTIVE_ACCOUNTS} accounts in use`}
+                {accounts.length > 1 && ` · ${activeCount} of ${MAX_ACTIVE_ACCOUNTS} account in use`}
               </p>
               <button
                 onClick={handleSync}
@@ -258,25 +246,25 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
               <div className="p-3 rounded-lg bg-[#1f6feb]/15 text-[#58a6ff] text-sm">{syncMsg}</div>
             )}
 
-            {/* One brokerage login can expose several accounts, so the user
-                picks which ones feed the app and what each one is for. */}
-            <div className="space-y-2">
-              <p className="text-xs text-[#8b949e]">
-                Choose up to {MAX_ACTIVE_ACCOUNTS} accounts to use, and what each one is for. Trading
-                accounts feed the Journal and P&amp;L; long-term accounts get their own portfolio view.
-              </p>
-              {accounts.map(a => {
-                const active = isActive(a.id);
-                const type = typeOf(a.id);
-                const blocked = !active && activeCount >= MAX_ACTIVE_ACCOUNTS;
-                return (
-                  <div
-                    key={a.id}
-                    className={`p-3 rounded-lg border bg-[#0d1117] transition-colors ${
-                      active ? 'border-[#F97316]/50' : 'border-[#30363d]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
+            {/* One brokerage login can expose several accounts, but only one
+                feeds the app — the user picks which. Hidden when the login
+                exposes a single account: there's nothing to choose. */}
+            {accounts.length > 1 && (
+              <div className="space-y-2">
+                <p className="text-xs text-[#8b949e]">
+                  Your brokerage login exposes several accounts. Choose the one to use — it feeds
+                  the Journal, P&amp;L, and Performance.
+                </p>
+                {accounts.map(a => {
+                  const active = isActive(a.id);
+                  const blocked = !active && activeCount >= MAX_ACTIVE_ACCOUNTS;
+                  return (
+                    <div
+                      key={a.id}
+                      className={`p-3 rounded-lg border bg-[#0d1117] transition-colors ${
+                        active ? 'border-[#F97316]/50' : 'border-[#30363d]'
+                      }`}
+                    >
                       <label className={`flex items-center gap-3 min-w-0 ${blocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                         <input
                           type="checkbox"
@@ -292,35 +280,16 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
                           </span>
                         </span>
                       </label>
-
-                      {active && (
-                        <div className="flex items-center gap-0.5 rounded-lg p-0.5 bg-[#161b22] border border-[#30363d] flex-shrink-0">
-                          {(['day-trading', 'long-term'] as AccountType[]).map(t => (
-                            <button
-                              key={t}
-                              onClick={() => setAccountType(a.id, t)}
-                              disabled={savingAccount === a.id}
-                              className="px-2.5 py-1 rounded-md text-xs font-medium transition-colors disabled:opacity-50"
-                              style={{
-                                background: type === t ? '#F97316' : 'transparent',
-                                color: type === t ? 'white' : '#8b949e',
-                              }}
-                            >
-                              {t === 'day-trading' ? 'Trading' : 'Long-term'}
-                            </button>
-                          ))}
-                        </div>
+                      {blocked && (
+                        <p className="text-[11px] text-[#8b949e] mt-2 pl-7">
+                          Turn off the other account to use this one.
+                        </p>
                       )}
                     </div>
-                    {blocked && (
-                      <p className="text-[11px] text-[#8b949e] mt-2 pl-7">
-                        Turn off another account to use this one.
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
             {status?.lastSyncedAt && (
               <p className="text-xs text-[#8b949e]">
