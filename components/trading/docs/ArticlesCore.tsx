@@ -1,7 +1,5 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
-import { isOwnerEmail } from '@/lib/owner';
 import { DocSection, P, Em, Bullets, Steps, Step, Tip, Note, Warn, UI, OwnerBadge, FeatureLink, DocLink, Figure, RefTable } from './DocsPrimitives';
 import { SubTabBarFigure, CalendarWeekFigure, JournalModalFigure, TradesTableFigure, ImportDropzoneFigure } from './DocsFigures';
 
@@ -275,9 +273,6 @@ export function JournalArticle() {
 // ---------------------------------------------------------------------------
 
 export function ImportingArticle() {
-  const { data: session } = useSession();
-  const isOwner = isOwnerEmail(session?.user?.email);
-
   return (
     <div className="space-y-8">
       <P>
@@ -373,18 +368,14 @@ export function ImportingArticle() {
         </P>
       </DocSection>
 
-      {/* Owner-only: brokerage sync isn't available to other accounts, and the
-          article this points at is hidden from them. */}
-      {isOwner && (
-        <DocSection title="What about a live brokerage connection?">
-          <P>
-            There is one — trades can sync straight from your broker through SnapTrade, so you don&apos;t have to export
-            a file every day. It&apos;s <OwnerBadge /> for now, and it doesn&apos;t replace statement import: the two run
-            side by side, and statement balances still drive the equity curve. See{' '}
-            <DocLink doc="brokerage-sync">Brokerage Sync (SnapTrade)</DocLink> for how it works.
-          </P>
-        </DocSection>
-      )}
+      <DocSection title="What about a live brokerage connection?">
+        <P>
+          There is one — trades can sync straight from your broker through SnapTrade, so you don&apos;t have to export
+          a file every day. While a brokerage is linked it&apos;s the sole source of your Journal and equity curve, and
+          statement import is turned off; disconnect it to go back to imports. See{' '}
+          <DocLink doc="brokerage-sync">Brokerage Sync (SnapTrade)</DocLink> for how it works.
+        </P>
+      </DocSection>
     </div>
   );
 }
@@ -463,8 +454,8 @@ export function BrokerageSyncArticle() {
           reaches your Journal or Performance tab.
         </P>
         <Note>
-          Two separate limits are at play: up to two <Em>brokerage connections</Em> (logins), and up to two{' '}
-          <Em>accounts in use</Em> drawn from them. The dialog shows both counts.
+          One <Em>brokerage connection</Em> (login) can be linked at a time, and up to two <Em>accounts in use</Em>{' '}
+          drawn from it. To switch brokerages, disconnect the current one first.
         </Note>
       </DocSection>
 
@@ -523,14 +514,14 @@ export function BrokerageSyncArticle() {
             ['Ownership', 'A sync only ever rewrites broker-sourced trades. Trades you imported or typed in are never touched.'],
             ['Your notes survive', 'Journal fields you wrote on a synced trade — notes, plan adherence, tags — carry forward across re-syncs.'],
             ['Empty results are ignored', 'If a sync returns nothing, it writes nothing. An empty feed can never blank your trade list.'],
-            ['Equity curve', 'Account-statement balances remain the source of truth for NLV. Synced trades add P&L after the last statement balance date.'],
+            ['Equity curve', 'Single-source: while a brokerage is linked, its daily balances are the only input to the curve. Statement balances take over again only after you disconnect.'],
             ['Starting balance', 'Editable only while you supply balances yourself. Once a brokerage feeds an account, its starting balance is read-only — a hand-entered figure would fight the synced data.'],
           ]}
         />
         <Note>
-          That last row surprises people: if you connect a broker and the equity curve doesn&apos;t visibly move, it&apos;s
-          usually because the synced trades pre-date your most recent imported statement balance — the statement already
-          accounted for them. See <DocLink doc="performance">Performance &amp; Analytics</DocLink>.
+          The equity curve never mixes the two sources — a broker-derived series and statement uploads cover different
+          account scopes, and blending them would draw jumps that were never real P&amp;L. See{' '}
+          <DocLink doc="performance">Performance &amp; Analytics</DocLink>.
         </Note>
       </DocSection>
 

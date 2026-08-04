@@ -62,6 +62,13 @@ interface DayTradingPerformanceProps {
   trades: Trade[];
   dailyBalances: DailyBalance[];
   dailyFees: DailyFee[];
+  /**
+   * Where `dailyBalances` came from. On a broker-fed series the curve is left
+   * exactly as the broker reports it — no hand-entered Start anchor and no
+   * synthetic trade-P&L "today" point (the derived series already reaches
+   * today). Manual-only adornments stay for statement uploads.
+   */
+  balancesSource?: 'broker' | 'manual';
   period: Period;
   startingBalance: number;
   onSaveStartingBalance: (val: number) => void;
@@ -79,6 +86,7 @@ export default function DayTradingPerformance({
   trades: allTrades,
   dailyBalances: allDailyBalances,
   dailyFees: allDailyFees,
+  balancesSource = 'manual',
   period,
   startingBalance,
   onSaveStartingBalance,
@@ -185,33 +193,38 @@ export default function DayTradingPerformance({
         };
       });
 
-      // Append a synthetic "today" point for trades executed after the last
-      // Account Statement balance date so the curve reflects recent activity.
-      const lastBalanceDate = filteredBalances[filteredBalances.length - 1].date;
-      const lastBalance = filteredBalances[filteredBalances.length - 1].balance;
-      let postPnL = 0;
-      for (const [d, p] of pnlByDay) if (d > lastBalanceDate) postPnL += p;
-      if (postPnL !== 0) {
-        const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        curve.push({
-          date: 'today',
-          label: today,
-          cumPnL: Number((curve[curve.length - 1].cumPnL + postPnL).toFixed(2)),
-          nlv: Number((lastBalance + postPnL).toFixed(2)),
-        });
-      }
+      // Manual-only adornments. A broker-fed series is the single source of
+      // the curve: it already extends to today and its origin is the broker's
+      // own backfill, so neither synthetic point belongs on it.
+      if (balancesSource === 'manual') {
+        // Append a synthetic "today" point for trades executed after the last
+        // Account Statement balance date so the curve reflects recent activity.
+        const lastBalanceDate = filteredBalances[filteredBalances.length - 1].date;
+        const lastBalance = filteredBalances[filteredBalances.length - 1].balance;
+        let postPnL = 0;
+        for (const [d, p] of pnlByDay) if (d > lastBalanceDate) postPnL += p;
+        if (postPnL !== 0) {
+          const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          curve.push({
+            date: 'today',
+            label: today,
+            cumPnL: Number((curve[curve.length - 1].cumPnL + postPnL).toFixed(2)),
+            nlv: Number((lastBalance + postPnL).toFixed(2)),
+          });
+        }
 
-      // Anchor the curve at the user's manually-entered starting balance so
-      // editing it visibly re-shapes the chart. Only when the window reaches
-      // the oldest balance we have — on a shorter period the account's origin
-      // is off-screen and prepending it would distort the view.
-      if (startingBalance > 0 && filteredBalances[0].date === earliestBalanceDate) {
-        curve.unshift({
-          date: 'start',
-          label: 'Start',
-          cumPnL: 0,
-          nlv: Number(startingBalance.toFixed(2)),
-        });
+        // Anchor the curve at the user's manually-entered starting balance so
+        // editing it visibly re-shapes the chart. Only when the window reaches
+        // the oldest balance we have — on a shorter period the account's origin
+        // is off-screen and prepending it would distort the view.
+        if (startingBalance > 0 && filteredBalances[0].date === earliestBalanceDate) {
+          curve.unshift({
+            date: 'start',
+            label: 'Start',
+            cumPnL: 0,
+            nlv: Number(startingBalance.toFixed(2)),
+          });
+        }
       }
 
       return curve;
@@ -235,7 +248,7 @@ export default function DayTradingPerformance({
       curve.unshift({ date: 'start', label: 'Start', cumPnL: 0, nlv: Number(startingBalance.toFixed(2)) });
     }
     return curve;
-  }, [closedTrades, startingBalance, filteredBalances, earliestBalanceDate]);
+  }, [closedTrades, startingBalance, filteredBalances, earliestBalanceDate, balancesSource]);
 
   // Day of week performance
   const dayOfWeekData = useMemo(() => {

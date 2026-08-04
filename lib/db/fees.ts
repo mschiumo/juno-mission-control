@@ -3,7 +3,7 @@ import { DailyFee } from '@/lib/parsers/tos-parser';
 
 // Mirrors lib/db/balances.ts: `user:fees` holds statement-upload figures,
 // `user:broker-fees` the series derived from the live brokerage sync. The read
-// path merges them, broker winning on dates both cover.
+// path is single-source — broker series when it exists, uploads otherwise.
 
 function feesKey(userId: string) {
   return `user:fees:${userId}`;
@@ -96,7 +96,10 @@ export async function clearBrokerDailyFees(userId: string): Promise<void> {
   }
 }
 
-/** Statement-upload fees extended/overridden by broker-derived ones (broker wins per date). */
+/**
+ * Single-source, matching getCombinedDailyBalances: the broker-derived series
+ * when it exists, statement uploads otherwise. Never blended.
+ */
 export async function getCombinedDailyFees(
   userId: string
 ): Promise<{ fees: DailyFee[]; byAccount: Record<string, DailyFee[]> }> {
@@ -107,11 +110,5 @@ export async function getCombinedDailyFees(
   if (broker.aggregate.length === 0) {
     return { fees: manual, byAccount: broker.byAccount };
   }
-  const merged = new Map<string, DailyFee>();
-  manual.forEach(f => merged.set(f.date, f));
-  broker.aggregate.forEach(f => merged.set(f.date, f));
-  return {
-    fees: [...merged.values()].sort((a, b) => a.date.localeCompare(b.date)),
-    byAccount: broker.byAccount,
-  };
+  return { fees: broker.aggregate, byAccount: broker.byAccount };
 }

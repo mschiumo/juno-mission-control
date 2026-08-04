@@ -222,7 +222,7 @@ export function FaqArticle() {
   const faqs: [string, ReactNode][] = [
     [
       'Can I connect my brokerage account directly?',
-      <>Not currently — statement import is the supported path. Export your Account Statement CSV from thinkorswim or Schwab and drop it into the <DocLink doc="importing">Import dialog</DocLink>; one file updates trades, balances, and fees together. The app never stores broker credentials and never places orders on your discretionary account.</>,
+      <>Yes — link it once via <DocLink doc="brokerage-sync">Brokerage Sync (SnapTrade)</DocLink> and trades flow in on their own; while it&apos;s linked, the broker is the sole source of your Journal and equity curve. Prefer files instead? Export your Account Statement CSV from thinkorswim or Schwab and drop it into the <DocLink doc="importing">Import dialog</DocLink>. Either way the app never stores broker credentials and never places orders on your discretionary account.</>,
     ],
     [
       'My Excel file won’t import.',

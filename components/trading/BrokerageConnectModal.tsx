@@ -25,7 +25,7 @@ import {
 import type { AccountSettingsMap, AccountType } from '@/lib/db/account-settings';
 
 // Keep in sync with MAX_BROKER_CONNECTIONS on the server.
-const MAX_ACCOUNTS = 2;
+const MAX_CONNECTIONS = 1;
 
 interface BrokerAccount {
   id: string;
@@ -101,8 +101,8 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
       }
       const json = await res.json();
       if (res.status === 409) {
-        // Hit the account limit — instruct the user to replace one.
-        setError(json.error || `You can connect up to ${MAX_ACCOUNTS} brokerage accounts.`);
+        // Hit the connection limit — instruct the user to replace it.
+        setError(json.error || 'You can connect one brokerage at a time.');
         return;
       }
       if (json.success && json.url) {
@@ -209,7 +209,7 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
   // Count distinct brokerage connections (one login can expose multiple accounts).
   const connectionCount =
     new Set(accounts.map(a => a.authorizationId).filter(Boolean)).size || accounts.length;
-  const atLimit = connectionCount >= MAX_ACCOUNTS;
+  const atLimit = connectionCount >= MAX_CONNECTIONS;
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -231,7 +231,8 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
 
             <div className="flex items-center justify-between">
               <p className="text-xs text-[#8b949e] uppercase tracking-wide">
-                {connectionCount} of {MAX_ACCOUNTS} brokerages linked
+                {connectionCount} of {MAX_CONNECTIONS} brokerage
+                {MAX_CONNECTIONS === 1 ? '' : 's'} linked
                 {accounts.length > 0 && ` · ${activeCount} of ${MAX_ACTIVE_ACCOUNTS} accounts in use`}
               </p>
               <button
@@ -333,14 +334,14 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
 
             {atLimit && (
               <p className="text-xs text-[#8b949e]">
-                You&apos;ve reached the {MAX_ACCOUNTS}-account limit. To connect a different brokerage,
-                disconnect one below first.
+                One brokerage can be linked at a time. To switch to a different brokerage,
+                disconnect this one first.
               </p>
             )}
 
             <div className="flex justify-between items-center pt-2">
               {atLimit ? (
-                <span className="text-sm text-[#8b949e]">Limit reached</span>
+                <span />
               ) : (
                 <button
                   onClick={handleConnect}

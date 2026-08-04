@@ -8,7 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-session';
+import { requireUserId } from '@/lib/auth-session';
 import {
   isSnapTradeConfigured,
   registerUser,
@@ -25,7 +25,7 @@ import {
 const BROKERAGE_RETURN_PATH = '/brokerage/connected';
 
 export async function POST(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireOwner();
+  const { userId, error: authError } = await requireUserId();
   if (authError) return authError;
 
   if (!isSnapTradeConfigured()) {
@@ -70,7 +70,10 @@ export async function POST(): Promise<NextResponse> {
             success: false,
             code: 'LIMIT_REACHED',
             limit: MAX_BROKER_CONNECTIONS,
-            error: `You can connect up to ${MAX_BROKER_CONNECTIONS} brokerage accounts. Disconnect one to add a different brokerage.`,
+            error:
+            MAX_BROKER_CONNECTIONS === 1
+              ? 'You can connect one brokerage at a time. Disconnect it to link a different one.'
+              : `You can connect up to ${MAX_BROKER_CONNECTIONS} brokerages. Disconnect one to add a different brokerage.`,
           },
           { status: 409 }
         );

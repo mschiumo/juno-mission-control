@@ -15,9 +15,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
-import { isOwnerEmail } from '@/lib/owner';
 import AccountToggle, { type PerfAccount } from '@/components/trading/AccountToggle';
 import DayTradingPerformance from '@/components/trading/DayTradingPerformance';
 import LongTermPerformance from '@/components/trading/LongTermPerformance';
@@ -46,12 +44,9 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
   const [brokerAccounts, setBrokerAccounts] = useState<BrokerAccount[]>([]);
   const [accountSettings, setAccountSettings] = useState<AccountSettingsMap>({});
   const [selectedAccountId, setSelectedAccountId] = useState<string>(ALL_ACCOUNT_ID);
-
-  // Brokerage connections are owner-only (billing protection). Only owners hit
-  // the owner-gated /api/snaptrade/accounts route — non-owners just see the
-  // Manual/Imported slot and never make a doomed 403 call.
-  const { data: session } = useSession();
-  const isOwner = isOwnerEmail(session?.user?.email);
+  // Which store feeds the aggregate series — the server picks exactly one
+  // (broker when a brokerage is linked, statement uploads otherwise).
+  const [balancesSource, setBalancesSource] = useState<'broker' | 'manual'>('manual');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -61,17 +56,14 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         fetch('/api/user/prefs').then((r) => r.json()).catch(() => ({})),
         fetch('/api/user/daily-balances').then((r) => r.json()).catch(() => ({})),
         fetch('/api/user/fees').then((r) => r.json()).catch(() => ({})),
-        isOwner
-          ? fetch('/api/snaptrade/accounts').then((r) => r.json()).catch(() => ({}))
-          : Promise.resolve({}),
-        isOwner
-          ? fetch('/api/user/account-settings').then((r) => r.json()).catch(() => ({}))
-          : Promise.resolve({}),
+        fetch('/api/snaptrade/accounts').then((r) => r.json()).catch(() => ({})),
+        fetch('/api/user/account-settings').then((r) => r.json()).catch(() => ({})),
       ]);
       if (tradesRes.success && tradesRes.data) setAllTrades(tradesRes.data.trades || []);
       if (prefsRes.success && prefsRes.prefs) setStartingBalance(prefsRes.prefs.startingBalance || 0);
       if (balancesRes.success && Array.isArray(balancesRes.balances)) setAllDailyBalances(balancesRes.balances);
       if (balancesRes.success) setBalancesByAccount(balancesRes.byAccount ?? {});
+      if (balancesRes.success) setBalancesSource(balancesRes.source === 'broker' ? 'broker' : 'manual');
       if (feesRes.success && Array.isArray(feesRes.fees)) setAllDailyFees(feesRes.fees);
       if (feesRes.success) setFeesByAccount(feesRes.byAccount ?? {});
       if (accountsRes.success && accountsRes.data?.accounts) setBrokerAccounts(accountsRes.data.accounts);
@@ -82,23 +74,17 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     } finally {
       setLoading(false);
     }
-  }, [isOwner]);
+  }, []);
 
   useEffect(() => { loadData(); }, [loadData, refreshKey]);
 
   const hasManualTrades = useMemo(() => allTrades.some((t) => !t.brokerAccountId), [allTrades]);
 
   // Resolve the toggle's account list: All + Manual (if any) + connected brokers.
-  //
-  // The whole account-classification layer rides on brokerage connections,
-  // which are owner-only. Non-owners get the single combined view — no toggle,
-  // no long-term designation — so the feature can't be exercised (or broken)
-  // by anyone else while it's still being shaken out.
   const accounts = useMemo<PerfAccount[]>(() => {
     const list: PerfAccount[] = [
       { id: ALL_ACCOUNT_ID, label: 'All Accounts', type: 'day-trading', editable: false },
     ];
-    if (!isOwner) return list;
     if (hasManualTrades) {
       const s = accountSettings[MANUAL_ACCOUNT_ID];
       list.push({
@@ -119,7 +105,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
       });
     }
     return list;
-  }, [isOwner, hasManualTrades, brokerAccounts, accountSettings]);
+  }, [hasManualTrades, brokerAccounts, accountSettings]);
 
   // Keep the selection valid if accounts change (e.g. a broker disconnects).
   useEffect(() => {
@@ -148,18 +134,26 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     return allTrades.filter((t) => t.brokerAccountId === selectedAccountId);
   }, [allTrades, selectedAccountId, longTermAccountIds]);
 
-  // Balance/fee series for the selected view. "All Accounts" gets the merged
-  // aggregate (statement uploads + broker-derived). A connected brokerage
-  // account gets its own broker-derived series, so its equity curve shows real
-  // NLV rather than falling back to cumulative P&L. The Manual/Imported slot
-  // stays empty — statement figures are aggregate and can't be attributed to
-  // one account.
+  // Balance/fee series for the selected view. "All Accounts" gets the
+  // single-source aggregate (broker-derived when a brokerage is linked,
+  // statement uploads otherwise). A connected brokerage account gets its own
+  // broker-derived series, so its equity curve shows real NLV rather than
+  // falling back to cumulative P&L. The Manual/Imported slot stays empty —
+  // statement figures are aggregate and can't be attributed to one account.
   const accountBalances =
     selectedAccountId === ALL_ACCOUNT_ID
       ? allDailyBalances
       : balancesByAccount[selectedAccountId] ?? [];
   const accountFees =
     selectedAccountId === ALL_ACCOUNT_ID ? allDailyFees : feesByAccount[selectedAccountId] ?? [];
+  // Source of the series handed down: per-account broker series are always
+  // broker-fed; the Manual slot never has a balance series.
+  const accountBalancesSource: 'broker' | 'manual' =
+    selectedAccountId === ALL_ACCOUNT_ID
+      ? balancesSource
+      : selectedAccountId === MANUAL_ACCOUNT_ID
+        ? 'manual'
+        : 'broker';
 
   // Starting balance: combined + manual reuse the global prefs value (that's
   // where today's ToS statements set it); broker accounts store their own.
@@ -284,6 +278,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
           trades={accountTrades}
           dailyBalances={accountBalances}
           dailyFees={accountFees}
+          balancesSource={accountBalancesSource}
           period={period}
           startingBalance={accountStartingBalance}
           onSaveStartingBalance={handleSaveStartingBalance}

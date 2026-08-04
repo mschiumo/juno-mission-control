@@ -21,7 +21,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-session';
+import { requireUserId } from '@/lib/auth-session';
 import { isSnapTradeConfigured, listAccounts } from '@/lib/snaptrade';
 import {
   getBrokerConnection,
@@ -41,7 +41,7 @@ interface SnapTradeAccountRaw {
 }
 
 export async function POST(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireOwner();
+  const { userId, error: authError } = await requireUserId();
   if (authError) return authError;
 
   if (!isSnapTradeConfigured()) {
