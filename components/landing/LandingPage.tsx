@@ -456,9 +456,9 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ FEATURES ═══ */}
-      <section id="features" className="py-24 px-6">
+      <section id="features" className="py-16 px-6">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Everything You Need</p>
             <h2 className="text-4xl font-bold text-white mb-4">Built for Disciplined Traders</h2>
             <p className="text-[#8b949e] max-w-2xl mx-auto text-lg">
@@ -467,17 +467,24 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURES.map(f => (
-              <div key={f.title} className="group p-6 rounded-2xl border border-[#30363d] bg-[#161b22] hover:border-[#F97316]/40 hover:bg-[#1c2128] transition-all duration-300">
-                <div className={`w-12 h-12 rounded-xl ${f.bg} flex items-center justify-center mb-4`}>
-                  <f.icon className={`w-6 h-6 ${f.color}`} />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {FEATURES.map((f, i) => (
+              <div
+                key={f.title}
+                className="group p-5 rounded-xl border border-[#30363d] bg-[#161b22] hover:border-[#F97316]/40 hover:bg-[#1c2128] transition-all duration-300"
+                data-reveal="sm"
+                style={range(`entry ${8 + (i % 4) * 3}% cover ${20 + (i % 4) * 3}%`)}
+              >
+                <div className="flex items-center gap-3 mb-2.5">
+                  <div className={`w-9 h-9 rounded-lg ${f.bg} flex items-center justify-center flex-shrink-0`}>
+                    <f.icon className={`w-4.5 h-4.5 ${f.color}`} />
+                  </div>
+                  <h3 className="text-base font-semibold text-white">{f.title}</h3>
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">{f.title}</h3>
-                <p className="text-sm text-[#8b949e] leading-relaxed mb-4">{f.desc}</p>
-                <div className="flex flex-wrap gap-2">
+                <p className="text-sm text-[#8b949e] leading-snug mb-3">{f.desc}</p>
+                <div className="flex flex-wrap gap-1.5">
                   {f.tags.map(tag => (
-                    <span key={tag} className="px-2 py-0.5 text-xs rounded-md bg-[#0d1117] border border-[#30363d] text-[#8b949e]">
+                    <span key={tag} className="px-2 py-0.5 text-[11px] rounded-md bg-[#0d1117] border border-[#30363d] text-[#8b949e]">
                       {tag}
                     </span>
                   ))}
