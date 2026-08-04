@@ -35,7 +35,18 @@
 import type { Trade } from '@/types/trading';
 import type { DailyBalance, DailyFee } from '@/lib/parsers/tos-parser';
 import type { SnapTradeActivity } from '@/lib/snaptrade-transform';
+import { toETTimestamp } from '@/lib/snaptrade-transform';
 import { getESTDateFromTimestamp, getTodayInEST } from '@/lib/date-utils';
+
+/**
+ * Trading day for a raw SnapTrade activity. trade_date must go through the
+ * same UTC→ET normalization as trade executions — the leading-date shortcut
+ * alone reads the UTC day, which is wrong for evening events and for
+ * midnight-UTC day stamps shifted by timezone math.
+ */
+function activityDay(tradeDate: string): string {
+  return getESTDateFromTimestamp(toETTimestamp(tradeDate));
+}
 
 export interface AccountLedger {
   accountId: string;
@@ -83,7 +94,7 @@ function buildAccountSeries(ledger: AccountLedger, today: string): AccountSeries
 
   for (const a of ledger.activities) {
     const type = (a.type || '').toUpperCase();
-    const date = a.trade_date ? getESTDateFromTimestamp(a.trade_date) : '';
+    const date = a.trade_date ? activityDay(a.trade_date) : '';
     if (!date || date > today) continue;
     const amount = a.amount ?? 0;
     if (CASH_IN.has(type)) addTo(deltas, date, Math.abs(amount));
@@ -192,7 +203,7 @@ export function deriveDailyFees(
     const acctOther = new Map<string, number>();
     for (const a of ledger.activities) {
       const type = (a.type || '').toUpperCase();
-      const date = a.trade_date ? getESTDateFromTimestamp(a.trade_date) : '';
+      const date = a.trade_date ? activityDay(a.trade_date) : '';
       if (!date || date > today) continue;
       if (type === 'BUY' || type === 'SELL') {
         const fee = Math.abs(a.fee ?? 0);
