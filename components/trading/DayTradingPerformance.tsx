@@ -4,10 +4,8 @@
  * DayTradingPerformance — the short-term trading view of the Performance tab.
  *
  * This is the original PerformanceView layout (equity curve, metric grid,
- * day-of-week breakdown, journal insights) with data loading and account
- * selection lifted into PerformanceView. It renders whichever account the
- * shell selected; accounts the user has classified as long-term get
- * LongTermPerformance instead.
+ * day-of-week breakdown, journal insights) with data loading lifted into
+ * PerformanceView.
  */
 
 import { useState, useMemo, useCallback } from 'react';

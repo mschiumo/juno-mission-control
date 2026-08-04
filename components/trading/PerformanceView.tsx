@@ -3,22 +3,15 @@
 /**
  * PerformanceView — shell for the Performance tab.
  *
- * Owns data loading, the period selector, and account selection, then hands
- * off to one of two layouts depending on how the user classified the selected
- * account:
- *   - 'day-trading' (the default)  → DayTradingPerformance
- *   - 'long-term'                  → LongTermPerformance
- *
- * Classification lives in per-user account settings, not on the brokerage
- * record, so it also covers the synthetic "Manual / Imported" account. An
- * account only ever becomes long-term because the user said so.
+ * Owns data loading and the period selector, then hands off to
+ * DayTradingPerformance for the layout. The app supports a single synced
+ * brokerage account, so there is no per-account switching here — the tab
+ * always shows the one aggregate series the server derives.
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
-import AccountToggle, { type PerfAccount } from '@/components/trading/AccountToggle';
 import DayTradingPerformance from '@/components/trading/DayTradingPerformance';
-import LongTermPerformance from '@/components/trading/LongTermPerformance';
 import {
   type Trade,
   type DailyBalance,
@@ -26,49 +19,37 @@ import {
   type Period,
   PERIOD_LABELS,
 } from '@/components/trading/performance-shared';
-import type { AccountType, AccountSettingsMap } from '@/lib/db/account-settings';
 import type { BrokerAccount } from '@/lib/db/broker-connections';
-import { ALL_ACCOUNT_ID, MANUAL_ACCOUNT_ID } from '@/lib/account-classification';
 
 export default function PerformanceView({ refreshKey }: { refreshKey?: number }) {
   const [period, setPeriod] = useState<Period>('all');
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [startingBalance, setStartingBalance] = useState(0);
-  const [allDailyBalances, setAllDailyBalances] = useState<DailyBalance[]>([]);
-  const [allDailyFees, setAllDailyFees] = useState<DailyFee[]>([]);
-  // Broker-derived per-account series (keyed by SnapTrade account id) — feed
-  // each connected account's own view with real NLV.
-  const [balancesByAccount, setBalancesByAccount] = useState<Record<string, DailyBalance[]>>({});
-  const [feesByAccount, setFeesByAccount] = useState<Record<string, DailyFee[]>>({});
+  const [dailyBalances, setDailyBalances] = useState<DailyBalance[]>([]);
+  const [dailyFees, setDailyFees] = useState<DailyFee[]>([]);
   const [brokerAccounts, setBrokerAccounts] = useState<BrokerAccount[]>([]);
-  const [accountSettings, setAccountSettings] = useState<AccountSettingsMap>({});
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(ALL_ACCOUNT_ID);
-  // Which store feeds the aggregate series — the server picks exactly one
-  // (broker when a brokerage is linked, statement uploads otherwise).
+  // Which store feeds the series — the server picks exactly one (broker when
+  // a brokerage is linked, statement uploads otherwise).
   const [balancesSource, setBalancesSource] = useState<'broker' | 'manual'>('manual');
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [tradesRes, prefsRes, balancesRes, feesRes, accountsRes, settingsRes] = await Promise.all([
+      const [tradesRes, prefsRes, balancesRes, feesRes, accountsRes] = await Promise.all([
         fetch('/api/trades?userId=default&perPage=1000').then((r) => r.json()).catch(() => ({})),
         fetch('/api/user/prefs').then((r) => r.json()).catch(() => ({})),
         fetch('/api/user/daily-balances').then((r) => r.json()).catch(() => ({})),
         fetch('/api/user/fees').then((r) => r.json()).catch(() => ({})),
         fetch('/api/snaptrade/accounts').then((r) => r.json()).catch(() => ({})),
-        fetch('/api/user/account-settings').then((r) => r.json()).catch(() => ({})),
       ]);
       if (tradesRes.success && tradesRes.data) setAllTrades(tradesRes.data.trades || []);
       if (prefsRes.success && prefsRes.prefs) setStartingBalance(prefsRes.prefs.startingBalance || 0);
-      if (balancesRes.success && Array.isArray(balancesRes.balances)) setAllDailyBalances(balancesRes.balances);
-      if (balancesRes.success) setBalancesByAccount(balancesRes.byAccount ?? {});
+      if (balancesRes.success && Array.isArray(balancesRes.balances)) setDailyBalances(balancesRes.balances);
       if (balancesRes.success) setBalancesSource(balancesRes.source === 'broker' ? 'broker' : 'manual');
-      if (feesRes.success && Array.isArray(feesRes.fees)) setAllDailyFees(feesRes.fees);
-      if (feesRes.success) setFeesByAccount(feesRes.byAccount ?? {});
+      if (feesRes.success && Array.isArray(feesRes.fees)) setDailyFees(feesRes.fees);
       if (accountsRes.success && accountsRes.data?.accounts) setBrokerAccounts(accountsRes.data.accounts);
       else setBrokerAccounts([]);
-      if (settingsRes.success && settingsRes.settings) setAccountSettings(settingsRes.settings);
     } catch (e) {
       console.error(e);
     } finally {
@@ -80,141 +61,21 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
 
   const hasManualTrades = useMemo(() => allTrades.some((t) => !t.brokerAccountId), [allTrades]);
 
-  // Resolve the toggle's account list: All + Manual (if any) + connected brokers.
-  const accounts = useMemo<PerfAccount[]>(() => {
-    const list: PerfAccount[] = [
-      { id: ALL_ACCOUNT_ID, label: 'All Accounts', type: 'day-trading', editable: false },
-    ];
-    if (hasManualTrades) {
-      const s = accountSettings[MANUAL_ACCOUNT_ID];
-      list.push({
-        id: MANUAL_ACCOUNT_ID,
-        label: s?.label || 'Manual / Imported',
-        type: s?.type || 'day-trading',
-        editable: true,
-      });
-    }
-    for (const acct of brokerAccounts) {
-      const s = accountSettings[acct.id];
-      list.push({
-        id: acct.id,
-        label: s?.label || acct.brokerage || acct.name,
-        sublabel: acct.number,
-        type: s?.type || 'day-trading',
-        editable: true,
-      });
-    }
-    return list;
-  }, [hasManualTrades, brokerAccounts, accountSettings]);
-
-  // Keep the selection valid if accounts change (e.g. a broker disconnects).
-  useEffect(() => {
-    if (!accounts.some((a) => a.id === selectedAccountId)) setSelectedAccountId(ALL_ACCOUNT_ID);
-  }, [accounts, selectedAccountId]);
-
-  const selected = accounts.find((a) => a.id === selectedAccountId) ?? accounts[0];
-
-  // Filter trades for the selected account. "All Accounts" deliberately keeps
-  // long-term trades out of the day-trading totals — mixing a buy-and-hold
-  // account into win rate and daily P&L would make both meaningless.
-  const longTermAccountIds = useMemo(
-    () => new Set(accounts.filter((a) => a.type === 'long-term' && a.id !== ALL_ACCOUNT_ID).map((a) => a.id)),
-    [accounts],
-  );
-
-  const accountTrades = useMemo<Trade[]>(() => {
-    if (selectedAccountId === ALL_ACCOUNT_ID) {
-      if (longTermAccountIds.size === 0) return allTrades;
-      return allTrades.filter((t) => {
-        const acctId = t.brokerAccountId ?? MANUAL_ACCOUNT_ID;
-        return !longTermAccountIds.has(acctId);
-      });
-    }
-    if (selectedAccountId === MANUAL_ACCOUNT_ID) return allTrades.filter((t) => !t.brokerAccountId);
-    return allTrades.filter((t) => t.brokerAccountId === selectedAccountId);
-  }, [allTrades, selectedAccountId, longTermAccountIds]);
-
-  // Balance/fee series for the selected view. "All Accounts" gets the
-  // single-source aggregate (broker-derived when a brokerage is linked,
-  // statement uploads otherwise). A connected brokerage account gets its own
-  // broker-derived series, so its equity curve shows real NLV rather than
-  // falling back to cumulative P&L. The Manual/Imported slot stays empty —
-  // statement figures are aggregate and can't be attributed to one account.
-  const accountBalances =
-    selectedAccountId === ALL_ACCOUNT_ID
-      ? allDailyBalances
-      : balancesByAccount[selectedAccountId] ?? [];
-  const accountFees =
-    selectedAccountId === ALL_ACCOUNT_ID ? allDailyFees : feesByAccount[selectedAccountId] ?? [];
-  // Source of the series handed down: per-account broker series are always
-  // broker-fed; the Manual slot never has a balance series.
-  const accountBalancesSource: 'broker' | 'manual' =
-    selectedAccountId === ALL_ACCOUNT_ID
-      ? balancesSource
-      : selectedAccountId === MANUAL_ACCOUNT_ID
-        ? 'manual'
-        : 'broker';
-
-  // Starting balance: combined + manual reuse the global prefs value (that's
-  // where today's ToS statements set it); broker accounts store their own.
-  const accountStartingBalance = useMemo(() => {
-    if (selectedAccountId === ALL_ACCOUNT_ID) return startingBalance;
-    const s = accountSettings[selectedAccountId];
-    if (s?.startingBalance != null) return s.startingBalance;
-    return selectedAccountId === MANUAL_ACCOUNT_ID ? startingBalance : 0;
-  }, [selectedAccountId, startingBalance, accountSettings]);
-
   /**
    * The starting balance is a manual stand-in for data we don't have. Once a
-   * brokerage feeds an account, its balances come from the broker, so editing
-   * the figure by hand would just fight the synced data.
-   *
-   * It stays editable while the user is still the source: the Manual/Imported
-   * account always, and the combined view until every trade is broker-sourced.
+   * brokerage feeds the account, balances come from the broker, so editing the
+   * figure by hand would just fight the synced data. It stays editable while
+   * the user is still the source: no brokerage linked, or manual trades remain.
    */
-  const canEditStartingBalance = useMemo(() => {
-    if (selectedAccountId === MANUAL_ACCOUNT_ID) return true;
-    if (selectedAccountId === ALL_ACCOUNT_ID) return brokerAccounts.length === 0 || hasManualTrades;
-    return false; // a connected brokerage account
-  }, [selectedAccountId, brokerAccounts.length, hasManualTrades]);
+  const canEditStartingBalance = brokerAccounts.length === 0 || hasManualTrades;
 
   const handleSaveStartingBalance = useCallback((val: number) => {
-    if (selectedAccountId === ALL_ACCOUNT_ID) {
-      setStartingBalance(val);
-      fetch('/api/user/prefs', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startingBalance: val }),
-      }).catch(() => {});
-      return;
-    }
-    // Manual also updates the shared prefs value so the combined view stays aligned.
-    if (selectedAccountId === MANUAL_ACCOUNT_ID) setStartingBalance(val);
-    setAccountSettings((prev) => ({
-      ...prev,
-      [selectedAccountId]: { ...(prev[selectedAccountId] ?? { type: 'day-trading' as AccountType }), startingBalance: val },
-    }));
-    fetch('/api/user/account-settings', {
+    setStartingBalance(val);
+    fetch('/api/user/prefs', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accountId: selectedAccountId, startingBalance: val }),
+      body: JSON.stringify({ startingBalance: val }),
     }).catch(() => {});
-  }, [selectedAccountId]);
-
-  const handleSaveAccount = useCallback(async (accountId: string, updates: { label: string; type: AccountType }) => {
-    // Optimistic local update, then persist.
-    setAccountSettings((prev) => ({
-      ...prev,
-      [accountId]: { ...(prev[accountId] ?? {}), label: updates.label || undefined, type: updates.type },
-    }));
-    try {
-      const res = await fetch('/api/user/account-settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId, label: updates.label, type: updates.type }),
-      }).then((r) => r.json());
-      if (res.success && res.settings) setAccountSettings(res.settings);
-    } catch { /* keep optimistic value */ }
   }, []);
 
   if (loading) {
@@ -225,8 +86,6 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
     );
   }
 
-  const isLongTerm = selected.type === 'long-term' && selected.id !== ALL_ACCOUNT_ID;
-
   return (
     <div className="space-y-5">
       {/* Header with period selector. Brokerage status lives in the Journal
@@ -236,7 +95,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         <div>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Performance</h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            {isLongTerm ? 'Long-term portfolio holdings and growth' : 'Track your account growth over time'}
+            Track your account growth over time
           </p>
         </div>
         <div className="flex items-center gap-0.5 rounded-lg p-1" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)' }}>
@@ -257,35 +116,17 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         </div>
       </div>
 
-      {/* Per-account toggle (hidden when there's only a single account) */}
-      <AccountToggle
-        accounts={accounts}
-        selectedId={selectedAccountId}
-        onSelect={setSelectedAccountId}
-        onSave={handleSaveAccount}
+      <DayTradingPerformance
+        trades={allTrades}
+        dailyBalances={dailyBalances}
+        dailyFees={dailyFees}
+        balancesSource={balancesSource}
+        period={period}
+        startingBalance={startingBalance}
+        onSaveStartingBalance={handleSaveStartingBalance}
+        showJournalInsights
+        canEditStartingBalance={canEditStartingBalance}
       />
-
-      {/* Branch: long-term investing vs day-trading layout */}
-      {isLongTerm ? (
-        <LongTermPerformance
-          trades={accountTrades}
-          period={period}
-          startingBalance={accountStartingBalance}
-          label={selected.label}
-        />
-      ) : (
-        <DayTradingPerformance
-          trades={accountTrades}
-          dailyBalances={accountBalances}
-          dailyFees={accountFees}
-          balancesSource={accountBalancesSource}
-          period={period}
-          startingBalance={accountStartingBalance}
-          onSaveStartingBalance={handleSaveStartingBalance}
-          showJournalInsights={selectedAccountId === ALL_ACCOUNT_ID}
-          canEditStartingBalance={canEditStartingBalance}
-        />
-      )}
     </div>
   );
 }
