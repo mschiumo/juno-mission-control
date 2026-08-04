@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import Link from 'next/link';
 import {
   TrendingUp, BarChart2, BookOpen, Target, Zap,
@@ -12,25 +12,30 @@ import {
 
 const SUPPORT_EMAIL = 'confluencetradingsupport@gmail.com';
 
-/* ─── Candlestick data (pre-calculated, trending upward) ─── */
-const CANDLES = [
-  { x: 25,  wt: 155, bt: 160, bb: 172, wb: 178, bull: true  },
-  { x: 55,  wt: 148, bt: 153, bb: 163, wb: 169, bull: true  },
-  { x: 85,  wt: 144, bt: 148, bb: 162, wb: 168, bull: false },
-  { x: 115, wt: 135, bt: 140, bb: 155, wb: 162, bull: true  },
-  { x: 145, wt: 125, bt: 130, bb: 145, wb: 153, bull: true  },
-  { x: 175, wt: 122, bt: 128, bb: 140, wb: 148, bull: false },
-  { x: 205, wt: 108, bt: 114, bb: 132, wb: 140, bull: true  },
-  { x: 235, wt:  95, bt: 100, bb: 120, wb: 128, bull: true  },
-  { x: 265, wt:  97, bt: 103, bb: 115, wb: 122, bull: false },
-  { x: 295, wt:  82, bt:  88, bb: 106, wb: 114, bull: true  },
-  { x: 325, wt:  70, bt:  76, bb:  96, wb: 104, bull: true  },
-  { x: 355, wt:  72, bt:  78, bb:  90, wb:  98, bull: false },
-  { x: 385, wt:  58, bt:  64, bb:  82, wb:  90, bull: true  },
-  { x: 415, wt:  48, bt:  54, bb:  72, wb:  80, bull: true  },
-  { x: 445, wt:  40, bt:  46, bb:  64, wb:  72, bull: true  },
-];
-const VOL = [12, 18, 8, 22, 15, 10, 25, 20, 14, 16, 28, 11, 19, 24, 17];
+/* ─── Hero trade-plan chart geometry ───
+   The price chops sideways, pulls back to the entry at (208,141) — where
+   the EMA and VWAP converge (the "confluence" moment, echoing the logo) —
+   then breaks out through the target. All three paths draw in on load. */
+const HERO_PRICE =
+  'M 0,160 L 16,155 L 30,161 L 46,150 L 60,157 L 76,146 L 92,152 L 106,144 ' +
+  'L 122,150 L 138,137 L 154,144 L 170,133 L 186,138 L 200,146 L 208,141 ' +
+  'L 230,124 L 244,130 L 266,108 L 280,114 L 306,90 L 320,97 L 348,74 ' +
+  'L 362,80 L 392,56 L 406,62 L 434,44 L 452,49 L 476,38';
+const HERO_EMA =
+  'M 0,176 C 50,172 110,164 160,152 C 185,146 200,143 208,141 ' +
+  'C 250,131 300,114 350,94 C 400,74 440,60 476,52';
+const HERO_VWAP =
+  'M 0,116 C 50,122 110,130 160,138 C 185,140 200,141 208,141 ' +
+  'C 255,133 310,118 360,100 C 415,79 450,68 476,62';
+
+/* one-shot hero animations (document timeline — hero is visible on load);
+   data-loop opts them out under prefers-reduced-motion, leaving end states */
+const heroDraw = (delay: string, dur = '1.3s') => ({
+  animation: `draw ${dur} cubic-bezier(.4,.6,.3,1) ${delay} both`,
+} as CSSProperties);
+const heroFade = (delay: string, dur = '.5s') => ({
+  animation: `fadeIn ${dur} ease-out ${delay} both`,
+} as CSSProperties);
 
 /* ─── Gap scanner rows ─── */
 const GAPS = [
@@ -166,12 +171,63 @@ const FEATURES = [
   },
 ];
 
+/* ─── Scroll-animation helpers ───
+   With a view() timeline animation-delay is a no-op, so siblings
+   stagger by shifting animation-range instead (see globals.css). */
+const range = (r: string) => ({ animationRange: r } as CSSProperties);
+
 /* ══════════════════════════════════════════════════════════════════
    COMPONENT
 ══════════════════════════════════════════════════════════════════ */
 export default function LandingPage() {
+  /* KPI count-up — the only JS animation. setInterval, not rAF: rAF is
+     throttled in some embedded/background contexts and silently never
+     ticks. Resting state is the final value, so if this never runs the
+     KPIs still read correctly. */
+  useEffect(() => {
+    const card = document.getElementById('equity-card');
+    if (!card || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const countUp = (root: HTMLElement) => {
+      const els = Array.from(root.querySelectorAll<HTMLElement>('[data-count]'));
+      const D = 2200, t0 = Date.now();
+      const fmt = (el: HTMLElement, p: number) => {
+        const to = parseFloat(el.dataset.count || '0');
+        const dp = +(el.dataset.countDp || 0);
+        const v  = (to * p).toLocaleString('en-US',
+                     { minimumFractionDigits: dp, maximumFractionDigits: dp });
+        el.textContent = (el.dataset.countPre || '') + v + (el.dataset.countSuf || '');
+      };
+      const id = setInterval(() => {
+        const k = Math.min(1, (Date.now() - t0) / D);
+        const p = 1 - Math.pow(1 - k, 3); // easeOutCubic
+        els.forEach(el => fmt(el, p));
+        if (k >= 1) {
+          clearInterval(id);
+          // landing flash — text-shadow (not transform) so inline spans work
+          els.forEach(el => el.animate(
+            [
+              { textShadow: '0 0 0 rgba(53,208,127,0)' },
+              { textShadow: '0 0 16px rgba(53,208,127,.95)' },
+              { textShadow: '0 0 0 rgba(53,208,127,0)' },
+            ],
+            { duration: 700, easing: 'ease-out' },
+          ));
+        }
+      }, 32);
+    };
+
+    const io = new IntersectionObserver((es, obs) => {
+      es.forEach(e => { if (e.isIntersecting) { countUp(card); obs.disconnect(); } });
+    }, { threshold: 0.15 });
+    io.observe(card);
+    return () => io.disconnect();
+  }, []);
+
+  // Root uses overflow-x-clip, not -hidden: hidden would make this div a
+  // scroll container and hijack every view() animation timeline inside it.
   return (
-    <div className="min-h-screen bg-[#0d1117] text-[#e6edf3] overflow-x-hidden">
+    <div className="min-h-screen bg-[#0d1117] text-[#e6edf3] overflow-x-clip">
 
       {/* ═══ NAVBAR ═══ */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[#30363d] bg-[#0d1117]/90 backdrop-blur-sm">
@@ -259,65 +315,79 @@ export default function LandingPage() {
           {/* Chart mockup */}
           <div className="relative">
             <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-hidden shadow-2xl shadow-black/50">
-              {/* Window chrome */}
+              {/* Header — the card is a trade plan, not a generic chart window */}
               <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#30363d]">
-                <div className="flex items-center gap-3">
-                  <div className="flex gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-[#f85149]" />
-                    <div className="w-3 h-3 rounded-full bg-[#d29922]" />
-                    <div className="w-3 h-3 rounded-full bg-[#3fb950]" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-6 h-6 rounded-md bg-[#F97316]/10 flex items-center justify-center">
+                    <TrendingUp className="w-3.5 h-3.5 text-[#F97316]" />
                   </div>
-                  <span className="text-xs text-[#8b949e] font-mono ml-1">SPY — Daily Chart</span>
+                  <span className="text-xs font-semibold text-white">NVDA — Trade Plan</span>
+                  <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-[#3fb950]/15 text-[#3fb950] tracking-wider">LONG</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="px-2 py-0.5 rounded bg-[#3fb950]/10 text-[#3fb950] font-mono">+2.48%</span>
-                  <span className="text-[#8b949e] font-mono">$512.40</span>
+                  <span className="px-2 py-0.5 rounded bg-[#F97316]/10 text-[#F97316] font-mono font-semibold">+2.4R</span>
+                  <span className="text-[#8b949e] font-mono">$151.84</span>
                 </div>
               </div>
 
-              {/* Candlestick SVG */}
+              {/* Trade-plan SVG — entry/stop/target levels, EMA+VWAP converging
+                  at the entry (the confluence moment), breakout to target */}
               <div className="px-4 pt-4 pb-2">
-                <svg viewBox="0 0 480 210" className="w-full h-[200px]">
-                  {/* Grid lines */}
-                  {[40, 80, 120, 160].map(y => (
-                    <line key={y} x1="0" y1={y} x2="480" y2={y} stroke="#21262d" strokeWidth="1" />
-                  ))}
-                  {/* Price labels */}
-                  {[
-                    { y: 42,  label: '$520' },
-                    { y: 82,  label: '$510' },
-                    { y: 122, label: '$500' },
-                    { y: 162, label: '$490' },
-                  ].map(item => (
-                    <text key={item.y} x="2" y={item.y} fill="#484f58" fontSize="8" fontFamily="monospace">{item.label}</text>
-                  ))}
+                <svg viewBox="0 0 480 230" className="w-full h-[200px]">
+                  <defs>
+                    <linearGradient id="heroGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3fb950" stopOpacity="0.16" />
+                      <stop offset="100%" stopColor="#3fb950" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
 
-                  {/* Volume bars */}
-                  {CANDLES.map((c, i) => (
-                    <rect key={`v${c.x}`} x={c.x - 8} y={210 - VOL[i]} width={16} height={VOL[i]}
-                          fill={c.bull ? '#3fb950' : '#f85149'} opacity="0.18" />
-                  ))}
+                  {/* level lines + labels (static baseline — always visible) */}
+                  <line x1="0" y1="100" x2="480" y2="100" stroke="#21262d" strokeWidth="1" />
+                  <line x1="0" y1="58"  x2="480" y2="58"  stroke="#3fb950" strokeWidth="1" strokeDasharray="5 4" opacity="0.35" />
+                  <line x1="0" y1="140" x2="480" y2="140" stroke="#8b949e" strokeWidth="1" strokeDasharray="5 4" opacity="0.30" />
+                  <line x1="0" y1="185" x2="480" y2="185" stroke="#f85149" strokeWidth="1" strokeDasharray="5 4" opacity="0.35" />
+                  <text x="4" y="54"  fill="#3fb950" fontSize="8" fontFamily="monospace" opacity="0.9">TARGET 151.10</text>
+                  <text x="4" y="136" fill="#8b949e" fontSize="8" fontFamily="monospace" opacity="0.9">ENTRY 142.50</text>
+                  <text x="4" y="181" fill="#f85149" fontSize="8" fontFamily="monospace" opacity="0.9">STOP 138.20</text>
 
-                  {/* Candles */}
-                  {CANDLES.map(c => (
-                    <g key={c.x}>
-                      <line x1={c.x} y1={c.wt} x2={c.x} y2={c.wb}
-                            stroke={c.bull ? '#3fb950' : '#f85149'} strokeWidth="1.5" />
-                      <rect x={c.x - 8} y={c.bt} width={16} height={Math.max(c.bb - c.bt, 2)}
-                            fill={c.bull ? '#3fb950' : '#f85149'} rx="1" />
-                    </g>
-                  ))}
+                  {/* risk / reward zones from the entry forward, priced in R */}
+                  <g data-loop style={heroFade('.9s')}>
+                    <rect x="208" y="58"  width="272" height="82" fill="#3fb950" opacity="0.06" />
+                    <rect x="208" y="140" width="272" height="45" fill="#f85149" opacity="0.05" />
+                    <text x="472" y="74"  textAnchor="end" fill="#3fb950" fontSize="9" fontFamily="monospace" fontWeight="bold" opacity="0.9">+2.4R</text>
+                    <text x="472" y="178" textAnchor="end" fill="#f85149" fontSize="9" fontFamily="monospace" fontWeight="bold" opacity="0.7">-1R</text>
+                  </g>
 
-                  {/* EMA 21 */}
-                  <path d="M 10,170 C 60,162 100,152 130,142 S 175,130 205,120 S 250,106 280,95 S 330,80 370,70 S 420,56 470,48"
-                        stroke="#F97316" strokeWidth="2" fill="none" opacity="0.85" />
-                  <rect x="378" y="40" width="44" height="15" rx="3" fill="#F97316" opacity="0.12" />
-                  <text x="400" y="51" textAnchor="middle" fill="#F97316" fontSize="8.5" fontFamily="monospace" fontWeight="bold">EMA 21</text>
+                  {/* area under price */}
+                  <path d={`${HERO_PRICE} L 476,230 L 0,230 Z`} fill="url(#heroGrad)" data-loop style={heroFade('.9s', '.8s')} />
 
-                  {/* EMA 9 */}
-                  <path d="M 10,175 C 50,165 90,150 120,138 S 165,125 200,113 S 248,100 280,88 S 330,74 375,62 S 420,50 470,44"
-                        stroke="#58a6ff" strokeWidth="1.5" fill="none" opacity="0.55" strokeDasharray="4 3" />
-                  <text x="450" y="40" fill="#58a6ff" fontSize="8" fontFamily="monospace" opacity="0.7">EMA 9</text>
+                  {/* VWAP + EMA — converge exactly at the entry point */}
+                  <path d={HERO_VWAP} stroke="#58a6ff" strokeWidth="1.3" fill="none" opacity="0.5"
+                        strokeDasharray="1400" data-loop style={heroDraw('.7s')} />
+                  <path d={HERO_EMA} stroke="#F97316" strokeWidth="1.6" fill="none" opacity="0.8"
+                        strokeLinecap="round" strokeDasharray="1400" data-loop style={heroDraw('.55s')} />
+                  {/* price */}
+                  <path d={HERO_PRICE} stroke="#3fb950" strokeWidth="2.2" fill="none"
+                        strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1400"
+                        data-loop style={heroDraw('.2s', '1.5s')} />
+
+                  {/* entry marker — the confluence moment */}
+                  <g data-loop style={heroFade('1.5s')}>
+                    <circle cx="208" cy="141" r="4.5" fill="#F97316" data-loop
+                            style={{ transformBox: 'fill-box', transformOrigin: 'center', animation: 'dotRing var(--lp-pulse) 1.9s infinite' } as CSSProperties} />
+                    <circle cx="208" cy="141" r="4.5" fill="#F97316" />
+                    <rect x="218" y="150" width="92" height="15" rx="3" fill="#F97316" opacity="0.14" />
+                    <text x="224" y="160.5" fill="#F97316" fontSize="7.5" fontFamily="monospace" fontWeight="bold">CONFLUENCE ✓</text>
+                  </g>
+
+                  {/* live price dot at target */}
+                  <g data-loop style={heroFade('1.8s')}>
+                    <circle cx="476" cy="40" r="4" fill="#3fb950" data-loop
+                            style={{ transformBox: 'fill-box', transformOrigin: 'center', animation: 'dotRing var(--lp-pulse) 2.2s infinite' } as CSSProperties} />
+                    <circle cx="476" cy="40" r="4" fill="#3fb950" />
+                    <rect x="428" y="24" width="42" height="15" rx="3" fill="#3fb950" opacity="0.15" />
+                    <text x="449" y="35" textAnchor="middle" fill="#3fb950" fontSize="8" fontFamily="monospace" fontWeight="bold">151.84</text>
+                  </g>
                 </svg>
               </div>
 
@@ -386,9 +456,9 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ FEATURES ═══ */}
-      <section id="features" className="py-24 px-6">
+      <section id="features" className="py-16 px-6">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Everything You Need</p>
             <h2 className="text-4xl font-bold text-white mb-4">Built for Disciplined Traders</h2>
             <p className="text-[#8b949e] max-w-2xl mx-auto text-lg">
@@ -397,17 +467,24 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURES.map(f => (
-              <div key={f.title} className="group p-6 rounded-2xl border border-[#30363d] bg-[#161b22] hover:border-[#F97316]/40 hover:bg-[#1c2128] transition-all duration-300">
-                <div className={`w-12 h-12 rounded-xl ${f.bg} flex items-center justify-center mb-4`}>
-                  <f.icon className={`w-6 h-6 ${f.color}`} />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {FEATURES.map((f, i) => (
+              <div
+                key={f.title}
+                className="group p-5 rounded-xl border border-[#30363d] bg-[#161b22] hover:border-[#F97316]/40 hover:bg-[#1c2128] transition-all duration-300"
+                data-reveal="sm"
+                style={range(`entry ${8 + (i % 4) * 3}% cover ${20 + (i % 4) * 3}%`)}
+              >
+                <div className="flex items-center gap-3 mb-2.5">
+                  <div className={`w-9 h-9 rounded-lg ${f.bg} flex items-center justify-center flex-shrink-0`}>
+                    <f.icon className={`w-4.5 h-4.5 ${f.color}`} />
+                  </div>
+                  <h3 className="text-base font-semibold text-white">{f.title}</h3>
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">{f.title}</h3>
-                <p className="text-sm text-[#8b949e] leading-relaxed mb-4">{f.desc}</p>
-                <div className="flex flex-wrap gap-2">
+                <p className="text-sm text-[#8b949e] leading-snug mb-3">{f.desc}</p>
+                <div className="flex flex-wrap gap-1.5">
                   {f.tags.map(tag => (
-                    <span key={tag} className="px-2 py-0.5 text-xs rounded-md bg-[#0d1117] border border-[#30363d] text-[#8b949e]">
+                    <span key={tag} className="px-2 py-0.5 text-[11px] rounded-md bg-[#0d1117] border border-[#30363d] text-[#8b949e]">
                       {tag}
                     </span>
                   ))}
@@ -424,7 +501,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 items-center">
 
             {/* Text */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2" data-reveal="left" style={range('entry 6% entry 62%')}>
               <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Performance Analytics</p>
               <h2 className="text-4xl font-bold text-white mb-4">See Your Edge Clearly</h2>
               <p className="text-[#8b949e] leading-relaxed mb-8">
@@ -438,8 +515,8 @@ export default function LandingPage() {
                   { label: 'Strategy Breakdown', desc: 'P&L segmented by setup type' },
                   { label: 'Emotional Analysis', desc: 'Correlate state of mind with P&L' },
                   { label: 'Win Rate Heatmap',   desc: 'Identify your best trading days' },
-                ].map(item => (
-                  <div key={item.label} className="flex items-start gap-3">
+                ].map((item, i) => (
+                  <div key={item.label} className="flex items-start gap-3" data-reveal="sm" style={range(`entry ${14 + i * 5}% cover ${26 + i * 5}%`)}>
                     <div className="w-5 h-5 mt-0.5 rounded-full bg-[#F97316]/10 flex items-center justify-center flex-shrink-0">
                       <ChevronRight className="w-3 h-3 text-[#F97316]" />
                     </div>
@@ -454,15 +531,15 @@ export default function LandingPage() {
 
             {/* Equity curve card */}
             <div className="lg:col-span-3">
-              <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-hidden shadow-2xl">
+              <div id="equity-card" className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-clip shadow-2xl" data-reveal="right" style={range('entry 6% entry 60%')}>
                 <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-white">Equity Curve</p>
                     <p className="text-xs text-[#8b949e]">Account Growth — Year to Date</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xl font-bold text-[#3fb950]">+$12,840</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-[#3fb950]/10 text-[#3fb950] font-semibold">+28.4%</span>
+                    <span className="text-xl font-bold text-[#3fb950]" data-count="12840" data-count-pre="+$" style={{ fontVariantNumeric: 'tabular-nums' }}>+$12,840</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[#3fb950]/10 text-[#3fb950] font-semibold" data-count="28.4" data-count-dp="1" data-count-pre="+" data-count-suf="%" style={{ fontVariantNumeric: 'tabular-nums' }}>+28.4%</span>
                   </div>
                 </div>
 
@@ -476,40 +553,49 @@ export default function LandingPage() {
                     </defs>
 
                     {/* Grid */}
-                    {[40, 80, 120, 160].map(y => (
-                      <line key={y} x1="0" y1={y} x2="600" y2={y} stroke="#21262d" strokeWidth="1" />
-                    ))}
-                    {[
-                      { y: 42,  label: '$58k' },
-                      { y: 82,  label: '$52k' },
-                      { y: 122, label: '$47k' },
-                      { y: 162, label: '$45k' },
-                    ].map(item => (
-                      <text key={item.y} x="4" y={item.y} fill="#484f58" fontSize="9" fontFamily="monospace">{item.label}</text>
-                    ))}
+                    <g style={{ animation: 'fadeIn .6s ease-out both', animationTimeline: 'view()', animationRange: 'entry 10% cover 26%' } as CSSProperties}>
+                      {[40, 80, 120, 160].map(y => (
+                        <line key={y} x1="0" y1={y} x2="600" y2={y} stroke="#21262d" strokeWidth="1" />
+                      ))}
+                      {[
+                        { y: 42,  label: '$58k' },
+                        { y: 82,  label: '$52k' },
+                        { y: 122, label: '$47k' },
+                        { y: 162, label: '$45k' },
+                      ].map(item => (
+                        <text key={item.y} x="4" y={item.y} fill="#484f58" fontSize="9" fontFamily="monospace">{item.label}</text>
+                      ))}
+                    </g>
 
                     {/* Area */}
                     <path d="M 0,180 L 30,175 L 60,170 L 90,165 L 120,172 L 150,158 L 180,148 L 210,155 L 240,140 L 270,128 L 300,118 L 330,125 L 360,108 L 390,96 L 420,84 L 450,72 L 480,60 L 510,50 L 540,45 L 570,42 L 600,38 L 600,200 L 0,200 Z"
-                          fill="url(#equityGrad)" />
-                    {/* Line */}
+                          fill="url(#equityGrad)"
+                          style={{ transformBox: 'fill-box', transformOrigin: '50% 100%', animation: 'areaIn .85s cubic-bezier(.16,.84,.3,1) both', animationTimeline: 'view()', animationRange: 'entry 14% cover 30%' } as CSSProperties} />
+                    {/* Line — stroke-dasharray must be ≥ path length for the draw effect */}
                     <path d="M 0,180 L 30,175 L 60,170 L 90,165 L 120,172 L 150,158 L 180,148 L 210,155 L 240,140 L 270,128 L 300,118 L 330,125 L 360,108 L 390,96 L 420,84 L 450,72 L 480,60 L 510,50 L 540,45 L 570,42 L 600,38"
-                          stroke="#3fb950" strokeWidth="2.5" fill="none" />
-                    {/* End dot */}
+                          stroke="#3fb950" strokeWidth="2.5" fill="none"
+                          strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1400"
+                          data-loop
+                          style={{ animation: 'draw 1.1s cubic-bezier(.35,.6,.3,1) both, lineGlow var(--lp-pulse) ease-in-out infinite', animationTimeline: 'view(), auto', animationRange: 'entry 12% cover 34%, normal' } as CSSProperties} />
+                    {/* End dot — pulsing ring under a solid copy of the same circle */}
+                    <circle cx="600" cy="38" r="5" fill="#3fb950" data-loop
+                            style={{ transformBox: 'fill-box', transformOrigin: 'center', animation: 'dotRing var(--lp-pulse) infinite' } as CSSProperties} />
                     <circle cx="600" cy="38" r="5" fill="#3fb950" />
                     <circle cx="600" cy="38" r="10" fill="#3fb950" opacity="0.15" />
                   </svg>
                 </div>
 
                 <div className="grid grid-cols-4 divide-x divide-[#30363d] border-t border-[#30363d]">
+                  {/* Avg Loss counts as -$ prefix + positive magnitude, matching the design */}
                   {[
-                    { label: 'Total Trades', value: '247' },
-                    { label: 'Win Rate',     value: '68.4%' },
-                    { label: 'Avg Win',      value: '+$218' },
-                    { label: 'Avg Loss',     value: '-$94' },
-                  ].map(s => (
-                    <div key={s.label} className="px-3 py-3 text-center">
+                    { label: 'Total Trades', value: '247',   count: '247' },
+                    { label: 'Win Rate',     value: '68.4%', count: '68.4', dp: '1', suf: '%' },
+                    { label: 'Avg Win',      value: '+$218', count: '218', pre: '+$' },
+                    { label: 'Avg Loss',     value: '-$94',  count: '94',  pre: '-$' },
+                  ].map((s, i) => (
+                    <div key={s.label} className="px-3 py-3 text-center" data-reveal="sm" style={range(`entry ${26 + i * 4}% cover ${38 + i * 4}%`)}>
                       <p className="text-[10px] text-[#8b949e] mb-0.5">{s.label}</p>
-                      <p className="text-sm font-bold text-white">{s.value}</p>
+                      <p className="text-sm font-bold text-white" data-count={s.count} data-count-dp={s.dp} data-count-pre={s.pre} data-count-suf={s.suf} style={{ fontVariantNumeric: 'tabular-nums' }}>{s.value}</p>
                     </div>
                   ))}
                 </div>
@@ -526,7 +612,18 @@ export default function LandingPage() {
 
             {/* Gap Scanner card */}
             <div className="relative lg:col-span-3 order-2 lg:order-1">
-              <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-hidden shadow-2xl">
+              <div className="relative rounded-2xl border border-[#30363d] bg-[#161b22] overflow-clip shadow-2xl" data-reveal="left" style={range('entry 6% entry 60%')}>
+                {/* Scan bar overlay */}
+                <div
+                  className="pointer-events-none absolute inset-x-0"
+                  data-loop
+                  style={{
+                    top: 120,
+                    height: 66,
+                    background: 'linear-gradient(rgba(232,134,58,0), rgba(232,134,58,.10) 42%, rgba(232,134,58,.26) 50%, rgba(232,134,58,.10) 58%, rgba(232,134,58,0))',
+                    animation: 'sweep var(--lp-sweep) linear infinite',
+                  }}
+                />
                 <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-[#F97316]" />
@@ -566,9 +663,21 @@ export default function LandingPage() {
                   <span className="text-right">Catalyst</span>
                 </div>
 
-                {/* Table rows */}
+                {/* Table rows — row 1 (NVDA) combines its reveal with an ambient
+                    flash: two animations on one node need matched timeline lists */}
                 {GAPS.map((g, i) => (
-                  <div key={g.ticker} className={`grid grid-cols-5 px-5 py-3 items-center text-sm ${i < GAPS.length - 1 ? 'border-b border-[#21262d]' : ''} hover:bg-[#1c2128] transition-colors`}>
+                  <div
+                    key={g.ticker}
+                    className={`grid grid-cols-5 px-5 py-3 items-center text-sm ${i < GAPS.length - 1 ? 'border-b border-[#21262d]' : ''} hover:bg-[#1c2128] transition-colors`}
+                    {...(i === 0 ? { 'data-loop': true } : { 'data-reveal': 'sm' })}
+                    style={i === 0
+                      ? ({
+                          animation: 'riseSm .55s ease-out both, rowFlash var(--lp-pulse) ease-in-out infinite',
+                          animationTimeline: 'view(), auto',
+                          animationRange: 'entry 14% cover 26%, normal',
+                        } as CSSProperties)
+                      : range(`entry ${14 + i * 4}% cover ${26 + i * 4}%`)}
+                  >
                     <span className="font-mono font-bold text-white">{g.ticker}</span>
                     <span className={`text-center font-mono font-semibold ${g.pos ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>{g.gap}</span>
                     <span className="text-center font-mono text-[#8b949e]">{g.price}</span>
@@ -587,15 +696,25 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* Floating intraday alert badge */}
-              <div className="hidden lg:flex absolute -top-6 -right-5 z-10 items-center gap-2.5 bg-[#161b22] border border-[#F97316]/30 rounded-xl p-3 shadow-xl">
-                <div className="relative w-9 h-9 rounded-lg bg-[#F97316]/10 flex items-center justify-center">
-                  <Bell className="w-4 h-4 text-[#F97316]" />
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#f85149] text-white text-[9px] font-bold flex items-center justify-center">3</span>
-                </div>
-                <div>
-                  <p className="text-white font-bold text-sm">Intraday Alert — 2H Window</p>
-                  <p className="text-[#8b949e] text-xs">NVDA +4.2% on 3.1× rel. volume</p>
+              {/* Floating intraday alert badge — reveal, idle float, and glow live
+                  on separate nested nodes so the loop transform never overwrites
+                  the settled reveal transform */}
+              <div className="hidden lg:block absolute -top-6 -right-5 z-10" data-reveal="pop" style={range('entry 20% cover 30%')}>
+                <div data-loop style={{ animation: 'floatY 5s ease-in-out infinite' }}>
+                  <div
+                    className="flex items-center gap-2.5 bg-[#161b22] border border-[#F97316]/30 rounded-xl p-3 shadow-xl"
+                    data-loop
+                    style={{ animation: 'bellGlow var(--lp-pulse) ease-in-out infinite' }}
+                  >
+                    <div className="relative w-9 h-9 rounded-lg bg-[#F97316]/10 flex items-center justify-center">
+                      <Bell className="w-4 h-4 text-[#F97316]" data-loop style={{ animation: 'bellSwing 3.6s ease-in-out infinite', transformOrigin: '50% 15%' }} />
+                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#f85149] text-white text-[9px] font-bold flex items-center justify-center" data-loop style={{ animation: 'livePulse var(--lp-pulse) ease-out infinite' }}>3</span>
+                    </div>
+                    <div>
+                      <p className="text-white font-bold text-sm">Intraday Alert — 2H Window</p>
+                      <p className="text-[#8b949e] text-xs">NVDA +4.2% on 3.1× rel. volume</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -765,7 +884,7 @@ export default function LandingPage() {
 
             {/* Briefing card */}
             <div className="relative lg:col-span-3 order-2 lg:order-1">
-              <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-hidden shadow-2xl">
+              <div className="rounded-2xl border border-[#30363d] bg-[#161b22] overflow-clip shadow-2xl" data-reveal="left" style={range('entry 6% entry 58%')}>
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -783,7 +902,7 @@ export default function LandingPage() {
 
                 <div className="p-6 space-y-4">
                   {/* AI sentiment summary */}
-                  <div className="p-4 bg-[#3fb950]/10 border border-[#3fb950]/20 rounded-lg">
+                  <div className="p-4 bg-[#3fb950]/10 border border-[#3fb950]/20 rounded-lg" data-reveal="sm" style={range('entry 14% cover 26%')}>
                     <div className="flex items-center gap-2 mb-2">
                       <TrendingUp className="w-4 h-4 text-[#3fb950]" />
                       <span className="text-[10px] font-semibold text-[#3fb950] uppercase tracking-wide">Bullish Bias</span>
@@ -795,8 +914,8 @@ export default function LandingPage() {
 
                   {/* Indices snapshot */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {BRIEFING_INDICES.map(ix => (
-                      <div key={ix.name} className="bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2.5">
+                    {BRIEFING_INDICES.map((ix, i) => (
+                      <div key={ix.name} className="bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2.5" data-reveal="pop" style={range(`entry ${20 + i * 3}% cover ${30 + i * 3}%`)}>
                         <p className="text-[10px] text-[#8b949e] font-mono mb-0.5">{ix.name}</p>
                         <p className="text-sm font-bold text-white font-mono">{ix.value}</p>
                         <p className={`text-xs font-mono ${ix.pos ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>{ix.chg}</p>
@@ -805,14 +924,19 @@ export default function LandingPage() {
                   </div>
 
                   {/* Big movers */}
-                  <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4">
+                  <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4" data-reveal="sm" style={range('entry 30% cover 40%')}>
                     <div className="flex items-center gap-1.5 mb-3">
                       <Activity className="w-3.5 h-3.5 text-[#F97316]" />
                       <span className="text-[10px] font-semibold text-[#F97316] uppercase tracking-wide">Big Movers</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {BRIEFING_MOVERS.map(m => (
-                        <span key={m.ticker} className={`px-2.5 py-1 rounded-md text-xs font-mono font-semibold ${m.pos ? 'bg-[#3fb950]/10 text-[#3fb950]' : 'bg-[#f85149]/10 text-[#f85149]'}`}>
+                      {BRIEFING_MOVERS.map((m, i) => (
+                        <span
+                          key={m.ticker}
+                          className={`px-2.5 py-1 rounded-md text-xs font-mono font-semibold ${m.pos ? 'bg-[#3fb950]/10 text-[#3fb950]' : 'bg-[#f85149]/10 text-[#f85149]'}`}
+                          data-reveal="pop"
+                          style={{ animationDuration: '.45s', ...range(`entry ${34 + i * 2}% cover ${44 + i * 2}%`) }}
+                        >
                           {m.ticker} {m.chg}
                         </span>
                       ))}
@@ -820,14 +944,14 @@ export default function LandingPage() {
                   </div>
 
                   {/* News highlights */}
-                  <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4">
+                  <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4" data-reveal="sm" style={range('entry 38% cover 48%')}>
                     <div className="flex items-center gap-1.5 mb-3">
                       <Newspaper className="w-3.5 h-3.5 text-[#39c5cf]" />
                       <span className="text-[10px] font-semibold text-[#39c5cf] uppercase tracking-wide">News Highlights</span>
                     </div>
                     <ul className="space-y-2.5">
-                      {BRIEFING_NEWS.map(n => (
-                        <li key={n.headline} className="flex items-center justify-between gap-3">
+                      {BRIEFING_NEWS.map((n, i) => (
+                        <li key={n.headline} className="flex items-center justify-between gap-3" data-reveal="sm" style={{ animationDuration: '.5s', ...range(`entry ${42 + i * 3}% cover ${54 + i * 3}%`) }}>
                           <div className="flex items-center gap-2 min-w-0">
                             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${n.pos === true ? 'bg-[#3fb950]' : n.pos === false ? 'bg-[#f85149]' : 'bg-[#8b949e]'}`} />
                             <span className="text-xs text-[#c9d1d9] truncate">{n.headline}</span>
@@ -857,24 +981,32 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* Floating news screener mini-card */}
-              <div className="hidden lg:flex absolute -right-7 -bottom-7 z-10 w-[230px] flex-col gap-2 bg-[#161b22] border border-[#30363d] rounded-xl p-3.5 shadow-xl">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Newspaper className="w-3.5 h-3.5 text-[#39c5cf]" />
-                    <span className="text-xs font-semibold text-white">News Screener</span>
+              {/* Floating news screener mini-card — reveal on the outer node,
+                  idle float on the card so the loop transform never overwrites
+                  the settled reveal transform */}
+              <div className="hidden lg:block absolute -right-7 -bottom-7 z-10 w-[230px]" data-reveal="pop" style={range('entry 34% cover 46%')}>
+                <div className="flex flex-col gap-2 bg-[#161b22] border border-[#30363d] rounded-xl p-3.5 shadow-xl" data-loop style={{ animation: 'floatY 6.5s ease-in-out infinite' }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Newspaper className="w-3.5 h-3.5 text-[#39c5cf]" />
+                      <span className="text-xs font-semibold text-white">News Screener</span>
+                    </div>
+                    <span className="flex items-center gap-1 text-[9px] text-[#8b949e]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950]" data-loop style={{ animation: 'livePulse var(--lp-pulse) ease-out infinite' }} />
+                      LIVE
+                    </span>
                   </div>
-                  <span className="flex items-center gap-1 text-[9px] text-[#8b949e]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
-                    LIVE
-                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {['Fed', 'Macro', 'M&A', 'Earnings', 'AI', 'Crypto'].map(c => (
+                      <span key={c} className="px-1.5 py-0.5 text-[9px] rounded bg-[#0d1117] border border-[#30363d] text-[#8b949e]">{c}</span>
+                    ))}
+                  </div>
+                  {/* Refresh bar */}
+                  <div style={{ height: 2, background: '#1e2427', borderRadius: 2, overflow: 'hidden' }}>
+                    <div className="h-full w-full" data-loop style={{ background: 'var(--lp-accent)', boxShadow: '0 0 8px rgba(53,208,127,.7)', transformOrigin: 'left', animation: 'barGrow var(--lp-sweep) linear infinite' }} />
+                  </div>
+                  <p className="text-[9px] text-[#484f58]">Sentiment-tagged · refreshes every 15 min</p>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {['Fed', 'Macro', 'M&A', 'Earnings', 'AI', 'Crypto'].map(c => (
-                    <span key={c} className="px-1.5 py-0.5 text-[9px] rounded bg-[#0d1117] border border-[#30363d] text-[#8b949e]">{c}</span>
-                  ))}
-                </div>
-                <p className="text-[9px] text-[#484f58]">Sentiment-tagged · refreshes every 15 min</p>
               </div>
             </div>
 
