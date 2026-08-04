@@ -613,6 +613,17 @@ export default function FinancesView() {
     ? projections.reduce((s, { p }) => s + (p.status === 'ok' ? p.totalInterest : 0), 0)
     : null;
 
+  // History is sorted ascending by date, so the first snapshot is the starting balance.
+  const startingDebt = history.length > 0 ? history[0].total : null;
+  const totalPaidDown = startingDebt !== null ? startingDebt - totalDebt : null;
+  const startDateLabel =
+    history.length > 0
+      ? new Date(history[0].date + 'T12:00:00').toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        })
+      : null;
+
   const chartData = history.map((h) => ({
     label: new Date(h.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     total: Math.round(h.total * 100) / 100,
@@ -656,6 +667,15 @@ export default function FinancesView() {
       value: usd0(totalPayments),
       sub: liveCount ? `${liveCount} of ${accounts.length} live` : undefined,
     },
+    {
+      label: 'Total Debt Paid Down',
+      value: totalPaidDown !== null ? usd(totalPaidDown) : '—',
+      sub:
+        startingDebt !== null
+          ? `from ${usd0(startingDebt)} on ${startDateLabel}`
+          : 'builds as history accrues',
+      positive: totalPaidDown !== null && totalPaidDown > 0,
+    },
   ];
 
   /** Balance cell with a pin marker when the user has overridden the synced value. */
@@ -683,11 +703,15 @@ export default function FinancesView() {
   return (
     <div className="space-y-5 animate-fade-up">
       {/* Summary strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {stats.map((s) => (
           <div key={s.label} className="bg-[#161b22] border border-[#30363d] rounded-xl px-4 py-3">
             <p className="text-[11px] font-medium uppercase tracking-wide text-[#8b949e]">{s.label}</p>
-            <p className={`mt-1 text-lg md:text-xl font-semibold ${s.accent ? 'text-[#FF8C38]' : 'text-white'}`}>
+            <p
+              className={`mt-1 text-lg md:text-xl font-semibold ${
+                s.accent ? 'text-[#FF8C38]' : s.positive ? 'text-[#3fb950]' : 'text-white'
+              }`}
+            >
               {s.value}
             </p>
             {s.sub && <p className="text-[11px] text-[#8b949e] mt-0.5">{s.sub}</p>}
