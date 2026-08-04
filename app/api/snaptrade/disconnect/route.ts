@@ -7,12 +7,14 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-session';
+import { requireUserId } from '@/lib/auth-session';
 import { isSnapTradeConfigured, deleteUser } from '@/lib/snaptrade';
 import { getBrokerConnection, deleteBrokerConnection } from '@/lib/db/broker-connections';
+import { clearBrokerDailyBalances } from '@/lib/db/balances';
+import { clearBrokerDailyFees } from '@/lib/db/fees';
 
 export async function DELETE(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireOwner();
+  const { userId, error: authError } = await requireUserId();
   if (authError) return authError;
 
   const connection = await getBrokerConnection(userId);
@@ -32,6 +34,11 @@ export async function DELETE(): Promise<NextResponse> {
 
   try {
     await deleteBrokerConnection(userId);
+    // The broker-derived balance/fee series only feed the equity curve while a
+    // brokerage is linked (single-source). Clear them so the curve falls back
+    // to statement uploads instead of a stale broker series.
+    await clearBrokerDailyBalances(userId);
+    await clearBrokerDailyFees(userId);
     return NextResponse.json({ success: true, data: { disconnected: true } });
   } catch (error) {
     console.error('SnapTrade disconnect error:', error);

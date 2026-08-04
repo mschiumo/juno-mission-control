@@ -5,8 +5,11 @@ import { DailyBalance } from '@/lib/parsers/tos-parser';
 // (account statements); `user:broker-balances` holds the series derived from
 // the live brokerage sync (lib/snaptrade-balances.ts). They stay separate
 // because their lifecycles differ — uploads accumulate and are precious, while
-// the derived series is recomputed wholesale on every sync — and the read path
-// merges them with broker data winning on any date both cover.
+// the derived series is recomputed wholesale on every sync. The read path is
+// single-source: the broker series feeds the curve whenever it exists (a
+// linked brokerage is the sole source of truth), otherwise statement uploads
+// do. The two are never blended — their account scopes differ, so mixing them
+// per-date renders discontinuities that read as P&L that never happened.
 
 function balancesKey(userId: string) {
   return `user:daily-balances:${userId}`;
@@ -124,29 +127,30 @@ export async function clearBrokerDailyBalances(userId: string): Promise<void> {
   }
 }
 
+/** Which store is feeding the equity curve. */
+export type BalanceSource = 'broker' | 'manual';
+
 /**
- * The series the equity curve consumes: uploaded statement balances extended /
- * overridden by the broker-derived ones. Broker wins on any date both cover
- * (it reflects the live ledger); statement uploads keep supplying the dates
- * the broker's backfill doesn't reach.
+ * The series the equity curve consumes — single-source. When the brokerage
+ * sync has produced a series, it is the curve's only input (the linked broker
+ * is the source of truth; disconnecting clears the derived series, restoring
+ * the uploads). Otherwise the statement uploads are. `source` tells the client
+ * which one it got, so it can skip manual-only adornments (the hand-entered
+ * starting-balance anchor) on a broker-fed curve.
  */
 export async function getCombinedDailyBalances(
   userId: string
-): Promise<{ balances: DailyBalance[]; byAccount: Record<string, DailyBalance[]> }> {
+): Promise<{
+  balances: DailyBalance[];
+  byAccount: Record<string, DailyBalance[]>;
+  source: BalanceSource;
+}> {
   const [manual, broker] = await Promise.all([
     getDailyBalances(userId),
     getBrokerDailyBalances(userId),
   ]);
   if (broker.aggregate.length === 0) {
-    return { balances: manual, byAccount: broker.byAccount };
+    return { balances: manual, byAccount: broker.byAccount, source: 'manual' };
   }
-  const merged = new Map<string, number>();
-  manual.forEach(b => merged.set(b.date, b.balance));
-  broker.aggregate.forEach(b => merged.set(b.date, b.balance));
-  return {
-    balances: [...merged.entries()]
-      .map(([date, balance]) => ({ date, balance }))
-      .sort((a, b) => a.date.localeCompare(b.date)),
-    byAccount: broker.byAccount,
-  };
+  return { balances: broker.aggregate, byAccount: broker.byAccount, source: 'broker' };
 }

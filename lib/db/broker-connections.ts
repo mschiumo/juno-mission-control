@@ -15,9 +15,10 @@ import { getRedisClient } from '@/lib/redis';
 
 /**
  * Max brokerage connections a single user may link. When at the limit, the user
- * must disconnect/replace one before adding another.
+ * must disconnect/replace one before adding another. Held at 1 for the test-user
+ * rollout — every connection carries a per-user SnapTrade cost.
  */
-export const MAX_BROKER_CONNECTIONS = 2;
+export const MAX_BROKER_CONNECTIONS = 1;
 
 export interface BrokerAccount {
   /** SnapTrade account id — stable, used as the sync key. */

@@ -88,7 +88,6 @@ const GROUPS: DocGroup[] = [
         blurb: 'What SnapTrade is, how the connection works, and how synced trades differ from imports.',
         icon: Link2,
         keywords: 'snaptrade brokerage connect broker sync live data robinhood schwab fidelity webull etrade tastytrade interactive brokers read only connection portal authorization refresh disconnect provenance security oauth',
-        ownerOnly: true,
         Component: BrokerageSyncArticle,
       },
       {
@@ -186,9 +185,9 @@ export default function DocsView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Owner-only articles document owner-only features (agentic trading,
-  // brokerage sync). Until now `ownerOnly` was just a badge, so non-owners
-  // could read — and deep-link to — guides for things they can't reach.
+  // Owner-only articles document owner-only features (agentic trading).
+  // Non-owners can't read — or deep-link to — guides for things they can't
+  // reach.
   const { data: session } = useSession();
   const isOwner = isOwnerEmail(session?.user?.email);
 

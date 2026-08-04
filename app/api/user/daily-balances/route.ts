@@ -11,13 +11,13 @@ export async function GET() {
   if (authResult.error) return authResult.error;
   const { userId } = authResult;
 
-  // Statement-upload balances merged with the broker-derived series (broker
-  // wins per date) — the equity curve works off both sources transparently.
-  // `byAccount` carries each linked account's own broker-derived series so the
-  // per-account Performance views get real NLV instead of a cumulative-P&L
-  // fallback.
-  const { balances, byAccount } = await getCombinedDailyBalances(userId);
-  return NextResponse.json({ success: true, balances, byAccount });
+  // Single-source: the broker-derived series when a brokerage feeds this user,
+  // statement uploads otherwise — never blended. `source` tells the client
+  // which one it got; `byAccount` carries each linked account's own
+  // broker-derived series so the per-account Performance views get real NLV
+  // instead of a cumulative-P&L fallback.
+  const { balances, byAccount, source } = await getCombinedDailyBalances(userId);
+  return NextResponse.json({ success: true, balances, byAccount, source });
 }
 
 export async function DELETE() {
