@@ -6,12 +6,14 @@
  * trades-v2 / active-trades. One record per user.
  *
  * SECURITY: `userSecret` is a long-lived credential that authenticates all
- * SnapTrade calls for the user. It is stored via getUserSecret/setUserSecret so
- * at-rest encryption can be slotted in (Phase 4) without touching callers.
- * TODO(phase4): encrypt userSecret at rest before opening to more users.
+ * SnapTrade calls for the user. It is encrypted at rest (AES-256-GCM via
+ * lib/secret-box.ts) when BROKER_SECRET_ENC_KEY is set — which production
+ * must. Legacy plaintext records decrypt as-is and are sealed on their next
+ * save, so no migration is needed.
  */
 
 import { getRedisClient } from '@/lib/redis';
+import { sealSecret, openSecret } from '@/lib/secret-box';
 
 /**
  * Max brokerage connections a single user may link. When at the limit, the user
@@ -59,12 +61,14 @@ function connectionKey(userId: string): string {
   return `broker:snaptrade:${userId}`;
 }
 
-// Indirection points for future at-rest encryption of the secret.
+// At-rest encryption of the secret. sealSecret is a pass-through when the env
+// key is absent (local dev); openSecret passes legacy plaintext through and
+// throws if a sealed record is read without the key.
 function setUserSecret(secret: string): string {
-  return secret; // TODO(phase4): encrypt
+  return sealSecret(secret);
 }
 function getUserSecret(stored: string): string {
-  return stored; // TODO(phase4): decrypt
+  return openSecret(stored);
 }
 
 /** Fetch the user's SnapTrade connection record, or null if none. */
@@ -138,8 +142,10 @@ export async function getAllBrokerConnections(): Promise<BrokerConnection[]> {
       try {
         const parsed = JSON.parse(data) as BrokerConnection;
         out.push({ ...parsed, userSecret: getUserSecret(parsed.userSecret) });
-      } catch {
-        // skip malformed record
+      } catch (error) {
+        // Skip the record but say so — a decryption failure here (lost env
+        // key) would otherwise silently drop users from the nightly sync.
+        console.error(`Skipping unreadable broker connection ${keyStr}:`, error);
       }
     }
   } catch (error) {
