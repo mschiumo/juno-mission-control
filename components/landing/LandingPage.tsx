@@ -185,7 +185,7 @@ export default function LandingPage() {
 
     const countUp = (root: HTMLElement) => {
       const els = Array.from(root.querySelectorAll<HTMLElement>('[data-count]'));
-      const D = 1500, t0 = Date.now();
+      const D = 2200, t0 = Date.now();
       const fmt = (el: HTMLElement, p: number) => {
         const to = parseFloat(el.dataset.count || '0');
         const dp = +(el.dataset.countDp || 0);
@@ -197,7 +197,18 @@ export default function LandingPage() {
         const k = Math.min(1, (Date.now() - t0) / D);
         const p = 1 - Math.pow(1 - k, 3); // easeOutCubic
         els.forEach(el => fmt(el, p));
-        if (k >= 1) clearInterval(id);
+        if (k >= 1) {
+          clearInterval(id);
+          // landing flash — text-shadow (not transform) so inline spans work
+          els.forEach(el => el.animate(
+            [
+              { textShadow: '0 0 0 rgba(53,208,127,0)' },
+              { textShadow: '0 0 16px rgba(53,208,127,.95)' },
+              { textShadow: '0 0 0 rgba(53,208,127,0)' },
+            ],
+            { duration: 700, easing: 'ease-out' },
+          ));
+        }
       }, 32);
     };
 
@@ -538,7 +549,8 @@ export default function LandingPage() {
                     <path d="M 0,180 L 30,175 L 60,170 L 90,165 L 120,172 L 150,158 L 180,148 L 210,155 L 240,140 L 270,128 L 300,118 L 330,125 L 360,108 L 390,96 L 420,84 L 450,72 L 480,60 L 510,50 L 540,45 L 570,42 L 600,38"
                           stroke="#3fb950" strokeWidth="2.5" fill="none"
                           strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1400"
-                          style={{ animation: 'draw 1.1s cubic-bezier(.35,.6,.3,1) both', animationTimeline: 'view()', animationRange: 'entry 12% cover 34%' } as CSSProperties} />
+                          data-loop
+                          style={{ animation: 'draw 1.1s cubic-bezier(.35,.6,.3,1) both, lineGlow var(--lp-pulse) ease-in-out infinite', animationTimeline: 'view(), auto', animationRange: 'entry 12% cover 34%, normal' } as CSSProperties} />
                     {/* End dot — pulsing ring under a solid copy of the same circle */}
                     <circle cx="600" cy="38" r="5" fill="#3fb950" data-loop
                             style={{ transformBox: 'fill-box', transformOrigin: 'center', animation: 'dotRing var(--lp-pulse) infinite' } as CSSProperties} />
@@ -582,7 +594,7 @@ export default function LandingPage() {
                   style={{
                     top: 120,
                     height: 66,
-                    background: 'linear-gradient(rgba(232,134,58,0), rgba(232,134,58,.045), rgba(232,134,58,0))',
+                    background: 'linear-gradient(rgba(232,134,58,0), rgba(232,134,58,.10) 42%, rgba(232,134,58,.26) 50%, rgba(232,134,58,.10) 58%, rgba(232,134,58,0))',
                     animation: 'sweep var(--lp-sweep) linear infinite',
                   }}
                 />
@@ -965,7 +977,7 @@ export default function LandingPage() {
                   </div>
                   {/* Refresh bar */}
                   <div style={{ height: 2, background: '#1e2427', borderRadius: 2, overflow: 'hidden' }}>
-                    <div className="h-full w-full" data-loop style={{ background: 'var(--lp-accent)', transformOrigin: 'left', animation: 'barGrow var(--lp-sweep) linear infinite' }} />
+                    <div className="h-full w-full" data-loop style={{ background: 'var(--lp-accent)', boxShadow: '0 0 8px rgba(53,208,127,.7)', transformOrigin: 'left', animation: 'barGrow var(--lp-sweep) linear infinite' }} />
                   </div>
                   <p className="text-[9px] text-[#484f58]">Sentiment-tagged · refreshes every 15 min</p>
                 </div>
