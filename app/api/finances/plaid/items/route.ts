@@ -70,7 +70,7 @@ export async function DELETE(request: NextRequest) {
       revoked,
       warning: revoked
         ? undefined
-        : 'Disconnected here, but Plaid may still list this connection — remove it from the Plaid dashboard to be sure billing stops.',
+        : 'Disconnected here, but the provider may still list this connection — remove it from the provider dashboard to be sure billing stops.',
     });
   } catch (error) {
     console.error('Failed to disconnect Plaid item:', error instanceof Error ? error.message : error);
