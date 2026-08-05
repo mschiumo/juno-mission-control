@@ -15,8 +15,10 @@
  *    one with the remainder.
  *  - A position still open at the end of the window is emitted as an OPEN Trade.
  *  - Fills sharing one identical timestamp (day-granularity brokers) are
- *    ordered deterministically: position-extending fills first, flat starts
- *    default to LONG unless the description marks a short sale.
+ *    ordered deterministically and FIFO-quantity-matched: a carried position
+ *    closes first, matched buy/sell quantity completes as a round trip, and
+ *    only the unmatched tail stays open. Flat starts default to LONG unless
+ *    the description marks a short sale.
  *  - Trade ids are deterministic (`st_<account>_<symbol>_<cycleIndex>`) so a
  *    re-sync upserts the same trade instead of duplicating it.
  *
@@ -133,13 +135,20 @@ function sign(n: number): number {
  * order for them is arbitrary — processing a session's sell before its buy
  * reconstructs a long round trip as a SHORT with entry/exit swapped (the P&L
  * survives, proceeds-minus-cost being order-independent, which made the bad
- * labels look self-consistent). Make the order deterministic instead: within
- * each identical-timestamp run, fills that extend the current position process
- * before fills that reduce it, and a flat start is LONG (buys first) unless
- * the broker's description explicitly marks a short sale. A true intraday
- * short without such a description is labeled LONG — with one stamp per day
- * the real sequence is unknowable, and the long default matches the common
- * retail case; the side stays editable in the Journal.
+ * labels look self-consistent). Naively processing all buys before all sells
+ * has the opposite failure: on a day whose buys outnumber sells the position
+ * never returns to flat, so the day's realized round trips merge into one
+ * still-open cycle and their P&L silently disappears from the day.
+ *
+ * Make the order deterministic AND quantity-matched instead (FIFO): within
+ * each identical-timestamp run, first close any carried position, then pair
+ * min(buys, sells) shares — opening side up to the match, whole closing side,
+ * unmatched tail last — so completed round trips emit as CLOSED trades and
+ * only the true remainder stays open. A flat start is LONG (buys first)
+ * unless the broker's description explicitly marks a short sale; a true
+ * intraday short without such a description is labeled LONG — with one stamp
+ * per day the real sequence is unknowable, and the long default matches the
+ * common retail case; the side stays editable in the Journal.
  */
 function orderSameStampRuns(execs: Execution[]): Execution[] {
   const out: Execution[] = [];
@@ -149,15 +158,61 @@ function orderSameStampRuns(execs: Execution[]): Execution[] {
     let j = i;
     while (j < execs.length && execs[j].date === execs[i].date) j++;
     const run = execs.slice(i, j);
-    const sellsFirst = pos < 0 || (pos === 0 && run.some(e => e.shortSale));
-    const sells = run.filter(e => e.action === 'SELL');
-    const buys = run.filter(e => e.action === 'BUY');
-    const ordered = sellsFirst ? [...sells, ...buys] : [...buys, ...sells];
-    out.push(...ordered);
-    for (const e of ordered) pos += e.action === 'BUY' ? e.qty : -e.qty;
+    let buys = run.filter(e => e.action === 'BUY');
+    let sells = run.filter(e => e.action === 'SELL');
+
+    // Close a carried position first (FIFO — oldest lots exit first), so the
+    // carry's cycle can reach flat and emit before the day's new lots open.
+    if (pos > 0) {
+      const { taken, rest } = takeQty(sells, pos);
+      out.push(...taken);
+      sells = rest;
+    } else if (pos < 0) {
+      const { taken, rest } = takeQty(buys, -pos);
+      out.push(...taken);
+      buys = rest;
+    }
+
+    // From flat, pair the matched quantity (opening side up to the match,
+    // then the whole closing side) so the round trip completes and emits;
+    // only the unmatched tail follows and stays open.
+    const buyQty = buys.reduce((s, e) => s + e.qty, 0);
+    const sellQty = sells.reduce((s, e) => s + e.qty, 0);
+    const short = sells.some(e => e.shortSale);
+    const opener = short ? sells : buys;
+    const closer = short ? buys : sells;
+    const { taken, rest } = takeQty(opener, Math.min(buyQty, sellQty));
+    out.push(...taken, ...closer, ...rest);
+
+    for (const e of run) pos += e.action === 'BUY' ? e.qty : -e.qty;
     i = j;
   }
   return out;
+}
+
+/**
+ * Take `want` shares off the front of `fills` (feed order), splitting the
+ * boundary fill with a fee prorated by quantity so entry/exit fee totals are
+ * preserved exactly.
+ */
+function takeQty(fills: Execution[], want: number): { taken: Execution[]; rest: Execution[] } {
+  const taken: Execution[] = [];
+  const rest: Execution[] = [];
+  let remaining = want;
+  for (const f of fills) {
+    if (remaining <= 0) {
+      rest.push(f);
+    } else if (f.qty <= remaining) {
+      taken.push(f);
+      remaining -= f.qty;
+    } else {
+      const ratio = remaining / f.qty;
+      taken.push({ ...f, qty: remaining, fee: f.fee * ratio });
+      rest.push({ ...f, qty: f.qty - remaining, fee: f.fee * (1 - ratio) });
+      remaining = 0;
+    }
+  }
+  return { taken, rest };
 }
 
 export function buildTradesFromActivities(
