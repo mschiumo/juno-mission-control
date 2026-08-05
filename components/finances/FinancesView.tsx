@@ -225,7 +225,7 @@ function loadPlaidScript(): Promise<void> {
     script.onload = () => resolve();
     script.onerror = () => {
       plaidScriptPromise = null; // allow a retry on the next click
-      reject(new Error('Could not load Plaid Link'));
+      reject(new Error('Could not load the bank connection widget'));
     };
     document.head.appendChild(script);
   });
@@ -495,7 +495,7 @@ export default function FinancesView() {
 
       await loadPlaidScript();
       if (!window.Plaid) {
-        setNotice({ kind: 'error', text: 'Plaid Link failed to load — try again.' });
+        setNotice({ kind: 'error', text: 'Bank connection failed to load — try again.' });
         return;
       }
 
@@ -538,7 +538,7 @@ export default function FinancesView() {
       });
       handler.open();
     } catch {
-      setNotice({ kind: 'error', text: 'Could not open Plaid Link — try again.' });
+      setNotice({ kind: 'error', text: 'Could not open the bank connection — try again.' });
     } finally {
       setConnecting(false);
     }
@@ -796,7 +796,7 @@ export default function FinancesView() {
             {plaid.sandbox && (
               <span
                 className="text-[10px] font-semibold uppercase tracking-wide text-[#d29922] bg-[rgba(210,153,34,0.14)] rounded px-1.5 py-0.5"
-                title="PLAID_ENV is sandbox — connected data is Plaid's test data, not your real accounts."
+                title="Sandbox mode — connected data is test data, not your real accounts."
               >
                 Sandbox
               </span>
@@ -1340,13 +1340,7 @@ export default function FinancesView() {
         {!plaid.configured ? (
           <div className="px-4 py-4 text-sm text-[#8b949e]">
             <p>Live bank sync is not configured on this deployment yet.</p>
-            <p className="text-xs text-[#484f58] mt-1.5">
-              Set <code className="text-[#8b949e]">PLAID_CLIENT_ID</code>,{' '}
-              <code className="text-[#8b949e]">PLAID_SECRET</code>,{' '}
-              <code className="text-[#8b949e]">PLAID_ENV</code>, and{' '}
-              <code className="text-[#8b949e]">FINANCE_TOKEN_SECRET</code> in Vercel, then reload. Manual tracking
-              works regardless.
-            </p>
+            <p className="text-xs text-[#484f58] mt-1.5">Manual tracking works regardless.</p>
           </div>
         ) : plaid.items.length === 0 ? (
           <div className="px-4 py-4 flex items-center justify-between gap-3 flex-wrap">

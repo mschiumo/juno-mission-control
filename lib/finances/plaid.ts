@@ -96,9 +96,9 @@ export class PlaidError extends Error {
   /** Message safe to show the owner — never includes credentials or raw bodies. */
   get userMessage(): string {
     if (this.isReauthRequired) return 'Bank login expired — reconnect to resume syncing.';
-    if (this.errorCode === 'RATE_LIMIT_EXCEEDED') return 'Plaid rate limit hit — try again in a few minutes.';
-    if (this.errorCode === 'PRODUCT_NOT_READY') return 'Plaid is still preparing this account — try again shortly.';
-    return this.displayMessage || 'Could not reach this bank. Plaid will retry tonight.';
+    if (this.errorCode === 'RATE_LIMIT_EXCEEDED') return 'Bank sync rate limit hit — try again in a few minutes.';
+    if (this.errorCode === 'PRODUCT_NOT_READY') return 'This account is still being prepared — try again shortly.';
+    return this.displayMessage || 'Could not reach this bank. Sync will retry tonight.';
   }
 }
 
