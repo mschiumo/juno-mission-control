@@ -2119,7 +2119,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                             const pct = formatTargetPercent(trade.actualEntry, trade.plannedTarget);
                             if (!pct) return null;
                             return (
-                              <span className={`text-xs font-medium ${pct.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
+                              <span className={`whitespace-nowrap px-1.5 py-0.5 rounded text-xs font-medium ${pct.startsWith('+') ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'}`}>
                                 {pct}
                               </span>
                             );
@@ -2956,7 +2956,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                           const pct = formatTargetPercent(position.actualEntry || position.plannedEntry, position.plannedTarget);
                           if (!pct) return null;
                           return (
-                            <span className={`text-xs font-medium ${pct.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
+                            <span className={`whitespace-nowrap px-1.5 py-0.5 rounded text-xs font-medium ${pct.startsWith('+') ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'}`}>
                               {pct}
                             </span>
                           );
