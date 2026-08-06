@@ -20,12 +20,10 @@ function formatCurrency(n: number): string {
   return (n < 0 ? '-' : '+') + '$' + formatted;
 }
 
-// Signed % move from entry to target in the trade's favorable direction,
-// e.g. "+10.0%" (null when entry is unset). Shorts flip the sign so a
-// target below entry reads as a positive gain toward target.
-function formatTargetPercent(entry: number, target: number, short = false): string | null {
+// Signed % move from entry to target, e.g. "+10.0%" (null when entry is unset)
+function formatTargetPercent(entry: number, target: number): string | null {
   if (!entry || !target) return null;
-  const pct = (((target - entry) / entry) * 100) * (short ? -1 : 1);
+  const pct = ((target - entry) / entry) * 100;
   return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
 }
 
@@ -378,7 +376,7 @@ export default function ActiveTradesStrip() {
                           <p className="text-[#3fb950] text-xs font-semibold">
                             ${trade.plannedTarget.toFixed(2)}
                             {(() => {
-                              const pct = formatTargetPercent(trade.actualEntry, trade.plannedTarget, trade.plannedTarget < trade.plannedEntry);
+                              const pct = formatTargetPercent(trade.actualEntry, trade.plannedTarget);
                               if (!pct) return null;
                               return (
                                 <span className={`ml-1 text-[10px] font-medium ${pct.startsWith('+') ? 'text-[#3fb950]' : 'text-red-400'}`}>
