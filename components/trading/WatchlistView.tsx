@@ -208,6 +208,13 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     console.log('[DEBUG WatchlistView] watchlist state changed:', watchlist.length, 'items');
   }, [watchlist]);
 
+  // Guards the save effect below: without it, the mount pass writes the empty
+  // initial map to storage before the loaded state lands, wiping persisted
+  // flags on remount (StrictMode's dev double-mount does this every time).
+  // State (not a ref) so the skip lasts until the loaded map has rendered —
+  // React batches the two updates, so hydrated never renders with a stale map.
+  const [orderPlacedHydrated, setOrderPlacedHydrated] = useState(false);
+
   // Load order placed state from localStorage
   useEffect(() => {
     try {
@@ -217,17 +224,20 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
       }
     } catch (err) {
       console.error('Error loading order placed state:', err);
+    } finally {
+      setOrderPlacedHydrated(true);
     }
   }, []);
 
   // Save order placed state to localStorage whenever it changes
   useEffect(() => {
+    if (!orderPlacedHydrated) return;
     try {
       localStorage.setItem(ORDER_PLACED_STORAGE_KEY, JSON.stringify(orderPlacedMap));
     } catch (err) {
       console.error('Error saving order placed state:', err);
     }
-  }, [orderPlacedMap]);
+  }, [orderPlacedMap, orderPlacedHydrated]);
 
   // Load collapsed sections state from localStorage
   useEffect(() => {
@@ -1697,10 +1707,12 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     return new Intl.NumberFormat('en-US').format(value);
   };
 
-  // Signed % move from entry to target, e.g. "+10.0%" (null when entry is unset)
-  const formatTargetPercent = (entry: number, target: number) => {
+  // Signed % move from entry to target in the trade's favorable direction,
+  // e.g. "+10.0%" (null when entry is unset). Shorts flip the sign so a
+  // target below entry reads as a positive gain toward target.
+  const formatTargetPercent = (entry: number, target: number, short = false) => {
     if (!entry || !target) return null;
-    const pct = ((target - entry) / entry) * 100;
+    const pct = (((target - entry) / entry) * 100) * (short ? -1 : 1);
     return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
   };
 
@@ -1987,7 +1999,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 const placed = !!orderPlacedMap[trade.id];
                 const isLong = trade.plannedTarget > trade.plannedEntry;
                 const isShort = trade.plannedTarget < trade.plannedEntry;
-                const targetPct = formatTargetPercent(trade.actualEntry, trade.plannedTarget);
+                const targetPct = formatTargetPercent(trade.actualEntry, trade.plannedTarget, isShort);
                 const pctPositive = targetPct?.startsWith('+') ?? false;
                 const plannedProfit = isLong
                   ? (trade.plannedTarget - trade.actualEntry) * trade.actualShares
@@ -2999,7 +3011,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                       <div className="text-sm font-semibold flex items-baseline gap-1 flex-wrap">
                         {formatCurrency(position.plannedTarget)}
                         {(() => {
-                          const pct = formatTargetPercent(position.actualEntry || position.plannedEntry, position.plannedTarget);
+                          const pct = formatTargetPercent(position.actualEntry || position.plannedEntry, position.plannedTarget, position.plannedTarget < position.plannedEntry);
                           if (!pct) return null;
                           return (
                             <span className={`text-xs font-medium ${pct.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
