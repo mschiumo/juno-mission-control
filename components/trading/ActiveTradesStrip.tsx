@@ -20,6 +20,13 @@ function formatCurrency(n: number): string {
   return (n < 0 ? '-' : '+') + '$' + formatted;
 }
 
+// Signed % move from entry to target, e.g. "+10.0%" (null when entry is unset)
+function formatTargetPercent(entry: number, target: number): string | null {
+  if (!entry || !target) return null;
+  const pct = ((target - entry) / entry) * 100;
+  return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
+}
+
 type StopStatus = 'safe' | 'warn' | 'danger';
 
 function stopStatus(current: number, stop: number, entry: number): StopStatus {
@@ -366,7 +373,18 @@ export default function ActiveTradesStrip() {
                         </div>
                         <div>
                           <p className="text-[#8b949e] text-[10px] mb-0.5">Target</p>
-                          <p className="text-[#3fb950] text-xs font-semibold">${trade.plannedTarget.toFixed(2)}</p>
+                          <p className="text-[#3fb950] text-xs font-semibold">
+                            ${trade.plannedTarget.toFixed(2)}
+                            {(() => {
+                              const pct = formatTargetPercent(trade.actualEntry, trade.plannedTarget);
+                              if (!pct) return null;
+                              return (
+                                <span className={`ml-1 text-[10px] font-medium ${pct.startsWith('+') ? 'text-[#3fb950]' : 'text-red-400'}`}>
+                                  {pct}
+                                </span>
+                              );
+                            })()}
+                          </p>
                         </div>
                         <div>
                           <p className="text-[#8b949e] text-[10px] mb-0.5">Shares</p>
