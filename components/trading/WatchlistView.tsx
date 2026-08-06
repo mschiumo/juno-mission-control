@@ -10,7 +10,6 @@ import {
   BarChart3,
   Edit3,
   Play,
-  Activity,
   CheckCircle,
   FileText,
   ArrowLeft,
@@ -71,6 +70,10 @@ const CARD_GRID: Record<number, string> = {
   4: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
   5: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5',
 };
+
+// IBM Plex stacks for the Active Trades redesign (variables set by app/layout.tsx via next/font)
+const PLEX_SANS = 'var(--font-plex-sans), system-ui, sans-serif';
+const PLEX_MONO = 'var(--font-plex-mono), ui-monospace, monospace';
 
 export default function WatchlistView({ hideActiveTrades = false, hideClosedPositions = false, cardColumns = 3, emptyMessage }: { hideActiveTrades?: boolean; hideClosedPositions?: boolean; cardColumns?: number; emptyMessage?: string }) {
   const cardGridClass = CARD_GRID[cardColumns] ?? CARD_GRID[3];
@@ -205,6 +208,13 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     console.log('[DEBUG WatchlistView] watchlist state changed:', watchlist.length, 'items');
   }, [watchlist]);
 
+  // Guards the save effect below: without it, the mount pass writes the empty
+  // initial map to storage before the loaded state lands, wiping persisted
+  // flags on remount (StrictMode's dev double-mount does this every time).
+  // State (not a ref) so the skip lasts until the loaded map has rendered —
+  // React batches the two updates, so hydrated never renders with a stale map.
+  const [orderPlacedHydrated, setOrderPlacedHydrated] = useState(false);
+
   // Load order placed state from localStorage
   useEffect(() => {
     try {
@@ -214,17 +224,20 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
       }
     } catch (err) {
       console.error('Error loading order placed state:', err);
+    } finally {
+      setOrderPlacedHydrated(true);
     }
   }, []);
 
   // Save order placed state to localStorage whenever it changes
   useEffect(() => {
+    if (!orderPlacedHydrated) return;
     try {
       localStorage.setItem(ORDER_PLACED_STORAGE_KEY, JSON.stringify(orderPlacedMap));
     } catch (err) {
       console.error('Error saving order placed state:', err);
     }
-  }, [orderPlacedMap]);
+  }, [orderPlacedMap, orderPlacedHydrated]);
 
   // Load collapsed sections state from localStorage
   useEffect(() => {
@@ -1091,6 +1104,84 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     }
   };
 
+  // ===== Notes autosave (always-editable field on Active Trades cards) =====
+  // Drafts keyed by trade id; each keystroke reschedules a ~500ms debounced PUT.
+  // The draft shadows trade.notes only while the field is focused (blur clears
+  // it once the save settles), so refetches / Edit-modal saves show through the
+  // moment the user is done typing. Saves are serialized per trade so a slow
+  // older PUT can never land after a newer one.
+  const [notesDrafts, setNotesDrafts] = useState<Record<string, string>>({});
+  // While a card's notes field is focused its card is not draggable — a
+  // draggable ancestor swallows drag-to-select-text gestures in the input.
+  const [notesFocusId, setNotesFocusId] = useState<string | null>(null);
+  const notesSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const notesSaveChain = useRef<Record<string, Promise<void>>>({});
+
+  const saveNotes = useCallback((tradeId: string, raw: string) => {
+    const prev = notesSaveChain.current[tradeId] ?? Promise.resolve();
+    const next = prev.then(async () => {
+      const trimmed = raw.trim();
+      try {
+        const response = await fetch(`/api/active-trades?id=${tradeId}&userId=${DEFAULT_USER_ID}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          // null (not undefined) so the API receives the field when clearing notes
+          body: JSON.stringify({ notes: trimmed || null }),
+        });
+        if (!response.ok) throw new Error('Failed to save notes');
+        // Sync in place — a full refetch (or ACTIVE_TRADES_UPDATED dispatch,
+        // which this component and the strip both answer with a refetch) on
+        // every typing pause would churn the list while the user types.
+        setActiveTrades(prevTrades => prevTrades.map(t => (t.id === tradeId ? { ...t, notes: trimmed || undefined } : t)));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to save notes');
+      }
+    });
+    notesSaveChain.current[tradeId] = next;
+    return next;
+  }, []);
+
+  const handleNotesChange = (tradeId: string, value: string) => {
+    setNotesDrafts(prev => ({ ...prev, [tradeId]: value }));
+    const timers = notesSaveTimers.current;
+    if (timers[tradeId]) clearTimeout(timers[tradeId]);
+    timers[tradeId] = setTimeout(() => {
+      delete timers[tradeId];
+      saveNotes(tradeId, value);
+    }, 500);
+  };
+
+  // Blur: flush any pending debounce, then retire the draft so trade.notes
+  // (and anything that later updates it) is the source of truth again.
+  const handleNotesBlur = (tradeId: string) => {
+    setNotesFocusId(prev => (prev === tradeId ? null : prev));
+    const timers = notesSaveTimers.current;
+    let settled: Promise<void>;
+    if (timers[tradeId]) {
+      clearTimeout(timers[tradeId]);
+      delete timers[tradeId];
+      const draft = notesDrafts[tradeId];
+      settled = draft !== undefined ? saveNotes(tradeId, draft) : Promise.resolve();
+    } else {
+      settled = notesSaveChain.current[tradeId] ?? Promise.resolve();
+    }
+    settled.then(() => {
+      setNotesDrafts(prev => {
+        // Keep the draft if the user refocused and typed again meanwhile
+        if (notesSaveTimers.current[tradeId]) return prev;
+        if (!(tradeId in prev)) return prev;
+        const next = { ...prev };
+        delete next[tradeId];
+        return next;
+      });
+    });
+  };
+
+  useEffect(() => {
+    const timers = notesSaveTimers.current;
+    return () => Object.values(timers).forEach(clearTimeout);
+  }, []);
+
   // ===== ORDER PLACED TOGGLE =====
   // Toggling moves the trade to the boundary between the two groups:
   //   • Marking ON  → bottom of the "Order Placed" group
@@ -1646,10 +1737,12 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     return new Intl.NumberFormat('en-US').format(value);
   };
 
-  // Signed % move from entry to target, e.g. "+10.0%" (null when entry is unset)
-  const formatTargetPercent = (entry: number, target: number) => {
+  // Signed % move from entry to target in the trade's favorable direction,
+  // e.g. "+10.0%" (null when entry is unset). Shorts flip the sign so a
+  // target below entry reads as a positive gain toward target.
+  const formatTargetPercent = (entry: number, target: number, short = false) => {
     if (!entry || !target) return null;
-    const pct = ((target - entry) / entry) * 100;
+    const pct = (((target - entry) / entry) * 100) * (short ? -1 : 1);
     return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
   };
 
@@ -1781,48 +1874,49 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
       )}
 
       {/* ===== ACTIVE TRADES SECTION ===== */}
-      {!hideActiveTrades && <div className="space-y-4 p-3 rounded-xl border-2 border-green-500/50 bg-green-500/5">
+      {!hideActiveTrades && <div
+        className="flex flex-col gap-[18px] rounded-[14px] border border-[#1a201e] p-[18px]"
+        style={{ background: '#08090a', fontFamily: PLEX_SANS }}
+      >
         {/* Section Header */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-500/10 rounded-lg">
-              <Activity className="w-5 h-5 text-green-400" />
+        <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3 px-0.5">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border border-[#1d2b26]" style={{ background: '#0f1614' }}>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#37d69a" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><polyline points="1,12 5,12 7,6 10,15 12,10 14,12 19,12" /></svg>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white">Active Trades</h3>
-              <p className="text-sm text-[#8b949e]">
+            <div className="flex flex-col gap-0.5">
+              <h3 className="text-[19px] font-semibold leading-tight tracking-[-0.01em] text-[#e6ecea]">Active Trades</h3>
+              <p className="text-[12.5px] leading-tight text-[#7c8b87]" style={{ fontFamily: PLEX_MONO }}>
                 {activeTrades.length} position{activeTrades.length !== 1 ? 's' : ''}
               </p>
             </div>
             {/* Collapse/Expand Toggle */}
             <button
               onClick={() => toggleSection('activeTrades')}
-              className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+              className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-[#7c8b87] transition-colors duration-[120ms] hover:border-[#1d2b26] hover:text-[#e6ecea]"
               title={collapsedSections.activeTrades ? 'Expand section' : 'Collapse section'}
+              aria-expanded={!collapsedSections.activeTrades}
             >
-              {collapsedSections.activeTrades ? (
-                <ChevronDown className="w-5 h-5" />
-              ) : (
-                <ChevronUp className="w-5 h-5" />
-              )}
+              <span aria-hidden="true" className="block -translate-y-px text-[11px]">{collapsedSections.activeTrades ? '▼' : '▲'}</span>
             </button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
             {/* Search Input */}
-            <div className="relative">
+            <div className="flex h-9 items-center gap-2 rounded-[9px] border border-[#1a201e] px-3" style={{ background: '#0d100f' }}>
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="#5b6b67" strokeWidth="1.6"><circle cx="6" cy="6" r="4.2" /><line x1="9.2" y1="9.2" x2="12.5" y2="12.5" strokeLinecap="round" /></svg>
               <input
                 type="text"
                 placeholder="Search ticker..."
                 value={activeTradesSearchQuery}
                 onChange={(e) => setActiveTradesSearchQuery(e.target.value)}
-                className="w-28 sm:w-40 px-3 py-1.5 bg-[#0F0F0F] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#6e7681] focus:outline-none focus:border-green-500 transition-colors"
+                className="w-[110px] bg-transparent text-[13px] tracking-[0.01em] text-[#e6ecea] placeholder-[#5b6b67] focus:outline-none sm:w-[150px]"
               />
               {activeTradesSearchQuery && (
                 <button
                   onClick={() => setActiveTradesSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6e7681] hover:text-white"
+                  className="text-[#5b6b67] transition-colors duration-[120ms] hover:text-[#e6ecea]"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
@@ -1836,20 +1930,20 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
               return (
                 <button
                   onClick={toggleSelectAllActiveTrades}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+                  className="flex h-9 items-center gap-[9px] rounded-[9px] border border-[#1a201e] pl-[11px] pr-[13px] text-[13px] text-[#b3c0bc] transition-colors duration-[120ms] hover:border-[#26332f] hover:text-[#e6ecea]"
+                  style={{ background: '#0d100f' }}
                   title={allSelected ? 'Deselect all' : 'Select all'}
+                  role="checkbox"
+                  aria-checked={allSelected}
                 >
-                  {allSelected ? (
-                    <>
-                      <CheckSquare className="w-4 h-4 text-green-400" />
-                      <span className="hidden sm:inline">Deselect All</span>
-                    </>
-                  ) : (
-                    <>
-                      <Square className="w-4 h-4" />
-                      <span className="hidden sm:inline">Select All</span>
-                    </>
-                  )}
+                  <span
+                    aria-hidden="true"
+                    className="flex h-[15px] w-[15px] items-center justify-center rounded text-[10px] leading-none text-[#08090a]"
+                    style={{ border: '1.5px solid #37453f', background: allSelected ? '#37d69a' : 'transparent' }}
+                  >
+                    {allSelected ? '✓' : ''}
+                  </span>
+                  Select All
                 </button>
               );
             })()}
@@ -1858,10 +1952,11 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
             {selectedActiveTrades.size > 0 && (
               <button
                 onClick={() => setShowMoveMultipleActiveModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                className="flex h-9 items-center gap-1.5 rounded-[9px] border border-[#1a201e] px-3 text-[13px] text-[#37d69a] transition-colors duration-[120ms] hover:border-[#26332f] hover:text-[#6ee7b7]"
+                style={{ background: '#0d100f' }}
                 title="Move selected trades back to Potential Trades"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Move to Potential ({selectedActiveTrades.size})</span>
               </button>
             )}
@@ -1870,9 +1965,10 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
             {selectedActiveTrades.size > 0 && (
               <button
                 onClick={() => setShowDeleteMultipleActiveModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+                className="flex h-9 items-center gap-1.5 rounded-[9px] border border-[#1a201e] px-3 text-[13px] text-[#e07777] transition-colors duration-[120ms] hover:border-[#26332f] hover:text-[#f0a5a5]"
+                style={{ background: '#0d100f' }}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Delete ({selectedActiveTrades.size})</span>
               </button>
             )}
@@ -1880,10 +1976,11 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
             <button
               onClick={fetchActiveTrades}
               disabled={activeTradesLoading}
-              className="p-2 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-[9px] border border-[#1a201e] text-[14px] text-[#7c8b87] transition-colors duration-[120ms] hover:border-[#26332f] hover:text-[#37d69a]"
+              style={{ background: '#0d100f' }}
               title="Refresh"
             >
-              <RefreshCw className={`w-4 h-4 ${activeTradesLoading ? 'animate-spin' : ''}`} />
+              <span className={`block ${activeTradesLoading ? 'animate-spin' : ''}`}>↻</span>
             </button>
           </div>
         </div>
@@ -1895,26 +1992,18 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
           }`}
         >
         {activeTradesLoading && activeTrades.length === 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-pulse">
+          <div className="grid animate-pulse gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(430px, 100%), 1fr))' }}>
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-[#0d1117] border border-[#30363d] rounded-xl p-4 space-y-2">
-                <div className="flex justify-between">
-                  <div className="h-4 w-12 bg-[#30363d] rounded" />
-                  <div className="h-4 w-16 bg-[#30363d] rounded" />
-                </div>
-                <div className="h-3 w-24 bg-[#30363d] rounded" />
-                <div className="h-3 w-20 bg-[#30363d] rounded" />
-              </div>
+              <div key={i} className="h-[286px] rounded-[14px] border border-[#1a201e]" style={{ background: '#0b0f0e' }} />
             ))}
           </div>
         ) : activeTrades.length === 0 ? (
-          <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
-            <Activity className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
-            <p className="text-sm text-[#8b949e]">No active positions</p>
-            <p className="text-xs text-[#6e7681] mt-1">Start a trade from Potential Trades below</p>
+          <div className="rounded-[14px] border border-[#1a201e] px-6 py-10 text-center" style={{ background: 'linear-gradient(180deg, #101413 0%, #0c100f 100%)' }}>
+            <p className="text-[13px] text-[#7c8b87]">No active positions</p>
+            <p className="mt-1 text-[12px] text-[#5b6b67]">Start a trade from Potential Trades below</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(430px, 100%), 1fr))' }}>
             {(() => {
               // Filter by search query and preserve the user's manual ordering.
               // Order changes only on close/delete or drag-drop — no automatic
@@ -1927,11 +2016,11 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
 
               if (filteredActiveTrades.length === 0 && activeTradesSearchQuery) {
                 return (
-                  <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
-                    <p className="text-sm text-[#8b949e]">No active positions found for "{activeTradesSearchQuery}"</p>
+                  <div className="rounded-[14px] border border-[#1a201e] px-6 py-10 text-center" style={{ background: 'linear-gradient(180deg, #101413 0%, #0c100f 100%)' }}>
+                    <p className="text-[13px] text-[#7c8b87]">No active positions found for &ldquo;{activeTradesSearchQuery}&rdquo;</p>
                     <button
                       onClick={() => setActiveTradesSearchQuery('')}
-                      className="mt-2 text-sm text-green-400 hover:text-green-300"
+                      className="mt-2 text-[13px] text-[#37d69a] transition-colors duration-[120ms] hover:text-[#6ee7b7]"
                     >
                       Clear search
                     </button>
@@ -1939,10 +2028,23 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 );
               }
               
-              return filteredActiveTrades.map((trade) => (
+              return filteredActiveTrades.map((trade) => {
+                const selected = selectedActiveTrades.has(trade.id);
+                const placed = !!orderPlacedMap[trade.id];
+                const isLong = trade.plannedTarget > trade.plannedEntry;
+                const isShort = trade.plannedTarget < trade.plannedEntry;
+                const targetPct = formatTargetPercent(trade.actualEntry, trade.plannedTarget, isShort);
+                const pctPositive = targetPct?.startsWith('+') ?? false;
+                const plannedProfit = isLong
+                  ? (trade.plannedTarget - trade.actualEntry) * trade.actualShares
+                  : (trade.actualEntry - trade.plannedTarget) * trade.actualShares;
+                const riskAmount = Math.abs(trade.actualEntry - trade.plannedStop) * trade.actualShares;
+                const inlineEditInputClass = 'w-full rounded border border-[#26332f] bg-[#08090a] px-1 py-0.5 text-[15px] text-[#f2f7f5] focus:border-[#37d69a] focus:outline-none';
+
+                return (
               <div
                 key={trade.id}
-                draggable
+                draggable={notesFocusId !== trade.id}
                 data-dnd-id={trade.id}
                 data-dnd-type="active"
                 onTouchStart={(e) => handleCardTouchStart(e, trade.id, 'active', trade.ticker)}
@@ -1951,264 +2053,269 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 onDragOver={(e) => handleDragOver(e, trade.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, trade.id, 'active')}
-                className={`bg-[#0F0F0F] border rounded-xl overflow-hidden hover:border-green-500/50 transition-all cursor-move ${
-                  dragOverItem === trade.id ? 'border-green-500 ring-2 ring-green-500/20' : 'border-green-500/30'
-                } ${draggingActiveTradeId === trade.id ? 'opacity-50 shadow-2xl ring-2 ring-green-500/30 scale-[1.02]' : ''}`}
+                className={`flex cursor-move flex-col gap-3.5 rounded-[14px] border transition-colors duration-[120ms] ${
+                  dragOverItem === trade.id ? 'border-[#37d69a] ring-2 ring-[#37d69a]/20' : 'border-[#1a201e] hover:border-[#26332f]'
+                } ${draggingActiveTradeId === trade.id ? 'opacity-50 shadow-2xl ring-2 ring-[#37d69a]/30 scale-[1.02]' : ''}`}
+                style={{ background: 'linear-gradient(180deg, #101413 0%, #0c100f 100%)', padding: '16px 18px 18px' }}
               >
-                {/* Card Header */}
-                <div className="flex flex-wrap items-center justify-between px-3 py-2.5 border-b border-[#262626] bg-green-500/5 gap-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* Multi-select checkbox */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleActiveTradeSelection(trade.id);
+                {/* Identity row: select / ticker / side / timestamp */}
+                <div className="flex flex-wrap items-center gap-3 gap-y-1.5">
+                  {/* Multi-select checkbox — stop pointer/click events from
+                      bubbling so the parent card's drag handler can't swallow
+                      a click as a drag-start. */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleActiveTradeSelection(trade.id);
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="flex h-[17px] w-[17px] flex-none items-center justify-center rounded-[5px] text-[11px] leading-none text-[#08090a]"
+                    style={{ border: '1.5px solid #37453f', background: selected ? '#37d69a' : 'transparent' }}
+                    title={selected ? 'Deselect' : 'Select'}
+                    role="checkbox"
+                    aria-checked={selected}
+                    aria-label={`Select ${trade.ticker}`}
+                  >
+                    <span aria-hidden="true">{selected ? '✓' : ''}</span>
+                  </button>
+
+                  <span className="text-[21px] font-semibold leading-none tracking-[0.02em] text-[#f2f7f5]" style={{ fontFamily: PLEX_MONO }}>
+                    {trade.ticker}
+                  </span>
+
+                  {/* Long/Short badge with direction triangle */}
+                  {(isLong || isShort) && (
+                    <span
+                      className="flex h-[22px] items-center gap-1.5 rounded-md px-[9px] text-[11px] font-semibold tracking-[0.08em]"
+                      style={{
+                        fontFamily: PLEX_MONO,
+                        background: isLong ? 'rgba(55,214,154,0.12)' : 'rgba(224,119,119,0.12)',
+                        color: isLong ? '#37d69a' : '#e07777',
                       }}
-                      className={`p-1 rounded transition-colors ${selectedActiveTrades.has(trade.id) ? 'text-green-400' : 'text-[#8b949e] hover:text-white'}`}
-                      title={selectedActiveTrades.has(trade.id) ? 'Deselect' : 'Select'}
                     >
-                      {selectedActiveTrades.has(trade.id) ? (
-                        <CheckSquare className="w-5 h-5" />
-                      ) : (
-                        <Square className="w-5 h-5" />
-                      )}
-                    </button>
-
-                    <div className="px-3 py-1 bg-green-500/10 rounded-lg">
-                      <span className="text-lg font-bold text-green-400">{trade.ticker}</span>
-                    </div>
-
-                    {/* Order Placed Checkbox — stop pointer/click events
-                        from bubbling so the parent card's drag handler
-                        can't swallow a click as a drag-start. Same trick
-                        we use on the multi-select checkbox above. */}
-                    <label
-                      className="flex items-center gap-2 px-2 py-1 bg-[#161b22] border border-[#30363d] rounded-lg cursor-pointer hover:border-green-500/50 hover:bg-[#1c2128] transition-colors select-none"
-                      title={orderPlacedMap[trade.id] ? 'Order has been placed with broker' : 'Check when order is placed'}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => e.stopPropagation()}
-                      draggable={false}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={!!orderPlacedMap[trade.id]}
-                        onChange={() => toggleOrderPlaced(trade.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-4 h-4 accent-green-500 cursor-pointer"
+                      <span
+                        className="block h-0 w-0"
+                        style={{
+                          borderLeft: '4px solid transparent',
+                          borderRight: '4px solid transparent',
+                          ...(isLong ? { borderBottom: '5px solid currentColor' } : { borderTop: '5px solid currentColor' }),
+                        }}
                       />
-                      <span className={`text-xs font-medium ${orderPlacedMap[trade.id] ? 'text-green-400' : 'text-[#8b949e]'}`}>
-                        Order Placed
-                      </span>
-                      
-                      {/* Pulsing Green Dot */}
-                      {orderPlacedMap[trade.id] && (
-                        <span className="relative flex h-2.5 w-2.5 ml-1">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3fb950] opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#238636]"></span>
-                        </span>
-                      )}
-                    </label>
-                    
-                    {/* Long/Short Indicator */}
-                    {(() => {
-                      const isLong = trade.plannedTarget > trade.plannedEntry;
-                      const isShort = trade.plannedTarget < trade.plannedEntry;
-                      if (!isLong && !isShort) return null;
-                      return (
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                          {isLong ? '📈 LONG' : '📉 SHORT'}
-                        </span>
-                      );
-                    })()}
-                    <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
-                      <Calendar className="w-3.5 h-3.5" />
-                      {formatDate(trade.openedAt)}
+                      {isLong ? 'LONG' : 'SHORT'}
+                    </span>
+                  )}
+
+                  <div className="flex-1" />
+                  <span className="whitespace-nowrap text-[11.5px] tracking-[0.01em] text-[#6b7a76]" style={{ fontFamily: PLEX_MONO }}>
+                    {formatDate(trade.openedAt)}
+                  </span>
+                </div>
+
+                {/* Metric grid — 1px gaps over the hairline color read as
+                    dividers. 2 columns under 480px: three 17px-mono prices
+                    don't fit a phone-width card without bleeding across cells. */}
+                <div className="grid grid-cols-2 min-[480px]:grid-cols-3 gap-px overflow-hidden rounded-[10px] border border-[#171d1b]" style={{ background: '#171d1b' }}>
+                  {/* Entry - Inline Editable */}
+                  <div
+                    className="flex cursor-pointer flex-col gap-[5px] bg-[#0b0f0e] px-[13px] py-[11px] transition-colors duration-[120ms] hover:bg-[#101514]"
+                    onClick={() => handleInlineEditStart(trade, 'actualEntry')}
+                  >
+                    <div className="text-[9.5px] font-semibold uppercase tracking-[0.13em] text-[#6b7a76]">Entry</div>
+                    {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'actualEntry' ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={inlineEditing.value}
+                        onChange={(e) => handleInlineEditChange(e.target.value)}
+                        onBlur={handleInlineEditSave}
+                        onKeyDown={handleInlineEditKeyDown}
+                        autoFocus
+                        className={inlineEditInputClass}
+                        style={{ fontFamily: PLEX_MONO }}
+                      />
+                    ) : (
+                      <div className="text-[17px] font-medium leading-none text-[#f2f7f5]" style={{ fontFamily: PLEX_MONO }}>{formatCurrency(trade.actualEntry)}</div>
+                    )}
+                  </div>
+
+                  {/* Stop - Inline Editable */}
+                  <div
+                    className="flex cursor-pointer flex-col gap-[5px] bg-[#0b0f0e] px-[13px] py-[11px] transition-colors duration-[120ms] hover:bg-[#101514]"
+                    onClick={() => handleInlineEditStart(trade, 'plannedStop')}
+                  >
+                    <div className="text-[9.5px] font-semibold uppercase tracking-[0.13em] text-[#e07777]">Stop</div>
+                    {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'plannedStop' ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={inlineEditing.value}
+                        onChange={(e) => handleInlineEditChange(e.target.value)}
+                        onBlur={handleInlineEditSave}
+                        onKeyDown={handleInlineEditKeyDown}
+                        autoFocus
+                        className={inlineEditInputClass}
+                        style={{ fontFamily: PLEX_MONO }}
+                      />
+                    ) : (
+                      <div className="text-[17px] font-medium leading-none text-[#f2f7f5]" style={{ fontFamily: PLEX_MONO }}>{formatCurrency(trade.plannedStop)}</div>
+                    )}
+                  </div>
+
+                  {/* Target - Inline Editable, with entry→target % pill */}
+                  <div
+                    className="flex cursor-pointer flex-col gap-[5px] bg-[#0b0f0e] px-[13px] py-[11px] transition-colors duration-[120ms] hover:bg-[#101514]"
+                    onClick={() => handleInlineEditStart(trade, 'plannedTarget')}
+                  >
+                    <div className="text-[9.5px] font-semibold uppercase tracking-[0.13em] text-[#37d69a]">Target</div>
+                    {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'plannedTarget' ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={inlineEditing.value}
+                        onChange={(e) => handleInlineEditChange(e.target.value)}
+                        onBlur={handleInlineEditSave}
+                        onKeyDown={handleInlineEditKeyDown}
+                        autoFocus
+                        className={inlineEditInputClass}
+                        style={{ fontFamily: PLEX_MONO }}
+                      />
+                    ) : (
+                      <div className="flex items-baseline gap-[7px]">
+                        <div className="text-[17px] font-medium leading-none text-[#f2f7f5]" style={{ fontFamily: PLEX_MONO }}>{formatCurrency(trade.plannedTarget)}</div>
+                        {targetPct && (
+                          <div
+                            className="rounded px-[5px] py-px text-[11.5px] font-medium"
+                            style={{
+                              fontFamily: PLEX_MONO,
+                              color: pctPositive ? '#37d69a' : '#e07777',
+                              background: pctPositive ? 'rgba(55,214,154,0.12)' : 'rgba(224,119,119,0.12)',
+                            }}
+                          >
+                            {targetPct}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Profit (planned reward based on target) */}
+                  <div className="flex flex-col gap-[5px] bg-[#0b0f0e] px-[13px] py-[11px]">
+                    <div className="text-[9.5px] font-semibold uppercase tracking-[0.13em] text-[#6b7a76]">Profit</div>
+                    <div className="text-[15px] font-medium leading-none" style={{ fontFamily: PLEX_MONO, color: plannedProfit >= 0 ? '#37d69a' : '#e07777' }}>
+                      {formatCurrency(plannedProfit)}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+
+                  {/* Risk Amount */}
+                  <div className="flex flex-col gap-[5px] bg-[#0b0f0e] px-[13px] py-[11px]">
+                    <div className="text-[9.5px] font-semibold uppercase tracking-[0.13em] text-[#6b7a76]">Risk</div>
+                    <div className="text-[15px] font-medium leading-none text-[#e07777]" style={{ fontFamily: PLEX_MONO }}>{formatCurrency(riskAmount)}</div>
+                  </div>
+
+                  {/* Shares - Inline Editable */}
+                  <div
+                    className="flex cursor-pointer flex-col gap-[5px] bg-[#0b0f0e] px-[13px] py-[11px] transition-colors duration-[120ms] hover:bg-[#101514]"
+                    onClick={() => handleInlineEditStart(trade, 'actualShares')}
+                  >
+                    <div className="text-[9.5px] font-semibold uppercase tracking-[0.13em] text-[#6b7a76]">Shares</div>
+                    {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'actualShares' ? (
+                      <input
+                        type="number"
+                        step="1"
+                        value={inlineEditing.value}
+                        onChange={(e) => handleInlineEditChange(e.target.value)}
+                        onBlur={handleInlineEditSave}
+                        onKeyDown={handleInlineEditKeyDown}
+                        autoFocus
+                        className={inlineEditInputClass}
+                        style={{ fontFamily: PLEX_MONO }}
+                      />
+                    ) : (
+                      <div className="text-[15px] font-medium leading-none text-[#b3c0bc]" style={{ fontFamily: PLEX_MONO }}>{formatNumber(trade.actualShares)}</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Control row: Order Placed toggle + actions */}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Order Placed — stop pointer events so the draggable card
+                      can't swallow the click as a drag-start */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleOrderPlaced(trade.id);
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    draggable={false}
+                    className="flex h-[30px] items-center gap-2 rounded-lg border px-[11px] text-[12px] font-medium transition-colors duration-[120ms]"
+                    style={placed
+                      ? { background: 'rgba(55,214,154,0.10)', borderColor: 'rgba(55,214,154,0.28)', color: '#37d69a' }
+                      : { background: '#0d100f', borderColor: '#1a201e', color: '#8fa39d' }}
+                    title={placed ? 'Order has been placed with broker' : 'Check when order is placed'}
+                    role="checkbox"
+                    aria-checked={placed}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="flex h-3.5 w-3.5 items-center justify-center rounded text-[9px] leading-none text-[#08090a]"
+                      style={{ border: `1.5px solid ${placed ? '#37d69a' : '#37453f'}`, background: placed ? '#37d69a' : 'transparent' }}
+                    >
+                      {placed ? '✓' : ''}
+                    </span>
+                    Order Placed
+                  </button>
+                  <div className="flex-1" />
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleEditTrade(trade)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-400 hover:text-white hover:bg-blue-500 rounded-lg transition-colors"
+                      className="h-[30px] rounded-lg px-[11px] text-[12.5px] font-medium text-[#8fa39d] transition-colors duration-[120ms] hover:bg-[#131a18] hover:text-[#7dd3fc]"
                       title="Edit trade details"
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
                       Edit
                     </button>
                     <button
                       onClick={() => setClosingTradeId(trade.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-green-400 hover:text-white hover:bg-green-500 rounded-lg transition-colors"
+                      className="h-[30px] rounded-lg px-[11px] text-[12.5px] font-medium text-[#8fa39d] transition-colors duration-[120ms] hover:bg-[#131a18] hover:text-[#37d69a]"
                       title="Close trade and remove from active trades"
                     >
-                      <X className="w-3.5 h-3.5" />
                       Close Trade
                     </button>
                     <button
                       onClick={() => setDeletingActiveTradeId(trade.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+                      className="h-[30px] rounded-lg px-[11px] text-[12.5px] font-medium text-[#8fa39d] transition-colors duration-[120ms] hover:bg-[#1a1312] hover:text-[#e07777]"
                       title="Delete active trade"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
                       Delete
                     </button>
                   </div>
                 </div>
 
-                {/* Card Body */}
-                <div className="p-3 space-y-3">
-                  {/* Unified Stats Row - All States */}
-                  <div className="grid grid-cols-2 min-[480px]:grid-cols-3 gap-2">
-                    {/* Entry Price - Inline Editable */}
-                    <div className="cursor-pointer hover:bg-[#262626] rounded-lg px-1 -mx-1 transition-colors"
-                         onClick={() => handleInlineEditStart(trade, 'actualEntry')}>
-                      <div className="text-xs text-[#8b949e]">Entry</div>
-                      {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'actualEntry' ? (
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={inlineEditing.value}
-                          onChange={(e) => handleInlineEditChange(e.target.value)}
-                          onBlur={handleInlineEditSave}
-                          onKeyDown={handleInlineEditKeyDown}
-                          autoFocus
-                          className="w-full px-1 py-0.5 bg-[#161b22] border border-blue-500 rounded text-sm font-semibold text-white focus:outline-none"
-                        />
-                      ) : (
-                        <div className="text-sm font-semibold">{formatCurrency(trade.actualEntry)}</div>
-                      )}
-                    </div>
-
-                    {/* Stop Price - Inline Editable */}
-                    <div className="cursor-pointer hover:bg-[#262626] rounded-lg px-1 -mx-1 transition-colors"
-                         onClick={() => handleInlineEditStart(trade, 'plannedStop')}>
-                      <div className="text-xs text-red-400">Stop</div>
-                      {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'plannedStop' ? (
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={inlineEditing.value}
-                          onChange={(e) => handleInlineEditChange(e.target.value)}
-                          onBlur={handleInlineEditSave}
-                          onKeyDown={handleInlineEditKeyDown}
-                          autoFocus
-                          className="w-full px-1 py-0.5 bg-[#161b22] border border-blue-500 rounded text-sm font-semibold text-white focus:outline-none"
-                        />
-                      ) : (
-                        <div className="text-sm font-semibold">{formatCurrency(trade.plannedStop)}</div>
-                      )}
-                    </div>
-
-                    {/* Target Price - Inline Editable */}
-                    <div className="cursor-pointer hover:bg-[#262626] rounded-lg px-1 -mx-1 transition-colors"
-                         onClick={() => handleInlineEditStart(trade, 'plannedTarget')}>
-                      <div className="text-xs text-green-400">Target</div>
-                      {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'plannedTarget' ? (
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={inlineEditing.value}
-                          onChange={(e) => handleInlineEditChange(e.target.value)}
-                          onBlur={handleInlineEditSave}
-                          onKeyDown={handleInlineEditKeyDown}
-                          autoFocus
-                          className="w-full px-1 py-0.5 bg-[#161b22] border border-blue-500 rounded text-sm font-semibold text-white focus:outline-none"
-                        />
-                      ) : (
-                        <div className="text-sm font-semibold flex items-baseline gap-1 flex-wrap">
-                          {formatCurrency(trade.plannedTarget)}
-                          {(() => {
-                            const pct = formatTargetPercent(trade.actualEntry, trade.plannedTarget);
-                            if (!pct) return null;
-                            return (
-                              <span className={`text-xs font-medium ${pct.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
-                                {pct}
-                              </span>
-                            );
-                          })()}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Profit (planned reward based on target) */}
-                    <div>
-                      <div className="text-xs text-[#8b949e]">Profit</div>
-                      {(() => {
-                        const isLong = trade.plannedTarget > trade.plannedEntry;
-                        const profit = isLong
-                          ? (trade.plannedTarget - trade.actualEntry) * trade.actualShares
-                          : (trade.actualEntry - trade.plannedTarget) * trade.actualShares;
-                        return (
-                          <div className={`text-sm font-bold ${profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {formatCurrency(profit)}
-                          </div>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Risk Amount */}
-                    <div>
-                      <div className="text-xs text-red-400 font-medium">Risk</div>
-                      <div className="text-sm font-bold text-red-400">
-                        {(() => {
-                          const riskAmount = Math.abs(trade.actualEntry - trade.plannedStop) * trade.actualShares;
-                          return formatCurrency(riskAmount);
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* Shares - Inline Editable */}
-                    <div className="cursor-pointer hover:bg-[#262626] rounded-lg px-1 -mx-1 transition-colors"
-                         onClick={() => handleInlineEditStart(trade, 'actualShares')}>
-                      <div className="text-xs text-[#8b949e]">Shares</div>
-                      {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'actualShares' ? (
-                        <input
-                          type="number"
-                          step="1"
-                          value={inlineEditing.value}
-                          onChange={(e) => handleInlineEditChange(e.target.value)}
-                          onBlur={handleInlineEditSave}
-                          onKeyDown={handleInlineEditKeyDown}
-                          autoFocus
-                          className="w-full px-1 py-0.5 bg-[#161b22] border border-blue-500 rounded text-sm font-semibold text-white focus:outline-none"
-                        />
-                      ) : (
-                        <div className="text-sm font-semibold">{formatNumber(trade.actualShares)}</div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Notes - Inline Editable */}
-                  <div className={`rounded-lg p-4 cursor-pointer transition-colors ${trade.notes ? 'bg-[#161b22] hover:bg-[#1c2128]' : 'bg-[#0F0F0F] border border-dashed border-[#30363d] hover:border-[#8b949e] hover:bg-[#161b22]'}`}
-                       onClick={() => handleInlineEditStart(trade, 'notes')}>
-                    {inlineEditing?.tradeId === trade.id && inlineEditing?.field === 'notes' ? (
-                      <textarea
-                        value={inlineEditing.value}
-                        onChange={(e) => handleInlineEditChange(e.target.value)}
-                        onBlur={handleInlineEditSave}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && e.metaKey) {
-                            handleInlineEditSave();
-                          } else if (e.key === 'Escape') {
-                            setInlineEditing(null);
-                          }
-                        }}
-                        autoFocus
-                        rows={3}
-                        className="w-full px-2 py-1 bg-[#0F0F0F] border border-blue-500 rounded text-sm text-white focus:outline-none resize-none"
-                        placeholder="Add notes..."
-                      />
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-1.5 text-xs text-[#8b949e] mb-2">
-                          <FileText className="w-3.5 h-3.5" />
-                          {trade.notes ? 'Notes (click to edit)' : 'Add notes...'}
-                        </div>
-                        {trade.notes && <p className="text-sm text-white">{trade.notes}</p>}
-                      </>
-                    )}
-                  </div>
+                {/* Notes — always editable, debounced autosave. Touchstart must
+                    not reach the card (it would arm the long-press card drag),
+                    and while the field is focused the card's draggable is off —
+                    a draggable ancestor swallows drag-to-select-text gestures.
+                    A 1-row textarea (not <input>) so existing multi-line notes
+                    keep their newlines when edited here. */}
+                <div
+                  className="flex h-[38px] items-center gap-[9px] rounded-[9px] border border-dashed border-[#202826] bg-[#0b0f0e] px-3"
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <svg aria-hidden="true" width="12" height="14" viewBox="0 0 12 14" fill="none" stroke="#5b6b67" strokeWidth="1.4" strokeLinejoin="round"><path d="M1.5 1h5l4 4v8h-9z" /><path d="M6.5 1v4h4" /></svg>
+                  <textarea
+                    rows={1}
+                    value={notesDrafts[trade.id] ?? trade.notes ?? ''}
+                    onChange={(e) => handleNotesChange(trade.id, e.target.value)}
+                    onFocus={() => setNotesFocusId(trade.id)}
+                    onBlur={() => handleNotesBlur(trade.id)}
+                    placeholder="Add notes..."
+                    aria-label={`Notes for ${trade.ticker}`}
+                    className="flex-1 resize-none self-center bg-transparent text-[12.5px] leading-[18px] text-[#e6ecea] placeholder-[#5b6b67] focus:outline-none"
+                  />
                 </div>
               </div>
-              ));
+                );
+              });
             })()}
           </div>
         )}
@@ -2953,7 +3060,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                       <div className="text-sm font-semibold flex items-baseline gap-1 flex-wrap">
                         {formatCurrency(position.plannedTarget)}
                         {(() => {
-                          const pct = formatTargetPercent(position.actualEntry || position.plannedEntry, position.plannedTarget);
+                          const pct = formatTargetPercent(position.actualEntry || position.plannedEntry, position.plannedTarget, position.plannedTarget < position.plannedEntry);
                           if (!pct) return null;
                           return (
                             <span className={`text-xs font-medium ${pct.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
