@@ -1106,25 +1106,39 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
 
   // ===== Notes autosave (always-editable field on Active Trades cards) =====
   // Drafts keyed by trade id; each keystroke reschedules a ~500ms debounced PUT.
+  // The draft shadows trade.notes only while the field is focused (blur clears
+  // it once the save settles), so refetches / Edit-modal saves show through the
+  // moment the user is done typing. Saves are serialized per trade so a slow
+  // older PUT can never land after a newer one.
   const [notesDrafts, setNotesDrafts] = useState<Record<string, string>>({});
+  // While a card's notes field is focused its card is not draggable — a
+  // draggable ancestor swallows drag-to-select-text gestures in the input.
+  const [notesFocusId, setNotesFocusId] = useState<string | null>(null);
   const notesSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const notesSaveChain = useRef<Record<string, Promise<void>>>({});
 
-  const saveNotes = useCallback(async (tradeId: string, raw: string) => {
-    const trimmed = raw.trim();
-    try {
-      const response = await fetch(`/api/active-trades?id=${tradeId}&userId=${DEFAULT_USER_ID}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        // null (not undefined) so the API receives the field when clearing notes
-        body: JSON.stringify({ notes: trimmed || null }),
-      });
-      if (!response.ok) throw new Error('Failed to save notes');
-      // Sync in place — a full refetch on every autosave would flash the list
-      setActiveTrades(prev => prev.map(t => (t.id === tradeId ? { ...t, notes: trimmed || undefined } : t)));
-      window.dispatchEvent(new CustomEvent(EVENTS.ACTIVE_TRADES_UPDATED));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save notes');
-    }
+  const saveNotes = useCallback((tradeId: string, raw: string) => {
+    const prev = notesSaveChain.current[tradeId] ?? Promise.resolve();
+    const next = prev.then(async () => {
+      const trimmed = raw.trim();
+      try {
+        const response = await fetch(`/api/active-trades?id=${tradeId}&userId=${DEFAULT_USER_ID}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          // null (not undefined) so the API receives the field when clearing notes
+          body: JSON.stringify({ notes: trimmed || null }),
+        });
+        if (!response.ok) throw new Error('Failed to save notes');
+        // Sync in place — a full refetch (or ACTIVE_TRADES_UPDATED dispatch,
+        // which this component and the strip both answer with a refetch) on
+        // every typing pause would churn the list while the user types.
+        setActiveTrades(prevTrades => prevTrades.map(t => (t.id === tradeId ? { ...t, notes: trimmed || undefined } : t)));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to save notes');
+      }
+    });
+    notesSaveChain.current[tradeId] = next;
+    return next;
   }, []);
 
   const handleNotesChange = (tradeId: string, value: string) => {
@@ -1137,14 +1151,30 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     }, 500);
   };
 
-  // Blur flushes any pending debounce immediately so edits can't be lost
-  const flushNotes = (tradeId: string) => {
+  // Blur: flush any pending debounce, then retire the draft so trade.notes
+  // (and anything that later updates it) is the source of truth again.
+  const handleNotesBlur = (tradeId: string) => {
+    setNotesFocusId(prev => (prev === tradeId ? null : prev));
     const timers = notesSaveTimers.current;
-    if (!timers[tradeId]) return;
-    clearTimeout(timers[tradeId]);
-    delete timers[tradeId];
-    const draft = notesDrafts[tradeId];
-    if (draft !== undefined) saveNotes(tradeId, draft);
+    let settled: Promise<void>;
+    if (timers[tradeId]) {
+      clearTimeout(timers[tradeId]);
+      delete timers[tradeId];
+      const draft = notesDrafts[tradeId];
+      settled = draft !== undefined ? saveNotes(tradeId, draft) : Promise.resolve();
+    } else {
+      settled = notesSaveChain.current[tradeId] ?? Promise.resolve();
+    }
+    settled.then(() => {
+      setNotesDrafts(prev => {
+        // Keep the draft if the user refocused and typed again meanwhile
+        if (notesSaveTimers.current[tradeId]) return prev;
+        if (!(tradeId in prev)) return prev;
+        const next = { ...prev };
+        delete next[tradeId];
+        return next;
+      });
+    });
   };
 
   useEffect(() => {
@@ -1865,8 +1895,9 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
               onClick={() => toggleSection('activeTrades')}
               className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-[#7c8b87] transition-colors duration-[120ms] hover:border-[#1d2b26] hover:text-[#e6ecea]"
               title={collapsedSections.activeTrades ? 'Expand section' : 'Collapse section'}
+              aria-expanded={!collapsedSections.activeTrades}
             >
-              <span className="block -translate-y-px text-[11px]">{collapsedSections.activeTrades ? '▼' : '▲'}</span>
+              <span aria-hidden="true" className="block -translate-y-px text-[11px]">{collapsedSections.activeTrades ? '▼' : '▲'}</span>
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
@@ -1902,8 +1933,11 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                   className="flex h-9 items-center gap-[9px] rounded-[9px] border border-[#1a201e] pl-[11px] pr-[13px] text-[13px] text-[#b3c0bc] transition-colors duration-[120ms] hover:border-[#26332f] hover:text-[#e6ecea]"
                   style={{ background: '#0d100f' }}
                   title={allSelected ? 'Deselect all' : 'Select all'}
+                  role="checkbox"
+                  aria-checked={allSelected}
                 >
                   <span
+                    aria-hidden="true"
                     className="flex h-[15px] w-[15px] items-center justify-center rounded text-[10px] leading-none text-[#08090a]"
                     style={{ border: '1.5px solid #37453f', background: allSelected ? '#37d69a' : 'transparent' }}
                   >
@@ -1960,7 +1994,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
         {activeTradesLoading && activeTrades.length === 0 ? (
           <div className="grid animate-pulse gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(430px, 100%), 1fr))' }}>
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-[214px] rounded-[14px] border border-[#1a201e]" style={{ background: '#0b0f0e' }} />
+              <div key={i} className="h-[286px] rounded-[14px] border border-[#1a201e]" style={{ background: '#0b0f0e' }} />
             ))}
           </div>
         ) : activeTrades.length === 0 ? (
@@ -2010,7 +2044,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 return (
               <div
                 key={trade.id}
-                draggable
+                draggable={notesFocusId !== trade.id}
                 data-dnd-id={trade.id}
                 data-dnd-type="active"
                 onTouchStart={(e) => handleCardTouchStart(e, trade.id, 'active', trade.ticker)}
@@ -2038,8 +2072,11 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     className="flex h-[17px] w-[17px] flex-none items-center justify-center rounded-[5px] text-[11px] leading-none text-[#08090a]"
                     style={{ border: '1.5px solid #37453f', background: selected ? '#37d69a' : 'transparent' }}
                     title={selected ? 'Deselect' : 'Select'}
+                    role="checkbox"
+                    aria-checked={selected}
+                    aria-label={`Select ${trade.ticker}`}
                   >
-                    {selected ? '✓' : ''}
+                    <span aria-hidden="true">{selected ? '✓' : ''}</span>
                   </button>
 
                   <span className="text-[21px] font-semibold leading-none tracking-[0.02em] text-[#f2f7f5]" style={{ fontFamily: PLEX_MONO }}>
@@ -2074,8 +2111,10 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                   </span>
                 </div>
 
-                {/* Metric grid — 1px gaps over the hairline color read as dividers */}
-                <div className="grid grid-cols-3 gap-px overflow-hidden rounded-[10px] border border-[#171d1b]" style={{ background: '#171d1b' }}>
+                {/* Metric grid — 1px gaps over the hairline color read as
+                    dividers. 2 columns under 480px: three 17px-mono prices
+                    don't fit a phone-width card without bleeding across cells. */}
+                <div className="grid grid-cols-2 min-[480px]:grid-cols-3 gap-px overflow-hidden rounded-[10px] border border-[#171d1b]" style={{ background: '#171d1b' }}>
                   {/* Entry - Inline Editable */}
                   <div
                     className="flex cursor-pointer flex-col gap-[5px] bg-[#0b0f0e] px-[13px] py-[11px] transition-colors duration-[120ms] hover:bg-[#101514]"
@@ -2213,8 +2252,11 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                       ? { background: 'rgba(55,214,154,0.10)', borderColor: 'rgba(55,214,154,0.28)', color: '#37d69a' }
                       : { background: '#0d100f', borderColor: '#1a201e', color: '#8fa39d' }}
                     title={placed ? 'Order has been placed with broker' : 'Check when order is placed'}
+                    role="checkbox"
+                    aria-checked={placed}
                   >
                     <span
+                      aria-hidden="true"
                       className="flex h-3.5 w-3.5 items-center justify-center rounded text-[9px] leading-none text-[#08090a]"
                       style={{ border: `1.5px solid ${placed ? '#37d69a' : '#37453f'}`, background: placed ? '#37d69a' : 'transparent' }}
                     >
@@ -2248,20 +2290,27 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                   </div>
                 </div>
 
-                {/* Notes — always editable, debounced autosave */}
+                {/* Notes — always editable, debounced autosave. Touchstart must
+                    not reach the card (it would arm the long-press card drag),
+                    and while the field is focused the card's draggable is off —
+                    a draggable ancestor swallows drag-to-select-text gestures.
+                    A 1-row textarea (not <input>) so existing multi-line notes
+                    keep their newlines when edited here. */}
                 <div
                   className="flex h-[38px] items-center gap-[9px] rounded-[9px] border border-dashed border-[#202826] bg-[#0b0f0e] px-3"
+                  onTouchStart={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
-                  draggable={false}
                 >
-                  <svg width="12" height="14" viewBox="0 0 12 14" fill="none" stroke="#5b6b67" strokeWidth="1.4" strokeLinejoin="round"><path d="M1.5 1h5l4 4v8h-9z" /><path d="M6.5 1v4h4" /></svg>
-                  <input
-                    type="text"
+                  <svg aria-hidden="true" width="12" height="14" viewBox="0 0 12 14" fill="none" stroke="#5b6b67" strokeWidth="1.4" strokeLinejoin="round"><path d="M1.5 1h5l4 4v8h-9z" /><path d="M6.5 1v4h4" /></svg>
+                  <textarea
+                    rows={1}
                     value={notesDrafts[trade.id] ?? trade.notes ?? ''}
                     onChange={(e) => handleNotesChange(trade.id, e.target.value)}
-                    onBlur={() => flushNotes(trade.id)}
+                    onFocus={() => setNotesFocusId(trade.id)}
+                    onBlur={() => handleNotesBlur(trade.id)}
                     placeholder="Add notes..."
-                    className="flex-1 bg-transparent text-[12.5px] text-[#e6ecea] placeholder-[#5b6b67] focus:outline-none"
+                    aria-label={`Notes for ${trade.ticker}`}
+                    className="flex-1 resize-none self-center bg-transparent text-[12.5px] leading-[18px] text-[#e6ecea] placeholder-[#5b6b67] focus:outline-none"
                   />
                 </div>
               </div>
