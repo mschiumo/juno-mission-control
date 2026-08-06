@@ -1646,6 +1646,13 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     return new Intl.NumberFormat('en-US').format(value);
   };
 
+  // Signed % move from entry to target, e.g. "+10.0%" (null when entry is unset)
+  const formatTargetPercent = (entry: number, target: number) => {
+    if (!entry || !target) return null;
+    const pct = ((target - entry) / entry) * 100;
+    return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
+  };
+
   const formatDate = (isoString: string) => {
     const date = new Date(isoString);
     return date.toLocaleDateString('en-US', {
@@ -2106,7 +2113,18 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                           className="w-full px-1 py-0.5 bg-[#161b22] border border-blue-500 rounded text-sm font-semibold text-white focus:outline-none"
                         />
                       ) : (
-                        <div className="text-sm font-semibold">{formatCurrency(trade.plannedTarget)}</div>
+                        <div className="text-sm font-semibold flex items-baseline gap-1 flex-wrap">
+                          {formatCurrency(trade.plannedTarget)}
+                          {(() => {
+                            const pct = formatTargetPercent(trade.actualEntry, trade.plannedTarget);
+                            if (!pct) return null;
+                            return (
+                              <span className={`text-xs font-medium ${pct.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
+                                {pct}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       )}
                     </div>
 
@@ -2932,7 +2950,18 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     </div>
                     <div>
                       <div className="text-xs text-green-400">Target</div>
-                      <div className="text-sm font-semibold">{formatCurrency(position.plannedTarget)}</div>
+                      <div className="text-sm font-semibold flex items-baseline gap-1 flex-wrap">
+                        {formatCurrency(position.plannedTarget)}
+                        {(() => {
+                          const pct = formatTargetPercent(position.actualEntry || position.plannedEntry, position.plannedTarget);
+                          if (!pct) return null;
+                          return (
+                            <span className={`text-xs font-medium ${pct.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
+                              {pct}
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
                     <div>
                       <div className="text-xs text-[#8b949e]">Profit</div>
