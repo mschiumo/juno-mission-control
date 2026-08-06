@@ -379,7 +379,7 @@ export default function ActiveTradesStrip() {
                               const pct = formatTargetPercent(trade.actualEntry, trade.plannedTarget);
                               if (!pct) return null;
                               return (
-                                <span className={`ml-1 inline-block whitespace-nowrap px-1 py-px rounded text-[10px] font-medium ${pct.startsWith('+') ? 'bg-[#3fb950]/15 text-[#3fb950]' : 'bg-red-400/15 text-red-400'}`}>
+                                <span className={`mt-0.5 block w-fit whitespace-nowrap px-1 py-px rounded text-[10px] font-medium ${pct.startsWith('+') ? 'bg-[#3fb950]/15 text-[#3fb950]' : 'bg-red-400/15 text-red-400'}`}>
                                   {pct}
                                 </span>
                               );
