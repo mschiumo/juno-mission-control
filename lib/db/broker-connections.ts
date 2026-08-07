@@ -49,6 +49,14 @@ export interface BrokerConnection {
   /** ISO timestamp of the last successful trade sync, if any. */
   lastSyncedAt?: string;
   /**
+   * Latest trading day (YYYY-MM-DD) whose transactions SnapTrade had fully
+   * synced at the time of our last trade pull (earliest across accounts).
+   * Trades dated after this day may be built from a partial fill feed, so the
+   * calendar renders them as provisional. SnapTrade semantics: all
+   * transactions up to this date are final; it is NOT a sync-attempt time.
+   */
+  lastCompleteTradeDay?: string;
+  /**
    * ISO timestamp of the last time linking a brokerage wiped the user's
    * hand-imported (manual / CSV / account-statement) trades. Once a live
    * brokerage is linked it is the sole source of the Journal, so the pre-broker
@@ -110,11 +118,24 @@ export async function setBrokerAccounts(
   await saveBrokerConnection({ ...existing, accounts });
 }
 
-/** Stamp the last successful sync time. */
-export async function setLastSyncedAt(userId: string, isoTimestamp: string): Promise<void> {
+/**
+ * Stamp the last successful sync time, and (when known) the last trading day
+ * SnapTrade reported as fully synced. `lastCompleteTradeDay` is left untouched
+ * when undefined — e.g. a sync that fell back to cached accounts has no fresh
+ * completeness signal to record.
+ */
+export async function setLastSyncedAt(
+  userId: string,
+  isoTimestamp: string,
+  lastCompleteTradeDay?: string
+): Promise<void> {
   const existing = await getBrokerConnection(userId);
   if (!existing) return;
-  await saveBrokerConnection({ ...existing, lastSyncedAt: isoTimestamp });
+  await saveBrokerConnection({
+    ...existing,
+    lastSyncedAt: isoTimestamp,
+    ...(lastCompleteTradeDay ? { lastCompleteTradeDay } : {}),
+  });
 }
 
 /** Stamp the time the pre-broker (hand-imported) trades were cleared. */
