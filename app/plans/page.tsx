@@ -10,7 +10,7 @@
  * live the server answers BILLING_NOT_LIVE and the UI steers to the trial.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Check, Sparkles, Gift, Loader2, ArrowLeft, Star, Info } from 'lucide-react';
@@ -62,8 +62,53 @@ export default function PlansPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [referralCode, setReferralCode] = useState('');
   const [referralError, setReferralError] = useState<string | null>(null);
+  // Post-checkout return state. Stripe sends the user back here; the
+  // entitlement is written by the webhook, which can land a beat later — so
+  // confirm by polling rather than assuming, and never leave the page silent.
+  const [checkoutState, setCheckoutState] = useState<'idle' | 'confirming' | 'success' | 'slow' | 'cancelled'>('idle');
 
   const tier = status.entitlements.tier;
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const outcome = params.get('checkout');
+    if (!outcome) return;
+    // Clear the query so a refresh doesn't replay this.
+    window.history.replaceState({}, '', '/plans');
+
+    if (outcome === 'cancelled') {
+      setCheckoutState('cancelled');
+      return;
+    }
+    if (outcome !== 'success') return;
+
+    setCheckoutState('confirming');
+    let cancelled = false;
+    let tries = 0;
+    const poll = async () => {
+      tries++;
+      try {
+        const res = await fetch('/api/user/entitlements', { cache: 'no-store' });
+        const json = await res.json();
+        const s = json?.status;
+        if (s?.source === 'billing' || s?.entitlements?.tier === 'gold' || s?.entitlements?.tier === 'platinum') {
+          if (cancelled) return;
+          invalidateEntitlements();
+          setCheckoutState('success');
+          return;
+        }
+      } catch {
+        // keep polling; a transient failure shouldn't end the confirmation
+      }
+      if (cancelled) return;
+      if (tries < 12) setTimeout(poll, 1500);
+      else setCheckoutState('slow');
+    };
+    poll();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function startTrial() {
     setBusy('trial');
@@ -199,6 +244,69 @@ export default function PlansPage() {
             </span>
           )}
         </div>
+
+        {/* Post-checkout confirmation */}
+        {checkoutState !== 'idle' && (
+          <div
+            className={`mb-8 rounded-2xl border p-5 ${
+              checkoutState === 'cancelled'
+                ? 'border-[#30363d] bg-[#161b22]'
+                : 'border-[#3fb950]/40 bg-[#3fb950]/10'
+            }`}
+          >
+            {checkoutState === 'confirming' && (
+              <div className="flex items-center gap-3">
+                <Loader2 className="w-5 h-5 animate-spin text-[#3fb950] shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold">Confirming your payment…</p>
+                  <p className="text-xs text-[#8b949e]">This usually takes a couple of seconds.</p>
+                </div>
+              </div>
+            )}
+            {checkoutState === 'success' && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-[#3fb950] shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold">You&apos;re on Gold — welcome aboard.</p>
+                    <p className="text-xs text-[#8b949e]">
+                      Your receipt is on its way by email. Connect your brokerage and the journal
+                      starts filling itself.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/?tab=trading"
+                  className="shrink-0 px-5 py-2.5 rounded-lg bg-[#F97316] hover:bg-[#fb8c3c] text-white text-sm font-semibold transition-colors text-center"
+                >
+                  Go to your journal
+                </Link>
+              </div>
+            )}
+            {checkoutState === 'slow' && (
+              <div className="flex items-start gap-3">
+                <Check className="w-5 h-5 text-[#3fb950] shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold">Payment received — finishing up.</p>
+                  <p className="text-xs text-[#8b949e]">
+                    Your plan is taking a moment to activate. Refresh in a minute; if it still
+                    hasn&apos;t updated, reply to your receipt email and we&apos;ll sort it out
+                    immediately.
+                  </p>
+                </div>
+              </div>
+            )}
+            {checkoutState === 'cancelled' && (
+              <div>
+                <p className="text-sm font-semibold">Checkout cancelled — you weren&apos;t charged.</p>
+                <p className="text-xs text-[#8b949e]">
+                  Silver stays free forever, and the Gold trial is still available if you want to
+                  try it first.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">Choose your plan</h1>
