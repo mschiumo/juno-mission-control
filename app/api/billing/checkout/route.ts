@@ -11,6 +11,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import type Stripe from 'stripe';
 import { auth } from '@/auth';
 import { requireUserId } from '@/lib/auth-session';
 import { TIER_PRICING, PLATINUM_COMING_SOON, type Tier } from '@/lib/entitlements';
@@ -63,21 +64,33 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   try {
     const session = await auth();
-    const existingCustomer = await getStripeCustomerId(userId);
-    const checkout = await stripe.checkout.sessions.create({
+    const params = (customer: string | null): Stripe.Checkout.SessionCreateParams => ({
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       // Bind the session to our user both ways: metadata for the webhook,
       // and the customer/email so Stripe dedupes billing profiles.
-      ...(existingCustomer
-        ? { customer: existingCustomer }
-        : { customer_email: session?.user?.email ?? undefined }),
+      ...(customer ? { customer } : { customer_email: session?.user?.email ?? undefined }),
       metadata: { userId },
       subscription_data: { metadata: { userId } },
       allow_promotion_codes: true,
       success_url: `${APP_URL}/plans?checkout=success`,
       cancel_url: `${APP_URL}/plans?checkout=cancelled`,
     });
+
+    const existingCustomer = await getStripeCustomerId(userId);
+    let checkout;
+    try {
+      checkout = await stripe.checkout.sessions.create(params(existingCustomer));
+    } catch (error) {
+      // A stored customer id from the other Stripe mode (test vs live) is
+      // unknown here — drop it and start a fresh billing profile rather than
+      // failing checkout. The webhook overwrites the stored id on success.
+      const unknownCustomer =
+        existingCustomer && error instanceof Error && /No such customer/i.test(error.message);
+      if (!unknownCustomer) throw error;
+      console.warn(`Stored Stripe customer ${existingCustomer} unknown in this mode; retrying without it.`);
+      checkout = await stripe.checkout.sessions.create(params(null));
+    }
     return NextResponse.json({ success: true, url: checkout.url });
   } catch (error) {
     console.error('Stripe checkout session failed:', error);
