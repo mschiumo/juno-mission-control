@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
+import { useEntitlements } from '@/lib/use-entitlements';
+import type { Features } from '@/lib/entitlements';
 import {
   LayoutDashboard,
   TrendingUp,
@@ -34,27 +36,47 @@ import PerformanceView from '@/components/trading/PerformanceView';
 import GoalsView from '@/components/trading/GoalsView';
 import TradingTour from '@/components/trading/TradingTour';
 import AgentsView from '@/components/confluence/ConfluenceView';
+import AgentsWalkthrough from '@/components/trading/AgentsWalkthrough';
 import DocsView from '@/components/trading/docs/DocsView';
 
 type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management' | 'agents' | 'docs';
+
+/**
+ * Which plan feature unlocks each sub-tab. Tabs outside the user's tier are
+ * not rendered at all (no locked/upsell states in-app) and deep links to
+ * them fall back to the first tab the plan includes.
+ */
+const SUBTAB_FEATURE: Record<TradingSubTab, keyof Features> = {
+  overview: 'journal',
+  market: 'marketFull',
+  'market-news': 'marketNews',
+  'trade-management': 'tradeManagement',
+  goals: 'goals',
+  performance: 'performance',
+  projection: 'profitProjection',
+  agents: 'agents',
+  docs: 'docs',
+};
 
 export default function TradingView() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  // The Agents sub-tab is owner-only (agentic execution is billing/safety-sensitive).
+  // The live agent terminal (ConfluenceView) stays owner-only — it drives the
+  // owner's own brokerage. Platinum members see the Agents walkthrough instead.
   const isOwner = isOwnerEmail(session?.user?.email);
+  const { entitlements, loading: entitlementsLoading } = useEntitlements();
+  const features = entitlements.features;
 
   // Get subtab from URL or default to 'overview'
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
-    const subtab = searchParams.get('subtab');
-    if (subtab === 'agents') return isOwner ? 'agents' : 'overview';
-    if (subtab === 'market' || subtab === 'market-news' || subtab === 'performance' || subtab === 'goals' || subtab === 'projection' || subtab === 'trade-management' || subtab === 'docs') {
+    const subtab = searchParams.get('subtab') as TradingSubTab | null;
+    if (subtab && subtab in SUBTAB_FEATURE && features[SUBTAB_FEATURE[subtab]]) {
       return subtab;
     }
     return 'overview';
-  }, [searchParams, isOwner]);
+  }, [searchParams, features]);
 
   const [activeSubTab, setActiveSubTabState] = useState<TradingSubTab>(getSubTabFromUrl);
   const [importKey, setImportKey] = useState(0);
@@ -122,12 +144,13 @@ export default function TradingView() {
     [pathname, router, searchParams],
   );
 
-  // Session loads async; if a non-owner is on the Agents sub-tab, bounce them.
+  // Entitlements load async; if the current sub-tab turns out to be outside
+  // the plan (stale URL, plan change), bounce to Journal.
   useEffect(() => {
-    if (!isOwner && activeSubTab === 'agents') {
+    if (!entitlementsLoading && !features[SUBTAB_FEATURE[activeSubTab]] && activeSubTab !== 'overview') {
       setActiveSubTabState('overview');
     }
-  }, [isOwner, activeSubTab]);
+  }, [entitlementsLoading, features, activeSubTab]);
 
   // Follow URL changes made elsewhere (the Agents terminal's sidebar navigates
   // by rewriting ?subtab=), so leaving the terminal lands on the right sub-tab.
@@ -153,13 +176,24 @@ export default function TradingView() {
     { id: 'goals' as const, label: 'Goals', icon: Target },
     { id: 'performance' as const, label: 'Performance', icon: BarChart3 },
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
-    // Agents (agentic swing-trading) is owner-only.
-    ...(isOwner ? [{ id: 'agents' as const, label: 'Agents', icon: Sparkles }] : []),
+    { id: 'agents' as const, label: 'Agents', icon: Sparkles },
     { id: 'docs' as const, label: 'Docs', icon: GraduationCap },
-  ];
+  ].filter((tab) => features[SUBTAB_FEATURE[tab.id]]);
 
   const activeTabLabel = subTabs.find((t) => t.id === activeSubTab)?.label || 'Journal';
   const ActiveIcon = subTabs.find((t) => t.id === activeSubTab)?.icon || BookOpen;
+
+  if (entitlementsLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div
+          className="w-8 h-8 rounded-full border-2 animate-spin"
+          style={{ borderColor: 'var(--border-default)', borderTopColor: 'var(--accent)' }}
+          aria-label="Loading your workspace"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -283,8 +317,8 @@ export default function TradingView() {
         </div>
       </div>
 
-      {/* Post-connect result from the SnapTrade portal return (owner-only flow) */}
-      {isOwner && (
+      {/* Post-connect result from the SnapTrade portal return (Gold+ flow) */}
+      {features.brokerageSync && (
         <div className="mb-4">
           <BrokerageConnectedBanner />
         </div>
@@ -315,7 +349,7 @@ export default function TradingView() {
 
       {activeSubTab === 'goals' && <GoalsView refreshKey={importKey} />}
 
-      {activeSubTab === 'agents' && isOwner && <AgentsView />}
+      {activeSubTab === 'agents' && features.agents && (isOwner ? <AgentsView /> : <AgentsWalkthrough />)}
 
       {activeSubTab === 'docs' && <DocsView />}
 
@@ -335,8 +369,9 @@ export default function TradingView() {
       <TradingRulesModal />
 
       {/* First-time onboarding tour */}
-      {showTour && (
+      {showTour && !entitlementsLoading && (
         <TradingTour
+          features={features}
           // The onboarding tour only covers the standard sub-tabs; 'agents' (owner-only)
           // and 'docs' aren't part of it, so present them as 'overview' to the tour's narrower type.
           activeSubTab={activeSubTab === 'agents' || activeSubTab === 'docs' ? 'overview' : activeSubTab}

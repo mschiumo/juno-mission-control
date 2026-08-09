@@ -24,8 +24,8 @@ import { disconnectBrokerage } from '@/lib/brokerage-access';
 import { tierAtLeast } from '@/lib/entitlements';
 
 export async function GET(): Promise<NextResponse> {
-  const ownerCheck = await requireOwner();
-  if ('error' in ownerCheck) return ownerCheck.error;
+  const { error: ownerError } = await requireOwner();
+  if (ownerError) return ownerError;
 
   const ids = await listPlanUserIds();
   const records = await Promise.all(
@@ -35,8 +35,8 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function PATCH(request: Request): Promise<NextResponse> {
-  const ownerCheck = await requireOwner();
-  if ('error' in ownerCheck) return ownerCheck.error;
+  const { error: ownerError } = await requireOwner();
+  if (ownerError) return ownerError;
 
   let body: Record<string, unknown>;
   try {

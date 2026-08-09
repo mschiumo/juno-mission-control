@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useEntitlements } from '@/lib/use-entitlements';
 import { Loader2 } from 'lucide-react';
 import DayTradingPerformance from '@/components/trading/DayTradingPerformance';
 import {
@@ -22,6 +23,9 @@ import {
 import type { BrokerAccount } from '@/lib/db/broker-connections';
 
 export default function PerformanceView({ refreshKey }: { refreshKey?: number }) {
+  // AI Journal Insights is Gold+; below that the section simply isn't rendered.
+  const { entitlements } = useEntitlements();
+  const journalInsightsAllowed = entitlements.features.journalInsights;
   const [period, setPeriod] = useState<Period>('all');
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +128,7 @@ export default function PerformanceView({ refreshKey }: { refreshKey?: number })
         period={period}
         startingBalance={startingBalance}
         onSaveStartingBalance={handleSaveStartingBalance}
-        showJournalInsights
+        showJournalInsights={journalInsightsAllowed}
         canEditStartingBalance={canEditStartingBalance}
       />
     </div>

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
+import { usePlanStatus } from '@/lib/use-entitlements';
+import { TIER_LABELS } from '@/lib/entitlements';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -14,6 +16,7 @@ import {
   Check,
   Pencil,
   X,
+  Crown,
 } from 'lucide-react';
 
 interface UserProfile {
@@ -32,6 +35,8 @@ interface UserPrefs {
 }
 
 export default function ProfilePage() {
+  const { status: planStatus, loading: planLoading } = usePlanStatus();
+  const tier = planStatus.entitlements.tier;
   const { data: session, update: updateSession } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [prefs, setPrefs] = useState<UserPrefs | null>(null);
@@ -279,7 +284,43 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        {/* Email Notifications */}
+        {/* Plan */}
+        <section className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+          <div className="flex items-center gap-2 px-5 py-4 border-b border-[#30363d]">
+            <Crown className="w-4 h-4 text-[#F97316]" />
+            <h2 className="text-sm font-semibold text-white">Plan</h2>
+          </div>
+          <div className="flex items-center justify-between px-5 py-4">
+            <div>
+              <p className="text-sm font-medium text-white">
+                {planLoading
+                  ? '…'
+                  : planStatus.source === 'owner'
+                    ? 'Platinum · Owner'
+                    : tier
+                      ? `${TIER_LABELS[tier]}${planStatus.source === 'trial' ? ' · Free trial' : planStatus.source === 'referral' ? ' · Referral' : ''}`
+                      : 'No active plan'}
+              </p>
+              {!planLoading && planStatus.expiresAt && (
+                <p className="text-xs text-[#8b949e] mt-0.5">
+                  {planStatus.source === 'trial' || planStatus.source === 'referral' ? 'Free access until ' : 'Renews '}
+                  {new Date(planStatus.expiresAt).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+            {planStatus.source !== 'owner' && (
+              <Link
+                href="/plans"
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#F97316]/10 text-[#F97316] hover:bg-[#F97316]/20 transition-colors"
+              >
+                {tier ? 'Manage plan' : 'Choose a plan'}
+              </Link>
+            )}
+          </div>
+        </section>
+
+        {/* Email Notifications — Gold+ only; hidden below that */}
+        {planStatus.entitlements.features.emailBriefings && (
         <section className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
           <div className="flex items-center gap-2 px-5 py-4 border-b border-[#30363d]">
             <Bell className="w-4 h-4 text-[#F97316]" />
@@ -335,6 +376,7 @@ export default function ProfilePage() {
             </div>
           </div>
         </section>
+        )}
 
         {/* Sign Out */}
         <section className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
