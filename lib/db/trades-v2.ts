@@ -151,6 +151,21 @@ export async function clearManualTrades(
   return { removed, kept: kept.length, backedUp };
 }
 
+/**
+ * Drop the pre-broker backup snapshot. Called after a disconnect has restored
+ * (or discarded) it, so the next connect snapshots the then-current list fresh
+ * instead of being blocked by the stale first-write-wins backup.
+ */
+export async function clearTradesBackup(userId: string): Promise<void> {
+  try {
+    const redis = await getRedisClient();
+    await redis.del(tradesBackupKey(userId));
+  } catch (error) {
+    console.error('Error clearing trades backup:', error);
+    throw error;
+  }
+}
+
 /** Restore the most recent pre-sync backup. Returns the restored count, or null if none. */
 export async function restoreTradesBackup(userId: string): Promise<number | null> {
   try {
