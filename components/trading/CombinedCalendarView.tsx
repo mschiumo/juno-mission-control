@@ -231,9 +231,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
       }
       if (journalData.success) setJournalEntries(journalData.entries || []);
       if (tradesData.success && tradesData.data) {
-        // Keep long-term holdings and deactivated accounts out of the trading
-        // journal. /api/trades stays unfiltered because Performance needs the
-        // full set to render the long-term portfolio view.
+        // Keep deactivated accounts out of the trading journal.
         const settings: AccountSettingsMap = settingsData?.settings ?? {};
         setAllTrades(tradingJournalTrades<Trade>(tradesData.data.trades || [], settings));
       }

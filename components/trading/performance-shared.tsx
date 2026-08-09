@@ -3,10 +3,9 @@
 /**
  * Shared building blocks for the Performance tab.
  *
- * PerformanceView is a shell that picks an account and dispatches to either
- * DayTradingPerformance or LongTermPerformance; the types, formatters, metric
- * math, and small presentational bits they both need live here so the two
- * views can't drift apart.
+ * PerformanceView is a shell that loads data and hands off to
+ * DayTradingPerformance; the types, formatters, metric math, and small
+ * presentational bits live here.
  *
  * Extracted verbatim from PerformanceView — keep behaviour changes in step
  * with that file's history (the equity-curve/starting-balance rules in

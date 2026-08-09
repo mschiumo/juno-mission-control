@@ -131,6 +131,31 @@ export async function clearBrokerDailyBalances(userId: string): Promise<void> {
 export type BalanceSource = 'broker' | 'manual';
 
 /**
+ * Trim a balance series so it starts at `startDate`. The broker-derived series
+ * walks the activity ledger back well before the brokerage was linked —
+ * including the account's unfunded $0 days — but the app's story starts at
+ * connection. Points before `startDate` are dropped; the balance as of that
+ * day is carried forward as a boundary point so the curve opens at the
+ * account's value at connection rather than at its first later event.
+ */
+export function clampBalancesFromDate(
+  balances: DailyBalance[],
+  startDate: string
+): DailyBalance[] {
+  if (balances.length === 0 || balances[0].date >= startDate) return balances;
+  let carry: number | null = null;
+  const kept: DailyBalance[] = [];
+  for (const b of balances) {
+    if (b.date < startDate) carry = b.balance;
+    else kept.push(b);
+  }
+  if (carry !== null && (kept.length === 0 || kept[0].date > startDate)) {
+    kept.unshift({ date: startDate, balance: carry });
+  }
+  return kept;
+}
+
+/**
  * The series the equity curve consumes — single-source. When the brokerage
  * sync has produced a series, it is the curve's only input (the linked broker
  * is the source of truth; disconnecting clears the derived series, restoring

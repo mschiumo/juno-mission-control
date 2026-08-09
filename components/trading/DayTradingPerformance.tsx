@@ -4,10 +4,8 @@
  * DayTradingPerformance — the short-term trading view of the Performance tab.
  *
  * This is the original PerformanceView layout (equity curve, metric grid,
- * day-of-week breakdown, journal insights) with data loading and account
- * selection lifted into PerformanceView. It renders whichever account the
- * shell selected; accounts the user has classified as long-term get
- * LongTermPerformance instead.
+ * day-of-week breakdown, journal insights) with data loading lifted into
+ * PerformanceView.
  */
 
 import { useState, useMemo, useCallback } from 'react';
@@ -72,7 +70,7 @@ interface DayTradingPerformanceProps {
   period: Period;
   startingBalance: number;
   onSaveStartingBalance: (val: number) => void;
-  /** Journal insights cover the whole journal, so only show them on "All Accounts". */
+  /** Whether to render the Journal Insights section below the stats. */
   showJournalInsights?: boolean;
   /**
    * Whether the user still supplies balances by hand. False once a connected
@@ -116,7 +114,16 @@ export default function DayTradingPerformance({
     [filteredTrades],
   );
 
-  const metrics = useMemo(() => computeMetrics(closedTrades, startingBalance), [closedTrades, startingBalance]);
+  // Balance the account started with, for %-of-account metrics and the
+  // "Starting:" chip: the balance at brokerage connection when the broker
+  // feeds the curve (the server clamps the series to start there), the
+  // hand-entered figure otherwise.
+  const baseBalance =
+    balancesSource === 'broker' && allDailyBalances.length > 0
+      ? allDailyBalances[0].balance
+      : startingBalance;
+
+  const metrics = useMemo(() => computeMetrics(closedTrades, baseBalance), [closedTrades, baseBalance]);
 
   const filteredBalances = useMemo(
     () => filterBalancesByPeriod(allDailyBalances, period),
@@ -278,11 +285,21 @@ export default function DayTradingPerformance({
 
   const hasData = allTrades.length > 0;
   // NLV = current broker balance (last point on the curve, which uses real
-  // balances when available). totalPnL = trading P&L (sum of trade netPnL),
-  // independent of deposits/withdrawals so % return stays meaningful.
+  // balances when available).
   const currentNLV = equityCurve.length > 0 ? equityCurve[equityCurve.length - 1].nlv : startingBalance;
-  const totalPnL = closedTrades.reduce((s, t) => s + (t.netPnL || 0), 0);
-  const pnlPercent = startingBalance > 0 ? ((totalPnL / startingBalance) * 100).toFixed(2) : null;
+  // Broker-fed: the account's story starts at connection (the server clamps
+  // the series there), so the headline is NLV growth from the period's opening
+  // balance — for All Time, the balance the account held when the brokerage
+  // was linked. Manual mode keeps the trade-P&L sum against the hand-entered
+  // starting balance, since statement uploads carry no connection anchor.
+  const brokerBaseline =
+    balancesSource === 'broker' && filteredBalances.length > 0 ? filteredBalances[0].balance : null;
+  const totalPnL =
+    brokerBaseline !== null
+      ? currentNLV - brokerBaseline
+      : closedTrades.reduce((s, t) => s + (t.netPnL || 0), 0);
+  const pnlBase = brokerBaseline !== null ? brokerBaseline : startingBalance;
+  const pnlPercent = pnlBase > 0 ? ((totalPnL / pnlBase) * 100).toFixed(2) : null;
   const isPositive = totalPnL >= 0;
 
 
@@ -313,13 +330,17 @@ export default function DayTradingPerformance({
                     would silently fight the synced data. */}
                 <div className="flex items-center gap-2">
                   {!canEditStartingBalance ? (
-                    startingBalance > 0 ? (
+                    baseBalance > 0 ? (
                       <span
                         className="text-xs"
                         style={{ color: 'var(--text-tertiary)' }}
-                        title="Balances come from your connected brokerage"
+                        title={
+                          balancesSource === 'broker'
+                            ? 'Your account balance when the brokerage was connected'
+                            : 'Balances come from your connected brokerage'
+                        }
                       >
-                        Starting: {formatNLV(startingBalance)}
+                        Starting: {formatNLV(baseBalance)}
                       </span>
                     ) : null
                   ) : editingBalance ? (
