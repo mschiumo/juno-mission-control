@@ -14,8 +14,9 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { auth } from '@/auth';
 import { requireUserId } from '@/lib/auth-session';
-import { TIER_PRICING, PLATINUM_COMING_SOON, type Tier } from '@/lib/entitlements';
+import { TIER_PRICING, PLATINUM_COMING_SOON, CARD_ON_FILE_TRIAL, TRIAL_DAYS, type Tier } from '@/lib/entitlements';
 import { getStripe, isStripeConfigured, priceIdFor, getStripeCustomerId } from '@/lib/stripe';
+import { hasUsedTrial } from '@/lib/db/entitlements';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://confluencetrading.app';
 
@@ -62,6 +63,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
+  // One trial per account — a second checkout is billed immediately.
+  const trialEligible = CARD_ON_FILE_TRIAL && !(await hasUsedTrial(userId));
+
   try {
     const session = await auth();
     const params = (customer: string | null): Stripe.Checkout.SessionCreateParams => ({
@@ -71,7 +75,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       // and the customer/email so Stripe dedupes billing profiles.
       ...(customer ? { customer } : { customer_email: session?.user?.email ?? undefined }),
       metadata: { userId },
-      subscription_data: { metadata: { userId } },
+      subscription_data: {
+        metadata: { userId },
+        // The card is collected now; Stripe starts billing when the trial
+        // ends. Cancelling before then charges nothing.
+        ...(CARD_ON_FILE_TRIAL && trialEligible ? { trial_period_days: TRIAL_DAYS } : {}),
+      },
+      // Explicit: a trialing subscription must still capture a payment method.
+      payment_method_collection: 'always',
       allow_promotion_codes: true,
       success_url: `${APP_URL}/plans?checkout=success`,
       cancel_url: `${APP_URL}/plans?checkout=cancelled`,

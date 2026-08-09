@@ -363,7 +363,7 @@ export default function LandingPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-5 text-sm text-[#8b949e]">
-              {['No credit card required', 'Free to get started', 'Real-time market data'].map(item => (
+              {['Free plan, no card', 'Cancel in two clicks', 'Real-time market data'].map(item => (
                 <div key={item} className="flex items-center gap-1.5">
                   <CheckCircle className="w-3.5 h-3.5 text-[#3fb950]" />
                   {item}
@@ -1170,7 +1170,7 @@ export default function LandingPage() {
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Costs less than one bad trade.</h2>
             <p className="text-[#8b949e] max-w-xl mx-auto text-lg">
               One avoided mistake pays for the year. Start free — journal forever on Silver, and
-              try everything in Gold for 7 days. No card required.
+              try everything in Gold free for 7 days — cancel before it ends and you pay nothing.
             </p>
           </div>
 
@@ -1324,7 +1324,7 @@ export default function LandingPage() {
 
           {/* Trust row */}
           <p className="text-center text-[11px] text-[#8b949e] uppercase tracking-[0.15em] mb-14">
-            Cancel in two clicks &nbsp;·&nbsp; No card for the free trial &nbsp;·&nbsp; Export your data any time
+            Cancel in two clicks &nbsp;·&nbsp; Reminder before any charge &nbsp;·&nbsp; Export your data any time
           </p>
 
           {/* Compare plans table — per the Compare Plans design handoff */}
@@ -1354,7 +1354,7 @@ export default function LandingPage() {
             <div className="relative">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#F97316]/25 bg-[#F97316]/10 text-xs text-[#F97316] mb-6">
                 <Zap className="w-3.5 h-3.5" />
-                Free to get started · No credit card required
+                Free plan, no card · Gold free for 7 days
               </div>
 
               <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">

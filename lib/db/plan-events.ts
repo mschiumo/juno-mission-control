@@ -23,6 +23,7 @@ export type PlanEventType =
   | 'plan_expired'
   | 'admin_grant'
   | 'admin_revoke'
+  | 'trial_converting'
   | 'subscription_started'
   | 'subscription_ended'
   | 'payment_failed';

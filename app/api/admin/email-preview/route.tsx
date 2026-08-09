@@ -1,5 +1,5 @@
 /**
- * GET /api/admin/email-preview?template=welcome|checkin|trial|digest[&send=1]
+ * GET /api/admin/email-preview?template=welcome|checkin|trial|converting|digest[&send=1]
  *
  * Owner-only: renders any lifecycle/digest email template to HTML with
  * sample data, so copy and layout can be checked in a browser without
@@ -16,6 +16,7 @@ import { OWNER_EMAIL } from '@/lib/owner';
 import { WelcomeEmail } from '@/lib/emails/WelcomeEmail';
 import { CheckinEmail } from '@/lib/emails/CheckinEmail';
 import { TrialEndingEmail } from '@/lib/emails/TrialEndingEmail';
+import { TrialConvertingEmail } from '@/lib/emails/TrialConvertingEmail';
 import { OwnerMetricsEmail } from '@/lib/emails/OwnerMetricsEmail';
 import type { AccountMetrics } from '@/lib/admin-metrics';
 
@@ -63,12 +64,15 @@ export async function GET(request: NextRequest): Promise<NextResponse | Response
     case 'trial':
       element = <TrialEndingEmail name="Alex Trader" expiresAt={sampleExpiry} />;
       break;
+    case 'converting':
+      element = <TrialConvertingEmail name="Alex Trader" chargeDate={sampleExpiry} amount="$29.00" />;
+      break;
     case 'digest':
       element = <OwnerMetricsEmail metrics={SAMPLE_METRICS} />;
       break;
     default:
       return NextResponse.json(
-        { success: false, error: "template must be 'welcome', 'checkin', 'trial', or 'digest'" },
+        { success: false, error: "template must be 'welcome', 'checkin', 'trial', 'converting', or 'digest'" },
         { status: 400 },
       );
   }
@@ -78,6 +82,7 @@ export async function GET(request: NextRequest): Promise<NextResponse | Response
       welcome: '[TEST] Welcome to ConfluenceTrading — your journal is ready',
       checkin: '[TEST] How is ConfluenceTrading working for you?',
       trial: '[TEST] Your free Gold week ends tomorrow',
+      converting: '[TEST] Your ConfluenceTrading trial ends soon',
       digest: '[TEST] ConfluenceTrading metrics digest',
     };
     const result = await sendEmail({
