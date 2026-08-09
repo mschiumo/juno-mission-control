@@ -37,13 +37,13 @@ const STEPS = [
   },
   {
     icon: ClipboardCheck,
-    title: '3 · Review proposals',
-    body: 'Every trading day the agent scans its universe and produces proposals — entries, exits, and protective-stop adjustments — each with its reasoning attached. Nothing executes until a proposal passes your guardrails, and you can require manual approval for every order while you build trust.',
+    title: '3 · Review & approve every trade',
+    body: 'Every trading day the agent scans its universe and surfaces proposals — entries, exits, and protective-stop adjustments — each with its reasoning attached. You review each one and approve, adjust, or reject it. Nothing is sent to your broker without your sign-off; the agent identifies, you decide.',
   },
   {
     icon: ShieldCheck,
-    title: '4 · Guardrails watch everything',
-    body: 'Position caps, loss limits, and protective stops are enforced on every order — not suggested, enforced. A nightly reconciliation compares the agent’s book against your brokerage records and halts trading on any mismatch.',
+    title: '4 · Watch everything in one terminal',
+    body: 'The terminal shows the full lifecycle of every trade — proposals, working orders, fills, protective stops, and P&L progress — so you always know exactly what your agent is doing. Position caps and loss limits are enforced in code on every order, and a nightly reconciliation checks the book against your brokerage records.',
   },
 ];
 
@@ -69,15 +69,17 @@ export default function AgentsWalkthrough() {
               Agents — your Platinum feature
             </h2>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              Agentic swing trading with hard guardrails and human oversight
+              AI-identified swing-trade setups — you review and approve every order
             </p>
           </div>
         </div>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          An agent is an AI trader that works a defined strategy inside limits you control: it
-          scans a ticker universe, proposes entries and exits with its reasoning shown, manages
-          protective stops, and reports every action for review. Here&apos;s how yours gets set
-          up.
+          The agentic part is trade <em>identification</em>: your agent scans a ticker universe
+          against a swing-trading strategy and surfaces setups as proposals, each with its
+          reasoning attached. It is not fully-automated trading — you review and approve every
+          order before anything reaches your broker. What Platinum really buys you is the
+          infrastructure around that loop: one terminal to see proposals, orders, fills,
+          protective stops, and progress at a glance. Here&apos;s how yours gets set up.
         </p>
       </div>
 

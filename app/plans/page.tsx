@@ -21,33 +21,35 @@ type Cycle = 'monthly' | 'annual';
 
 const TIER_FEATURES_COPY: Record<Tier, { blurb: string; features: string[] }> = {
   silver: {
-    blurb: 'The disciplined trading core — free, forever.',
+    blurb: 'Everything you need to trade with discipline — free, forever.',
     features: [
-      'Trading Journal with manual account-statement upload',
-      'Market News screener',
-      'Trade Management — position calculator, watchlist & trading mode',
-      'Performance analytics & equity curve',
-      'Profit Projection modeling',
+      'Trading journal — import broker statements in one click',
+      'Risk-first trade planning — entry, stop & target with dollar risk and share size',
+      'Performance analytics — equity curve, win rate & strategy breakdown',
+      'Market news screener, tagged by sentiment & category',
+      'Profit projection — stress-test your win rate and R:R',
       'Docs & trading guides',
     ],
   },
   gold: {
-    blurb: 'The full workflow — your broker syncs the journal, AI coaches it.',
+    blurb: 'Your journal builds itself — and AI coaches what it finds.',
     features: [
       'Everything in Silver',
-      'Live brokerage connection — trades sync automatically',
-      'Full Market tab — morning briefing, live gap scanner, market data',
-      'Daily briefing emails every market morning',
-      'AI Journal Insights — coaching reports on your trading',
-      'Trading Goals tracking',
+      'Auto-synced journal — trades, P&L and balances flow in from your broker',
+      'Pre-market gap scanner & live market data, all session long',
+      'AI morning briefing in your inbox before the bell',
+      'AI coaching reports — surface your patterns, strengths & leaks',
+      'Trading goals that track themselves from your real results',
     ],
   },
   platinum: {
-    blurb: 'Everything, plus agentic trading with hard guardrails.',
+    blurb: 'AI-scouted swing setups. You approve every order.',
     features: [
       'Everything in Gold',
-      'Agents — AI swing trading inside limits you set',
-      'Guided agent onboarding — strategies, guardrails, brokerage wiring',
+      'AI-identified swing-trade setups, with the reasoning attached',
+      'You approve every order — review, adjust, or reject each proposal',
+      'Full trade-lifecycle visibility — orders, fills, stops & progress in one terminal',
+      'Guided onboarding — strategies, guardrails & brokerage wiring',
     ],
   },
 };
