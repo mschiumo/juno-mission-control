@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import {
   getCombinedDailyBalances,
   clampBalancesFromDate,
@@ -10,7 +10,7 @@ import { getBrokerConnection } from '@/lib/db/broker-connections';
 import { getESTDateFromTimestamp } from '@/lib/date-utils';
 
 export async function GET() {
-  const authResult = await requireUserId();
+  const authResult = await requireFeature('journal');
   if (authResult.error) return authResult.error;
   const { userId } = authResult;
 
@@ -44,7 +44,7 @@ export async function GET() {
 }
 
 export async function DELETE() {
-  const authResult = await requireUserId();
+  const authResult = await requireFeature('journal');
   if (authResult.error) return authResult.error;
   const { userId } = authResult;
 

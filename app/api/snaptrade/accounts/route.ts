@@ -7,7 +7,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import { isSnapTradeConfigured, listAccounts } from '@/lib/snaptrade';
 import {
   getBrokerConnection,
@@ -53,7 +53,7 @@ function mapAccount(a: SnapTradeAccount): BrokerAccount {
 }
 
 export async function GET(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('brokerageSync');
   if (authError) return authError;
 
   const connection = await getBrokerConnection(userId);

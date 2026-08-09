@@ -15,7 +15,7 @@ import {
   updateClosedPosition,
   ClosedPosition
 } from '@/lib/db/closed-positions';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 
 // Helper to generate UUID
 function generateId(): string {
@@ -26,7 +26,7 @@ function generateId(): string {
  * GET /api/closed-positions
  */
 export async function GET(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {
@@ -48,7 +48,7 @@ export async function GET(): Promise<NextResponse> {
  * Request body: ClosedPosition (without id for new positions)
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
  * Updates an existing closed position
  */
 export async function PUT(request: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {
@@ -159,7 +159,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
  * Removes a closed position
  */
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {

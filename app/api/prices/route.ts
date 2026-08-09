@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireFeature } from '@/lib/auth-session';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +74,9 @@ async function fetchPrice(symbol: string): Promise<number | null> {
 }
 
 export async function GET(req: NextRequest) {
+  const { error: entitlementError } = await requireFeature('tradeManagement');
+  if (entitlementError) return entitlementError;
+
   const symbolsParam = req.nextUrl.searchParams.get('symbols') ?? '';
   const symbols = symbolsParam.split(',').map((s) => s.trim()).filter(Boolean);
 

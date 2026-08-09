@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Trade, Metrics, DailySummary, TradeStatsResponse } from '@/types/trading';
 import { getAllTrades } from '@/lib/db/trades-v2';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 
 /**
  * GET /api/trades/stats
@@ -21,7 +21,7 @@ import { requireUserId } from '@/lib/auth-session';
  * - strategy: string (optional filter)
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('journal');
   if (error) return error;
 
   try {

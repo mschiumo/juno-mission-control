@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@/auth';
 import { requireUserId } from '@/lib/auth-session';
 import { getRedisClient } from '@/lib/redis';
+import { getEntitlements } from '@/lib/db/entitlements';
 
 interface EmailAlertPrefs {
   marketBriefing: boolean;
@@ -66,6 +68,21 @@ export async function PATCH(request: Request) {
   }
 
   if (body.emailAlerts && typeof body.emailAlerts === 'object') {
+    // Email briefings are Gold+. The send-time cron re-checks entitlement, but
+    // rejecting the opt-in here keeps the stored prefs honest about what the
+    // user will actually receive.
+    const session = await auth();
+    const entitlements = await getEntitlements(userId, session?.user?.email);
+    if (!entitlements.features.emailBriefings) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'UPGRADE_REQUIRED',
+          error: 'Email briefings are available on the Gold plan and up.',
+        },
+        { status: 403 },
+      );
+    }
     updated.emailAlerts = {
       marketBriefing: !!body.emailAlerts.marketBriefing,
       gapScanner: !!body.emailAlerts.gapScanner,

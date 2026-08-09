@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireFeature } from '@/lib/auth-session';
 
 const SECTORS = [
   { symbol: 'XLK',  name: 'Technology' },
@@ -72,6 +73,9 @@ function getFallbackData(): SectorItem[] {
 }
 
 export async function GET() {
+  const { error: entitlementError } = await requireFeature('marketFull');
+  if (entitlementError) return entitlementError;
+
   const timestamp = new Date().toISOString();
   try {
     const results = await Promise.all(SECTORS.map(s => fetchSector(s.symbol, s.name)));

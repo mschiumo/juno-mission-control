@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import {
   generateJournalInsightsReport,
   getPeriodKey,
@@ -11,7 +11,7 @@ import {
 
 // GET — fetch saved report for current period + archived reports
 export async function GET(request: NextRequest) {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('journalInsights');
   if (authError) return authError;
 
   const period = request.nextUrl.searchParams.get('period') || 'week';
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
 // POST — generate new report, save to Redis
 export async function POST(request: NextRequest) {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('journalInsights');
   if (authError) return authError;
 
   if (!process.env.ANTHROPIC_API_KEY) {

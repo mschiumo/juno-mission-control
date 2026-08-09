@@ -1,6 +1,9 @@
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 import { isOwnerEmail } from '@/lib/owner';
+import { type Features } from '@/lib/entitlements';
+import { getEntitlements } from '@/lib/db/entitlements';
+import { getUserById } from '@/lib/db/users';
 
 /**
  * Get the authenticated user's ID from the session.
@@ -10,6 +13,14 @@ export async function requireUserId(): Promise<{ userId: string; error?: never }
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) {
+    return {
+      error: NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 }),
+    };
+  }
+  // Sessions are JWTs and outlive the account: a deleted user's token stays
+  // cryptographically valid until it expires. Verify the account still exists
+  // so deletion actually revokes access (one cheap Redis GET).
+  if (!(await getUserById(userId))) {
     return {
       error: NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 }),
     };
@@ -40,6 +51,49 @@ export async function requireOwner(): Promise<
     };
   }
   return { userId, email: email! };
+}
+
+/**
+ * Require the authenticated user's plan to include a feature. Returns
+ * { userId, email } like requireOwner(), so call sites are a one-word swap.
+ *
+ * 401 for "not signed in"; 403 with code UPGRADE_REQUIRED for "signed in but
+ * plan doesn't include this", so clients can distinguish an upsell from a
+ * real authorization error. The owner resolves to Platinum unconditionally
+ * inside getEntitlements().
+ */
+export async function requireFeature(feature: keyof Features): Promise<
+  | { userId: string; email: string; error?: never }
+  | { userId?: never; email?: never; error: NextResponse }
+> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  const email = session?.user?.email;
+  if (!userId) {
+    return {
+      error: NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 }),
+    };
+  }
+  // Same deleted-account guard as requireUserId — JWTs outlive the account.
+  if (!(await getUserById(userId))) {
+    return {
+      error: NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 }),
+    };
+  }
+  const entitlements = await getEntitlements(userId, email);
+  if (!entitlements.features[feature]) {
+    return {
+      error: NextResponse.json(
+        {
+          success: false,
+          code: 'UPGRADE_REQUIRED',
+          error: 'Your current plan does not include this feature.',
+        },
+        { status: 403 },
+      ),
+    };
+  }
+  return { userId, email: email ?? '' };
 }
 
 /**

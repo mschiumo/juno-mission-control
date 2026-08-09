@@ -10,7 +10,7 @@ import type { Trade, CreateTradeRequest, TradeListResponse } from '@/types/tradi
 import { TradeStatus, Strategy } from '@/types/trading';
 import { getAllTrades, saveTrade } from '@/lib/db/trades-v2';
 import { getNowInEST } from '@/lib/date-utils';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 
 // Helper to generate UUID
 function generateId(): string {
@@ -33,7 +33,7 @@ function generateId(): string {
  * - sortOrder: 'asc' | 'desc' (default: 'desc')
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('journal');
   if (error) return error;
 
   try {
@@ -152,7 +152,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
  * Creates a new trade entry
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('journal');
   if (error) return error;
 
   try {

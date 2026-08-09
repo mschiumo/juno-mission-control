@@ -261,6 +261,13 @@ export async function sendEmailsToSubscribers(
         const user = await getUserById(userId);
         if (!user?.email) continue;
 
+        // Briefing emails are a Gold+ feature. The toggle is hidden below
+        // Gold, but prefs persist across plan changes (and lapsed trials), so
+        // entitlement is enforced here at send time — the gate that matters.
+        const { getEntitlements } = await import('@/lib/db/entitlements');
+        const entitlements = await getEntitlements(userId, user.email);
+        if (!entitlements.features.emailBriefings) continue;
+
         const result = await sendEmail({
           to: user.email,
           subject: subjectFn(),

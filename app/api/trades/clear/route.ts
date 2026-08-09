@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { clearAllTrades } from '@/lib/db/trades-v2';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 
 /**
  * POST /api/trades/clear
@@ -8,7 +8,7 @@ import { requireUserId } from '@/lib/auth-session';
  * Wipes all trade data from Redis
  */
 export async function POST() {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('journal');
   if (error) return error;
 
   try {

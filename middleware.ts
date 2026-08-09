@@ -23,6 +23,11 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  // Stripe webhook: authenticated by its signature inside the route handler.
+  if (nextUrl.pathname === '/api/billing/webhook') {
+    return NextResponse.next();
+  }
+
   // Agent API: token-authenticated (AGENT_SECRET) so headless Claude agents can
   // report proposals / work handed-off Collaborative goals without a user session.
   if (
@@ -41,7 +46,7 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  const publicPaths = ['/', '/login', '/signup'];
+  const publicPaths = ['/', '/login', '/signup', '/terms', '/privacy', '/forgot-password', '/reset-password'];
   const authPages = ['/login', '/signup']; // redirect away from these when already logged in
 
   if (!isLoggedIn && !publicPaths.includes(nextUrl.pathname)) {

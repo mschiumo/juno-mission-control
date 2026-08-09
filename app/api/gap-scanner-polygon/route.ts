@@ -7,6 +7,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { requireFeature } from '@/lib/auth-session';
 import { getCachedGapScanResults, cacheGapScanResults } from '@/lib/cron-helpers';
 import {
   getMarketSession,
@@ -19,6 +20,9 @@ import { getAvgVolumeMap } from '@/lib/avg-volume';
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
 
 export async function GET(request: Request) {
+  const { error: entitlementError } = await requireFeature('marketFull');
+  if (entitlementError) return entitlementError;
+
   const startTime = Date.now();
   const { searchParams } = new URL(request.url);
 

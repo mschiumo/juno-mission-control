@@ -167,16 +167,25 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={e => setRememberMe(e.target.checked)}
-                className="w-3.5 h-3.5 rounded cursor-pointer"
-                style={{ accentColor: 'var(--accent)' }}
-              />
-              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Remember me</span>
-            </label>
+            <div className="flex items-center justify-between pt-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded cursor-pointer"
+                  style={{ accentColor: 'var(--accent)' }}
+                />
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Remember me</span>
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-xs transition-colors"
+                style={{ color: 'var(--accent-light)' }}
+              >
+                Forgot password?
+              </Link>
+            </div>
 
             {error && (
               <p className="text-xs text-center py-2 px-3 rounded-lg" style={{ color: 'var(--negative)', background: 'var(--negative-dim)', border: '1px solid rgba(255,61,87,0.15)' }}>

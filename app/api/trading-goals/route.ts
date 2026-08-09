@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import { getAllTrades } from '@/lib/db/trades-v2';
 import { getAllGoals, saveGoal, getJournaledDates } from '@/lib/db/trading-goals';
 import { computeGoalProgress } from '@/lib/trading/goal-progress';
@@ -57,7 +57,7 @@ function validateGoalInput(b: Partial<CreateGoalRequest>): string | null {
 }
 
 export async function GET(): Promise<NextResponse> {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('goals');
   if (error) return error;
 
   try {
@@ -79,7 +79,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('goals');
   if (error) return error;
 
   try {

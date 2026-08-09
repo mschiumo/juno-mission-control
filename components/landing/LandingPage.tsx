@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import {
   TrendingUp, BarChart2, BookOpen, Target, Zap,
@@ -9,6 +9,10 @@ import {
   Sparkles, Brain, Lightbulb, TrendingDown, Download,
   Bell, Newspaper, Sunrise, Star, SlidersHorizontal, Mail,
 } from 'lucide-react';
+
+import { TIER_PRICING, ANNUAL_DISCOUNT, PLATINUM_COMING_SOON } from '@/lib/entitlements';
+import FeatureCarousel from '@/components/landing/FeatureCarousel';
+import ComparePlans from '@/components/landing/ComparePlans';
 
 const SUPPORT_EMAIL = 'confluencetradingsupport@gmail.com';
 
@@ -130,9 +134,9 @@ const FEATURES = [
   },
   {
     icon: Target,
-    title: 'Position Calculator',
-    desc: 'Calculate optimal position sizes based on account risk, stop loss, and target levels to protect your capital.',
-    tags: ['Risk Mgmt', 'Sizing', 'R/R'],
+    title: 'Risk & Trade Management',
+    desc: 'See every trade before you take it — entry, stop, and target mapped on one screen, with your dollar risk and exact share size computed for you. Never over-size a position again.',
+    tags: ['Entry/Stop/Target', 'Risk $', 'Share Size'],
     bg: 'bg-[#58a6ff]/10',
     color: 'text-[#58a6ff]',
   },
@@ -179,7 +183,62 @@ const range = (r: string) => ({ animationRange: r } as CSSProperties);
 /* ══════════════════════════════════════════════════════════════════
    COMPONENT
 ══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Founder section — a face and a name where the "who built this?" question
+ * forms, right before pricing. The portrait ships in /public as a true
+ * grayscale asset; the CSS filter is belt-and-suspenders so any future
+ * replacement photo renders black-and-white too. Hidden only if the image
+ * genuinely fails (checked via naturalWidth on mount to dodge the
+ * loads-before-hydration race).
+ */
+function FounderSection() {
+  const [photoFailed, setPhotoFailed] = useState(false);
+  return (
+    <section
+      className="px-6 border-t border-[#30363d] bg-[#161b22]/20"
+      style={{ display: photoFailed ? 'none' : undefined }}
+    >
+      <div className="max-w-4xl mx-auto py-24 flex flex-col md:flex-row items-center gap-10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/founder.jpg"
+          alt="Michael J. Schiuma, founder of ConfluenceTrading"
+          onError={() => setPhotoFailed(true)}
+          ref={(el) => {
+            if (el && el.complete && el.naturalWidth === 0) setPhotoFailed(true);
+          }}
+          className="w-44 h-44 md:w-52 md:h-52 rounded-2xl object-cover shrink-0 border border-[#30363d]"
+          style={{ filter: 'grayscale(1)', objectPosition: 'center 20%' }}
+        />
+        <div className="text-center md:text-left">
+          <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">
+            Built by a trader
+          </p>
+          <h2 className="text-3xl font-bold text-white mb-1">Michael J. Schiuma</h2>
+          <p className="text-sm text-[#8b949e] mb-5">Founder, ConfluenceTrading</p>
+          <p className="text-[#c9d1d9] leading-relaxed mb-4">
+            &ldquo;I built ConfluenceTrading as a solution to my own issues with trading
+            psychology. Everyone can become a trader, but only the disciplined become great
+            traders. With ConfluenceTrading, the tools are there for you. I stand by that,
+            because I use them in my own sessions, every market day. Discipline isn&apos;t a
+            personality trait; it&apos;s a system. This is mine, and now it&apos;s yours.&rdquo;
+          </p>
+          <p className="text-sm text-[#8b949e]">
+            Questions land in my inbox —{' '}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-[#F97316] hover:underline">
+              write to me directly
+            </a>
+            .
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function LandingPage() {
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   /* KPI count-up — the only JS animation. setInterval, not rAF: rAF is
      throttled in some embedded/background contexts and silently never
      ticks. Resting state is the final value, so if this never runs the
@@ -249,6 +308,7 @@ export default function LandingPage() {
             <a href="#analytics"   className="text-sm text-[#8b949e] hover:text-white transition-colors">Analytics</a>
             <a href="#market-intel" className="text-sm text-[#8b949e] hover:text-white transition-colors">Market Intel</a>
             <a href="#how-it-works" className="text-sm text-[#8b949e] hover:text-white transition-colors">How It Works</a>
+            <a href="#pricing" className="text-sm text-[#8b949e] hover:text-white transition-colors">Pricing</a>
             <a href="#contact" className="text-sm text-[#8b949e] hover:text-white transition-colors">Contact</a>
           </div>
 
@@ -431,32 +491,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══ STATS BANNER ═══ */}
-      <section className="py-10 border-y border-[#30363d] bg-[#161b22]/40">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {[
-              { label: 'Strategies Tracked', value: '15+',     icon: BarChart2 },
-              { label: 'Live Market Data',   value: 'Real-time', icon: Activity  },
-              { label: 'AI Market Briefings', value: 'Daily',    icon: Sunrise   },
-              { label: 'Risk Management',    value: 'Built-in',  icon: Shield    },
-            ].map(s => (
-              <div key={s.label} className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-[#0d1117] border border-[#30363d] flex items-center justify-center flex-shrink-0">
-                  <s.icon className="w-5 h-5 text-[#F97316]" />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-white">{s.value}</p>
-                  <p className="text-sm text-[#8b949e]">{s.label}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ═══ FEATURES ═══ */}
-      <section id="features" className="py-16 px-6">
+      <section id="features" className="py-24 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-10">
             <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Everything You Need</p>
@@ -467,30 +503,48 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {FEATURES.map((f, i) => (
-              <div
-                key={f.title}
-                className="group p-5 rounded-xl border border-[#30363d] bg-[#161b22] hover:border-[#F97316]/40 hover:bg-[#1c2128] transition-all duration-300"
-                data-reveal="sm"
-                style={range(`entry ${8 + (i % 4) * 3}% cover ${20 + (i % 4) * 3}%`)}
-              >
-                <div className="flex items-center gap-3 mb-2.5">
-                  <div className={`w-9 h-9 rounded-lg ${f.bg} flex items-center justify-center flex-shrink-0`}>
-                    <f.icon className={`w-4.5 h-4.5 ${f.color}`} />
+          <FeatureCarousel />
+
+          {/* ═══ SUPPORTED BROKERS — sliding logo strip ═══ */}
+          <div className="mt-12 overflow-hidden">
+            <p className="text-center text-[11px] text-[#8b949e] font-semibold uppercase tracking-[0.15em] mb-6">
+              Works with your broker · powered by SnapTrade
+            </p>
+            <div className="broker-marquee overflow-hidden">
+              <div className="broker-marquee-track">
+                {[0, 1].map(copy => (
+                  <div key={copy} className="flex shrink-0 items-center" aria-hidden={copy === 1}>
+                    {([
+                      ['schwab.png', 'Charles Schwab'],
+                      ['robinhood.png', 'Robinhood'],
+                      ['fidelity.png', 'Fidelity'],
+                      ['etrade.png', 'E*TRADE'],
+                      ['webull.png', 'Webull'],
+                      ['interactive-brokers.png', 'Interactive Brokers'],
+                      ['vanguard.png', 'Vanguard'],
+                      ['thinkorswim.png', 'thinkorswim'],
+                      ['tastytrade.png', 'tastytrade'],
+                      ['coinbase.png', 'Coinbase'],
+                    ] as [string, string][]).map(([file, name]) => (
+                      <div
+                        key={name}
+                        className="group flex items-center gap-2.5 px-8 opacity-90 hover:opacity-100 transition-opacity duration-300"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`/brokers/${file}`}
+                          alt={`${name} logo`}
+                          className="w-7 h-7 rounded-lg"
+                        />
+                        <span className="text-sm font-medium text-[#8b949e] group-hover:text-white whitespace-nowrap transition-colors duration-300">
+                          {name}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                  <h3 className="text-base font-semibold text-white">{f.title}</h3>
-                </div>
-                <p className="text-sm text-[#8b949e] leading-snug mb-3">{f.desc}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {f.tags.map(tag => (
-                    <span key={tag} className="px-2 py-0.5 text-[11px] rounded-md bg-[#0d1117] border border-[#30363d] text-[#8b949e]">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </section>
@@ -1106,6 +1160,189 @@ export default function LandingPage() {
         </div>
       </section>
 
+
+
+      {/* ═══ PRICING ═══ */}
+      <section id="pricing" className="py-24 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Pricing</p>
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Costs less than one bad trade.</h2>
+            <p className="text-[#8b949e] max-w-xl mx-auto text-lg">
+              One avoided mistake pays for the year. Start free — journal forever on Silver, and
+              try everything in Gold for 7 days. No card required.
+            </p>
+          </div>
+
+          {/* Billing cycle toggle */}
+          <div className="flex items-center justify-center gap-2 mb-10">
+            <button
+              onClick={() => setBillingCycle('monthly')}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                billingCycle === 'monthly' ? 'bg-[#F97316] text-white' : 'bg-[#161b22] text-[#8b949e] border border-[#30363d]'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle('annual')}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                billingCycle === 'annual' ? 'bg-[#F97316] text-white' : 'bg-[#161b22] text-[#8b949e] border border-[#30363d]'
+              }`}
+            >
+              Annual <span className={billingCycle === 'annual' ? 'text-white/90' : 'text-[#3fb950]'}>· save {Math.round(ANNUAL_DISCOUNT * 100)}%</span>
+            </button>
+          </div>
+
+          {/* Tier cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14 max-w-5xl mx-auto">
+            {([
+              {
+                tier: 'silver' as const,
+                name: 'Silver',
+                tagline: 'Free forever',
+                desc: 'Everything you need to trade with discipline — journal, plan risk, and know your numbers. At no cost.',
+                features: [
+                  'Trading journal — import your broker statements in one click',
+                  'Risk-first trade planning — exact entry, stop & target with dollar risk and share size',
+                  'Performance analytics — equity curve, win rate & strategy breakdown',
+                  'Market news screener — headlines tagged by sentiment & category',
+                  'Profit projection — stress-test your win rate and R:R before risking capital',
+                  'Docs & trading guides',
+                ],
+                popular: false,
+              },
+              {
+                tier: 'gold' as const,
+                name: 'Gold',
+                tagline: 'Your journal builds itself',
+                desc: 'Connect your broker and every trade logs itself — then AI coaches what it finds.',
+                features: [
+                  'Everything in Silver',
+                  'Auto-synced journal — trades, P&L and balances flow in from your broker',
+                  'Pre-market gap scanner & live market data, all session long',
+                  'AI morning briefing in your inbox before the bell',
+                  'AI coaching reports — surface your patterns, strengths & leaks',
+                  'Trading goals that track themselves from your real results',
+                ],
+                popular: true,
+              },
+              {
+                tier: 'platinum' as const,
+                name: 'Platinum',
+                tagline: 'AI-scouted setups. Your call.',
+                desc: 'An agent scans the market for swing-trade setups and stages every order for your review — nothing executes without your approval.',
+                features: [
+                  'Everything in Gold',
+                  'AI-identified swing-trade setups, with the reasoning attached',
+                  'You approve every order — review, adjust, or reject each proposal',
+                  'Full trade-lifecycle visibility — orders, fills, stops & progress in one terminal',
+                  'Guided onboarding — strategies, guardrails & brokerage wiring',
+                ],
+                popular: false,
+              },
+            ]).map(plan => (
+              <div
+                key={plan.tier}
+                className={`relative p-7 rounded-2xl flex flex-col transition-transform duration-300 hover:-translate-y-1.5 ${
+                  plan.popular
+                    ? 'border-2 border-[#F97316] bg-gradient-to-b from-[#F97316]/12 via-[#161b22] to-[#161b22] shadow-[0_0_70px_rgba(249,115,22,0.18)] lg:scale-[1.04]'
+                    : 'border border-[#30363d] bg-gradient-to-b from-[#1c2128] to-[#161b22] hover:border-[#8b949e]/40'
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#F97316] text-white text-[10px] font-bold rounded-full uppercase tracking-wider inline-flex items-center gap-1 whitespace-nowrap">
+                    <Star className="w-3 h-3" /> Most traders pick Gold
+                  </div>
+                )}
+                {plan.tier === 'platinum' && PLATINUM_COMING_SOON && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#d29922] text-[#1a1206] text-[10px] font-bold rounded-full uppercase tracking-wider whitespace-nowrap">
+                    Coming soon
+                  </div>
+                )}
+                <h3 className="text-xl font-bold text-white">{plan.name}</h3>
+                <p className="text-xs text-[#F97316] font-semibold uppercase tracking-wide mt-0.5 mb-3">{plan.tagline}</p>
+                <p className="text-sm text-[#8b949e] leading-relaxed mb-5 min-h-[40px]">{plan.desc}</p>
+                <div className="mb-6">
+                  {plan.tier === 'silver' ? (
+                    <>
+                      <span className="text-5xl font-extrabold tracking-tight text-white">$0</span>
+                      <span className="text-sm text-[#8b949e] ml-1.5">forever</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-5xl font-extrabold tracking-tight text-white">
+                        ${(() => {
+                          const v = billingCycle === 'monthly'
+                            ? TIER_PRICING[plan.tier].monthly
+                            : TIER_PRICING[plan.tier].annual / 12;
+                          return Number.isInteger(v) ? v : v.toFixed(2);
+                        })()}
+                      </span>
+                      <span className="text-sm text-[#8b949e] ml-1.5">/ month</span>
+                      <p className={`text-[11px] mt-1.5 ${billingCycle === 'annual' ? 'text-[#3fb950]' : 'text-[#484f58]'}`}>
+                        {billingCycle === 'annual'
+                          ? `Billed $${TIER_PRICING[plan.tier].annual.toFixed(2)}/yr · save $${(TIER_PRICING[plan.tier].monthly * 12 - TIER_PRICING[plan.tier].annual).toFixed(2)}`
+                          : `or $${TIER_PRICING[plan.tier].annual.toFixed(2)}/yr — ${Math.round(ANNUAL_DISCOUNT * 100)}% off`}
+                      </p>
+                    </>
+                  )}
+                </div>
+                <ul className="space-y-2.5 mb-7 flex-1">
+                  {plan.features.map(f => (
+                    <li key={f} className="flex items-start gap-2.5 text-sm text-[#8b949e]">
+                      <CheckCircle className="w-4 h-4 text-[#3fb950] flex-shrink-0 mt-0.5" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/signup"
+                  className={`w-full py-3 rounded-xl text-sm font-semibold text-center transition-colors ${
+                    plan.popular
+                      ? 'bg-[#F97316] hover:bg-[#fb8c3c] text-white'
+                      : 'bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]'
+                  }`}
+                >
+                  {plan.tier === 'silver'
+                    ? 'Create free account'
+                    : plan.tier === 'gold'
+                      ? 'Start 7-day free trial'
+                      : PLATINUM_COMING_SOON
+                        ? 'Coming soon — start with Gold'
+                        : 'Start with the free trial'}
+                </Link>
+                {plan.tier === 'platinum' && (
+                  <p className="mt-3 text-[10px] text-[#8b949e] leading-snug">
+                    Agents currently execute through a dedicated Robinhood connection set up during
+                    onboarding; journaling works with any supported broker.
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Trust row */}
+          <p className="text-center text-[11px] text-[#8b949e] uppercase tracking-[0.15em] mb-14">
+            Cancel in two clicks &nbsp;·&nbsp; No card for the free trial &nbsp;·&nbsp; Export your data any time
+          </p>
+
+          {/* Compare plans table — per the Compare Plans design handoff */}
+          <ComparePlans />
+          <div className="max-w-4xl mx-auto">
+            <p className="text-center text-[11px] text-[#484f58] mt-4 max-w-2xl mx-auto leading-relaxed">
+              ConfluenceTrading is a journaling and analytics tool — nothing in the product is
+              financial or investment advice. Trading involves substantial risk of loss; all
+              trading decisions are your own. See our{' '}
+              <Link href="/terms" className="text-[#8b949e] hover:text-[#F97316] underline">
+                Terms &amp; Conditions
+              </Link>{' '}
+              and risk disclosure.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* ═══ CTA ═══ */}
       <section className="py-24 px-6">
         <div className="max-w-4xl mx-auto">
@@ -1142,19 +1379,24 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══ CONTACT ═══ */}
-      <section id="contact" className="py-24 px-6 bg-[#161b22]/20">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Questions?</p>
-          <h2 className="text-4xl font-bold text-white mb-4">Get in Touch</h2>
-          <p className="text-[#8b949e] max-w-xl mx-auto mb-8">
-            Questions about terms, services, or anything else? Reach out and we&apos;ll get back to you.
-          </p>
+      {/* ═══ FOUNDER ═══ */}
+      <FounderSection />
+
+      {/* ═══ CONTACT — quiet strip, deliberately understated next to the CTA ═══ */}
+      <section id="contact" className="px-6 border-t border-[#30363d] bg-[#161b22]/20">
+        <div className="max-w-5xl mx-auto py-24 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="text-center md:text-left">
+            <p className="text-xs text-[#8b949e] font-semibold uppercase tracking-widest mb-1.5">Questions?</p>
+            <h2 className="text-xl font-bold text-white">Get in touch</h2>
+            <p className="text-sm text-[#8b949e] mt-1">
+              Terms, plans, or anything else — we read every message.
+            </p>
+          </div>
           <a
             href={`mailto:${SUPPORT_EMAIL}`}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-[#F97316] hover:bg-[#ea6c0a] text-white font-semibold rounded-xl transition-colors shadow-lg shadow-[#F97316]/20"
+            className="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl border border-[#30363d] bg-[#0d1117] text-sm text-[#c9d1d9] hover:border-[#F97316]/50 hover:text-white transition-colors font-mono"
           >
-            <Mail className="w-5 h-5" />
+            <Mail className="w-4 h-4 text-[#F97316]" />
             {SUPPORT_EMAIL}
           </a>
         </div>
@@ -1176,11 +1418,26 @@ export default function LandingPage() {
             <span className="hidden sm:inline text-[#8b949e] text-sm">— Your disciplined trading command center</span>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+            <Link href="/terms" className="text-xs text-[#8b949e] hover:text-[#F97316] transition-colors">
+              Terms &amp; Conditions
+            </Link>
+            <Link href="/privacy" className="text-xs text-[#8b949e] hover:text-[#F97316] transition-colors">
+              Privacy
+            </Link>
             <a href={`mailto:${SUPPORT_EMAIL}`} className="text-xs text-[#8b949e] hover:text-[#F97316] transition-colors">
               {SUPPORT_EMAIL}
             </a>
             <p className="text-xs text-[#8b949e]">© {new Date().getFullYear()} Confluence Trading. All rights reserved.</p>
           </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-6 pb-6 -mt-2">
+          <p className="text-[11px] text-[#484f58] leading-relaxed text-center md:text-left">
+            Disclaimer: ConfluenceTrading is a trading journal and analytics tool. Nothing in this
+            product constitutes financial, investment, tax, or legal advice, and no content should
+            be relied on as a recommendation to buy or sell any security. Trading involves
+            substantial risk of loss and is not suitable for every investor. All trading decisions
+            and their outcomes are solely your responsibility.
+          </p>
         </div>
       </footer>
 

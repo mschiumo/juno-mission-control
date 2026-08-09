@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Mail, Check, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useEntitlements } from '@/lib/use-entitlements';
 
 interface EmailCTAProps {
   type: 'marketBriefing' | 'gapScanner';
@@ -17,6 +18,9 @@ const LABELS = {
 export default function EmailCTA({ type, variant = 'banner' }: EmailCTAProps) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
+  // Email briefings are Gold+; below that the CTA renders nothing.
+  const { entitlements, loading: entitlementsLoading } = useEntitlements();
+  const allowed = entitlements.features.emailBriefings;
 
   useEffect(() => {
     fetch('/api/user/prefs')
@@ -59,6 +63,7 @@ export default function EmailCTA({ type, variant = 'banner' }: EmailCTAProps) {
   };
 
   // Don't render until we know the state
+  if (entitlementsLoading || !allowed) return null;
   if (enabled === null) return null;
 
   if (variant === 'inline') {

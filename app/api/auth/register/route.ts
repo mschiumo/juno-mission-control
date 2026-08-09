@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createUser } from '@/lib/db/users';
+import { recordPlanEvent } from '@/lib/db/plan-events';
+import { sendEmail } from '@/lib/email';
+import { WelcomeEmail } from '@/lib/emails/WelcomeEmail';
+import { markLifecycleEmailSent } from '@/lib/db/lifecycle-emails';
 
 export async function POST(request: Request) {
   try {
@@ -22,7 +26,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
     }
 
-    await createUser(email, name, password);
+    const user = await createUser(email, name, password);
+    await recordPlanEvent({ type: 'signup', userId: user.id, email });
+
+    // Welcome email — best-effort; a mail outage must never block signup.
+    try {
+      const sent = await sendEmail({
+        to: email,
+        subject: 'Welcome to ConfluenceTrading — your journal is ready',
+        react: WelcomeEmail({ name }),
+        replyTo: 'confluencetradingsupport@gmail.com',
+      });
+      if (sent.success) await markLifecycleEmailSent(user.id, 'welcome');
+    } catch (err) {
+      console.error('Welcome email failed (non-fatal):', err);
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -973,3 +973,19 @@ body {
   [data-reveal] { animation: none !important; opacity: 1 !important; transform: none !important; filter: none !important; }
   [data-loop]   { animation: none !important; }
 }
+
+/* ── Landing: supported-brokers logo marquee ── */
+@keyframes broker-marquee {
+  to { transform: translateX(-50%); }
+}
+.broker-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: broker-marquee 36s linear infinite;
+}
+.broker-marquee:hover .broker-marquee-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .broker-marquee-track { animation: none; }
+}

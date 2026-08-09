@@ -14,13 +14,15 @@ import MotivationalBanner from "@/components/MotivationalBanner";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
 import FinancesView from "@/components/finances/FinancesView";
+import AccountMetricsView from "@/components/admin/AccountMetricsView";
 import LandingPage from "@/components/landing/LandingPage";
+import UserAvatar from "@/components/UserAvatar";
 import Link from 'next/link';
-import { LayoutDashboard, Target, TrendingUp, Wallet, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, Target, TrendingUp, Wallet, Users, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
 
-type TabId = 'dashboard' | 'finances' | 'trading' | 'goals';
+type TabId = 'dashboard' | 'finances' | 'trading' | 'goals' | 'accounts';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -37,6 +39,7 @@ function DashboardContent() {
     if (tab === 'trading') return 'trading';
     if (tab === 'finances' && isOwner) return 'finances';
     if (tab === 'goals' && isOwner) return 'goals';
+    if (tab === 'accounts' && isOwner) return 'accounts';
     if (isOwner) return 'dashboard';
     return 'trading';
   }, [searchParams, isOwner]);
@@ -46,7 +49,7 @@ function DashboardContent() {
 
   // Redirect non-owners away from owner-only tabs (dashboard, finances, goals)
   useEffect(() => {
-    if (!isOwner && (activeTab === 'dashboard' || activeTab === 'finances' || activeTab === 'goals')) {
+    if (!isOwner && activeTab !== 'trading') {
       setActiveTab('trading');
     }
   }, [isOwner, activeTab]);
@@ -69,6 +72,7 @@ function DashboardContent() {
         { id: 'finances' as const, label: 'Finances', icon: Wallet },
         { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
         { id: 'goals' as const, label: 'Goals', icon: Target },
+        { id: 'accounts' as const, label: 'Accounts', icon: Users },
       ]
     : [];
 
@@ -120,13 +124,8 @@ function DashboardContent() {
               <div className="hidden md:flex items-center gap-2">
                 <LiveClock />
                 <div className="flex items-center gap-1" style={{ borderLeft: '1px solid var(--border-subtle)', paddingLeft: '10px' }}>
-                  <Link
-                    href="/profile"
-                    title="Profile & Settings"
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold transition-all duration-200"
-                    style={{ background: 'linear-gradient(135deg, #FF6B00, #cc4e00)', boxShadow: '0 1px 6px rgba(255,107,0,0.25)' }}
-                  >
-                    {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
+                  <Link href="/profile" title="Profile & Settings" className="transition-all duration-200">
+                    <UserAvatar name={session?.user?.name} size={28} />
                   </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
@@ -181,13 +180,8 @@ function DashboardContent() {
               <div className="pt-2 flex items-center justify-between" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                 <LiveClock />
                 <div className="flex items-center gap-1">
-                  <Link
-                    href="/profile"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                    style={{ background: 'linear-gradient(135deg, #FF6B00, #cc4e00)' }}
-                  >
-                    {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
+                  <Link href="/profile" onClick={() => setMobileMenuOpen(false)}>
+                    <UserAvatar name={session?.user?.name} size={28} />
                   </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
@@ -239,6 +233,11 @@ function DashboardContent() {
             <Suspense fallback={<div className="p-8 text-center" style={{ color: 'var(--text-tertiary)' }}>Loading goals...</div>}>
               <GoalsCard />
             </Suspense>
+          </div>
+        ) : activeTab === 'accounts' ? (
+          /* Owner-only account metrics */
+          <div className="max-w-[1600px] mx-auto">
+            <AccountMetricsView />
           </div>
         ) : null}
       </main>

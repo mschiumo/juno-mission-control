@@ -61,6 +61,15 @@ export async function getUserByEmail(email: string): Promise<AppUser | null> {
   return JSON.parse(data) as AppUser;
 }
 
+export async function updatePassword(id: string, newPassword: string): Promise<boolean> {
+  const redis = await getRedisClient();
+  const user = await getUserById(id);
+  if (!user) return false;
+  user.passwordHash = await bcrypt.hash(newPassword, 12);
+  await redis.set(userKey(id), JSON.stringify(user));
+  return true;
+}
+
 export async function verifyPassword(user: AppUser, password: string): Promise<boolean> {
   return bcrypt.compare(password, user.passwordHash);
 }
@@ -99,6 +108,53 @@ export async function updateUser(id: string, updates: { name?: string; email?: s
 
   await redis.set(userKey(id), JSON.stringify(user));
   return user;
+}
+
+/**
+ * Permanently delete a user account and all of their data. The caller is
+ * responsible for tearing down external billing surfaces FIRST (SnapTrade
+ * deregistration via disconnectBrokerage) — this only removes our records.
+ */
+export async function deleteUserAccount(id: string): Promise<void> {
+  const redis = await getRedisClient();
+  const user = await getUserById(id);
+
+  // Exact per-user keys.
+  const exact = [
+    userKey(id),
+    `user:prefs:${id}`,
+    `user:lifecycle-emails:${id}`,
+    `user:stripe-customer:${id}`,
+    `user:avatar:${id}`,
+    `user:entitlements:${id}`,
+    `user:entitlements:trial-used:${id}`,
+    `user:entitlements:referral-used:${id}`,
+    `user:daily-balances:${id}`,
+    `user:fees:${id}`,
+    `trades:v2:data:${id}`,
+    `trades:v2:backup:${id}`,
+    `trades:active:data:${id}`,
+    `trades:closed:data:${id}`,
+    `trades:watchlist:data:${id}`,
+    `trading-goals:${id}`,
+  ];
+  // Per-date / per-period families.
+  const patterns = [
+    `daily-journal:${id}:*`,
+    `journal-insights:${id}:*`,
+    `personal-journal:${id}:*`,
+    `personal-journal-prompts:${id}`,
+    `personal-journal-report:${id}:*`,
+  ];
+  for (const pattern of patterns) {
+    const keys = await redis.keys(pattern);
+    if (keys.length > 0) exact.push(...keys);
+  }
+  if (exact.length > 0) await redis.del(exact);
+
+  if (user?.email) await redis.del(emailIndexKey(user.email));
+  await redis.sRem(USER_INDEX_KEY, id);
+  await redis.sRem('user:entitlements:paid', id);
 }
 
 export async function backfillUserIndex(): Promise<number> {

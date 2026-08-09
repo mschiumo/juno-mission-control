@@ -20,9 +20,11 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://confluencetrading.ap
 interface EmailLayoutProps {
   children: React.ReactNode;
   previewText?: string;
+  /** Why the recipient is getting this. Defaults to the alert-opt-in copy. */
+  footerReason?: React.ReactNode;
 }
 
-export function EmailLayout({ children, previewText }: EmailLayoutProps) {
+export function EmailLayout({ children, previewText, footerReason }: EmailLayoutProps) {
   return (
     <Html lang="en">
       <Head>
@@ -78,11 +80,15 @@ export function EmailLayout({ children, previewText }: EmailLayoutProps) {
           <Hr style={divider} />
           <Section style={footer}>
             <Text style={footerText}>
-              You received this because you enabled email alerts in{' '}
-              <Link href={`${APP_URL}/profile`} style={footerLink}>
-                your settings
-              </Link>
-              .
+              {footerReason ?? (
+                <>
+                  You received this because you enabled email alerts in{' '}
+                  <Link href={`${APP_URL}/profile`} style={footerLink}>
+                    your settings
+                  </Link>
+                  .
+                </>
+              )}
             </Text>
             <Text style={footerText}>
               <Link href={`${APP_URL}/profile`} style={footerLink}>

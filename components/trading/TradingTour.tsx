@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { Features } from '@/lib/entitlements';
 import {
   X,
   ChevronLeft,
@@ -168,7 +169,20 @@ interface TourStep {
   title: string;
   description: string;
   tip?: string;
+  /** Extra feature requirement beyond the subtab itself (e.g. AI insights). */
+  requiresFeature?: keyof Features;
 }
+
+/** Which plan feature unlocks each sub-tab the tour can visit. */
+const SUBTAB_FEATURE: Record<TradingSubTab, keyof Features> = {
+  overview: 'journal',
+  market: 'marketFull',
+  'market-news': 'marketNews',
+  performance: 'performance',
+  goals: 'goals',
+  projection: 'profitProjection',
+  'trade-management': 'tradeManagement',
+};
 
 const STEPS: TourStep[] = [
   {
@@ -249,6 +263,7 @@ const STEPS: TourStep[] = [
   },
   {
     subtab: 'performance',
+    requiresFeature: 'journalInsights',
     icon: <Brain className="w-9 h-9 text-[#F97316]" />,
     title: 'AI Journal Insights',
     description:
@@ -285,6 +300,12 @@ interface TradingTourProps {
   activeSubTab: TradingSubTab;
   onNavigate: (subtab: TradingSubTab) => void;
   onComplete: () => void;
+  /**
+   * The signed-in user's plan features. Steps that visit a sub-tab (or demo a
+   * feature) outside the plan are skipped so the tour never navigates into a
+   * tab the user can't see.
+   */
+  features: Features;
 }
 
 /** Diamond arrow connecting the tooltip to the highlighted element */
@@ -352,15 +373,28 @@ function Arrow({ side }: { side: TooltipSide }) {
   );
 }
 
-export default function TradingTour({ activeSubTab, onNavigate, onComplete }: TradingTourProps) {
+export default function TradingTour({ activeSubTab, onNavigate, onComplete, features }: TradingTourProps) {
+  // Only tour what the plan includes.
+  const steps = useMemo(
+    () =>
+      STEPS.filter(
+        (s) =>
+          features[SUBTAB_FEATURE[s.subtab]] &&
+          (!s.requiresFeature || features[s.requiresFeature]),
+      ),
+    [features],
+  );
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
   const [locateFailed, setLocateFailed] = useState(false);
 
-  const current = STEPS[step];
+  // A plan with no tourable features yields no steps (e.g. a user with no
+  // active plan yet) — the empty-steps early return below renders nothing
+  // rather than crashing; the clamp guards a plan change mid-tour.
+  const current = steps[Math.min(step, Math.max(steps.length - 1, 0))];
   const isFirst = step === 0;
-  const isLast = step === STEPS.length - 1;
+  const isLast = step === steps.length - 1;
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 50);
@@ -368,7 +402,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
   }, []);
 
   const locateTarget = useCallback(() => {
-    if (!current.targetDataTour) {
+    if (!current?.targetDataTour) {
       setTargetRect(null);
       return;
     }
@@ -390,12 +424,12 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
       }
       setTargetRect({ top: r.top, left: r.left, width: r.width, height: r.height });
     }, 320);
-  }, [current.targetDataTour]);
+  }, [current?.targetDataTour]);
 
   useEffect(() => {
     setTargetRect(null);
     setLocateFailed(false);
-    if (current.subtab !== activeSubTab) {
+    if (current && current.subtab !== activeSubTab) {
       onNavigate(current.subtab);
       const t = setTimeout(locateTarget, 480);
       return () => clearTimeout(t);
@@ -425,7 +459,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
 
     if (!targetRect) {
       // Centered modal — wider when a preview panel is present
-      const w = current.preview ? Math.min(720, vw - 32) : Math.min(TOOLTIP_WIDTH, vw - 32);
+      const w = current?.preview ? Math.min(720, vw - 32) : Math.min(TOOLTIP_WIDTH, vw - 32);
       return {
         position: 'fixed',
         top: '50%',
@@ -437,7 +471,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
     }
 
     const { top, left, width, height } = targetRect;
-    const side = current.tooltipSide ?? 'bottom';
+    const side = current?.tooltipSide ?? 'bottom';
     const vh = window.innerHeight;
     const CARD_H = 360;
 
@@ -546,6 +580,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
   }
 
   const hasTarget = !!targetRect;
+  if (!current) return null;
+
   const side = current.tooltipSide;
   // Don't render the card until position is known — prevents flash to wrong spot
   const cardReady = !current.targetDataTour || hasTarget || locateFailed;
@@ -577,7 +613,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/60 rounded-t-2xl">
           <span className="text-xs font-semibold text-[#8b949e] uppercase tracking-widest">
-            Tour · {step + 1} of {STEPS.length}
+            Tour · {step + 1} of {steps.length}
           </span>
           <button
             onClick={dismiss}
@@ -619,7 +655,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete }: Tr
 
         {/* Progress dots */}
         <div className="flex justify-center gap-2 pb-2">
-          {STEPS.map((_, i) => (
+          {steps.map((_, i) => (
             <button
               key={i}
               onClick={() => setStep(i)}

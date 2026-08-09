@@ -10,9 +10,13 @@
  */
 
 import { NextResponse } from 'next/server';
+import { requireFeature } from '@/lib/auth-session';
 import { runIntradayScan } from '@/lib/intraday-movers';
 
 export async function GET(request: Request) {
+  const { error: entitlementError } = await requireFeature('marketFull');
+  if (entitlementError) return entitlementError;
+
   const startTime = Date.now();
   const { searchParams } = new URL(request.url);
 

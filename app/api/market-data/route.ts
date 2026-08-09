@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireFeature } from '@/lib/auth-session';
 
 interface MarketItem {
   symbol: string;
@@ -466,6 +467,9 @@ function getFallbackData(): { indices: MarketItem[]; stocks: MarketItem[]; commo
 }
 
 export async function GET() {
+  const { error: entitlementError } = await requireFeature('marketFull');
+  if (entitlementError) return entitlementError;
+
   const timestamp = new Date().toISOString();
   const hasFinnhubKey = !!process.env.FINNHUB_API_KEY;
   

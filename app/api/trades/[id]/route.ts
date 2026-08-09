@@ -11,7 +11,7 @@ import type { Trade, UpdateTradeRequest } from '@/types/trading';
 import { TradeStatus, TradeSide } from '@/types/trading';
 import { getTradeById, updateTrade, deleteTrade } from '@/lib/db/trades-v2';
 import { getNowInEST } from '@/lib/date-utils';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 
 interface RouteParams {
   params: Promise<{
@@ -28,7 +28,7 @@ export async function GET(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('journal');
   if (error) return error;
 
   try {
@@ -66,7 +66,7 @@ export async function PUT(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('journal');
   if (error) return error;
 
   try {
@@ -262,7 +262,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('journal');
   if (error) return error;
 
   try {

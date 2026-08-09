@@ -19,6 +19,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Plug } from 'lucide-react';
 import BrokerageConnectModal from './BrokerageConnectModal';
 import { brokerLogoPath } from '@/lib/broker-logos';
+import { useEntitlements } from '@/lib/use-entitlements';
 
 interface BrokerAccount {
   id: string;
@@ -71,6 +72,10 @@ export default function BrokerageSyncBar({
   const [syncing, setSyncing] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  // Live brokerage sync is Gold+. Below that the bar renders nothing at all —
+  // plans hide features rather than showing locked states.
+  const { entitlements, loading: entitlementsLoading } = useEntitlements();
+  const canConnect = entitlements.features.brokerageSync;
 
   const loadStatus = useCallback(async () => {
     try {
@@ -85,8 +90,9 @@ export default function BrokerageSyncBar({
   }, []);
 
   useEffect(() => {
+    if (entitlementsLoading || !canConnect) return;
     loadStatus();
-  }, [loadStatus]);
+  }, [loadStatus, entitlementsLoading, canConnect]);
 
   const accounts = status?.accounts ?? [];
   const connected = Boolean(status?.connected && accounts.length > 0);
@@ -117,6 +123,9 @@ export default function BrokerageSyncBar({
       setSyncing(false);
     }
   };
+
+  // Below Gold there is no brokerage feature to show — render nothing.
+  if (entitlementsLoading || !canConnect) return null;
 
   // Hide during the brief status-loading window so the pill doesn't flicker.
   if (loading) return null;
