@@ -43,6 +43,9 @@
     },
     "app/api/cron-jobs/snaptrade-sync/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/cron-jobs/weekly-journal-insights/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
@@ -117,6 +120,10 @@
     {
       "path": "/api/cron-jobs/lifecycle-emails",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron-jobs/weekly-journal-insights",
+      "schedule": "0 2 * * 6"
     }
   ]
 }

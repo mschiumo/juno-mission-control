@@ -502,8 +502,10 @@ export function BrokerageSyncArticle() {
       <DocSection title="Disconnecting">
         <P>
           <UI>Manage</UI> on the brokerage strip opens the same dialog, where <UI>Disconnect</UI> removes the link and
-          stops all future syncing. Trades already pulled stay in your journal — disconnecting is not a delete. You can
-          also revoke access from your broker&apos;s own security settings at any time.
+          stops all future syncing. Because the broker was the sole source of your Journal while linked, disconnecting
+          also resets that history: synced trades and broker balances are removed, and any trades you had imported
+          before connecting are restored. You can also revoke access from your broker&apos;s own security settings at
+          any time.
         </P>
       </DocSection>
     </div>

@@ -16,6 +16,7 @@ import { isSnapTradeConfigured, deleteUser } from '@/lib/snaptrade';
 import { getBrokerConnection, deleteBrokerConnection } from '@/lib/db/broker-connections';
 import { clearBrokerDailyBalances } from '@/lib/db/balances';
 import { clearBrokerDailyFees } from '@/lib/db/fees';
+import { restoreTradesBackup, clearAllTrades, clearTradesBackup } from '@/lib/db/trades-v2';
 
 const ORPHAN_KEY = 'broker:snaptrade:orphaned-users';
 
@@ -34,18 +35,23 @@ export interface DisconnectResult {
   deregistered: boolean;
   /** True when deleteUser failed and the id was queued for the nightly retry. */
   orphaned: boolean;
+  /** Hand-imported trades restored from the pre-broker backup (0 if none). */
+  tradesRestored: number;
 }
 
 /**
  * Remove a user's brokerage connection end to end: deregister with SnapTrade,
- * delete our stored connection record, and clear the broker-derived balance
- * and fee series so the equity curve falls back to statement uploads instead
- * of a stale broker series. Imported trades in trades-v2 are left intact.
+ * reset the trade history the broker owned (the broker is the Journal's sole
+ * source while linked — see PR #519 — so disconnect restores the pre-broker
+ * backup, or an empty list for broker-first users), clear the broker-derived
+ * balance/fee series, and delete our stored connection record. Local clears
+ * run before the connection record is deleted so a mid-flight failure leaves
+ * the record in place and a retry re-runs the whole cleanup.
  */
 export async function disconnectBrokerage(userId: string): Promise<DisconnectResult> {
   const connection = await getBrokerConnection(userId);
   if (!connection) {
-    return { disconnected: true, hadConnection: false, deregistered: false, orphaned: false };
+    return { disconnected: true, hadConnection: false, deregistered: false, orphaned: false, tradesRestored: 0 };
   }
 
   let deregistered = false;
@@ -61,10 +67,22 @@ export async function disconnectBrokerage(userId: string): Promise<DisconnectRes
     }
   }
 
-  await deleteBrokerConnection(userId);
+  // Reset the trade list the broker owned: back to the pre-broker snapshot
+  // when one exists, otherwise empty.
+  const restored = await restoreTradesBackup(userId);
+  if (restored === null) {
+    await clearAllTrades(userId);
+  }
+
   await clearBrokerDailyBalances(userId);
   await clearBrokerDailyFees(userId);
-  return { disconnected: true, hadConnection: true, deregistered, orphaned };
+  await deleteBrokerConnection(userId);
+
+  // Only after the disconnect is fully committed: drop the consumed backup so
+  // a future reconnect snapshots the then-current list fresh.
+  await clearTradesBackup(userId);
+
+  return { disconnected: true, hadConnection: true, deregistered, orphaned, tradesRestored: restored ?? 0 };
 }
 
 /** Retry SnapTrade deregistration for every queued orphan. */
