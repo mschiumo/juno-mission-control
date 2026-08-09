@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { refreshStockUniverse } from '@/lib/stock-universe';
 import { runGapScan, getCachedResults, ScanResult } from '@/lib/gap-scanner-core';
+import { requireOwner } from '@/lib/auth-session';
 
 // Allow up to 300s for full stock universe scan (App Router maxDuration)
 export const maxDuration = 300;
@@ -45,6 +46,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  // Owner-only: refresh-universe rebuilds the shared stock universe via external
+  // market-data API calls. Left open to any logged-in user, it was a
+  // denial-of-wallet vector (loop it to burn provider quota).
+  const { error: authError } = await requireOwner();
+  if (authError) return authError;
+
   const body = await request.json();
   if (body.action === 'refresh-universe') {
     const result = await refreshStockUniverse();

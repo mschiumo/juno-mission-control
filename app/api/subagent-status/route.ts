@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireOwner } from '@/lib/auth-session';
 import { readFile, stat } from 'fs/promises';
 import { join } from 'path';
 
@@ -36,7 +36,8 @@ async function isSessionActive(sessionId: string): Promise<boolean> {
 }
 
 export async function GET() {
-  const authResult = await requireUserId();
+  // Owner-only: exposes server-side agent-session state (a host-filesystem read).
+  const authResult = await requireOwner();
   if (authResult.error) return authResult.error;
 
   try {

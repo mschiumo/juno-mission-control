@@ -10,12 +10,15 @@
 
 import { NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
-import { requireUserId } from '@/lib/auth-session';
-import { auth } from '@/auth';
-import { isOwnerEmail } from '@/lib/owner';
+import { requireOwner } from '@/lib/auth-session';
 
 export async function POST() {
-  const { userId, error: authError } = await requireUserId();
+  // Owner-only: this copies legacy un-namespaced keys (the original single-user
+  // trades, journals, watchlist, positions) into the caller's namespace. Gating
+  // on any logged-in user let a freshly-registered account ingest the owner's
+  // historical data. The legacy data belongs to the owner, so only the owner may
+  // migrate it.
+  const { userId, error: authError } = await requireOwner();
   if (authError) return authError;
 
   const redis = await getRedisClient();
@@ -103,14 +106,9 @@ export async function POST() {
     }
 
     // --- Goals (owner-only feature) ---
-    // Personal goals are restricted to the root user. Never copy the legacy
-    // un-namespaced `goals_data` key into a non-owner's namespace.
-    const session = await auth();
-    if (isOwnerEmail(session?.user?.email)) {
-      await migrateString('goals_data', `goals_data:${userId}`);
-    } else {
-      skipped.push('goals_data (owner-only feature)');
-    }
+    // The route is owner-gated (requireOwner above), so the caller is always the
+    // root user here — safe to migrate the legacy un-namespaced `goals_data`.
+    await migrateString('goals_data', `goals_data:${userId}`);
 
     // --- Evening checkins ---
     await migrateString('evening_checkins', `evening_checkins:${userId}`);
