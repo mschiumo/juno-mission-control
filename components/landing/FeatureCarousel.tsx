@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { PLATINUM_COMING_SOON } from '@/lib/entitlements';
 import {
   BookOpen,
   Crosshair,
@@ -18,6 +19,11 @@ import {
   LineChart,
   Brain,
   BarChart2,
+  Sparkles,
+  Check,
+  X,
+  SlidersHorizontal,
+  ShieldCheck,
   ChevronLeft,
   ChevronRight,
   ArrowUpRight,
@@ -257,10 +263,76 @@ function ProjectionMock() {
   );
 }
 
+function AgentProposalMock() {
+  return (
+    <div className={panel}>
+      <div className="flex items-center justify-between mb-3">
+        <span className={label}>Agent Proposal · Swing</span>
+        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#d29922]/15 text-[#d29922] border border-[#d29922]/30">
+          AWAITING YOUR APPROVAL
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-base font-bold text-white">AAPL · Long</p>
+          <p className="text-[10px] text-[#8b949e]">Proposed overnight · pullback-to-support strategy</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-bold text-[#F97316] font-mono">2.2 : 1</p>
+          <p className="text-[9px] text-[#8b949e]">reward : risk</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        {[
+          ['Entry', '226.40', '#F97316'],
+          ['Stop', '219.80', '#f85149'],
+          ['Target', '241.20', '#3fb950'],
+        ].map(([k, v, c]) => (
+          <div key={k} className="bg-[#161b22] border border-[#30363d] rounded-lg px-2 py-2 text-center">
+            <p className="text-[9px] text-[#8b949e] uppercase">{k}</p>
+            <p className="text-xs font-bold font-mono" style={{ color: c }}>{v}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3 mb-3">
+        <p className="text-[10px] font-bold text-[#8b949e] uppercase mb-1">Agent reasoning</p>
+        <p className="text-[11px] text-[#c9d1d9] leading-snug">
+          Held the 50-day on above-average volume; sector strength confirms. Entry above
+          yesterday&apos;s high keeps the setup honest.
+        </p>
+      </div>
+
+      <p className="text-[10px] text-[#3fb950] flex items-center gap-1.5 mb-3">
+        <ShieldCheck className="w-3 h-3" />
+        Inside guardrails — position cap 5%, daily loss limit OK
+      </p>
+
+      <div className="flex gap-2">
+        <button className="flex-1 py-2 rounded-lg bg-[#3fb950]/15 border border-[#3fb950]/40 text-[#3fb950] text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-default">
+          <Check className="w-3.5 h-3.5" /> Approve
+        </button>
+        <button className="flex-1 py-2 rounded-lg bg-[#161b22] border border-[#30363d] text-[#8b949e] text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-default">
+          <SlidersHorizontal className="w-3.5 h-3.5" /> Adjust
+        </button>
+        <button className="flex-1 py-2 rounded-lg bg-[#161b22] border border-[#30363d] text-[#8b949e] text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-default">
+          <X className="w-3.5 h-3.5" /> Reject
+        </button>
+      </div>
+      <p className="text-[9px] text-[#8b949e] text-center mt-2.5">
+        Orders reach your Robinhood account only after you approve.
+      </p>
+    </div>
+  );
+}
+
 /* ── Slides ──────────────────────────────────────────────────────────── */
 
 const SLIDES = [
   {
+    slug: 'journal',
     icon: BookOpen,
     kicker: 'Trade Journal',
     title: 'Every trade, remembered honestly',
@@ -269,6 +341,7 @@ const SLIDES = [
     mock: <JournalMock />,
   },
   {
+    slug: 'risk',
     icon: Crosshair,
     kicker: 'Risk & Trade Management',
     title: 'See the trade before you take it',
@@ -277,6 +350,7 @@ const SLIDES = [
     mock: <RiskMock />,
   },
   {
+    slug: 'market',
     icon: Sunrise,
     kicker: 'Market Intelligence',
     title: 'Start informed, stay informed',
@@ -285,6 +359,7 @@ const SLIDES = [
     mock: <MarketMock />,
   },
   {
+    slug: 'performance',
     icon: LineChart,
     kicker: 'Performance Analytics',
     title: 'Know your numbers cold',
@@ -293,6 +368,7 @@ const SLIDES = [
     mock: <PerformanceMock />,
   },
   {
+    slug: 'insights',
     icon: Brain,
     kicker: 'AI Journal Insights',
     title: 'A coach that reads every entry',
@@ -301,6 +377,16 @@ const SLIDES = [
     mock: <AIInsightsMock />,
   },
   {
+    slug: 'agents',
+    icon: Sparkles,
+    kicker: 'Agents · Platinum',
+    title: 'The agent proposes. You decide.',
+    desc: 'An AI agent scans a swing-trading universe and stages complete proposals — entry, stop, target, and its reasoning. Working in tandem with your Robinhood connection, orders are placed only after you approve, and hard guardrails are enforced on every one. Track proposals, fills, and stops in one terminal.',
+    tags: ['Swing-trade proposals', 'You approve every order', 'Works with Robinhood', 'Hard guardrails'],
+    mock: <AgentProposalMock />,
+  },
+  {
+    slug: 'projection',
     icon: BarChart2,
     kicker: 'Profit Projection',
     title: 'Stress-test before you size up',
@@ -312,6 +398,13 @@ const SLIDES = [
 
 export default function FeatureCarousel() {
   const [index, setIndex] = useState(0);
+
+  // Deep link: /?feature=agents opens that slide directly.
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get('feature');
+    const i = SLIDES.findIndex((s) => s.slug === slug);
+    if (i >= 0) setIndex(i);
+  }, []);
 
   const go = useCallback((next: number) => {
     setIndex(((next % SLIDES.length) + SLIDES.length) % SLIDES.length);
@@ -342,9 +435,16 @@ export default function FeatureCarousel() {
             <div key={s.kicker} className="w-full shrink-0 px-1">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center rounded-3xl border border-[#30363d] bg-[#161b22]/40 p-6 md:p-10">
                 <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#F97316]/25 bg-[#F97316]/10 mb-4">
-                    <s.icon className="w-3.5 h-3.5 text-[#F97316]" />
-                    <span className="text-xs font-semibold text-[#F97316]">{s.kicker}</span>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#F97316]/25 bg-[#F97316]/10">
+                      <s.icon className="w-3.5 h-3.5 text-[#F97316]" />
+                      <span className="text-xs font-semibold text-[#F97316]">{s.kicker}</span>
+                    </div>
+                    {s.slug === 'agents' && PLATINUM_COMING_SOON && (
+                      <span className="px-2.5 py-1.5 rounded-full bg-[#d29922]/15 border border-[#d29922]/30 text-[10px] font-bold text-[#d29922] uppercase tracking-wider">
+                        Coming soon
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-2xl md:text-3xl font-bold text-white mb-3">{s.title}</h3>
                   <p className="text-[#8b949e] leading-relaxed mb-5">{s.desc}</p>

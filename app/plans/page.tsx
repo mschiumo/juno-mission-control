@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Check, Sparkles, Gift, Loader2, ArrowLeft, Star, Info } from 'lucide-react';
-import { TIER_PRICING, TIER_LABELS, ANNUAL_DISCOUNT, type Tier } from '@/lib/entitlements';
+import { TIER_PRICING, TIER_LABELS, ANNUAL_DISCOUNT, PLATINUM_COMING_SOON, type Tier } from '@/lib/entitlements';
 import { usePlanStatus, invalidateEntitlements } from '@/lib/use-entitlements';
 
 type Cycle = 'monthly' | 'annual';
@@ -252,6 +252,11 @@ export default function PlansPage() {
                     <Star className="w-3 h-3" /> Most popular
                   </span>
                 )}
+                {t === 'platinum' && PLATINUM_COMING_SOON && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#d29922] text-[#1a1206] text-[10px] font-bold uppercase tracking-wider">
+                    Coming soon
+                  </span>
+                )}
                 <h2 className="text-lg font-bold mb-1">{TIER_LABELS[t]}</h2>
                 <p className="text-xs text-[#8b949e] mb-4 min-h-[32px]">{TIER_FEATURES_COPY[t].blurb}</p>
                 <div className="mb-5">
@@ -296,7 +301,7 @@ export default function PlansPage() {
                 ) : (
                   <button
                     onClick={() => choosePlan(t)}
-                    disabled={busy !== null || isCurrent}
+                    disabled={busy !== null || isCurrent || (t === 'platinum' && PLATINUM_COMING_SOON)}
                     className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60 ${
                       popular
                         ? 'bg-[#F97316] hover:bg-[#fb8c3c] text-white'
@@ -304,7 +309,11 @@ export default function PlansPage() {
                     }`}
                   >
                     {busy === t && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {isCurrent ? 'Your current plan' : `Choose ${TIER_LABELS[t]}`}
+                    {isCurrent
+                      ? 'Your current plan'
+                      : t === 'platinum' && PLATINUM_COMING_SOON
+                        ? 'Coming soon'
+                        : `Choose ${TIER_LABELS[t]}`}
                   </button>
                 )}
                 {t === 'platinum' && (

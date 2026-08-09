@@ -12,7 +12,7 @@
 
 import { NextResponse } from 'next/server';
 import { requireUserId } from '@/lib/auth-session';
-import { TIER_PRICING, type Tier } from '@/lib/entitlements';
+import { TIER_PRICING, PLATINUM_COMING_SOON, type Tier } from '@/lib/entitlements';
 
 export async function POST(request: Request): Promise<NextResponse> {
   const authResult = await requireUserId();
@@ -33,6 +33,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   if (cycle !== 'monthly' && cycle !== 'annual') {
     return NextResponse.json({ success: false, error: 'Unknown billing cycle.' }, { status: 400 });
+  }
+  if (tier === 'platinum' && PLATINUM_COMING_SOON) {
+    return NextResponse.json(
+      { success: false, code: 'COMING_SOON', error: 'Platinum is coming soon — agent onboarding is being finalized.' },
+      { status: 409 },
+    );
   }
 
   const price = TIER_PRICING[tier as Tier][cycle as 'monthly' | 'annual'];

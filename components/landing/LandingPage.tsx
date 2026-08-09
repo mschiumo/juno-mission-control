@@ -10,7 +10,7 @@ import {
   Bell, Newspaper, Sunrise, Star, SlidersHorizontal, Mail,
 } from 'lucide-react';
 
-import { TIER_PRICING, ANNUAL_DISCOUNT } from '@/lib/entitlements';
+import { TIER_PRICING, ANNUAL_DISCOUNT, PLATINUM_COMING_SOON } from '@/lib/entitlements';
 import FeatureCarousel from '@/components/landing/FeatureCarousel';
 
 const SUPPORT_EMAIL = 'confluencetradingsupport@gmail.com';
@@ -436,27 +436,33 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══ STATS BANNER ═══ */}
-      <section className="py-10 border-y border-[#30363d] bg-[#161b22]/40">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {[
-              { label: 'Strategies Tracked', value: '15+',     icon: BarChart2 },
-              { label: 'Live Market Data',   value: 'Real-time', icon: Activity  },
-              { label: 'AI Market Briefings', value: 'Daily',    icon: Sunrise   },
-              { label: 'Risk Management',    value: 'Built-in',  icon: Shield    },
-            ].map(s => (
-              <div key={s.label} className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-[#0d1117] border border-[#30363d] flex items-center justify-center flex-shrink-0">
-                  <s.icon className="w-5 h-5 text-[#F97316]" />
+      {/* ═══ STATS BANNER — revolving marquee ═══ */}
+      <section className="py-8 border-y border-[#30363d] bg-[#161b22]/40 overflow-hidden landing-marquee">
+        <div className="landing-marquee-track">
+          {[0, 1].map(copy => (
+            <div key={copy} className="flex shrink-0" aria-hidden={copy === 1}>
+              {[
+                { label: 'Free forever on Silver',        value: '$0',        icon: Zap       },
+                { label: 'AI Market Briefings',           value: 'Daily',     icon: Sunrise   },
+                { label: 'Live Market Data',              value: 'Real-time', icon: Activity  },
+                { label: 'Risk Management',               value: 'Built-in',  icon: Shield    },
+                { label: 'Statement Import',              value: '1-click',   icon: BookOpen  },
+                { label: 'AI Journal Coaching',           value: 'Weekly',    icon: Brain     },
+                { label: 'Agent-Scouted Swing Setups',    value: 'Platinum',  icon: Sparkles  },
+                { label: 'Free Gold Trial',               value: '7 days',    icon: Star      },
+              ].map(s => (
+                <div key={s.label} className="flex items-center gap-3.5 px-10">
+                  <div className="w-11 h-11 rounded-xl bg-[#0d1117] border border-[#30363d] flex items-center justify-center flex-shrink-0">
+                    <s.icon className="w-5 h-5 text-[#F97316]" />
+                  </div>
+                  <div className="whitespace-nowrap">
+                    <p className="text-lg font-bold text-white leading-tight">{s.value}</p>
+                    <p className="text-sm text-[#8b949e] leading-tight">{s.label}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xl font-bold text-white">{s.value}</p>
-                  <p className="text-sm text-[#8b949e]">{s.label}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ))}
         </div>
       </section>
 
@@ -1194,6 +1200,11 @@ export default function LandingPage() {
                     <Star className="w-3 h-3" /> Most traders pick Gold
                   </div>
                 )}
+                {plan.tier === 'platinum' && PLATINUM_COMING_SOON && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#d29922] text-[#1a1206] text-[10px] font-bold rounded-full uppercase tracking-wider whitespace-nowrap">
+                    Coming soon
+                  </div>
+                )}
                 <h3 className="text-xl font-bold text-white">{plan.name}</h3>
                 <p className="text-xs text-[#F97316] font-semibold uppercase tracking-wide mt-0.5 mb-3">{plan.tagline}</p>
                 <p className="text-sm text-[#8b949e] leading-relaxed mb-5 min-h-[40px]">{plan.desc}</p>
@@ -1242,7 +1253,9 @@ export default function LandingPage() {
                     ? 'Create free account'
                     : plan.tier === 'gold'
                       ? 'Start 7-day free trial'
-                      : 'Start with the free trial'}
+                      : PLATINUM_COMING_SOON
+                        ? 'Coming soon — start with Gold'
+                        : 'Start with the free trial'}
                 </Link>
                 {plan.tier === 'platinum' && (
                   <p className="mt-3 text-[10px] text-[#8b949e] leading-snug">
@@ -1268,6 +1281,9 @@ export default function LandingPage() {
                   {['Silver', 'Gold', 'Platinum'].map(name => (
                     <th key={name} className={`text-center font-bold py-3 px-4 ${name === 'Gold' ? 'text-[#F97316]' : 'text-white'}`}>
                       {name}
+                      {name === 'Platinum' && PLATINUM_COMING_SOON && (
+                        <span className="block text-[9px] font-semibold text-[#d29922] uppercase tracking-wider">Coming soon</span>
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -1321,7 +1337,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ CTA ═══ */}
-      <section className="py-24 px-6">
+      <section className="pt-28 pb-32 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="relative p-12 rounded-3xl border border-[#F97316]/25 overflow-hidden text-center">
             {/* gradient bg */}
@@ -1356,19 +1372,21 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══ CONTACT ═══ */}
-      <section id="contact" className="py-24 px-6 bg-[#161b22]/20">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Questions?</p>
-          <h2 className="text-4xl font-bold text-white mb-4">Get in Touch</h2>
-          <p className="text-[#8b949e] max-w-xl mx-auto mb-8">
-            Questions about terms, services, or anything else? Reach out and we&apos;ll get back to you.
-          </p>
+      {/* ═══ CONTACT — quiet strip, deliberately understated next to the CTA ═══ */}
+      <section id="contact" className="px-6 border-t border-[#30363d] bg-[#161b22]/20">
+        <div className="max-w-5xl mx-auto py-14 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="text-center md:text-left">
+            <p className="text-xs text-[#8b949e] font-semibold uppercase tracking-widest mb-1.5">Questions?</p>
+            <h2 className="text-xl font-bold text-white">Get in touch</h2>
+            <p className="text-sm text-[#8b949e] mt-1">
+              Terms, plans, or anything else — we read every message.
+            </p>
+          </div>
           <a
             href={`mailto:${SUPPORT_EMAIL}`}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-[#F97316] hover:bg-[#ea6c0a] text-white font-semibold rounded-xl transition-colors shadow-lg shadow-[#F97316]/20"
+            className="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl border border-[#30363d] bg-[#0d1117] text-sm text-[#c9d1d9] hover:border-[#F97316]/50 hover:text-white transition-colors font-mono"
           >
-            <Mail className="w-5 h-5" />
+            <Mail className="w-4 h-4 text-[#F97316]" />
             {SUPPORT_EMAIL}
           </a>
         </div>

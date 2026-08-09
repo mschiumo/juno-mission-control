@@ -166,6 +166,14 @@ export const TIER_PRICING: Record<Tier, TierPricing> = {
 /** Tiers that can actually be purchased (Silver is free). */
 export const PAID_TIERS: Tier[] = ['gold', 'platinum'];
 
+/**
+ * Platinum is announced but not yet purchasable — the agent-onboarding
+ * walkthrough is still being finalized. Drives "Coming soon" badges on both
+ * pricing surfaces and a checkout rejection. Flip to false to launch.
+ * Admin grants and existing Platinum records are unaffected.
+ */
+export const PLATINUM_COMING_SOON = true;
+
 export const TIER_LABELS: Record<Tier, string> = {
   silver: 'Silver',
   gold: 'Gold',
