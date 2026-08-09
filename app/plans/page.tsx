@@ -355,6 +355,38 @@ export default function PlansPage() {
           })}
         </div>
 
+        {/* Manage / cancel — explicit, not buried in the Silver card */}
+        {!loading && tier !== 'silver' && status.source !== 'owner' && (
+          <div className="max-w-2xl mx-auto mb-10 rounded-2xl border border-[#30363d] bg-[#161b22] p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-center sm:text-left">
+              <p className="text-sm font-semibold">Manage your subscription</p>
+              <p className="text-xs text-[#8b949e] mt-0.5">
+                Update your card, see invoices, or cancel — your journal and data stay either way.
+              </p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              {status.source === 'billing' && (
+                <button
+                  onClick={openBillingPortal}
+                  disabled={busy !== null}
+                  className="px-4 py-2 rounded-lg bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-sm font-semibold transition-colors disabled:opacity-60 inline-flex items-center gap-2"
+                >
+                  {busy === 'portal' && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Manage billing
+                </button>
+              )}
+              <button
+                onClick={cancelPlan}
+                disabled={busy !== null}
+                className="px-4 py-2 rounded-lg border border-[#f85149]/40 text-[#f85149] hover:bg-[#f85149]/10 text-sm font-semibold transition-colors disabled:opacity-60 inline-flex items-center gap-2"
+              >
+                {busy === 'cancel' && <Loader2 className="w-4 h-4 animate-spin" />}
+                Cancel plan
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Referral code */}
         {!loading && status.referralAvailable && (
           <div className="max-w-md mx-auto rounded-2xl border border-[#30363d] bg-[#161b22] p-5">

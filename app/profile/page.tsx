@@ -336,7 +336,7 @@ export default function ProfilePage() {
                 href="/plans"
                 className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#F97316]/10 text-[#F97316] hover:bg-[#F97316]/20 transition-colors"
               >
-                {tier === 'silver' ? 'Upgrade' : 'Manage plan'}
+                {tier === 'silver' ? 'Upgrade' : 'Manage or cancel plan'}
               </Link>
             )}
           </div>
