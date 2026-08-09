@@ -1131,9 +1131,6 @@ export default function LandingPage() {
 
 
 
-      {/* ═══ FOUNDER ═══ */}
-      <FounderSection />
-
       {/* ═══ PRICING ═══ */}
       <section id="pricing" className="py-24 px-6">
         <div className="max-w-7xl mx-auto">
@@ -1398,6 +1395,9 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* ═══ FOUNDER ═══ */}
+      <FounderSection />
 
       {/* ═══ CONTACT — quiet strip, deliberately understated next to the CTA ═══ */}
       <section id="contact" className="px-6 border-t border-[#30363d] bg-[#161b22]/20">
