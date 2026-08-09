@@ -472,8 +472,14 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
       setLocateFailed(true);
       return;
     }
-    // Scroll to top so elements are measured at their natural page position
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Bring the TARGET into view — not the top of the page. Scrolling to top
+    // left below-the-fold targets (the calculator, projection, insights) far
+    // down the document, so the spotlight sat off-screen and the card was
+    // dragged down with it, out of reach.
+    // Instant, not smooth: the rect is measured right after this, and a
+    // mid-flight smooth scroll yields a stale position (the spotlight then
+    // sits away from the element it is supposed to be highlighting).
+    el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
     setTimeout(() => {
       const r = el.getBoundingClientRect();
       if (r.width === 0 && r.height === 0) {
