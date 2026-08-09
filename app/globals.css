@@ -973,19 +973,3 @@ body {
   [data-reveal] { animation: none !important; opacity: 1 !important; transform: none !important; filter: none !important; }
   [data-loop]   { animation: none !important; }
 }
-
-/* ── Landing: revolving stats marquee ── */
-@keyframes landing-marquee {
-  to { transform: translateX(-50%); }
-}
-.landing-marquee-track {
-  display: flex;
-  width: max-content;
-  animation: landing-marquee 30s linear infinite;
-}
-.landing-marquee:hover .landing-marquee-track {
-  animation-play-state: paused;
-}
-@media (prefers-reduced-motion: reduce) {
-  .landing-marquee-track { animation: none; }
-}

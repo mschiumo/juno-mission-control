@@ -436,36 +436,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══ STATS BANNER — revolving marquee ═══ */}
-      <section className="py-8 border-y border-[#30363d] bg-[#161b22]/40 overflow-hidden landing-marquee">
-        <div className="landing-marquee-track">
-          {[0, 1].map(copy => (
-            <div key={copy} className="flex shrink-0" aria-hidden={copy === 1}>
-              {[
-                { label: 'Free forever on Silver',        value: '$0',        icon: Zap       },
-                { label: 'AI Market Briefings',           value: 'Daily',     icon: Sunrise   },
-                { label: 'Live Market Data',              value: 'Real-time', icon: Activity  },
-                { label: 'Risk Management',               value: 'Built-in',  icon: Shield    },
-                { label: 'Statement Import',              value: '1-click',   icon: BookOpen  },
-                { label: 'AI Journal Coaching',           value: 'Weekly',    icon: Brain     },
-                { label: 'Agent-Scouted Swing Setups',    value: 'Platinum',  icon: Sparkles  },
-                { label: 'Free Gold Trial',               value: '7 days',    icon: Star      },
-              ].map(s => (
-                <div key={s.label} className="flex items-center gap-3.5 px-10">
-                  <div className="w-11 h-11 rounded-xl bg-[#0d1117] border border-[#30363d] flex items-center justify-center flex-shrink-0">
-                    <s.icon className="w-5 h-5 text-[#F97316]" />
-                  </div>
-                  <div className="whitespace-nowrap">
-                    <p className="text-lg font-bold text-white leading-tight">{s.value}</p>
-                    <p className="text-sm text-[#8b949e] leading-tight">{s.label}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* ═══ FEATURES ═══ */}
       <section id="features" className="py-16 px-6">
         <div className="max-w-7xl mx-auto">

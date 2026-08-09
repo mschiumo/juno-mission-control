@@ -321,9 +321,17 @@ function AgentProposalMock() {
           <X className="w-3.5 h-3.5" /> Reject
         </button>
       </div>
-      <p className="text-[9px] text-[#8b949e] text-center mt-2.5">
-        Orders reach your Robinhood account only after you approve.
-      </p>
+      <div className="flex items-center justify-center gap-1.5 mt-2.5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brokers/robinhood.png"
+          alt="Robinhood"
+          className="w-3.5 h-3.5 rounded-[4px]"
+        />
+        <p className="text-[9px] text-[#8b949e]">
+          Orders reach your Robinhood account only after you approve.
+        </p>
+      </div>
     </div>
   );
 }
