@@ -4,8 +4,9 @@
  * BrokerageSyncBar
  *
  * Compact status pill for the linked brokerage, shown once in the Journal
- * header (deliberately not on every tab). Connected: a green dot, the broker
- * name(s) and last-synced age, plus an inline refresh icon; clicking the pill
+ * header (deliberately not on every tab). Connected: the broker's round logo
+ * (green status dot riding its corner; plain dot when no logo is bundled),
+ * the broker name(s) and last-synced age, plus an inline refresh icon; clicking the pill
  * opens BrokerageConnectModal for everything else (accounts, sync, connect /
  * disconnect). Disconnected: a slim "Connect broker" pill.
  *
@@ -17,6 +18,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Plug } from 'lucide-react';
 import BrokerageConnectModal from './BrokerageConnectModal';
+import { brokerLogoPath } from '@/lib/broker-logos';
 
 interface BrokerAccount {
   id: string;
@@ -121,6 +123,10 @@ export default function BrokerageSyncBar({
 
   // "Charles Schwab" / "Robinhood · Schwab" — one name per distinct brokerage.
   const brokerNames = [...new Set(accounts.map(a => a.brokerage))].join(' · ');
+  // Round brokerage logo shown at the head of the pill; the green status dot
+  // rides its corner as a badge. Falls back to the plain dot for brokerages
+  // without a bundled logo tile.
+  const brokerLogo = brokerLogoPath(accounts[0]?.brokerage);
   const tooltip = [
     accounts.map(a => `${a.brokerage}${a.number ? ` ··${a.number.slice(-4)}` : ''}`).join(', '),
     status?.lastSyncedAt
@@ -142,9 +148,21 @@ export default function BrokerageSyncBar({
             <button
               onClick={() => setShowModal(true)}
               title={tooltip}
-              className="flex items-center gap-1.5 pl-2.5 pr-1 py-1.5"
+              className={`flex items-center gap-1.5 py-1.5 pr-1 ${brokerLogo ? 'pl-1.5' : 'pl-2.5'}`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] flex-shrink-0" />
+              {brokerLogo ? (
+                <span className="relative h-[18px] w-[18px] flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={brokerLogo}
+                    alt=""
+                    className="h-[18px] w-[18px] rounded-full object-cover"
+                  />
+                  <span className="absolute -bottom-px -right-px h-[7px] w-[7px] rounded-full bg-[#3fb950] ring-2 ring-[#161b22]" />
+                </span>
+              ) : (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] flex-shrink-0" />
+              )}
               <span className="text-xs text-[#c9d1d9] whitespace-nowrap">{brokerNames}</span>
               {status?.lastSyncedAt ? (
                 <span className="text-[11px] text-[#8b949e] whitespace-nowrap hidden sm:inline">

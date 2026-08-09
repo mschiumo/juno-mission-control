@@ -642,6 +642,16 @@ body {
   animation: backdrop-in 0.18s ease-out both;
 }
 
+/* Dialog enter: fade + short rise (Connect Brokerage modal) */
+@keyframes modal-rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-modal-rise-in {
+  animation: modal-rise-in 0.18s ease-out both;
+}
+
 @keyframes pulse-accent {
   0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,0,0.4); }
   50%       { box-shadow: 0 0 0 8px rgba(255,107,0,0); }
