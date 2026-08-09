@@ -114,6 +114,7 @@ export async function deleteUserAccount(id: string): Promise<void> {
   const exact = [
     userKey(id),
     `user:prefs:${id}`,
+    `user:lifecycle-emails:${id}`,
     `user:entitlements:${id}`,
     `user:entitlements:trial-used:${id}`,
     `user:entitlements:referral-used:${id}`,
