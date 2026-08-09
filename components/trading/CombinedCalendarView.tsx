@@ -188,6 +188,10 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
   // hidden while one is connected (the API rejects it too). Reported by
   // BrokerageSyncBar, which already knows the connection status.
   const [brokerConnected, setBrokerConnected] = useState(false);
+  // Last day (YYYY-MM-DD) SnapTrade had fully synced at our last trade pull.
+  // Days after it may show partial fills — rendered as a non-clickable
+  // "still syncing" icon. Null → no broker linked, everything renders normally.
+  const [lastCompleteTradeDay, setLastCompleteTradeDay] = useState<string | null>(null);
 
   // Fetch data on mount
   useEffect(() => {
@@ -210,7 +214,10 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
         tradesRes.json()
       ]);
 
-      if (statsData.success) setDailyStats(statsData.dailyStats || []);
+      if (statsData.success) {
+        setDailyStats(statsData.dailyStats || []);
+        setLastCompleteTradeDay(statsData.lastCompleteTradeDay ?? null);
+      }
       if (journalData.success) setJournalEntries(journalData.entries || []);
       if (tradesData.success && tradesData.data) {
         // Keep long-term holdings and deactivated accounts out of the trading
@@ -677,6 +684,10 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
             const isProfitable = hasTrades && (dayData.trades?.pnl || 0) > 0;
             const isLoss = hasTrades && (dayData.trades?.pnl || 0) < 0;
             const today = isToday(dayData.date);
+            // Broker data for this day wasn't complete at the last sync —
+            // fills may still be missing, so P&L/counts can't be trusted yet.
+            const isPendingSync =
+              !!hasTrades && !!lastCompleteTradeDay && dayData.date > lastCompleteTradeDay;
 
             return (
               <div
@@ -694,7 +705,9 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                   <span className={`text-xs sm:text-sm font-medium ${today ? 'text-[#F97316]' : 'text-white'}`}>
                     {dayData.dayNumber}
                   </span>
-                  {hasTrades && (
+                  {/* Hide P&L while the day's broker data is still partial — a
+                      number built from an incomplete fill feed is misleading. */}
+                  {hasTrades && !isPendingSync && (
                     <span className={`text-[9px] sm:text-xs font-bold ${isProfitable ? 'text-[#3fb950]' : isLoss ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
                       {dayData.trades?.pnl && dayData.trades.pnl > 0 ? '+' : ''}{formatCurrency(dayData.trades?.pnl || 0)}
                     </span>
@@ -704,7 +717,38 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                 {/* Icons - Perfectly Centered */}
                 <div className="flex-1 flex flex-col items-center justify-center gap-1 sm:gap-2 min-h-0">
                   {/* Trade Icon */}
-                  {hasTrades && (
+                  {hasTrades && isPendingSync && (
+                    /* Broker hasn't finished syncing this day — show an inert
+                       orange icon (matches the today-outline color) instead of
+                       the clickable P&L-colored one. */
+                    <div
+                      className="
+                        relative flex items-center justify-center shrink-0
+                        w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl cursor-default
+                        bg-gradient-to-br from-[#F97316]/30 to-[#F97316]/15 text-[#F97316]
+                        ring-1 ring-[#F97316]/50 shadow-[0_2px_8px_-2px_rgba(249,115,22,0.3)]
+                      "
+                      title={
+                        "This day's trades haven't fully synced from your brokerage yet.\n" +
+                        'Totals may be incomplete — the icon unlocks once the full day is in.'
+                      }
+                    >
+                      <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
+                      {dayData.trades && dayData.trades.trades > 1 && (
+                        <span className="
+                          absolute -top-1 -right-1
+                          w-4 h-4 sm:w-4.5 sm:h-4.5
+                          flex items-center justify-center
+                          text-[8px] font-bold
+                          rounded-full border-2 border-[#161b22]
+                          bg-[#F97316] text-[#0d1117]
+                        ">
+                          {dayData.trades.trades}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {hasTrades && !isPendingSync && (
                     <button
                       onClick={(e) => handleTradeIconClick(dayData.date, e)}
                       className={`
@@ -787,6 +831,12 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
             <BarChart3 className="w-3 h-3" strokeWidth={2.5} />
           </div>
           <span className="text-[10px] text-[#8b949e]">Loss</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-center w-5 h-5 bg-[#F97316]/25 text-[#F97316] rounded-md ring-1 ring-[#F97316]/30">
+            <BarChart3 className="w-3 h-3" strokeWidth={2.5} />
+          </div>
+          <span className="text-[10px] text-[#8b949e]">Syncing</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="relative flex items-center justify-center w-5 h-5 bg-gradient-to-br from-[#58a6ff]/30 to-[#1f6feb]/20 text-[#58a6ff] rounded-md ring-1 ring-[#58a6ff]/50">

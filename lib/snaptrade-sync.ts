@@ -51,6 +51,9 @@ interface SnapTradeAccountRaw {
   number: string;
   institution_name: string;
   balance?: { total?: { amount?: number | null } | null } | null;
+  sync_status?: {
+    transactions?: { last_successful_sync?: string | null } | null;
+  } | null;
 }
 
 export interface SyncResult {
@@ -72,6 +75,10 @@ export async function syncUserTrades(connection: BrokerConnection): Promise<Sync
   // fresh anchor, so derivation is skipped for those accounts.
   let accounts: BrokerAccount[] = connection.accounts;
   const totalValueById = new Map<string, number>();
+  // Last trading day SnapTrade guarantees is fully synced (transactions pulled
+  // 00:00–23:59), taken as the earliest across accounts. Days after this may
+  // only have a partial fill feed — the calendar flags them as provisional.
+  let lastCompleteTradeDay: string | undefined;
   try {
     const raw = (await listAccounts({ snaptradeUserId, userSecret })) as SnapTradeAccountRaw[];
     accounts = (raw ?? []).map(a => ({
@@ -86,6 +93,13 @@ export async function syncUserTrades(connection: BrokerConnection): Promise<Sync
       if (typeof amount === 'number' && Number.isFinite(amount)) {
         totalValueById.set(a.id, amount);
       }
+    }
+    const fullySyncedDays = (raw ?? [])
+      .map(a => a.sync_status?.transactions?.last_successful_sync)
+      .filter((d): d is string => typeof d === 'string' && d.length >= 10)
+      .map(d => d.slice(0, 10));
+    if (fullySyncedDays.length > 0) {
+      lastCompleteTradeDay = fullySyncedDays.reduce((a, b) => (a < b ? a : b));
     }
     await setBrokerAccounts(userId, accounts);
   } catch (error) {
@@ -175,7 +189,7 @@ export async function syncUserTrades(connection: BrokerConnection): Promise<Sync
         `brokerActivities=${perAccount.reduce((n, p) => n + p.activities, 0)}); ` +
         `leaving ${existing.length} existing trades untouched.`
     );
-    await setLastSyncedAt(userId, new Date().toISOString());
+    await setLastSyncedAt(userId, new Date().toISOString(), lastCompleteTradeDay);
     return {
       userId,
       accounts: activeAccounts.length,
@@ -209,7 +223,7 @@ export async function syncUserTrades(connection: BrokerConnection): Promise<Sync
   const nextTrades = [...preserved, ...merged];
 
   const { written, backedUp } = await replaceAllTrades(nextTrades, userId, { backup: true });
-  await setLastSyncedAt(userId, new Date().toISOString());
+  await setLastSyncedAt(userId, new Date().toISOString(), lastCompleteTradeDay);
 
   return {
     userId,

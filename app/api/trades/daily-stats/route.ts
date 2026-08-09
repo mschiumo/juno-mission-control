@@ -4,6 +4,7 @@ import { getESTDateFromTimestamp } from '@/lib/date-utils';
 import { requireUserId } from '@/lib/auth-session';
 import { getAccountSettings } from '@/lib/db/account-settings';
 import { tradingJournalTrades } from '@/lib/account-classification';
+import { getBrokerConnection } from '@/lib/db/broker-connections';
 
 export async function GET() {
   const { userId, error } = await requireUserId();
@@ -16,10 +17,17 @@ export async function GET() {
     const settings = await getAccountSettings(userId);
     const trades = tradingJournalTrades(await getAllTrades(userId), settings);
 
+    // Last trading day whose broker data was complete at our last sync. Days
+    // after it may reflect a partial fill feed; the calendar marks them as
+    // still syncing. Null when no brokerage is linked (CSV-only users).
+    const lastCompleteTradeDay =
+      (await getBrokerConnection(userId))?.lastCompleteTradeDay ?? null;
+
     if (trades.length === 0) {
       return NextResponse.json({
         success: true,
-        dailyStats: []
+        dailyStats: [],
+        lastCompleteTradeDay
       });
     }
     
@@ -77,7 +85,8 @@ export async function GET() {
     
     return NextResponse.json({
       success: true,
-      dailyStats
+      dailyStats,
+      lastCompleteTradeDay
     });
     
   } catch (error) {
