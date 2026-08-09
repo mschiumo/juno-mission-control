@@ -93,7 +93,7 @@ const GROUPS: DocGroup[] = [
       {
         id: 'trade-management',
         title: 'Trade Management',
-        blurb: 'Daily favorites, the position calculator, the watchlist workflow, and Trading Mode.',
+        blurb: 'Daily favorites, the position calculator, and the watchlist workflow.',
         icon: Settings,
         keywords: 'trade management watchlist daily favorites position calculator size risk stop target active potential closed trading mode fullscreen',
         Component: TradeManagementArticle,

@@ -11,7 +11,6 @@ import {
   Calculator,
   TrendingUp,
   BarChart2,
-  Maximize2,
   Brain,
   LineChart,
   Lightbulb,
@@ -240,25 +239,15 @@ const STEPS: TourStep[] = [
     tip: 'Tag your setups and emotional state — those tags become the patterns you analyze.',
   },
   {
+    // Centered card, no spotlight: the calculator sits low in a tall column,
+    // so anchoring to it scrolled the page away from the card.
     subtab: 'trade-management',
-    targetDataTour: 'position-calculator',
-    tooltipSide: 'right',
     icon: <Calculator className="w-9 h-9 text-[#F97316]" />,
     title: 'Size Every Trade by Risk',
     description:
       'Enter your ticker, dollar risk, entry, and stop — the calculator returns the exact share size, with your reward-to-risk ratio alongside it. Decide what a trade may cost you before you decide how many shares to buy.',
     tip: 'Keep the dollar risk identical across trades; consistency is what makes your stats mean something.',
     preview: <CalcPreview />,
-  },
-  {
-    subtab: 'trade-management',
-    targetDataTour: 'trading-mode',
-    tooltipSide: 'bottom',
-    icon: <Maximize2 className="w-9 h-9 text-[#F97316]" />,
-    title: 'Trading Mode',
-    description:
-      'A distraction-free fullscreen workspace for the live session: active trades and watchlist side by side, no tabs, no clutter.',
-    tip: 'Press Esc at any time to exit and return to the full workspace.',
   },
   {
     subtab: 'market',
