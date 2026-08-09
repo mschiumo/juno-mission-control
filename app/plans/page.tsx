@@ -173,7 +173,7 @@ export default function PlansPage() {
     <div className="min-h-screen bg-[#0d1117] text-white">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 text-sm text-[#8b949e] hover:text-white transition-colors"

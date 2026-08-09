@@ -44,15 +44,15 @@ function JournalMock() {
   ];
   return (
     <div className={panel}>
-      <div className="flex items-center justify-between mb-3">
-        <span className={label}>August · Trading Journal</span>
-        <span className="text-[10px] font-bold text-[#3fb950]">+$2,205 MTD</span>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <span className={`${label} truncate min-w-0`}>August · Trading Journal</span>
+        <span className="text-[10px] font-bold text-[#3fb950] shrink-0 whitespace-nowrap">+$2,205 MTD</span>
       </div>
-      <div className="grid grid-cols-5 gap-1.5 mb-4">
+      <div className="grid grid-cols-5 gap-1 mb-4">
         {days.map(({ d, pnl }) => (
           <div
             key={d}
-            className="rounded-lg px-1.5 py-2 text-center border"
+            className="rounded-lg px-1 py-2 text-center border min-w-0"
             style={{
               background: pnl === null || pnl === 0 ? '#161b22' : pnl > 0 ? 'rgba(63,185,80,0.10)' : 'rgba(248,81,73,0.10)',
               borderColor: pnl === null || pnl === 0 ? '#30363d' : pnl > 0 ? 'rgba(63,185,80,0.35)' : 'rgba(248,81,73,0.35)',
@@ -60,7 +60,7 @@ function JournalMock() {
           >
             <p className="text-[9px] text-[#8b949e]">{d}</p>
             <p
-              className="text-[10px] font-bold"
+              className="text-[9px] sm:text-[10px] font-bold whitespace-nowrap"
               style={{ color: pnl === null || pnl === 0 ? '#484f58' : pnl > 0 ? '#3fb950' : '#f85149' }}
             >
               {pnl === 0 ? '—' : `${pnl! > 0 ? '+' : '-'}$${Math.abs(pnl!)}`}
@@ -151,7 +151,7 @@ function MarketMock() {
               {gap}
             </span>
             <span className="text-[10px] text-[#8b949e]">{vol} vol</span>
-            <span className="text-[10px] text-[#8b949e] truncate flex-1 text-right">{cat}</span>
+            <span className="hidden sm:block text-[10px] text-[#8b949e] truncate flex-1 text-right">{cat}</span>
           </div>
         ))}
       </div>

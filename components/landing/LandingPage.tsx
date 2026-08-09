@@ -1008,7 +1008,7 @@ export default function LandingPage() {
                         <li key={n.headline} className="flex items-center justify-between gap-3" data-reveal="sm" style={{ animationDuration: '.5s', ...range(`entry ${42 + i * 3}% cover ${54 + i * 3}%`) }}>
                           <div className="flex items-center gap-2 min-w-0">
                             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${n.pos === true ? 'bg-[#3fb950]' : n.pos === false ? 'bg-[#f85149]' : 'bg-[#8b949e]'}`} />
-                            <span className="text-xs text-[#c9d1d9] truncate">{n.headline}</span>
+                            <span className="text-xs text-[#c9d1d9] sm:truncate">{n.headline}</span>
                           </div>
                           <span
                             className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 border"
@@ -1346,7 +1346,7 @@ export default function LandingPage() {
       {/* ═══ CTA ═══ */}
       <section className="py-24 px-6">
         <div className="max-w-4xl mx-auto">
-          <div className="relative p-12 rounded-3xl border border-[#F97316]/25 overflow-hidden text-center">
+          <div className="relative p-7 sm:p-12 rounded-3xl border border-[#F97316]/25 overflow-hidden text-center">
             {/* gradient bg */}
             <div className="absolute inset-0 bg-gradient-to-b from-[#F97316]/8 via-[#F97316]/4 to-transparent pointer-events-none" />
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] bg-[#F97316]/6 rounded-full blur-3xl pointer-events-none" />
@@ -1394,10 +1394,10 @@ export default function LandingPage() {
           </div>
           <a
             href={`mailto:${SUPPORT_EMAIL}`}
-            className="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl border border-[#30363d] bg-[#0d1117] text-sm text-[#c9d1d9] hover:border-[#F97316]/50 hover:text-white transition-colors font-mono"
+            className="inline-flex max-w-full items-center gap-2.5 px-4 sm:px-5 py-3 rounded-xl border border-[#30363d] bg-[#0d1117] text-xs sm:text-sm text-[#c9d1d9] hover:border-[#F97316]/50 hover:text-white transition-colors font-mono"
           >
-            <Mail className="w-4 h-4 text-[#F97316]" />
-            {SUPPORT_EMAIL}
+            <Mail className="w-4 h-4 shrink-0 text-[#F97316]" />
+            <span className="break-all text-left">{SUPPORT_EMAIL}</span>
           </a>
         </div>
       </section>
