@@ -15,7 +15,7 @@ import { useSyncExternalStore } from 'react';
 import {
   type Entitlements,
   type Tier,
-  NO_PLAN_ENTITLEMENTS,
+  FREE_ENTITLEMENTS,
 } from '@/lib/entitlements';
 
 export interface PlanStatus {
@@ -31,7 +31,7 @@ export interface PlanStatus {
 }
 
 const EMPTY_STATUS: PlanStatus = {
-  entitlements: NO_PLAN_ENTITLEMENTS,
+  entitlements: FREE_ENTITLEMENTS,
   trialAvailable: false,
   referralAvailable: false,
   expiresAt: null,
@@ -91,7 +91,7 @@ export function usePlanStatus(): { status: PlanStatus; loading: boolean } {
 
 export function useEntitlements(): {
   entitlements: Entitlements;
-  tier: Tier | null;
+  tier: Tier;
   loading: boolean;
 } {
   const { status, loading } = usePlanStatus();

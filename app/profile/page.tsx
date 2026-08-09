@@ -17,6 +17,7 @@ import {
   Pencil,
   X,
   Crown,
+  Trash2,
 } from 'lucide-react';
 
 interface UserProfile {
@@ -37,6 +38,30 @@ interface UserPrefs {
 export default function ProfilePage() {
   const { status: planStatus, loading: planLoading } = usePlanStatus();
   const tier = planStatus.entitlements.tier;
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.prompt(
+      'This permanently deletes your account, all journal and trade data, and disconnects any linked brokerage. Type DELETE to confirm.',
+    );
+    if (confirmed !== 'DELETE') return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch('/api/user/account', { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        signOut({ callbackUrl: '/' });
+        return;
+      }
+      setDeleteError(json.error || 'Could not delete the account.');
+    } catch {
+      setDeleteError('Could not delete the account.');
+    } finally {
+      setDeleting(false);
+    }
+  };
   const { data: session, update: updateSession } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [prefs, setPrefs] = useState<UserPrefs | null>(null);
@@ -297,9 +322,7 @@ export default function ProfilePage() {
                   ? '…'
                   : planStatus.source === 'owner'
                     ? 'Platinum · Owner'
-                    : tier
-                      ? `${TIER_LABELS[tier]}${planStatus.source === 'trial' ? ' · Free trial' : planStatus.source === 'referral' ? ' · Referral' : ''}`
-                      : 'No active plan'}
+                    : `${TIER_LABELS[tier]}${tier === 'silver' ? ' · Free' : ''}${planStatus.source === 'trial' ? ' · Free trial' : planStatus.source === 'referral' ? ' · Referral' : ''}`}
               </p>
               {!planLoading && planStatus.expiresAt && (
                 <p className="text-xs text-[#8b949e] mt-0.5">
@@ -313,7 +336,7 @@ export default function ProfilePage() {
                 href="/plans"
                 className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#F97316]/10 text-[#F97316] hover:bg-[#F97316]/20 transition-colors"
               >
-                {tier ? 'Manage plan' : 'Choose a plan'}
+                {tier === 'silver' ? 'Upgrade' : 'Manage plan'}
               </Link>
             )}
           </div>
@@ -376,6 +399,31 @@ export default function ProfilePage() {
             </div>
           </div>
         </section>
+        )}
+
+        {/* Danger zone — permanent account deletion */}
+        {planStatus.source !== 'owner' && (
+          <section className="bg-[#161b22] border border-[#f85149]/30 rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-4 border-b border-[#30363d]">
+              <Trash2 className="w-4 h-4 text-[#f85149]" />
+              <h2 className="text-sm font-semibold text-white">Delete Account</h2>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-xs text-[#8b949e] leading-relaxed mb-3">
+                Permanently deletes your account, journal, trades, and analytics, and immediately
+                disconnects any linked brokerage. This cannot be undone.
+              </p>
+              {deleteError && <p className="text-xs text-[#f85149] mb-2">{deleteError}</p>}
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="flex items-center gap-2 text-sm text-[#f85149] hover:text-[#ff7b72] transition-colors disabled:opacity-60"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Delete my account
+              </button>
+            </div>
+          </section>
         )}
 
         {/* Sign Out */}

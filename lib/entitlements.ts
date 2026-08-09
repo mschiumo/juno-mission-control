@@ -11,17 +11,19 @@
  * to this store, not touching the gates.
  *
  * Tiers:
- *   silver   — Journal via manual statement upload, Market News, Trade
- *              Management, Performance, Profit Projection, Docs.
+ *   silver   — THE FREE TIER. Journal via manual statement upload, Market
+ *              News, Trade Management, Performance, Profit Projection, Docs.
+ *              Deliberately excludes the two things that cost real money:
+ *              SnapTrade connections and AI inference.
  *   gold     — everything in Silver, plus live brokerage sync, the full
  *              Market tab, daily briefing emails, Journal Insights (AI
  *              coaching), and the Goals tab.
  *   platinum — everything in Gold, plus Agents.
  *
- * A signed-in user with no active record has no tier: they can use the app
- * shell and the billing/plan pages, nothing else. The failure mode of a
- * missed webhook or an expired record is "user loses features", never "we
- * keep paying SnapTrade for someone who stopped paying".
+ * Every signed-in user resolves to at least Silver — a missing or expired
+ * record IS the free tier. The failure mode of a missed webhook or an
+ * expired trial is "user degrades to free", never "we keep paying SnapTrade
+ * for someone who stopped paying" (paid-only features die with the record).
  */
 
 export type Tier = 'silver' | 'gold' | 'platinum';
@@ -53,29 +55,18 @@ export interface Features {
 }
 
 export interface Entitlements {
-  /** null = signed in but no active plan (and no trial). */
-  tier: Tier | null;
+  tier: Tier;
   features: Features;
 }
 
-const NO_FEATURES: Features = {
-  journal: false,
-  marketNews: false,
-  tradeManagement: false,
-  performance: false,
-  profitProjection: false,
-  docs: false,
+const SILVER_FEATURES: Features = {
+  journal: true,
   brokerageSync: false,
   marketFull: false,
   emailBriefings: false,
   journalInsights: false,
   goals: false,
   agents: false,
-};
-
-const SILVER_FEATURES: Features = {
-  ...NO_FEATURES,
-  journal: true,
   marketNews: true,
   tradeManagement: true,
   performance: true,
@@ -97,7 +88,8 @@ const PLATINUM_FEATURES: Features = {
   agents: true,
 };
 
-export const NO_PLAN_ENTITLEMENTS: Entitlements = { tier: null, features: NO_FEATURES };
+/** What every signed-in user gets with no stored record: free Silver. */
+export const FREE_ENTITLEMENTS: Entitlements = { tier: 'silver', features: SILVER_FEATURES };
 
 const TIER_FEATURES: Record<Tier, Features> = {
   silver: SILVER_FEATURES,
@@ -105,8 +97,7 @@ const TIER_FEATURES: Record<Tier, Features> = {
   platinum: PLATINUM_FEATURES,
 };
 
-export function entitlementsForTier(tier: Tier | null): Entitlements {
-  if (!tier) return NO_PLAN_ENTITLEMENTS;
+export function entitlementsForTier(tier: Tier): Entitlements {
   return { tier, features: TIER_FEATURES[tier] };
 }
 
@@ -138,17 +129,17 @@ export function isRecordActive(record: EntitlementRecord | null, now: Date = new
   return Number.isFinite(expiry) && expiry > now.getTime();
 }
 
-/** Resolve a stored record into capabilities. Expired or missing = no plan. */
+/** Resolve a stored record into capabilities. Expired or missing = free Silver. */
 export function entitlementsFor(
   record: EntitlementRecord | null,
   now: Date = new Date(),
 ): Entitlements {
-  if (!isRecordActive(record, now)) return NO_PLAN_ENTITLEMENTS;
+  if (!isRecordActive(record, now)) return FREE_ENTITLEMENTS;
   return entitlementsForTier(record!.tier);
 }
 
-export function tierAtLeast(tier: Tier | null, floor: Tier): boolean {
-  return !!tier && TIER_ORDER[tier] >= TIER_ORDER[floor];
+export function tierAtLeast(tier: Tier, floor: Tier): boolean {
+  return TIER_ORDER[tier] >= TIER_ORDER[floor];
 }
 
 // ---------------------------------------------------------------------------
@@ -167,10 +158,13 @@ function annualOf(monthly: number): number {
 }
 
 export const TIER_PRICING: Record<Tier, TierPricing> = {
-  silver: { monthly: 4.99, annual: annualOf(4.99) },
-  gold: { monthly: 14.99, annual: annualOf(14.99) },
-  platinum: { monthly: 19.99, annual: annualOf(19.99) },
+  silver: { monthly: 0, annual: 0 },
+  gold: { monthly: 29, annual: annualOf(29) },
+  platinum: { monthly: 59, annual: annualOf(59) },
 };
+
+/** Tiers that can actually be purchased (Silver is free). */
+export const PAID_TIERS: Tier[] = ['gold', 'platinum'];
 
 export const TIER_LABELS: Record<Tier, string> = {
   silver: 'Silver',

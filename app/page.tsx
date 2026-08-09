@@ -19,7 +19,6 @@ import Link from 'next/link';
 import { LayoutDashboard, Target, TrendingUp, Wallet, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
-import { useEntitlements } from '@/lib/use-entitlements';
 
 type TabId = 'dashboard' | 'finances' | 'trading' | 'goals';
 
@@ -31,15 +30,6 @@ function DashboardContent() {
   const searchParams = useSearchParams();
 
   const isOwner = isOwnerEmail(session?.user?.email);
-  const { tier, loading: entitlementsLoading } = useEntitlements();
-
-  // A signed-in user with no active plan (and no trial left to discover) gets
-  // the plan picker, not an empty app — every feature is plan-gated.
-  useEffect(() => {
-    if (!isOwner && !entitlementsLoading && tier === null) {
-      router.replace('/plans');
-    }
-  }, [isOwner, entitlementsLoading, tier, router]);
 
   // Get tab from URL query param; non-owners land on trading, not dashboard
   const getTabFromUrl = useCallback((): TabId => {

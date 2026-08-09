@@ -1149,8 +1149,8 @@ export default function LandingPage() {
               {
                 tier: 'silver' as const,
                 name: 'Silver',
-                tagline: 'The disciplined core',
-                desc: 'Journal every trade, measure your performance, and plan your next move.',
+                tagline: 'Free forever',
+                desc: 'Journal every trade, measure your performance, and plan your next move — at no cost.',
                 features: [
                   'Trading Journal — manual statement upload',
                   'Market News screener',
@@ -1206,11 +1206,17 @@ export default function LandingPage() {
                 <p className="text-xs text-[#F97316] font-semibold uppercase tracking-wide mt-0.5 mb-3">{plan.tagline}</p>
                 <p className="text-sm text-[#8b949e] leading-relaxed mb-5 min-h-[40px]">{plan.desc}</p>
                 <div className="mb-6">
-                  <span className="text-4xl font-bold text-white">
-                    ${TIER_PRICING[plan.tier][billingCycle].toFixed(2)}
-                  </span>
-                  <span className="text-sm text-[#8b949e]">/{billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
-                  {billingCycle === 'annual' && (
+                  {plan.tier === 'silver' ? (
+                    <span className="text-4xl font-bold text-white">Free</span>
+                  ) : (
+                    <>
+                      <span className="text-4xl font-bold text-white">
+                        ${TIER_PRICING[plan.tier][billingCycle].toFixed(2)}
+                      </span>
+                      <span className="text-sm text-[#8b949e]">/{billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
+                    </>
+                  )}
+                  {plan.tier !== 'silver' && billingCycle === 'annual' && (
                     <p className="text-[11px] text-[#3fb950] mt-1">
                       Save ${(TIER_PRICING[plan.tier].monthly * 12 - TIER_PRICING[plan.tier].annual).toFixed(2)} a year
                     </p>
@@ -1232,8 +1238,14 @@ export default function LandingPage() {
                       : 'bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]'
                   }`}
                 >
-                  Start Free Gold Week
+                  {plan.tier === 'silver' ? 'Sign Up Free' : 'Start Free Gold Week'}
                 </Link>
+                {plan.tier === 'platinum' && (
+                  <p className="mt-3 text-[10px] text-[#8b949e] leading-snug">
+                    Agents currently execute through a dedicated Robinhood connection set up during
+                    onboarding; journaling works with any supported broker.
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -1282,8 +1294,18 @@ export default function LandingPage() {
               </tbody>
             </table>
             <p className="text-center text-xs text-[#8b949e] mt-6">
-              Every new account can try Gold free for 7 days — no credit card required.
-              Have a referral code? Redeem it at checkout for a free month of Gold.
+              Silver is free forever. Every new account can also try Gold free for 7 days — no
+              credit card required. Have a referral code? Redeem it on the Plans page for a free
+              month of Gold.
+            </p>
+            <p className="text-center text-[11px] text-[#484f58] mt-4 max-w-2xl mx-auto leading-relaxed">
+              ConfluenceTrading is a journaling and analytics tool — nothing in the product is
+              financial or investment advice. Trading involves substantial risk of loss; all
+              trading decisions are your own. See our{' '}
+              <Link href="/terms" className="text-[#8b949e] hover:text-[#F97316] underline">
+                Terms &amp; Conditions
+              </Link>{' '}
+              and risk disclosure.
             </p>
           </div>
         </div>
@@ -1359,11 +1381,23 @@ export default function LandingPage() {
             <span className="hidden sm:inline text-[#8b949e] text-sm">— Your disciplined trading command center</span>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+            <Link href="/terms" className="text-xs text-[#8b949e] hover:text-[#F97316] transition-colors">
+              Terms &amp; Conditions
+            </Link>
             <a href={`mailto:${SUPPORT_EMAIL}`} className="text-xs text-[#8b949e] hover:text-[#F97316] transition-colors">
               {SUPPORT_EMAIL}
             </a>
             <p className="text-xs text-[#8b949e]">© {new Date().getFullYear()} Confluence Trading. All rights reserved.</p>
           </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-6 pb-6 -mt-2">
+          <p className="text-[11px] text-[#484f58] leading-relaxed text-center md:text-left">
+            Disclaimer: ConfluenceTrading is a trading journal and analytics tool. Nothing in this
+            product constitutes financial, investment, tax, or legal advice, and no content should
+            be relied on as a recommendation to buy or sell any security. Trading involves
+            substantial risk of loss and is not suitable for every investor. All trading decisions
+            and their outcomes are solely your responsibility.
+          </p>
         </div>
       </footer>
 

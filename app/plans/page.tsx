@@ -13,7 +13,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Check, Sparkles, Gift, Loader2, ArrowLeft, Star } from 'lucide-react';
+import { Check, Sparkles, Gift, Loader2, ArrowLeft, Star, Info } from 'lucide-react';
 import { TIER_PRICING, TIER_LABELS, ANNUAL_DISCOUNT, type Tier } from '@/lib/entitlements';
 import { usePlanStatus, invalidateEntitlements } from '@/lib/use-entitlements';
 
@@ -21,7 +21,7 @@ type Cycle = 'monthly' | 'annual';
 
 const TIER_FEATURES_COPY: Record<Tier, { blurb: string; features: string[] }> = {
   silver: {
-    blurb: 'The disciplined trading core — journal, plan, and measure.',
+    blurb: 'The disciplined trading core — free, forever.',
     features: [
       'Trading Journal with manual account-statement upload',
       'Market News screener',
@@ -129,24 +129,41 @@ export default function PlansPage() {
     }
   }
 
+  async function cancelPlan() {
+    if (!window.confirm('Downgrade to the free Silver plan? Your brokerage connection will be disconnected immediately and paid features will stop.')) return;
+    setBusy('cancel');
+    setNotice(null);
+    try {
+      const res = await fetch('/api/user/plan/cancel', { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        invalidateEntitlements();
+        router.push('/');
+        return;
+      }
+      setNotice(json.error || 'Could not cancel the plan.');
+    } catch {
+      setNotice('Could not cancel the plan.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#0d1117] text-white">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          {tier ? (
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 text-sm text-[#8b949e] hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back to the app
-            </Link>
-          ) : (
-            <span />
-          )}
-          {!loading && tier && (
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm text-[#8b949e] hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to the app
+          </Link>
+          {!loading && (
             <span className="text-xs px-3 py-1.5 rounded-full bg-[#F97316]/10 text-[#F97316] font-semibold">
               Current plan: {TIER_LABELS[tier]}
+              {tier === 'silver' && status.source !== 'owner' && ' (free)'}
               {status.source === 'trial' && ' (free trial)'}
               {status.source === 'referral' && ' (referral)'}
               {status.expiresAt && ` · until ${new Date(status.expiresAt).toLocaleDateString()}`}
@@ -236,9 +253,15 @@ export default function PlansPage() {
                 <h2 className="text-lg font-bold mb-1">{TIER_LABELS[t]}</h2>
                 <p className="text-xs text-[#8b949e] mb-4 min-h-[32px]">{TIER_FEATURES_COPY[t].blurb}</p>
                 <div className="mb-5">
-                  <span className="text-3xl font-bold">${price.toFixed(2)}</span>
-                  <span className="text-sm text-[#8b949e]">/{cycle === 'monthly' ? 'mo' : 'yr'}</span>
-                  {cycle === 'annual' && (
+                  {t === 'silver' ? (
+                    <span className="text-3xl font-bold">Free</span>
+                  ) : (
+                    <>
+                      <span className="text-3xl font-bold">${price.toFixed(2)}</span>
+                      <span className="text-sm text-[#8b949e]">/{cycle === 'monthly' ? 'mo' : 'yr'}</span>
+                    </>
+                  )}
+                  {t !== 'silver' && cycle === 'annual' && (
                     <p className="text-[11px] text-[#3fb950] mt-1">
                       vs ${(TIER_PRICING[t].monthly * 12).toFixed(2)} paid monthly — save $
                       {(TIER_PRICING[t].monthly * 12 - price).toFixed(2)}/yr
@@ -253,18 +276,42 @@ export default function PlansPage() {
                     </li>
                   ))}
                 </ul>
-                <button
-                  onClick={() => choosePlan(t)}
-                  disabled={busy !== null || isCurrent}
-                  className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60 ${
-                    popular
-                      ? 'bg-[#F97316] hover:bg-[#fb8c3c] text-white'
-                      : 'bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]'
-                  }`}
-                >
-                  {busy === t && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {isCurrent ? 'Your current plan' : `Choose ${TIER_LABELS[t]}`}
-                </button>
+                {t === 'silver' ? (
+                  isCurrent ? (
+                    <div className="w-full py-2.5 rounded-lg text-sm font-semibold text-center bg-[#21262d] text-[#8b949e] border border-[#30363d]">
+                      Your current plan
+                    </div>
+                  ) : (
+                    <button
+                      onClick={cancelPlan}
+                      disabled={busy !== null || status.source === 'owner'}
+                      className="w-full py-2.5 rounded-lg text-sm font-semibold transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60 bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]"
+                    >
+                      {busy === 'cancel' && <Loader2 className="w-4 h-4 animate-spin" />}
+                      Downgrade to Free
+                    </button>
+                  )
+                ) : (
+                  <button
+                    onClick={() => choosePlan(t)}
+                    disabled={busy !== null || isCurrent}
+                    className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60 ${
+                      popular
+                        ? 'bg-[#F97316] hover:bg-[#fb8c3c] text-white'
+                        : 'bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]'
+                    }`}
+                  >
+                    {busy === t && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {isCurrent ? 'Your current plan' : `Choose ${TIER_LABELS[t]}`}
+                  </button>
+                )}
+                {t === 'platinum' && (
+                  <p className="mt-3 text-[10px] text-[#8b949e] leading-snug flex items-start gap-1.5">
+                    <Info className="w-3 h-3 shrink-0 mt-0.5" />
+                    Agents currently execute through a dedicated Robinhood connection set up during
+                    onboarding. Journaling works with any SnapTrade-supported broker.
+                  </p>
+                )}
               </div>
             );
           })}
@@ -299,6 +346,20 @@ export default function PlansPage() {
             </p>
           </div>
         )}
+
+        {/* Risk disclaimer */}
+        <div className="max-w-2xl mx-auto mt-10 text-center">
+          <p className="text-[11px] text-[#8b949e] leading-relaxed">
+            ConfluenceTrading is a journaling and analytics tool. Nothing in this product is
+            financial, investment, or trading advice. Trading involves substantial risk of loss;
+            all trading decisions and their outcomes are your own responsibility. By subscribing
+            you agree to our{' '}
+            <Link href="/terms" className="text-[#F97316] hover:underline">
+              Terms &amp; Conditions
+            </Link>
+            .
+          </p>
+        </div>
       </div>
     </div>
   );

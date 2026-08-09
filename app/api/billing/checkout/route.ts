@@ -27,7 +27,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch {
     // handled below
   }
-  if (tier !== 'silver' && tier !== 'gold' && tier !== 'platinum') {
+  if (tier !== 'gold' && tier !== 'platinum') {
+    // Silver is the free tier — there is nothing to buy.
     return NextResponse.json({ success: false, error: 'Unknown plan.' }, { status: 400 });
   }
   if (cycle !== 'monthly' && cycle !== 'annual') {

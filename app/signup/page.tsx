@@ -27,6 +27,7 @@ export default function SignupPage() {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const score = strengthScore(password);
   const allRulesMet = score === rules.length;
@@ -42,6 +43,11 @@ export default function SignupPage() {
 
     if (password !== confirm) {
       setError('Passwords do not match');
+      return;
+    }
+
+    if (!agreedToTerms) {
+      setError('Please accept the Terms & Conditions to continue');
       return;
     }
 
@@ -194,6 +200,23 @@ export default function SignupPage() {
               {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
+
+          <label className="flex items-start gap-2.5 cursor-pointer select-none pt-1">
+            <input
+              type="checkbox"
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
+              className="mt-0.5 w-4 h-4 shrink-0 accent-[#F97316]"
+            />
+            <span className="text-xs text-[#8b949e] leading-relaxed">
+              I agree to the{' '}
+              <Link href="/terms" target="_blank" className="text-[#F97316] hover:underline">
+                Terms &amp; Conditions
+              </Link>{' '}
+              and understand that ConfluenceTrading does not provide financial advice and that
+              all trading decisions are made at my own risk.
+            </span>
+          </label>
 
           {error && (
             <p className="text-xs text-red-400 text-center">{error}</p>
