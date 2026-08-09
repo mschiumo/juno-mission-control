@@ -73,7 +73,9 @@ export default function SignupPage() {
       setLoading(false);
       window.location.href = '/login';
     } else {
-      window.location.href = '/';
+      // New accounts hold no plan yet — land on the plan picker (free Gold
+      // trial front and center) instead of an empty app shell.
+      window.location.href = '/plans';
     }
   };
 
