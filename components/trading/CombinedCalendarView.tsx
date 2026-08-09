@@ -705,7 +705,9 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                   <span className={`text-xs sm:text-sm font-medium ${today ? 'text-[#F97316]' : 'text-white'}`}>
                     {dayData.dayNumber}
                   </span>
-                  {hasTrades && (
+                  {/* Hide P&L while the day's broker data is still partial — a
+                      number built from an incomplete fill feed is misleading. */}
+                  {hasTrades && !isPendingSync && (
                     <span className={`text-[9px] sm:text-xs font-bold ${isProfitable ? 'text-[#3fb950]' : isLoss ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
                       {dayData.trades?.pnl && dayData.trades.pnl > 0 ? '+' : ''}{formatCurrency(dayData.trades?.pnl || 0)}
                     </span>
