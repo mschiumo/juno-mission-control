@@ -372,9 +372,9 @@ export default function TradingView() {
       {showTour && !entitlementsLoading && (
         <TradingTour
           features={features}
-          // The onboarding tour only covers the standard sub-tabs; 'agents' (owner-only)
-          // and 'docs' aren't part of it, so present them as 'overview' to the tour's narrower type.
-          activeSubTab={activeSubTab === 'agents' || activeSubTab === 'docs' ? 'overview' : activeSubTab}
+          // The tour covers every sub-tab except Agents (whose walkthrough is its
+          // own thing), so only that one is presented as 'overview'.
+          activeSubTab={activeSubTab === 'agents' ? 'overview' : activeSubTab}
           onNavigate={setActiveSubTab}
           onComplete={handleTourComplete}
         />

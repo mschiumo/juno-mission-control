@@ -17,11 +17,15 @@ import {
   Lightbulb,
   TrendingDown,
   Newspaper,
+  Link2,
+  Target,
+  GraduationCap,
+  CalendarDays,
   ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react';
 
-type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management' | 'docs';
 type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
 
 /** Mini visual mockup shown alongside the step description */
@@ -182,6 +186,7 @@ const SUBTAB_FEATURE: Record<TradingSubTab, keyof Features> = {
   goals: 'goals',
   projection: 'profitProjection',
   'trade-management': 'tradeManagement',
+  docs: 'docs',
 };
 
 const STEPS: TourStep[] = [
@@ -190,36 +195,59 @@ const STEPS: TourStep[] = [
     icon: <LayoutDashboard className="w-9 h-9 text-[#F97316]" />,
     title: 'Welcome to Your Trading Hub',
     description:
-      'The Trading tab is your all-in-one workspace for tracking, analyzing, and planning trades. This quick tour will walk you through the most important features — it only takes a minute.',
-    tip: 'Use the tabs at the top to switch between sections at any time.',
+      'This is your workspace for journaling trades, managing risk, and finding out what actually works in your trading. The tour only covers what your plan includes, and it takes about a minute.',
+    tip: 'You can relaunch this tour any time from the ? icon at the right of the tab bar.',
   },
   {
     subtab: 'overview',
     targetDataTour: 'trading-nav',
     tooltipSide: 'bottom',
     icon: <LayoutDashboard className="w-9 h-9 text-[#F97316]" />,
-    title: 'Five Sections, One Tab',
+    title: 'Your Sections',
     description:
-      'Overview shows your P&L calendar and trade journal. Market gives you a live gap scanner. Trade Management has the position calculator and watchlist. Performance tracks your stats and AI journal insights. Profit Projection lets you model your strategy.',
-    tip: "Click any tab to jump to that section — we'll show you each one.",
+      'Journal holds your P&L calendar and daily entries. Trade Management has the risk calculator and watchlist. Performance tracks your stats, Profit Projection models your strategy, and Docs explains everything in depth. Market, Market News, and Goals appear here too when your plan includes them.',
+    tip: "Click any tab to jump straight there — we'll visit each one in turn.",
+  },
+  {
+    subtab: 'overview',
+    requiresFeature: 'brokerageSync',
+    targetDataTour: 'brokerage-sync',
+    tooltipSide: 'bottom',
+    icon: <Link2 className="w-9 h-9 text-[#F97316]" />,
+    title: 'Connect Your Brokerage',
+    description:
+      'Link your brokerage here and your journal fills itself — trades, fills, and balances sync automatically each day through SnapTrade, which supports Schwab, Robinhood, Fidelity, E*TRADE, Webull, Interactive Brokers and more. While a brokerage is linked it is the single source of your journal, so the numbers always match your statements.',
+    tip: 'Disconnecting is one click and restores whatever you had imported by hand beforehand.',
   },
   {
     subtab: 'overview',
     targetDataTour: 'trading-import',
     tooltipSide: 'left',
     icon: <Upload className="w-9 h-9 text-[#F97316]" />,
-    title: 'Import from ThinkorSwim',
+    title: 'Import Your Trades by Hand',
     description:
-      "Export Today's Trade Activity from TOS and drop the CSV here. Confluence Trading pairs buys with sells, calculates P&L, and flags trades that already exist in your journal so you can merge or skip them.",
+      'No brokerage connection needed: export an account statement or trade activity file from your broker — ThinkorSwim, Schwab, or any CSV — and drop it here. Confluence Trading pairs buys with sells, calculates P&L, and flags trades already in your journal so you can merge or skip them. There is a downloadable template in the import window if your broker exports something unusual.',
     tip: 'Merged trades keep your notes — brokerage numbers always win for the financials.',
   },
   {
-    subtab: 'trade-management',
-    icon: <Calculator className="w-9 h-9 text-[#F97316]" />,
-    title: 'Position Calculator',
+    subtab: 'overview',
+    targetDataTour: 'trading-calendar',
+    tooltipSide: 'top',
+    icon: <CalendarDays className="w-9 h-9 text-[#F97316]" />,
+    title: 'The P&L Calendar',
     description:
-      "Enter your ticker, dollar risk, entry price, and stop — the calculator instantly tells you how many shares to buy. Never over-size a position again.",
-    tip: 'Hit "Trading Mode" for a distraction-free fullscreen layout during the session.',
+      'Every trading day shows its net result, and clicking a day opens that day\u2019s trades alongside your journal entry. Writing two honest sentences a day is what makes the AI coaching and your own reviews worth reading later.',
+    tip: 'Tag your setups and emotional state — those tags become the patterns you analyze.',
+  },
+  {
+    subtab: 'trade-management',
+    targetDataTour: 'position-calculator',
+    tooltipSide: 'right',
+    icon: <Calculator className="w-9 h-9 text-[#F97316]" />,
+    title: 'Size Every Trade by Risk',
+    description:
+      'Enter your ticker, dollar risk, entry, and stop — the calculator returns the exact share size, with your reward-to-risk ratio alongside it. Decide what a trade may cost you before you decide how many shares to buy.',
+    tip: 'Keep the dollar risk identical across trades; consistency is what makes your stats mean something.',
     preview: <CalcPreview />,
   },
   {
@@ -229,8 +257,8 @@ const STEPS: TourStep[] = [
     icon: <Maximize2 className="w-9 h-9 text-[#F97316]" />,
     title: 'Trading Mode',
     description:
-      'Enter a distraction-free fullscreen workspace designed for the live session. Trading Mode shows your active trades strip and watchlist side-by-side — no tabs, no clutter.',
-    tip: 'Press Esc at any time to exit Trading Mode and return to the full dashboard.',
+      'A distraction-free fullscreen workspace for the live session: active trades and watchlist side by side, no tabs, no clutter.',
+    tip: 'Press Esc at any time to exit and return to the full workspace.',
   },
   {
     subtab: 'market',
@@ -239,8 +267,8 @@ const STEPS: TourStep[] = [
     icon: <Newspaper className="w-9 h-9 text-[#F97316]" />,
     title: 'Daily Market Briefing',
     description:
-      'Every weekday morning before the bell, an AI-generated briefing lands here with overnight futures, index levels, big movers, and key news — all in one snapshot. Reviewing it takes 30 seconds and gives you context most traders skip.',
-    tip: 'Check the briefing each morning before placing your first trade. Knowing the macro backdrop helps you size positions and pick the right setups.',
+      'Every weekday before the bell, an AI-generated briefing lands here with overnight futures, index levels, big movers, and the news that matters — one snapshot, 30 seconds to read. Turn on the email in your profile and it arrives in your inbox instead.',
+    tip: 'Read it before your first trade; the macro backdrop shapes which setups are worth taking.',
     preview: <BriefingPreview />,
   },
   {
@@ -250,25 +278,43 @@ const STEPS: TourStep[] = [
     icon: <TrendingUp className="w-9 h-9 text-[#F97316]" />,
     title: 'Live Gap Scanner',
     description:
-      'Stocks gapping ≥ 2% with significant volume refresh every 15 seconds. The scanner is fully customizable — adjust gap %, volume, and price filters to match your strategy. Star any ticker to pin it to your watchlist.',
-    tip: 'Sort by gap % or volume to find the highest-conviction setups quickly.',
+      'Stocks gapping with significant volume, refreshed continuously through the session. Adjust gap %, volume, and price filters to match your strategy, and star any ticker to pin it to your watchlist.',
+    tip: 'Sort by gap % or relative volume to surface the highest-conviction setups first.',
+  },
+  {
+    subtab: 'market-news',
+    icon: <Newspaper className="w-9 h-9 text-[#F97316]" />,
+    title: 'Market News, Filtered',
+    description:
+      'Live headlines tagged by sentiment and category — Fed and rates, macro, M&A, earnings, AI, crypto — so you can scan the day\u2019s catalysts without a dozen browser tabs.',
+    tip: 'Check the high-impact digest before the open; it is the fastest read on the page.',
+  },
+  {
+    subtab: 'goals',
+    icon: <Target className="w-9 h-9 text-[#F97316]" />,
+    title: 'Goals That Track Themselves',
+    description:
+      'Set the rules you want to trade by — win rate, risk per trade, trades per day — and they update from your real journal data. No manual check-ins and no fudging: progress comes from what you actually did.',
+    tip: 'Start with one process goal (like risk per trade) rather than a profit target — process is what you control.',
   },
   {
     subtab: 'performance',
     icon: <LineChart className="w-9 h-9 text-[#F97316]" />,
-    title: 'Equity Curve',
+    title: 'Your Numbers, Honestly',
     description:
-      'Track your account growth over time with an interactive equity curve. See your net liquidating value, total P&L, win rate, and average win/loss at a glance — all updated automatically as you import trades.',
-    tip: 'Set your starting balance to see accurate percentage returns from day one.',
+      'Equity curve, net liquidating value, win rate, profit factor, drawdown, and a breakdown by strategy — all recalculated as trades land in your journal, whether they arrive by brokerage sync or by import.',
+    tip: 'Set your starting balance once so percentage returns are accurate from day one.',
   },
   {
     subtab: 'performance',
     requiresFeature: 'journalInsights',
+    targetDataTour: 'journal-insights',
+    tooltipSide: 'top',
     icon: <Brain className="w-9 h-9 text-[#F97316]" />,
     title: 'AI Journal Insights',
     description:
-      'Generate an AI-powered analysis of your trade journal. The report surfaces what\'s working, areas to improve, and behavioral patterns across your entries — so you can spot recurring mistakes and double down on winning habits.',
-    tip: 'Generate a report weekly to track how your patterns evolve over time.',
+      'Generate a weekly or monthly report across your journal and trades. It surfaces what is working, what is costing you money, and the behavioral patterns that are invisible from inside a trade.',
+    tip: 'Generate one every week — the value is in watching the patterns change over time.',
     preview: <JournalInsightsPreview />,
   },
   {
@@ -278,8 +324,16 @@ const STEPS: TourStep[] = [
     icon: <BarChart2 className="w-9 h-9 text-[#F97316]" />,
     title: 'Profit Projection',
     description:
-      'Enter your win rate, average R:R, and trades per day to see projected monthly P&L, max drawdown, and Sharpe ratio. Stress-test your strategy before risking real capital.',
+      'Enter your win rate, average R:R, and trades per day to model best, base, and worst-case months before you risk capital on a strategy change.',
     tip: 'Small improvements in win rate compound dramatically over hundreds of trades.',
+  },
+  {
+    subtab: 'docs',
+    icon: <GraduationCap className="w-9 h-9 text-[#F97316]" />,
+    title: 'Docs & Guides',
+    description:
+      'Every feature explained in depth, plus trading guides on risk, journaling discipline, and getting the most out of the analytics. Start here whenever something is unclear.',
+    tip: 'That is the tour — questions any time: confluencetradingsupport@gmail.com.',
   },
 ];
 

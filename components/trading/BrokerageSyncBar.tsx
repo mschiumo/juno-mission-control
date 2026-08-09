@@ -152,7 +152,7 @@ export default function BrokerageSyncBar({
   return (
     <>
       {connected ? (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" data-tour="brokerage-sync">
           <div className="flex items-center rounded-full border border-[#30363d] bg-[#161b22] hover:border-[#3fb950]/40 transition-colors">
             <button
               onClick={() => setShowModal(true)}
@@ -201,6 +201,7 @@ export default function BrokerageSyncBar({
         </div>
       ) : (
         <button
+          data-tour="brokerage-sync"
           onClick={() => setShowModal(true)}
           title="Auto-sync your trades into Performance & Journal"
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-dashed border-[#30363d] text-xs text-[#8b949e] hover:text-[#F97316] hover:border-[#F97316]/50 transition-colors whitespace-nowrap"
