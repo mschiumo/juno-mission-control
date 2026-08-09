@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import type { Features } from '@/lib/entitlements';
 import {
   X,
@@ -441,6 +441,11 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
+  // Real rendered card height. Steps with a preview panel are far taller than
+  // any fixed guess, and a stale guess is what pushes the footer (Back/Next)
+  // off-screen — the overlay is fixed, so there is nothing to scroll to reach it.
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [cardH, setCardH] = useState(360);
   const [locateFailed, setLocateFailed] = useState(false);
 
   // A plan with no tourable features yields no steps (e.g. a user with no
@@ -507,6 +512,16 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
     if (!isFirst) setStep((s) => s - 1);
   }
 
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const measure = () => setCardH(el.getBoundingClientRect().height || 360);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [step, targetRect]);
+
   // Tooltip card position — anchored to the spotlight box
   function tooltipStyle(): React.CSSProperties {
     const vw = window.innerWidth;
@@ -527,7 +542,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
     const { top, left, width, height } = targetRect;
     const side = current?.tooltipSide ?? 'bottom';
     const vh = window.innerHeight;
-    const CARD_H = 360;
+    // Never taller than the viewport; the body scrolls internally past that.
+    const CARD_H = Math.min(cardH, vh - 24);
 
     // Wide elements need special treatment — there's no clean side to anchor.
     const isWide = width > vw * 0.75;
@@ -537,7 +553,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
       if (!isTall) {
         return {
           position: 'fixed',
-          top: sBottom + GAP,
+          top: Math.max(12, Math.min(sBottom + GAP, vh - Math.min(cardH, vh - 24) - 12)),
           left: '50%',
           transform: 'translateX(-50%)',
           width: Math.min(TOOLTIP_WIDTH, vw - 32),
@@ -546,7 +562,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
       } else {
         return {
           position: 'fixed',
-          top: Math.max(80, top - CARD_H - GAP),
+          top: Math.max(12, Math.min(top - CARD_H - GAP, vh - CARD_H - 12)),
           left: '50%',
           transform: 'translateX(-50%)',
           width: Math.min(TOOLTIP_WIDTH, vw - 32),
@@ -565,17 +581,20 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
     const cx = left + width / 2;
     const cy = top + height / 2;
 
+    // One clamp for every branch: the card must always sit fully on screen.
+    const fit = (t: number) => Math.max(12, Math.min(t, vh - CARD_H - 12));
+
     if (side === 'bottom') {
-      style.top = Math.min(sBottom + GAP, vh - CARD_H - 8);
+      style.top = fit(sBottom + GAP);
       style.left = Math.max(8, Math.min(cx - tw / 2, vw - tw - 8));
     } else if (side === 'top') {
-      style.top = Math.max(8, sTop - GAP - CARD_H);
+      style.top = fit(sTop - GAP - CARD_H);
       style.left = Math.max(8, Math.min(cx - tw / 2, vw - tw - 8));
     } else if (side === 'right') {
-      style.top = Math.max(8, Math.min(cy - CARD_H / 2, vh - CARD_H - 8));
+      style.top = fit(cy - CARD_H / 2);
       style.left = Math.min(sRight + GAP, vw - tw - 8);
     } else {
-      style.top = Math.max(8, Math.min(cy - CARD_H / 2, vh - CARD_H - 8));
+      style.top = fit(cy - CARD_H / 2);
       style.left = Math.max(8, sLeft - GAP - tw);
     }
 
@@ -658,14 +677,15 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
 
       {/* Tooltip card — only rendered once position is known */}
       {cardReady && <div
-        style={{ ...tooltipStyle(), pointerEvents: 'auto' }}
-        className="bg-[#161b22] border border-[#30363d] rounded-2xl shadow-2xl overflow-visible"
+        ref={cardRef}
+        style={{ ...tooltipStyle(), pointerEvents: 'auto', maxHeight: 'calc(100vh - 24px)' }}
+        className="bg-[#161b22] border border-[#30363d] rounded-2xl shadow-2xl flex flex-col"
       >
         {/* Arrow toward highlighted element */}
         {hasTarget && side && <Arrow side={side} />}
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/60 rounded-t-2xl">
+        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/60 rounded-t-2xl">
           <span className="text-xs font-semibold text-[#8b949e] uppercase tracking-widest">
             Tour · {step + 1} of {steps.length}
           </span>
@@ -678,8 +698,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-5 py-5 sm:px-8 sm:py-7">
+        {/* Body — scrolls internally so the footer controls stay reachable */}
+        <div className="px-5 py-5 sm:px-8 sm:py-7 overflow-y-auto min-h-0 flex-1">
           <div className="flex flex-col sm:flex-row sm:items-start gap-5">
             {/* Preview mockup (left side, when present) */}
             {current.preview}
@@ -708,7 +728,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
         </div>
 
         {/* Progress dots */}
-        <div className="flex justify-center gap-2 pb-2">
+        <div className="shrink-0 flex justify-center gap-2 pb-2">
           {steps.map((_, i) => (
             <button
               key={i}
@@ -722,7 +742,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-5 border-t border-[#30363d]">
+        <div className="shrink-0 flex items-center justify-between px-6 py-5 border-t border-[#30363d]">
           <button
             onClick={prev}
             disabled={isFirst}
