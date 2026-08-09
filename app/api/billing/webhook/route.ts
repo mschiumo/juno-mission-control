@@ -10,6 +10,7 @@
  *   checkout.session.completed              → learn the customer id
  *   customer.subscription.created/updated   → write/extend the entitlement
  *   customer.subscription.deleted           → clear entitlement + teardown
+ *   customer.subscription.trial_will_end    → pre-charge reminder email
  *   invoice.payment_failed                  → owner-visible plan event only
  *     (access is NOT cut here — the record's expiresAt handles true lapses,
  *      and Stripe retries payment on its own schedule)
@@ -18,7 +19,10 @@
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { getStripe, tierForPriceId, expiryFromSubscription, saveStripeCustomerId } from '@/lib/stripe';
-import { setEntitlement, clearEntitlement, clearPlanIndex } from '@/lib/db/entitlements';
+import { setEntitlement, clearEntitlement, clearPlanIndex, markTrialUsed } from '@/lib/db/entitlements';
+import { getUserById } from '@/lib/db/users';
+import { sendEmail } from '@/lib/email';
+import { TrialConvertingEmail } from '@/lib/emails/TrialConvertingEmail';
 import { disconnectBrokerage } from '@/lib/brokerage-access';
 import { recordPlanEvent } from '@/lib/db/plan-events';
 
@@ -72,10 +76,13 @@ export async function POST(request: Request): Promise<NextResponse> {
             expiresAt: expiryFromSubscription(sub),
           });
           if (event.type === 'customer.subscription.created') {
+            // A trialing subscription consumes the one-per-account free trial;
+            // otherwise cancel-and-resubscribe would mint a fresh week forever.
+            if (sub.status === 'trialing') await markTrialUsed(userId);
             await recordPlanEvent({
               type: 'subscription_started',
               userId,
-              detail: `${tier} · ${sub.id}`,
+              detail: `${tier} · ${sub.id}${sub.status === 'trialing' ? ' (trialing)' : ''}`,
             });
           }
         } else if (sub.status === 'canceled' || sub.status === 'unpaid' || sub.status === 'incomplete_expired') {
@@ -88,6 +95,39 @@ export async function POST(request: Request): Promise<NextResponse> {
         const sub = event.data.object as Stripe.Subscription;
         const userId = sub.metadata?.userId;
         if (userId) await endSubscription(userId, sub.id, 'deleted');
+        break;
+      }
+
+      case 'customer.subscription.trial_will_end': {
+        // Stripe fires this ~3 days before a trial converts. Telling the user
+        // the amount and date before we take their money is both decent and
+        // required of a negative-option offer.
+        const sub = event.data.object as Stripe.Subscription;
+        const userId = sub.metadata?.userId;
+        if (!userId || !sub.trial_end) break;
+        const user = await getUserById(userId);
+        if (!user?.email) break;
+        const price = sub.items.data[0]?.price;
+        const amount =
+          typeof price?.unit_amount === 'number'
+            ? `$${(price.unit_amount / 100).toFixed(2)}`
+            : 'your plan price';
+        const sent = await sendEmail({
+          to: user.email,
+          subject: 'Your ConfluenceTrading trial ends soon',
+          react: TrialConvertingEmail({
+            name: user.name,
+            chargeDate: new Date(sub.trial_end * 1000).toISOString(),
+            amount,
+          }),
+          replyTo: 'confluencetradingsupport@gmail.com',
+        });
+        await recordPlanEvent({
+          type: 'trial_converting',
+          userId,
+          email: user.email,
+          detail: `Charging ${amount} on ${new Date(sub.trial_end * 1000).toLocaleDateString()}${sent.success ? '' : ' — reminder email FAILED'}`,
+        });
         break;
       }
 

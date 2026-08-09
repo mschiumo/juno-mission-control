@@ -105,6 +105,20 @@ export async function clearEntitlement(userId: string): Promise<void> {
 // Trial
 // ---------------------------------------------------------------------------
 
+/**
+ * Mark the one-per-account trial as consumed. Called by the Stripe webhook
+ * when a trialing subscription starts — without it a user could cancel and
+ * re-subscribe for a fresh free week every time.
+ */
+export async function markTrialUsed(userId: string): Promise<void> {
+  try {
+    const redis = await getRedisClient();
+    await redis.set(trialUsedKey(userId), new Date().toISOString());
+  } catch (error) {
+    console.error('Error marking trial used:', error);
+  }
+}
+
 export async function hasUsedTrial(userId: string): Promise<boolean> {
   try {
     const redis = await getRedisClient();

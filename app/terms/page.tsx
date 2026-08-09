@@ -103,10 +103,17 @@ export default function TermsPage() {
 
         <Section title="5. Accounts, Plans & Billing">
           <p>
-            Silver is a free plan. Gold and Platinum are paid subscriptions billed monthly or
-            annually at the prices shown on the pricing page. Trials and referral grants convert
-            or expire automatically; when a paid plan, trial, or referral period ends, paid
-            features stop and any linked brokerage connection is disconnected. You may cancel or
+            Silver is a free plan and never requires a payment method. Gold and Platinum are paid
+            subscriptions billed monthly or annually at the prices shown on the pricing page.
+          </p>
+          <p>
+            <strong className="text-[#c9d1d9]">Free trials convert automatically.</strong> When you
+            start a free trial we collect a payment method and, unless you cancel before the trial
+            ends, the subscription begins and the card is charged the price disclosed at signup,
+            recurring each period thereafter. We send an email reminder before the first charge.
+            You may cancel at any time — before or after conversion — from the Plans page or your
+            profile, in two clicks and without contacting us; cancelling before the trial ends
+            results in no charge. Referral grants expire rather than convert. You may cancel or
             downgrade at any time from the Plans page; cancellation disconnects your brokerage
             connection immediately. Fees already paid are non-refundable except where required by
             law. Prices may change with notice; changes apply from your next billing period.

@@ -189,6 +189,18 @@ export const TRIAL_TIER: Tier = 'gold';
 export const TRIAL_DAYS = 7;
 
 /**
+ * Trials capture a card up front and convert to a paid subscription unless
+ * cancelled — Stripe holds the card and starts billing on day 7.
+ *
+ * This is a negative-option offer, so the surrounding copy is compliance
+ * surface, not decoration: the price, the exact conversion date, and how to
+ * cancel must appear next to the payment step, and cancelling must stay as
+ * easy as subscribing. Flip this to false to return to the no-card trial
+ * (the /api/user/plan/trial endpoint still implements that path).
+ */
+export const CARD_ON_FILE_TRIAL = true;
+
+/**
  * Referral codes redeemable at checkout. Kept as data so adding a code is a
  * one-line change; when Stripe lands these become coupons and this map is the
  * source of truth for what each code grants.

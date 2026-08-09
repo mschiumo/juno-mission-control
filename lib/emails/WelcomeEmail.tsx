@@ -87,8 +87,8 @@ export function WelcomeEmail({ name }: { name?: string }) {
           <Text style={stepTitle}>3 · Try Gold free for a week</Text>
           <Text style={stepText}>
             Connect your brokerage so the journal fills itself, get the AI morning briefing, and
-            let the AI coach read your journal. No card required — it just ends if you don&apos;t
-            continue.
+            let the AI coach read your journal. Free for 7 days; it converts to $29/month after
+            that unless you cancel, and we email you before any charge.
           </Text>
         </div>
 

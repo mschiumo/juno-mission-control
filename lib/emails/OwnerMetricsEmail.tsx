@@ -17,6 +17,7 @@ const EVENT_LABELS: Record<string, string> = {
   plan_expired: 'Plan expired',
   admin_grant: 'Admin grant',
   admin_revoke: 'Admin revoke',
+  trial_converting: 'Trial converting soon',
   subscription_started: 'Subscription started',
   subscription_ended: 'Subscription ended',
   payment_failed: 'Payment failed',

@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Check, Sparkles, Gift, Loader2, ArrowLeft, Star, Info } from 'lucide-react';
-import { TIER_PRICING, TIER_LABELS, ANNUAL_DISCOUNT, PLATINUM_COMING_SOON, type Tier } from '@/lib/entitlements';
+import { TIER_PRICING, TIER_LABELS, ANNUAL_DISCOUNT, PLATINUM_COMING_SOON, CARD_ON_FILE_TRIAL, TRIAL_DAYS, type Tier } from '@/lib/entitlements';
 import { usePlanStatus, invalidateEntitlements } from '@/lib/use-entitlements';
 
 type Cycle = 'monthly' | 'annual';
@@ -315,25 +315,34 @@ export default function PlansPage() {
           </p>
         </div>
 
-        {/* Trial banner */}
+        {/* Trial banner — the card-on-file terms are stated here and again
+            beside the Gold button, since this is a negative-option offer. */}
         {!loading && status.trialAvailable && (
           <div className="mb-8 rounded-2xl border border-[#F97316]/40 bg-gradient-to-r from-[#F97316]/10 to-transparent p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <Sparkles className="w-5 h-5 text-[#F97316] shrink-0" />
               <div>
-                <p className="text-sm font-semibold">Try Gold free for 7 days</p>
+                <p className="text-sm font-semibold">Try Gold free for {TRIAL_DAYS} days</p>
                 <p className="text-xs text-[#8b949e]">
-                  Full Gold access — brokerage sync, AI insights, briefings. No card required.
+                  {CARD_ON_FILE_TRIAL ? (
+                    <>
+                      Full Gold access — brokerage sync, AI insights, briefings. We save your card
+                      and charge ${TIER_PRICING.gold.monthly}/month when the trial ends; cancel
+                      before then and you pay nothing. We email you first.
+                    </>
+                  ) : (
+                    <>Full Gold access — brokerage sync, AI insights, briefings. No card required.</>
+                  )}
                 </p>
               </div>
             </div>
             <button
-              onClick={startTrial}
+              onClick={() => (CARD_ON_FILE_TRIAL ? choosePlan('gold') : startTrial())}
               disabled={busy !== null}
               className="shrink-0 px-5 py-2.5 rounded-lg bg-[#F97316] hover:bg-[#fb8c3c] text-white text-sm font-semibold transition-colors disabled:opacity-60 inline-flex items-center gap-2"
             >
-              {busy === 'trial' && <Loader2 className="w-4 h-4 animate-spin" />}
-              Start free week
+              {(busy === 'trial' || busy === 'gold') && <Loader2 className="w-4 h-4 animate-spin" />}
+              Start free {TRIAL_DAYS}-day trial
             </button>
           </div>
         )}
@@ -386,6 +395,14 @@ export default function PlansPage() {
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#F97316] text-white text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
                     <Star className="w-3 h-3" /> Most popular
                   </span>
+                )}
+                {t === 'gold' && CARD_ON_FILE_TRIAL && status.trialAvailable && (
+                  <p className="mt-3 text-[10px] text-[#8b949e] leading-snug">
+                    Free for {TRIAL_DAYS} days, then ${TIER_PRICING.gold[cycle]}/
+                    {cycle === 'monthly' ? 'month' : 'year'}. Your card is saved now and charged
+                    when the trial ends — cancel any time before then in two clicks and you
+                    won&apos;t be charged.
+                  </p>
                 )}
                 {t === 'platinum' && PLATINUM_COMING_SOON && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#d29922] text-[#1a1206] text-[10px] font-bold uppercase tracking-wider">

@@ -7,7 +7,10 @@
  *  1. Day-3 check-in — users who signed up 3+ days ago (capped at 14 so we
  *     never blast the back catalog if this cron was ever paused), haven't
  *     received it, and haven't opted out.
- *  2. Trial-ending reminder — active trial records expiring within the next
+ *  2. Trial-ending reminder — for LEGACY no-card trials only (records with
+ *     source 'trial'). Card-on-file trials are reminded by Stripe's
+ *     trial_will_end webhook instead, which knows the real charge date.
+ *     Active trial records expiring within the next
  *     36 hours. The window is wider than the daily cadence so a run can't
  *     fall between the cracks; the flag keeps it to one send.
  *
