@@ -131,6 +131,24 @@ export default function PlansPage() {
     }
   }
 
+  async function openBillingPortal() {
+    setBusy('portal');
+    setNotice(null);
+    try {
+      const res = await fetch('/api/billing/portal', { method: 'POST' });
+      const json = await res.json();
+      if (json.success && json.url) {
+        window.location.href = json.url;
+        return;
+      }
+      setNotice(json.error || 'Could not open the billing portal.');
+    } catch {
+      setNotice('Could not open the billing portal.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function cancelPlan() {
     if (!window.confirm('Downgrade to the free Silver plan? Your brokerage connection will be disconnected immediately and paid features will stop.')) return;
     setBusy('cancel');
@@ -169,6 +187,15 @@ export default function PlansPage() {
               {status.source === 'trial' && ' (free trial)'}
               {status.source === 'referral' && ' (referral)'}
               {status.expiresAt && ` · until ${new Date(status.expiresAt).toLocaleDateString()}`}
+              {status.source === 'billing' && (
+                <button
+                  onClick={openBillingPortal}
+                  disabled={busy !== null}
+                  className="ml-2 underline hover:text-white transition-colors disabled:opacity-60"
+                >
+                  Manage billing
+                </button>
+              )}
             </span>
           )}
         </div>

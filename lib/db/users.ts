@@ -124,6 +124,7 @@ export async function deleteUserAccount(id: string): Promise<void> {
     userKey(id),
     `user:prefs:${id}`,
     `user:lifecycle-emails:${id}`,
+    `user:stripe-customer:${id}`,
     `user:entitlements:${id}`,
     `user:entitlements:trial-used:${id}`,
     `user:entitlements:referral-used:${id}`,

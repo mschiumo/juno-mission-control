@@ -23,6 +23,11 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  // Stripe webhook: authenticated by its signature inside the route handler.
+  if (nextUrl.pathname === '/api/billing/webhook') {
+    return NextResponse.next();
+  }
+
   // Agent API: token-authenticated (AGENT_SECRET) so headless Claude agents can
   // report proposals / work handed-off Collaborative goals without a user session.
   if (

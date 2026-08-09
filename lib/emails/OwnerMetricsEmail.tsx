@@ -17,6 +17,9 @@ const EVENT_LABELS: Record<string, string> = {
   plan_expired: 'Plan expired',
   admin_grant: 'Admin grant',
   admin_revoke: 'Admin revoke',
+  subscription_started: 'Subscription started',
+  subscription_ended: 'Subscription ended',
+  payment_failed: 'Payment failed',
 };
 
 const statBox: React.CSSProperties = {

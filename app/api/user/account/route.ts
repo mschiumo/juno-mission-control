@@ -16,6 +16,8 @@ import { isOwnerEmail } from '@/lib/owner';
 import { deleteUserAccount } from '@/lib/db/users';
 import { disconnectBrokerage } from '@/lib/brokerage-access';
 import { recordPlanEvent } from '@/lib/db/plan-events';
+import { getEntitlementRecord } from '@/lib/db/entitlements';
+import { getStripe } from '@/lib/stripe';
 
 export async function DELETE(): Promise<NextResponse> {
   const authResult = await requireUserId();
@@ -31,6 +33,18 @@ export async function DELETE(): Promise<NextResponse> {
   }
 
   try {
+    // Stop any live subscription before the local records disappear.
+    const record = await getEntitlementRecord(userId);
+    if (record?.source === 'billing' && record.billingRef) {
+      const stripe = getStripe();
+      if (stripe) {
+        try {
+          await stripe.subscriptions.cancel(record.billingRef);
+        } catch (error) {
+          console.error('Stripe cancel during account deletion failed (continuing):', error);
+        }
+      }
+    }
     const teardown = await disconnectBrokerage(userId);
     await deleteUserAccount(userId);
     await recordPlanEvent({

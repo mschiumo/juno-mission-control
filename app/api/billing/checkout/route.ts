@@ -1,22 +1,27 @@
 /**
  * POST /api/billing/checkout  { tier, cycle }
  *
- * The seam Stripe plugs into. When billing goes live this will create a
- * Stripe Checkout Session for the chosen tier/cycle and return its URL; the
- * webhook that confirms payment will then write the entitlement record
- * (source: 'billing', billingRef: subscription id, expiresAt: period end).
+ * With Stripe configured: creates a subscription Checkout Session and
+ * returns its URL. Promotion codes are enabled at checkout, so referral
+ * codes can live in Stripe once billing is real. The webhook — not this
+ * route — writes the entitlement record when payment completes.
  *
- * Until then it validates the selection and reports that payments aren't
- * live yet, so the client can steer users to the free Gold trial.
+ * Without Stripe env: answers BILLING_NOT_LIVE so the client steers users
+ * to the free Gold trial (unchanged pre-launch behavior).
  */
 
 import { NextResponse } from 'next/server';
+import { auth } from '@/auth';
 import { requireUserId } from '@/lib/auth-session';
 import { TIER_PRICING, PLATINUM_COMING_SOON, type Tier } from '@/lib/entitlements';
+import { getStripe, isStripeConfigured, priceIdFor, getStripeCustomerId } from '@/lib/stripe';
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://confluencetrading.app';
 
 export async function POST(request: Request): Promise<NextResponse> {
   const authResult = await requireUserId();
   if (authResult.error) return authResult.error;
+  const { userId } = authResult;
 
   let tier: string | undefined;
   let cycle: string | undefined;
@@ -41,14 +46,44 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const price = TIER_PRICING[tier as Tier][cycle as 'monthly' | 'annual'];
-  return NextResponse.json(
-    {
-      success: false,
-      code: 'BILLING_NOT_LIVE',
-      error: 'Payments are almost ready. Start the free week of Gold, or check back soon.',
-      selection: { tier, cycle, price },
-    },
-    { status: 503 },
-  );
+  const stripe = getStripe();
+  const priceId = priceIdFor(tier, cycle);
+  if (!stripe || !isStripeConfigured() || !priceId) {
+    const price = TIER_PRICING[tier as Tier][cycle as 'monthly' | 'annual'];
+    return NextResponse.json(
+      {
+        success: false,
+        code: 'BILLING_NOT_LIVE',
+        error: 'Payments are almost ready. Start the free week of Gold, or check back soon.',
+        selection: { tier, cycle, price },
+      },
+      { status: 503 },
+    );
+  }
+
+  try {
+    const session = await auth();
+    const existingCustomer = await getStripeCustomerId(userId);
+    const checkout = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      // Bind the session to our user both ways: metadata for the webhook,
+      // and the customer/email so Stripe dedupes billing profiles.
+      ...(existingCustomer
+        ? { customer: existingCustomer }
+        : { customer_email: session?.user?.email ?? undefined }),
+      metadata: { userId },
+      subscription_data: { metadata: { userId } },
+      allow_promotion_codes: true,
+      success_url: `${APP_URL}/plans?checkout=success`,
+      cancel_url: `${APP_URL}/plans?checkout=cancelled`,
+    });
+    return NextResponse.json({ success: true, url: checkout.url });
+  } catch (error) {
+    console.error('Stripe checkout session failed:', error);
+    return NextResponse.json(
+      { success: false, error: 'Could not start checkout. Please try again.' },
+      { status: 500 },
+    );
+  }
 }

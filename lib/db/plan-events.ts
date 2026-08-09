@@ -22,7 +22,10 @@ export type PlanEventType =
   | 'account_deleted'
   | 'plan_expired'
   | 'admin_grant'
-  | 'admin_revoke';
+  | 'admin_revoke'
+  | 'subscription_started'
+  | 'subscription_ended'
+  | 'payment_failed';
 
 export interface PlanEvent {
   type: PlanEventType;

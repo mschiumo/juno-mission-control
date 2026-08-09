@@ -1,13 +1,10 @@
 /**
  * POST /api/user/plan/cancel
  *
- * Downgrade to the free Silver tier, effective immediately. The critical
- * side effect is the SnapTrade teardown: a cancelled user with a live
- * brokerage connection would keep billing us monthly, so disconnection is
- * part of cancellation itself — not deferred to the nightly sweep.
- *
- * When Stripe lands, this route additionally cancels the Stripe
- * subscription before clearing the record.
+ * Downgrade to the free Silver tier, effective immediately. Two spend taps
+ * get shut off in order: the Stripe subscription (if the plan came from
+ * billing) and then the SnapTrade connection — disconnection is part of
+ * cancellation itself, not deferred to the nightly sweep.
  */
 
 import { NextResponse } from 'next/server';
@@ -17,6 +14,7 @@ import { disconnectBrokerage } from '@/lib/brokerage-access';
 import { recordPlanEvent } from '@/lib/db/plan-events';
 import { getEntitlementRecord } from '@/lib/db/entitlements';
 import { auth } from '@/auth';
+import { getStripe } from '@/lib/stripe';
 
 export async function POST(): Promise<NextResponse> {
   const authResult = await requireUserId();
@@ -26,6 +24,33 @@ export async function POST(): Promise<NextResponse> {
   try {
     const record = await getEntitlementRecord(userId);
     const session = await auth();
+
+    // A billing-sourced plan must cancel at Stripe FIRST — clearing our
+    // record while the subscription keeps charging would be the worst bug
+    // this app could have.
+    if (record?.source === 'billing' && record.billingRef) {
+      const stripe = getStripe();
+      if (!stripe) {
+        return NextResponse.json(
+          { success: false, error: 'Billing is unavailable right now — try again shortly.' },
+          { status: 503 },
+        );
+      }
+      try {
+        await stripe.subscriptions.cancel(record.billingRef);
+      } catch (error) {
+        const alreadyGone =
+          error instanceof Error && /No such subscription|canceled/i.test(error.message);
+        if (!alreadyGone) {
+          console.error('Stripe subscription cancel failed:', error);
+          return NextResponse.json(
+            { success: false, error: 'Could not cancel the subscription — please try again or contact support.' },
+            { status: 502 },
+          );
+        }
+      }
+    }
+
     const teardown = await disconnectBrokerage(userId);
     await clearEntitlement(userId);
     await clearPlanIndex(userId);

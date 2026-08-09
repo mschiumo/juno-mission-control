@@ -31,6 +31,9 @@ const EVENT_META: Record<string, { label: string; color: string }> = {
   plan_expired: { label: 'Plan expired', color: '#d29922' },
   admin_grant: { label: 'Admin grant', color: '#58a6ff' },
   admin_revoke: { label: 'Admin revoke', color: '#d29922' },
+  subscription_started: { label: 'Subscription started', color: 'var(--success, #3fb950)' },
+  subscription_ended: { label: 'Subscription ended', color: '#f85149' },
+  payment_failed: { label: 'Payment failed', color: '#d29922' },
 };
 
 function StatCard({
