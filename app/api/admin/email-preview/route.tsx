@@ -1,14 +1,18 @@
 /**
- * GET /api/admin/email-preview?template=welcome|checkin|trial|digest
+ * GET /api/admin/email-preview?template=welcome|checkin|trial|digest[&send=1]
  *
  * Owner-only: renders any lifecycle/digest email template to HTML with
  * sample data, so copy and layout can be checked in a browser without
- * sending anything. Add new templates to the map as they appear.
+ * sending anything. With send=1 it instead sends the rendered template to
+ * OWNER_EMAIL through the real delivery path (sendEmail/Resend) — a live
+ * test of the actual drip pipeline, only ever to the owner's own inbox.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { render } from '@react-email/render';
 import { requireOwner } from '@/lib/auth-session';
+import { sendEmail } from '@/lib/email';
+import { OWNER_EMAIL } from '@/lib/owner';
 import { WelcomeEmail } from '@/lib/emails/WelcomeEmail';
 import { CheckinEmail } from '@/lib/emails/CheckinEmail';
 import { TrialEndingEmail } from '@/lib/emails/TrialEndingEmail';
@@ -67,6 +71,17 @@ export async function GET(request: NextRequest): Promise<NextResponse | Response
         { success: false, error: "template must be 'welcome', 'checkin', 'trial', or 'digest'" },
         { status: 400 },
       );
+  }
+
+  if (request.nextUrl.searchParams.get('send') === '1') {
+    const SUBJECTS: Record<string, string> = {
+      welcome: '[TEST] Welcome to ConfluenceTrading — your journal is ready',
+      checkin: '[TEST] How is ConfluenceTrading working for you?',
+      trial: '[TEST] Your free Gold week ends tomorrow',
+      digest: '[TEST] ConfluenceTrading metrics digest',
+    };
+    const result = await sendEmail({ to: OWNER_EMAIL, subject: SUBJECTS[template], react: element });
+    return NextResponse.json({ success: result.success, to: OWNER_EMAIL, template, error: result.error });
   }
 
   const html = await render(element);
