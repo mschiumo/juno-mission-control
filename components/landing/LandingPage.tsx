@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { TIER_PRICING, ANNUAL_DISCOUNT } from '@/lib/entitlements';
+import FeatureCarousel from '@/components/landing/FeatureCarousel';
 
 const SUPPORT_EMAIL = 'confluencetradingsupport@gmail.com';
 
@@ -471,29 +472,18 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {FEATURES.map((f, i) => (
-              <div
+          <FeatureCarousel />
+
+          {/* Everything included, at a glance */}
+          <div className="mt-10 flex flex-wrap justify-center gap-2 max-w-4xl mx-auto">
+            {FEATURES.map(f => (
+              <span
                 key={f.title}
-                className="group p-5 rounded-xl border border-[#30363d] bg-[#161b22] hover:border-[#F97316]/40 hover:bg-[#1c2128] transition-all duration-300"
-                data-reveal="sm"
-                style={range(`entry ${8 + (i % 4) * 3}% cover ${20 + (i % 4) * 3}%`)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#161b22] border border-[#30363d] text-xs text-[#8b949e]"
               >
-                <div className="flex items-center gap-3 mb-2.5">
-                  <div className={`w-9 h-9 rounded-lg ${f.bg} flex items-center justify-center flex-shrink-0`}>
-                    <f.icon className={`w-4.5 h-4.5 ${f.color}`} />
-                  </div>
-                  <h3 className="text-base font-semibold text-white">{f.title}</h3>
-                </div>
-                <p className="text-sm text-[#8b949e] leading-snug mb-3">{f.desc}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {f.tags.map(tag => (
-                    <span key={tag} className="px-2 py-0.5 text-[11px] rounded-md bg-[#0d1117] border border-[#30363d] text-[#8b949e]">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
+                <f.icon className={`w-3 h-3 ${f.color}`} />
+                {f.title}
+              </span>
             ))}
           </div>
         </div>
@@ -1116,10 +1106,10 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Pricing</p>
-            <h2 className="text-4xl font-bold text-white mb-4">Pick Your Edge</h2>
-            <p className="text-[#8b949e] max-w-xl mx-auto">
-              Start with a free week of Gold — no credit card required. Every plan includes the
-              trading journal, performance analytics, and the tools to trade with discipline.
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Costs less than one bad trade.</h2>
+            <p className="text-[#8b949e] max-w-xl mx-auto text-lg">
+              One avoided mistake pays for the year. Start free — journal forever on Silver, and
+              try everything in Gold for 7 days. No card required.
             </p>
           </div>
 
@@ -1193,15 +1183,15 @@ export default function LandingPage() {
             ]).map(plan => (
               <div
                 key={plan.tier}
-                className={`relative p-7 rounded-2xl flex flex-col ${
+                className={`relative p-7 rounded-2xl flex flex-col transition-transform duration-300 hover:-translate-y-1.5 ${
                   plan.popular
-                    ? 'border-2 border-[#F97316] bg-[#161b22] shadow-[0_0_50px_rgba(249,115,22,0.12)]'
-                    : 'border border-[#30363d] bg-[#161b22]'
+                    ? 'border-2 border-[#F97316] bg-gradient-to-b from-[#F97316]/12 via-[#161b22] to-[#161b22] shadow-[0_0_70px_rgba(249,115,22,0.18)] lg:scale-[1.04]'
+                    : 'border border-[#30363d] bg-gradient-to-b from-[#1c2128] to-[#161b22] hover:border-[#8b949e]/40'
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#F97316] text-white text-[10px] font-bold rounded-full uppercase tracking-wider inline-flex items-center gap-1">
-                    <Star className="w-3 h-3" /> Most Popular
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#F97316] text-white text-[10px] font-bold rounded-full uppercase tracking-wider inline-flex items-center gap-1 whitespace-nowrap">
+                    <Star className="w-3 h-3" /> Most traders pick Gold
                   </div>
                 )}
                 <h3 className="text-xl font-bold text-white">{plan.name}</h3>
@@ -1209,19 +1199,27 @@ export default function LandingPage() {
                 <p className="text-sm text-[#8b949e] leading-relaxed mb-5 min-h-[40px]">{plan.desc}</p>
                 <div className="mb-6">
                   {plan.tier === 'silver' ? (
-                    <span className="text-4xl font-bold text-white">Free</span>
+                    <>
+                      <span className="text-5xl font-extrabold tracking-tight text-white">$0</span>
+                      <span className="text-sm text-[#8b949e] ml-1.5">forever</span>
+                    </>
                   ) : (
                     <>
-                      <span className="text-4xl font-bold text-white">
-                        ${TIER_PRICING[plan.tier][billingCycle].toFixed(2)}
+                      <span className="text-5xl font-extrabold tracking-tight text-white">
+                        ${(() => {
+                          const v = billingCycle === 'monthly'
+                            ? TIER_PRICING[plan.tier].monthly
+                            : TIER_PRICING[plan.tier].annual / 12;
+                          return Number.isInteger(v) ? v : v.toFixed(2);
+                        })()}
                       </span>
-                      <span className="text-sm text-[#8b949e]">/{billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
+                      <span className="text-sm text-[#8b949e] ml-1.5">/ month</span>
+                      <p className={`text-[11px] mt-1.5 ${billingCycle === 'annual' ? 'text-[#3fb950]' : 'text-[#484f58]'}`}>
+                        {billingCycle === 'annual'
+                          ? `Billed $${TIER_PRICING[plan.tier].annual.toFixed(2)}/yr · save $${(TIER_PRICING[plan.tier].monthly * 12 - TIER_PRICING[plan.tier].annual).toFixed(2)}`
+                          : `or $${TIER_PRICING[plan.tier].annual.toFixed(2)}/yr — ${Math.round(ANNUAL_DISCOUNT * 100)}% off`}
+                      </p>
                     </>
-                  )}
-                  {plan.tier !== 'silver' && billingCycle === 'annual' && (
-                    <p className="text-[11px] text-[#3fb950] mt-1">
-                      Save ${(TIER_PRICING[plan.tier].monthly * 12 - TIER_PRICING[plan.tier].annual).toFixed(2)} a year
-                    </p>
                   )}
                 </div>
                 <ul className="space-y-2.5 mb-7 flex-1">
@@ -1240,7 +1238,11 @@ export default function LandingPage() {
                       : 'bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]'
                   }`}
                 >
-                  {plan.tier === 'silver' ? 'Sign Up Free' : 'Start Free Gold Week'}
+                  {plan.tier === 'silver'
+                    ? 'Create free account'
+                    : plan.tier === 'gold'
+                      ? 'Start 7-day free trial'
+                      : 'Start with the free trial'}
                 </Link>
                 {plan.tier === 'platinum' && (
                   <p className="mt-3 text-[10px] text-[#8b949e] leading-snug">
@@ -1251,6 +1253,11 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+
+          {/* Trust row */}
+          <p className="text-center text-[11px] text-[#8b949e] uppercase tracking-[0.15em] mb-14">
+            Cancel in two clicks &nbsp;·&nbsp; No card for the free trial &nbsp;·&nbsp; Export your data any time
+          </p>
 
           {/* Compare plans table */}
           <div className="max-w-4xl mx-auto overflow-x-auto">
