@@ -109,6 +109,11 @@ export function WelcomeEmail({ name }: { name?: string }) {
           Questions at any point — just reply to this email or write to {SUPPORT_EMAIL}. A real
           person reads every message.
         </Text>
+        <Text style={{ ...footnote, marginTop: '18px', color: '#c9d1d9' }}>
+          — Michael J. Schiuma
+          <br />
+          Founder, ConfluenceTrading
+        </Text>
       </Section>
     </EmailLayout>
   );

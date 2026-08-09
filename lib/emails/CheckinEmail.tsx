@@ -52,6 +52,11 @@ export function CheckinEmail({ name }: { name?: string }) {
         <Text style={body}>
           Just hit reply — it comes straight to me.
         </Text>
+        <Text style={{ ...body, marginTop: '18px' }}>
+          — Michael J. Schiuma
+          <br />
+          Founder, ConfluenceTrading
+        </Text>
         <Text style={footnote}>
           You&apos;re receiving this because you created a ConfluenceTrading account. Reply
           &ldquo;no more check-ins&rdquo; (or write to {SUPPORT_EMAIL}) and we&apos;ll stop these

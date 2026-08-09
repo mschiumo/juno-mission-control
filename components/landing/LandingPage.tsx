@@ -182,6 +182,59 @@ const range = (r: string) => ({ animationRange: r } as CSSProperties);
 /* ══════════════════════════════════════════════════════════════════
    COMPONENT
 ══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Founder section — a face and a name where the "who built this?" question
+ * forms, right before pricing. The portrait ships in /public as a true
+ * grayscale asset; the CSS filter is belt-and-suspenders so any future
+ * replacement photo renders black-and-white too. Hidden only if the image
+ * genuinely fails (checked via naturalWidth on mount to dodge the
+ * loads-before-hydration race).
+ */
+function FounderSection() {
+  const [photoFailed, setPhotoFailed] = useState(false);
+  return (
+    <section
+      className="px-6 border-t border-[#30363d] bg-[#161b22]/20"
+      style={{ display: photoFailed ? 'none' : undefined }}
+    >
+      <div className="max-w-4xl mx-auto py-20 flex flex-col md:flex-row items-center gap-10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/founder.jpg"
+          alt="Michael J. Schiuma, founder of ConfluenceTrading"
+          onError={() => setPhotoFailed(true)}
+          ref={(el) => {
+            if (el && el.complete && el.naturalWidth === 0) setPhotoFailed(true);
+          }}
+          className="w-44 h-44 md:w-52 md:h-52 rounded-2xl object-cover shrink-0 border border-[#30363d]"
+          style={{ filter: 'grayscale(1)', objectPosition: 'center 20%' }}
+        />
+        <div className="text-center md:text-left">
+          <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">
+            Built by a trader
+          </p>
+          <h2 className="text-3xl font-bold text-white mb-1">Michael J. Schiuma</h2>
+          <p className="text-sm text-[#8b949e] mb-5">Founder, ConfluenceTrading</p>
+          <p className="text-[#c9d1d9] leading-relaxed mb-4">
+            &ldquo;I built ConfluenceTrading because my own trading needed structure. The journal,
+            the risk-first calculator, the AI coaching — every feature exists because I use it in
+            my own sessions, every market day. Discipline isn&apos;t a personality trait; it&apos;s
+            a system. This is mine, and now it&apos;s yours.&rdquo;
+          </p>
+          <p className="text-sm text-[#8b949e]">
+            Questions land in my inbox —{' '}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-[#F97316] hover:underline">
+              write to me directly
+            </a>
+            .
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function LandingPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   /* KPI count-up — the only JS animation. setInterval, not rAF: rAF is
@@ -1076,6 +1129,10 @@ export default function LandingPage() {
         </div>
       </section>
 
+
+
+      {/* ═══ FOUNDER ═══ */}
+      <FounderSection />
 
       {/* ═══ PRICING ═══ */}
       <section id="pricing" className="py-24 px-6">
