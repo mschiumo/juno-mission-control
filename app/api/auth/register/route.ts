@@ -4,9 +4,26 @@ import { recordPlanEvent } from '@/lib/db/plan-events';
 import { sendEmail } from '@/lib/email';
 import { WelcomeEmail } from '@/lib/emails/WelcomeEmail';
 import { markLifecycleEmailSent } from '@/lib/db/lifecycle-emails';
+import { getClientIp, enforceRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    // Signup abuse controls. Registration is public and each success also fires
+    // a welcome email (Resend) — without a limit, one IP could mass-create
+    // accounts to run up email/compute cost or squat addresses. Two windows: a
+    // short anti-burst window and an hourly cap. Fails open if Redis is down.
+    const ip = getClientIp(request);
+    const burst = await enforceRateLimit(
+      { key: `signup:burst:${ip}`, limit: 3, windowSec: 60 },
+      'Too many signup attempts. Please wait a minute and try again.',
+    );
+    if (burst) return burst;
+    const hourly = await enforceRateLimit(
+      { key: `signup:hourly:${ip}`, limit: 10, windowSec: 3600 },
+      'Too many accounts created from this network. Please try again later.',
+    );
+    if (hourly) return hourly;
+
     const { email, name, password } = await request.json();
 
     if (!email || !password || !name) {
