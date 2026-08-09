@@ -210,7 +210,14 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
           <button onClick={onClose} className="text-[#8b949e] hover:text-white">✕</button>
         </div>
 
-        {isConnected ? (
+        {loadingStatus && !status ? (
+          /* First status fetch still in flight — don't guess at a state. The
+             disconnected onboarding view flashing here for connected users
+             reads as "your brokerage is gone" for a beat. */
+          <div className="flex items-center justify-center py-20">
+            <div className="w-6 h-6 border-2 border-[#F97316]/30 border-t-[#F97316] rounded-full animate-spin" />
+          </div>
+        ) : isConnected ? (
           <div className="space-y-4">
             <div className="p-3 rounded-lg bg-[#238636]/15 text-[#3fb950] text-sm flex items-center gap-2">
               <CheckCircle className="w-4 h-4 flex-shrink-0" />
