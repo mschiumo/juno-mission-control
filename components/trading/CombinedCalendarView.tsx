@@ -4,8 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
-  TrendingUp, 
-  TrendingDown, 
+  TrendingUp,
   BookOpen, 
   BarChart3,
   X,
@@ -77,7 +76,7 @@ interface Trade {
   brokerAccountId?: string;
 }
 
-type SortField = 'date' | 'symbol' | 'side' | 'entryPrice' | 'shares' | 'pnl';
+type SortField = 'date' | 'symbol' | 'entryPrice' | 'shares' | 'pnl';
 type SortDirection = 'asc' | 'desc';
 
 const DEFAULT_PROMPTS = [
@@ -165,7 +164,6 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [filterSymbol, setFilterSymbol] = useState('');
-  const [filterSide, setFilterSide] = useState<'' | 'LONG' | 'SHORT'>('');
   const [selectedTrades, setSelectedTrades] = useState<Set<string>>(new Set());
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -380,9 +378,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
   };
 
   const filteredTrades = allTrades.filter(trade => {
-    const matchesSymbol = !filterSymbol || trade.symbol.toLowerCase().includes(filterSymbol.toLowerCase());
-    const matchesSide = !filterSide || trade.side === filterSide;
-    return matchesSymbol && matchesSide;
+    return !filterSymbol || trade.symbol.toLowerCase().includes(filterSymbol.toLowerCase());
   });
 
   const sortedTrades = [...filteredTrades].sort((a, b) => {
@@ -393,9 +389,6 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
         break;
       case 'symbol':
         comparison = a.symbol.localeCompare(b.symbol);
-        break;
-      case 'side':
-        comparison = a.side.localeCompare(b.side);
         break;
       case 'entryPrice':
         comparison = a.entryPrice - b.entryPrice;
@@ -960,17 +953,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                     className="w-36 sm:w-auto px-3 py-1.5 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm focus:outline-none focus:border-[#F97316]"
                   />
                 </div>
-                
-                <select
-                  value={filterSide}
-                  onChange={(e) => setFilterSide(e.target.value as '' | 'LONG' | 'SHORT')}
-                  className="px-3 py-1.5 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm focus:outline-none focus:border-[#F97316]"
-                >
-                  <option value="">All Sides</option>
-                  <option value="LONG">Long</option>
-                  <option value="SHORT">Short</option>
-                </select>
-                
+
                 <button
                   onClick={fetchData}
                   disabled={isLoading}
@@ -1601,7 +1584,6 @@ function TradeModal({ date, trades, onClose }: { date: string; trades: Trade[]; 
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [filterSymbol, setFilterSymbol] = useState('');
-  const [filterSide, setFilterSide] = useState<'' | 'LONG' | 'SHORT'>('');
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -1613,9 +1595,7 @@ function TradeModal({ date, trades, onClose }: { date: string; trades: Trade[]; 
   };
 
   const filteredTrades = trades.filter(trade => {
-    const matchesSymbol = !filterSymbol || trade.symbol.toLowerCase().includes(filterSymbol.toLowerCase());
-    const matchesSide = !filterSide || trade.side === filterSide;
-    return matchesSymbol && matchesSide;
+    return !filterSymbol || trade.symbol.toLowerCase().includes(filterSymbol.toLowerCase());
   });
 
   const sortedTrades = [...filteredTrades].sort((a, b) => {
@@ -1626,9 +1606,6 @@ function TradeModal({ date, trades, onClose }: { date: string; trades: Trade[]; 
         break;
       case 'symbol':
         comparison = a.symbol.localeCompare(b.symbol);
-        break;
-      case 'side':
-        comparison = a.side.localeCompare(b.side);
         break;
       case 'entryPrice':
         comparison = a.entryPrice - b.entryPrice;
@@ -1680,15 +1657,6 @@ function TradeModal({ date, trades, onClose }: { date: string; trades: Trade[]; 
               className="px-3 py-1.5 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm focus:outline-none focus:border-[#F97316]"
             />
           </div>
-          <select
-            value={filterSide}
-            onChange={(e) => setFilterSide(e.target.value as '' | 'LONG' | 'SHORT')}
-            className="px-3 py-1.5 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm focus:outline-none focus:border-[#F97316]"
-          >
-            <option value="">All Sides</option>
-            <option value="LONG">Long</option>
-            <option value="SHORT">Short</option>
-          </select>
         </div>
 
         {/* Trades Table */}
@@ -1711,15 +1679,6 @@ function TradeModal({ date, trades, onClose }: { date: string; trades: Trade[]; 
                       {sortField === 'symbol' && <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />}
                     </div>
                   </th>
-                  <th 
-                    className="text-left py-3 px-4 text-[#8b949e] font-medium cursor-pointer hover:text-white"
-                    onClick={() => handleSort('side')}
-                  >
-                    <div className="flex items-center gap-1">
-                      Side
-                      {sortField === 'side' && <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />}
-                    </div>
-                  </th>
                   <th className="text-right py-3 px-4 text-[#8b949e] font-medium">Shares</th>
                   <th className="text-right py-3 px-4 text-[#8b949e] font-medium">Entry</th>
                   <th className="text-right py-3 px-4 text-[#8b949e] font-medium">Exit</th>
@@ -1731,12 +1690,6 @@ function TradeModal({ date, trades, onClose }: { date: string; trades: Trade[]; 
                 {sortedTrades.map((trade) => (
                   <tr key={trade.id} className="border-b border-[#21262d] hover:bg-[#21262d]/50">
                     <td className="py-3 px-4 font-medium text-white">{trade.symbol}</td>
-                    <td className="py-3 px-4">
-                      <span className={`flex items-center gap-1 ${trade.side === 'LONG' ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
-                        {trade.side === 'LONG' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                        {trade.side}
-                      </span>
-                    </td>
                     <td className="py-3 px-4 text-right text-white">{trade.shares}</td>
                     <td className="py-3 px-4 text-right text-white">${trade.entryPrice.toFixed(2)}</td>
                     <td className="py-3 px-4 text-right text-white">
@@ -2272,7 +2225,7 @@ function NotesViewModal({ trade, onClose, onEdit }: NotesViewModalProps) {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white">Trade Notes</h3>
-              <p className="text-sm text-[#8b949e]">{trade.symbol} - {trade.side}</p>
+              <p className="text-sm text-[#8b949e]">{trade.symbol}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -2419,7 +2372,7 @@ function NotesEditModal({
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white">Edit Notes</h3>
-              <p className="text-sm text-[#8b949e]">{trade.symbol} - {trade.side}</p>
+              <p className="text-sm text-[#8b949e]">{trade.symbol}</p>
             </div>
           </div>
           <button 
