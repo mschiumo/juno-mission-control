@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import {
   TrendingUp, BarChart2, BookOpen, Target, Zap,
@@ -9,6 +9,8 @@ import {
   Sparkles, Brain, Lightbulb, TrendingDown, Download,
   Bell, Newspaper, Sunrise, Star, SlidersHorizontal, Mail,
 } from 'lucide-react';
+
+import { TIER_PRICING, ANNUAL_DISCOUNT } from '@/lib/entitlements';
 
 const SUPPORT_EMAIL = 'confluencetradingsupport@gmail.com';
 
@@ -180,6 +182,7 @@ const range = (r: string) => ({ animationRange: r } as CSSProperties);
    COMPONENT
 ══════════════════════════════════════════════════════════════════ */
 export default function LandingPage() {
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   /* KPI count-up — the only JS animation. setInterval, not rAF: rAF is
      throttled in some embedded/background contexts and silently never
      ticks. Resting state is the final value, so if this never runs the
@@ -249,6 +252,7 @@ export default function LandingPage() {
             <a href="#analytics"   className="text-sm text-[#8b949e] hover:text-white transition-colors">Analytics</a>
             <a href="#market-intel" className="text-sm text-[#8b949e] hover:text-white transition-colors">Market Intel</a>
             <a href="#how-it-works" className="text-sm text-[#8b949e] hover:text-white transition-colors">How It Works</a>
+            <a href="#pricing" className="text-sm text-[#8b949e] hover:text-white transition-colors">Pricing</a>
             <a href="#contact" className="text-sm text-[#8b949e] hover:text-white transition-colors">Contact</a>
           </div>
 
@@ -1102,6 +1106,185 @@ export default function LandingPage() {
                 </ul>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+
+      {/* ═══ PRICING ═══ */}
+      <section id="pricing" className="py-24 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Pricing</p>
+            <h2 className="text-4xl font-bold text-white mb-4">Pick Your Edge</h2>
+            <p className="text-[#8b949e] max-w-xl mx-auto">
+              Start with a free week of Gold — no credit card required. Every plan includes the
+              trading journal, performance analytics, and the tools to trade with discipline.
+            </p>
+          </div>
+
+          {/* Billing cycle toggle */}
+          <div className="flex items-center justify-center gap-2 mb-10">
+            <button
+              onClick={() => setBillingCycle('monthly')}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                billingCycle === 'monthly' ? 'bg-[#F97316] text-white' : 'bg-[#161b22] text-[#8b949e] border border-[#30363d]'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle('annual')}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                billingCycle === 'annual' ? 'bg-[#F97316] text-white' : 'bg-[#161b22] text-[#8b949e] border border-[#30363d]'
+              }`}
+            >
+              Annual <span className={billingCycle === 'annual' ? 'text-white/90' : 'text-[#3fb950]'}>· save {Math.round(ANNUAL_DISCOUNT * 100)}%</span>
+            </button>
+          </div>
+
+          {/* Tier cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14 max-w-5xl mx-auto">
+            {([
+              {
+                tier: 'silver' as const,
+                name: 'Silver',
+                tagline: 'The disciplined core',
+                desc: 'Journal every trade, measure your performance, and plan your next move.',
+                features: [
+                  'Trading Journal — manual statement upload',
+                  'Market News screener',
+                  'Trade Management — calculator, watchlist & trading mode',
+                  'Performance analytics & equity curve',
+                  'Profit Projection modeling',
+                  'Docs & trading guides',
+                ],
+                popular: false,
+              },
+              {
+                tier: 'gold' as const,
+                name: 'Gold',
+                tagline: 'The full workflow',
+                desc: 'Your broker fills the journal automatically and AI coaches what it finds.',
+                features: [
+                  'Everything in Silver',
+                  'Live brokerage connection — auto-synced journal',
+                  'Full Market tab — briefing, gap scanner, live data',
+                  'Daily briefing emails every market morning',
+                  'AI Journal Insights coaching reports',
+                  'Trading Goals tracking',
+                ],
+                popular: true,
+              },
+              {
+                tier: 'platinum' as const,
+                name: 'Platinum',
+                tagline: 'Trade with an agent',
+                desc: 'Agentic swing trading inside hard guardrails you control, with guided onboarding.',
+                features: [
+                  'Everything in Gold',
+                  'Agents — AI swing trading with hard guardrails',
+                  'Guided onboarding — strategies & brokerage wiring',
+                ],
+                popular: false,
+              },
+            ]).map(plan => (
+              <div
+                key={plan.tier}
+                className={`relative p-7 rounded-2xl flex flex-col ${
+                  plan.popular
+                    ? 'border-2 border-[#F97316] bg-[#161b22] shadow-[0_0_50px_rgba(249,115,22,0.12)]'
+                    : 'border border-[#30363d] bg-[#161b22]'
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#F97316] text-white text-[10px] font-bold rounded-full uppercase tracking-wider inline-flex items-center gap-1">
+                    <Star className="w-3 h-3" /> Most Popular
+                  </div>
+                )}
+                <h3 className="text-xl font-bold text-white">{plan.name}</h3>
+                <p className="text-xs text-[#F97316] font-semibold uppercase tracking-wide mt-0.5 mb-3">{plan.tagline}</p>
+                <p className="text-sm text-[#8b949e] leading-relaxed mb-5 min-h-[40px]">{plan.desc}</p>
+                <div className="mb-6">
+                  <span className="text-4xl font-bold text-white">
+                    ${TIER_PRICING[plan.tier][billingCycle].toFixed(2)}
+                  </span>
+                  <span className="text-sm text-[#8b949e]">/{billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
+                  {billingCycle === 'annual' && (
+                    <p className="text-[11px] text-[#3fb950] mt-1">
+                      Save ${(TIER_PRICING[plan.tier].monthly * 12 - TIER_PRICING[plan.tier].annual).toFixed(2)} a year
+                    </p>
+                  )}
+                </div>
+                <ul className="space-y-2.5 mb-7 flex-1">
+                  {plan.features.map(f => (
+                    <li key={f} className="flex items-start gap-2.5 text-sm text-[#8b949e]">
+                      <CheckCircle className="w-4 h-4 text-[#3fb950] flex-shrink-0 mt-0.5" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/signup"
+                  className={`w-full py-3 rounded-xl text-sm font-semibold text-center transition-colors ${
+                    plan.popular
+                      ? 'bg-[#F97316] hover:bg-[#fb8c3c] text-white'
+                      : 'bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]'
+                  }`}
+                >
+                  Start Free Gold Week
+                </Link>
+              </div>
+            ))}
+          </div>
+
+          {/* Compare plans table */}
+          <div className="max-w-4xl mx-auto overflow-x-auto">
+            <table className="w-full text-sm border-separate" style={{ borderSpacing: 0 }}>
+              <thead>
+                <tr>
+                  <th className="text-left text-[#8b949e] font-semibold py-3 pr-4">Compare plans</th>
+                  {['Silver', 'Gold', 'Platinum'].map(name => (
+                    <th key={name} className={`text-center font-bold py-3 px-4 ${name === 'Gold' ? 'text-[#F97316]' : 'text-white'}`}>
+                      {name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {([
+                  ['Trading Journal (manual statement upload)', true, true, true],
+                  ['Market News screener', true, true, true],
+                  ['Trade Management — calculator, watchlist, trading mode', true, true, true],
+                  ['Performance analytics & equity curve', true, true, true],
+                  ['Profit Projection modeling', true, true, true],
+                  ['Docs & trading guides', true, true, true],
+                  ['Live brokerage connection — auto-synced journal', false, true, true],
+                  ['Full Market tab — briefing, gap scanner, live data', false, true, true],
+                  ['Daily briefing emails', false, true, true],
+                  ['AI Journal Insights coaching', false, true, true],
+                  ['Trading Goals tracking', false, true, true],
+                  ['Agents — AI swing trading with guardrails', false, false, true],
+                ] as [string, boolean, boolean, boolean][]).map(([label, s, g, pl], i) => (
+                  <tr key={label} className={i % 2 === 0 ? 'bg-[#161b22]/50' : ''}>
+                    <td className="py-3 pr-4 text-[#c9d1d9] border-t border-[#30363d]/50">{label}</td>
+                    {[s, g, pl].map((included, col) => (
+                      <td key={col} className="text-center py-3 px-4 border-t border-[#30363d]/50">
+                        {included ? (
+                          <CheckCircle className="w-4 h-4 text-[#3fb950] inline" />
+                        ) : (
+                          <span className="text-[#30363d]">—</span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-center text-xs text-[#8b949e] mt-6">
+              Every new account can try Gold free for 7 days — no credit card required.
+              Have a referral code? Redeem it at checkout for a free month of Gold.
+            </p>
           </div>
         </div>
       </section>
