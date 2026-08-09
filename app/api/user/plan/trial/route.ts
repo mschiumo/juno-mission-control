@@ -6,11 +6,11 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireVerifiedEmail } from '@/lib/auth-session';
 import { startTrial } from '@/lib/db/entitlements';
 
 export async function POST(): Promise<NextResponse> {
-  const authResult = await requireUserId();
+  const authResult = await requireVerifiedEmail();
   if (authResult.error) return authResult.error;
 
   const result = await startTrial(authResult.userId);

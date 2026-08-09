@@ -17,6 +17,7 @@ import FinancesView from "@/components/finances/FinancesView";
 import AccountMetricsView from "@/components/admin/AccountMetricsView";
 import LandingPage from "@/components/landing/LandingPage";
 import UserAvatar from "@/components/UserAvatar";
+import VerifyEmailBanner from "@/components/VerifyEmailBanner";
 import Link from 'next/link';
 import { LayoutDashboard, Target, TrendingUp, Wallet, Users, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
@@ -200,6 +201,7 @@ function DashboardContent() {
 
       {/* Main Content */}
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-7">
+        <VerifyEmailBanner />
         {activeTab === 'dashboard' ? (
           /* Dashboard Grid */
           <div className="space-y-5 animate-fade-up">
