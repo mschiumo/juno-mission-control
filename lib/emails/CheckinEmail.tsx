@@ -33,7 +33,7 @@ const footnote: React.CSSProperties = {
 
 export function CheckinEmail({ name }: { name?: string }) {
   return (
-    <EmailLayout previewText="Quick check-in — how is ConfluenceTrading working for you so far?">
+    <EmailLayout footerReason="You're receiving this because you created a ConfluenceTrading account." previewText="Quick check-in — how is ConfluenceTrading working for you so far?">
       <Section style={{ padding: '0 24px' }}>
         <Text style={heading}>How&apos;s it going{name ? `, ${name.split(' ')[0]}` : ''}?</Text>
         <Text style={body}>

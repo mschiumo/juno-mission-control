@@ -69,7 +69,7 @@ export function TrialEndingEmail({
     day: 'numeric',
   });
   return (
-    <EmailLayout previewText={`Your free Gold week ends ${when} — here's exactly what happens.`}>
+    <EmailLayout footerReason="You're receiving this because your free Gold trial is ending." previewText={`Your free Gold week ends ${when} — here's exactly what happens.`}>
       <Section style={{ padding: '0 24px' }}>
         <Text style={heading}>
           Your Gold trial ends {when}{name ? `, ${name.split(' ')[0]}` : ''}

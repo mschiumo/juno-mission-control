@@ -57,7 +57,7 @@ const footnote: React.CSSProperties = {
 
 export function WelcomeEmail({ name }: { name?: string }) {
   return (
-    <EmailLayout previewText="Your trading journal is ready — here's how to get your first insight in five minutes.">
+    <EmailLayout footerReason="You're receiving this because you created a ConfluenceTrading account." previewText="Your trading journal is ready — here's how to get your first insight in five minutes.">
       <Section style={{ padding: '0 24px' }}>
         <Text style={heading}>Welcome{name ? `, ${name.split(' ')[0]}` : ''} 👋</Text>
         <Text style={body}>
