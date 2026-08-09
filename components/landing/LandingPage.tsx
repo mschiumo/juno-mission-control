@@ -199,7 +199,7 @@ function FounderSection() {
       className="px-6 border-t border-[#30363d] bg-[#161b22]/20"
       style={{ display: photoFailed ? 'none' : undefined }}
     >
-      <div className="max-w-4xl mx-auto py-20 flex flex-col md:flex-row items-center gap-10">
+      <div className="max-w-4xl mx-auto py-24 flex flex-col md:flex-row items-center gap-10">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/founder.jpg"
@@ -491,7 +491,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ FEATURES ═══ */}
-      <section id="features" className="py-16 px-6">
+      <section id="features" className="py-24 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-10">
             <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-3">Everything You Need</p>
@@ -1343,7 +1343,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ CTA ═══ */}
-      <section className="pt-28 pb-32 px-6">
+      <section className="py-24 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="relative p-12 rounded-3xl border border-[#F97316]/25 overflow-hidden text-center">
             {/* gradient bg */}
@@ -1383,7 +1383,7 @@ export default function LandingPage() {
 
       {/* ═══ CONTACT — quiet strip, deliberately understated next to the CTA ═══ */}
       <section id="contact" className="px-6 border-t border-[#30363d] bg-[#161b22]/20">
-        <div className="max-w-5xl mx-auto py-14 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="max-w-5xl mx-auto py-24 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-center md:text-left">
             <p className="text-xs text-[#8b949e] font-semibold uppercase tracking-widest mb-1.5">Questions?</p>
             <h2 className="text-xl font-bold text-white">Get in touch</h2>
