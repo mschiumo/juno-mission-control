@@ -224,6 +224,10 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
 
   const accounts = status?.accounts ?? [];
   const isConnected = Boolean(status?.connected && accounts.length > 0);
+  // Mirrors the render branch below. The disconnected onboarding view carries a
+  // lot of stacked content, so it gets a wider two-column dialog that fits
+  // without scrolling; the connected view keeps the handoff's 640px spec.
+  const showDisconnected = !(loadingStatus && !status) && !isConnected;
   const activeCount = accounts.filter(a => isActive(a.id)).length;
   // Count distinct brokerage connections (one login can expose multiple accounts).
   const connectionCount =
@@ -236,7 +240,11 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="animate-modal-rise-in flex max-h-[90vh] w-full max-w-[640px] flex-col overflow-hidden rounded-2xl border border-[#262c2e] bg-[#121617] shadow-[0_32px_80px_rgba(0,0,0,0.6)]">
+      <div
+        className={`animate-modal-rise-in flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl border border-[#262c2e] bg-[#121617] shadow-[0_32px_80px_rgba(0,0,0,0.6)] transition-[max-width] duration-200 ${
+          showDisconnected ? 'max-w-[820px]' : 'max-w-[640px]'
+        }`}
+      >
         {/* ── Header ── */}
         <div className="flex flex-shrink-0 items-center gap-3.5 border-b border-[#232a2b] px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-6">
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[9px] border border-[#34d399]/[0.28] bg-[#34d399]/[0.12]">
@@ -255,7 +263,11 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
         </div>
 
         {/* ── Body ── */}
-        <div className="flex flex-1 flex-col gap-[22px] overflow-y-auto px-5 py-5 sm:px-7 sm:pb-7 sm:pt-6">
+        <div
+          className={`flex flex-1 flex-col overflow-y-auto px-5 py-5 sm:px-7 ${
+            showDisconnected ? 'gap-4 sm:pb-6 sm:pt-5' : 'gap-[22px] sm:pb-7 sm:pt-6'
+          }`}
+        >
           {loadingStatus && !status ? (
             /* First status fetch still in flight — don't guess at a state. The
                disconnected onboarding view flashing here for connected users
@@ -417,82 +429,85 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
             </>
           ) : (
             <>
-              <p className="text-[15.5px] leading-[1.62] text-[#ccd6d3] [text-wrap:pretty]">
-                Link your brokerage to import your trades automatically — they&apos;ll flow straight
-                into your Journal calendar and Performance analytics. The connection is{' '}
-                <strong className="font-semibold text-[#f2f5f4]">read-only</strong> and handled by
-                SnapTrade&apos;s secure portal;{' '}
+              <p className="text-[15px] leading-[1.6] text-[#ccd6d3] [text-wrap:pretty]">
+                Link your brokerage and your trades import automatically — straight into your
+                Journal calendar and Performance analytics. The connection is{' '}
+                <strong className="font-semibold text-[#f2f5f4]">read-only</strong> via
+                SnapTrade&apos;s secure portal:{' '}
                 <strong className="font-semibold text-[#f2f5f4]">
                   we never see your username or password
                 </strong>
                 , and no one can place trades on your behalf.
               </p>
 
-              <ol className="flex flex-col gap-3">
-                {[
-                  'Click “Connect account” and choose your broker.',
-                  'Log in on your broker’s own secure SnapTrade portal.',
-                  'Your accounts link and trades begin syncing into your Journal.',
-                ].map((step, i) => (
-                  <li key={i} className="flex gap-3 text-[15px] leading-[1.5] text-[#ccd6d3]">
-                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-[#34d399]/[0.28] bg-[#34d399]/[0.12] text-xs font-bold text-[#34d399]">
-                      {i + 1}
-                    </span>
-                    <span className="pt-0.5">{step}</span>
-                  </li>
-                ))}
-              </ol>
-
-              {/* Set the freshness expectation before they connect: brokerage
-                  data arrives on a once-daily cycle, not live. */}
-              <p className="text-[13.5px] leading-[1.6] text-[#8b9694] [text-wrap:pretty]">
-                Note: brokerages share trade data once a day, usually overnight — so a day&apos;s
-                trades and P&amp;L typically appear in your Journal by the next morning, not in
-                real time.
-              </p>
-
-              <div className="flex flex-col gap-2.5">
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8b9694]">
-                  Supported brokers
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {SUPPORTED_BROKERS.map(b => {
-                    const logo = brokerLogoPath(b);
-                    return (
-                      <span
-                        key={b}
-                        className="flex items-center gap-1.5 rounded-md border border-[#2b3234] bg-[#0e1213] px-2 py-1 text-xs text-[#aab3b2]"
-                      >
-                        {logo && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={logo}
-                            alt=""
-                            className="h-3.5 w-3.5 rounded-full object-cover"
-                          />
-                        )}
-                        {b}
+              {/* Steps and broker list side by side on wide viewports — the
+                  onboarding view's biggest vertical saving. */}
+              <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
+                <ol className="flex flex-col gap-2.5">
+                  {[
+                    'Click “Connect account” and choose your broker.',
+                    'Log in on your broker’s own secure SnapTrade portal.',
+                    'Your accounts link and trades begin syncing into your Journal.',
+                  ].map((step, i) => (
+                    <li key={i} className="flex gap-3 text-[15px] leading-[1.5] text-[#ccd6d3]">
+                      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-[#34d399]/[0.28] bg-[#34d399]/[0.12] text-xs font-bold text-[#34d399]">
+                        {i + 1}
                       </span>
-                    );
-                  })}
-                  <span className="px-2 py-1 text-xs text-[#8b9694]">+ more</span>
+                      <span className="pt-0.5">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+
+                <div className="flex flex-col gap-2">
+                  <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8b9694]">
+                    Supported brokers
+                  </p>
+                  <div className="flex flex-wrap content-start gap-1.5">
+                    {SUPPORTED_BROKERS.map(b => {
+                      const logo = brokerLogoPath(b);
+                      return (
+                        <span
+                          key={b}
+                          className="flex items-center gap-1.5 rounded-md border border-[#2b3234] bg-[#0e1213] px-2 py-1 text-xs text-[#aab3b2]"
+                        >
+                          {logo && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={logo}
+                              alt=""
+                              className="h-3.5 w-3.5 rounded-full object-cover"
+                            />
+                          )}
+                          {b}
+                        </span>
+                      );
+                    })}
+                    <span className="px-2 py-1 text-xs text-[#8b9694]">+ more</span>
+                  </div>
                 </div>
               </div>
 
+              {/* Set the freshness expectation before they connect: brokerage
+                  data arrives on a once-daily cycle, not live. */}
+              <p className="text-[13px] leading-[1.5] text-[#8b9694] [text-wrap:pretty]">
+                Brokerages share trade data once a day, usually overnight — a day&apos;s trades
+                appear in your Journal by the next morning, not in real time.
+              </p>
+
               {/* Destructive-action disclaimer. Linking makes the broker the only
                   source of the Journal, so the hand-imported history goes away. */}
-              <div className="rounded-xl border border-[#d29922]/40 bg-[#d29922]/10 p-4">
-                <p className="mb-2 flex items-center gap-2 text-[15px] font-semibold text-[#d29922]">
+              <div className="rounded-xl border border-[#d29922]/40 bg-[#d29922]/10 p-3.5">
+                <p className="mb-1.5 flex items-center gap-2 text-[15px] font-semibold text-[#d29922]">
                   <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                   This replaces your existing trade history
                 </p>
-                <p className="mb-3 text-[15px] leading-[1.6] text-[#ccd6d3]">
-                  Once a brokerage is linked it becomes the{' '}
+                <p className="mb-2.5 text-[14.5px] leading-[1.55] text-[#ccd6d3]">
+                  Once linked, the brokerage becomes the{' '}
                   <strong className="font-semibold text-[#f2f5f4]">only</strong> source of your
-                  Journal. Every trade you added by hand or imported from a CSV / account statement
-                  is <strong className="font-semibold text-[#f2f5f4]">removed</strong>, and manual
-                  imports are turned off for as long as the brokerage stays connected. Your written
-                  journal entries, notes and goals are not touched.
+                  Journal: every trade you added by hand or imported from a CSV / statement is{' '}
+                  <strong className="font-semibold text-[#f2f5f4]">removed</strong>, and manual
+                  imports are turned off while it stays connected. Your written journal entries,
+                  notes and goals are not touched.
                 </p>
                 <label className="flex cursor-pointer items-start gap-2.5">
                   <input
@@ -501,7 +516,7 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
                     onChange={e => setAcknowledged(e.target.checked)}
                     className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[#34d399]"
                   />
-                  <span className="text-[15px] leading-[1.5] text-[#ccd6d3]">
+                  <span className="text-[14.5px] leading-[1.5] text-[#ccd6d3]">
                     I understand my imported trades will be replaced by my live brokerage data.
                   </span>
                 </label>
@@ -519,36 +534,37 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
                 </div>
               )}
 
-              <button
-                onClick={handleConnect}
-                disabled={connecting || loadingStatus || !acknowledged}
-                className={`flex w-full items-center justify-center gap-[9px] rounded-[10px] border border-[#1cbb7f] bg-[#15a06b] px-5 py-3 text-[15px] font-semibold text-[#0a0d0c] transition-colors duration-150 hover:bg-[#1cbb7f] disabled:opacity-50 ${FOCUS_RING}`}
-              >
-                {connecting ? (
-                  <>
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#0a0d0c]/30 border-t-[#0a0d0c]" />
-                    Connecting…
-                  </>
-                ) : (
-                  <>
-                    <Link2 className="h-4 w-4" strokeWidth={2.4} />
-                    Connect account
-                  </>
-                )}
-              </button>
-
-              {onOpenImport && (
-                <div className="flex items-center justify-between gap-3 border-t border-[#232a2b] pt-4">
-                  <span className="text-[15px] text-[#8b9694]">Prefer to import a statement?</span>
+              {/* Primary CTA with the manual-import alternative inline — one
+                  row instead of a stacked button + divider + link. */}
+              <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+                <button
+                  onClick={handleConnect}
+                  disabled={connecting || loadingStatus || !acknowledged}
+                  className={`flex flex-1 items-center justify-center gap-[9px] rounded-[10px] border border-[#1cbb7f] bg-[#15a06b] px-5 py-3 text-[15px] font-semibold text-[#0a0d0c] transition-colors duration-150 hover:bg-[#1cbb7f] disabled:opacity-50 ${FOCUS_RING}`}
+                >
+                  {connecting ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#0a0d0c]/30 border-t-[#0a0d0c]" />
+                      Connecting…
+                    </>
+                  ) : (
+                    <>
+                      <Link2 className="h-4 w-4" strokeWidth={2.4} />
+                      Connect account
+                    </>
+                  )}
+                </button>
+                {onOpenImport && (
                   <button
                     onClick={onOpenImport}
-                    className={`flex flex-shrink-0 items-center gap-2 text-[15px] font-medium text-[#34d399] hover:underline ${FOCUS_RING}`}
+                    title="Prefer to import a statement instead?"
+                    className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-[10px] border border-[#2b3234] px-4 py-3 text-[15px] font-medium text-[#aab3b2] transition-colors duration-150 hover:border-[#3a4244] hover:bg-[#1b2122] hover:text-[#f2f5f4] ${FOCUS_RING}`}
                   >
                     <Download className="h-4 w-4" />
                     Import CSV / Excel
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </>
           )}
         </div>
