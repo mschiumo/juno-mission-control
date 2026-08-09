@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { isOwnerEmail } from '@/lib/owner';
 import { type Features } from '@/lib/entitlements';
 import { getEntitlements } from '@/lib/db/entitlements';
+import { getUserById } from '@/lib/db/users';
 
 /**
  * Get the authenticated user's ID from the session.
@@ -12,6 +13,14 @@ export async function requireUserId(): Promise<{ userId: string; error?: never }
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) {
+    return {
+      error: NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 }),
+    };
+  }
+  // Sessions are JWTs and outlive the account: a deleted user's token stays
+  // cryptographically valid until it expires. Verify the account still exists
+  // so deletion actually revokes access (one cheap Redis GET).
+  if (!(await getUserById(userId))) {
     return {
       error: NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 }),
     };
@@ -61,6 +70,12 @@ export async function requireFeature(feature: keyof Features): Promise<
   const userId = session?.user?.id;
   const email = session?.user?.email;
   if (!userId) {
+    return {
+      error: NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 }),
+    };
+  }
+  // Same deleted-account guard as requireUserId — JWTs outlive the account.
+  if (!(await getUserById(userId))) {
     return {
       error: NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 }),
     };
