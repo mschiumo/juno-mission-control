@@ -169,10 +169,13 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
     setConnecting(true);
     try {
       await fetch('/api/snaptrade/disconnect', { method: 'DELETE' });
-      await loadStatus();
-    } finally {
+      // Disconnecting resets the broker-synced trade history — reload so the
+      // Journal/Performance/calendar views drop it (same pattern as sync).
+      window.location.reload();
+    } catch {
       setConnecting(false);
       setConfirmingDisconnect(false);
+      await loadStatus();
     }
   };
 
@@ -574,8 +577,9 @@ export default function BrokerageConnectModal({ onClose, onOpenImport }: Brokera
           <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-3 border-t border-[#232a2b] bg-[#0e1213] px-5 py-4 sm:px-7 sm:py-[18px]">
             {confirmingDisconnect ? (
               <>
-                <span className="mr-auto text-[15px] leading-[1.5] text-[#ccd6d3]">
-                  Disconnect this brokerage?
+                <span className="mr-auto max-w-[420px] text-[15px] leading-[1.5] text-[#ccd6d3]">
+                  Disconnect this brokerage? Your synced trade history will be
+                  removed, and any pre-broker imports restored.
                 </span>
                 <button
                   onClick={() => setConfirmingDisconnect(false)}
