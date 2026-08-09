@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { requireFeature } from '@/lib/auth-session';
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
@@ -98,6 +99,9 @@ async function fetchUpcomingEarnings(from: string, to: string): Promise<FinnhubE
 }
 
 export async function GET() {
+  const { error: entitlementError } = await requireFeature('marketFull');
+  if (entitlementError) return entitlementError;
+
   const today = todayEST();
 
   const events: MarketEvent[] = [];

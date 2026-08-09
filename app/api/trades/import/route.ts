@@ -27,12 +27,12 @@ import { saveDailyBalances } from '@/lib/db/balances';
 import { saveDailyFees } from '@/lib/db/fees';
 import { parseFlexibleCSV, detectCSVFormat, validateCSVFormat, CSVFormat, getFormatSample } from '@/lib/parsers/flexible-csv-parser';
 import { getNowInEST } from '@/lib/date-utils';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import { getRedisClient } from '@/lib/redis';
 import { getBrokerConnection } from '@/lib/db/broker-connections';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('journal');
   if (authError) return authError;
 
   // A linked brokerage is the sole source of the Journal — its history replaced

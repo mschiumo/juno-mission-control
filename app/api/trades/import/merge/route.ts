@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Trade } from '@/types/trading';
 import { deleteTrade, saveTrade, getTradeById } from '@/lib/db/trades-v2';
 import { mergeTrades } from '@/lib/trading/duplicate-detection';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 
 interface MergeRequestBody {
   action: 'merge' | 'keep_both' | 'skip';
@@ -27,7 +27,7 @@ interface MergeRequestBody {
  * - csvTradeData: Trade (the CSV trade data to merge or save)
  */
 export async function PUT(request: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('journal');
   if (authError) return authError;
 
   try {

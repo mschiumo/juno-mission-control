@@ -7,12 +7,12 @@
 
 import { NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 
 const BRIEFING_CACHE_KEY = 'market_briefing_latest';
 
 export async function GET() {
-  const authResult = await requireUserId();
+  const authResult = await requireFeature('marketFull');
   if (authResult.error) return authResult.error;
 
   try {

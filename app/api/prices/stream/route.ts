@@ -1,10 +1,14 @@
 import { NextRequest } from 'next/server';
+import { requireFeature } from '@/lib/auth-session';
 import { getPriceBus } from '@/lib/price-bus';
 
 // Node.js runtime required — edge runtime is stateless and cannot share the singleton bus
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
+  const { error: entitlementError } = await requireFeature('tradeManagement');
+  if (entitlementError) return entitlementError;
+
   const symbolsParam = req.nextUrl.searchParams.get('symbols') ?? '';
   const symbols = symbolsParam.split(',').map((s) => s.trim()).filter(Boolean);
 

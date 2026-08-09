@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { getNowInEST } from '@/lib/date-utils';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 
 function journalKey(userId: string, date: string) {
   return `journal:${userId}:${date}`;
@@ -12,7 +12,7 @@ function journalKeyPrefix(userId: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('journal');
   if (authError) return authError;
 
   try {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('journal');
   if (authError) return authError;
 
   try {
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('journal');
   if (authError) return authError;
 
   try {

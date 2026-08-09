@@ -16,7 +16,7 @@ import {
   updateActiveTrade,
   reorderActiveTrades,
 } from '@/lib/db/active-trades';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 
 // Helper to generate UUID
 function generateId(): string {
@@ -27,7 +27,7 @@ function generateId(): string {
  * GET /api/active-trades
  */
 export async function GET(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {
@@ -49,7 +49,7 @@ export async function GET(): Promise<NextResponse> {
  * Request body: ActiveTrade (without id for new trades)
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
  * Updates an existing active trade
  */
 export async function PUT(request: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {
@@ -161,7 +161,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
  * subsequent refetches (e.g. after an edit) preserve it.
  */
 export async function PATCH(request: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {
@@ -199,7 +199,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
  * Removes an active trade
  */
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {

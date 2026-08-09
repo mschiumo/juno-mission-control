@@ -8,7 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import {
   isSnapTradeConfigured,
   registerUser,
@@ -25,7 +25,7 @@ import {
 const BROKERAGE_RETURN_PATH = '/brokerage/connected';
 
 export async function POST(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('brokerageSync');
   if (authError) return authError;
 
   if (!isSnapTradeConfigured()) {

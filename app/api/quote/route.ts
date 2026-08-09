@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireFeature } from '@/lib/auth-session';
 
 interface MarketItem {
   symbol: string;
@@ -44,6 +45,9 @@ async function fetchYahooQuote(symbol: string): Promise<MarketItem | null> {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const { error: entitlementError } = await requireFeature('tradeManagement');
+  if (entitlementError) return entitlementError;
+
   const symbol = new URL(request.url).searchParams.get('symbol');
   if (!symbol) {
     return NextResponse.json({ success: false, error: 'Missing symbol' }, { status: 400 });

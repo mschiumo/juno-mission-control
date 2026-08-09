@@ -7,6 +7,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { requireFeature } from '@/lib/auth-session';
 
 interface YahooQuote {
   symbol: string;
@@ -149,6 +150,9 @@ function toGapStock(q: YahooQuote, status: 'gainer' | 'loser', isPreMarket: bool
 }
 
 export async function GET(request: Request) {
+  const { error: entitlementError } = await requireFeature('marketFull');
+  if (entitlementError) return entitlementError;
+
   const startTime = Date.now();
   const { searchParams } = new URL(request.url);
   const count = parseInt(searchParams.get('count') || '50', 10);

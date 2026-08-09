@@ -13,7 +13,7 @@ import {
   saveWatchlistItem,
   deleteWatchlistItem
 } from '@/lib/db/watchlist';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 
 // Helper to generate UUID
 function generateId(): string {
@@ -24,7 +24,7 @@ function generateId(): string {
  * GET /api/watchlist
  */
 export async function GET(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {
@@ -46,7 +46,7 @@ export async function GET(): Promise<NextResponse> {
  * Request body: WatchlistItem (without id for new items)
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
  * Removes an item from the watchlist
  */
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {
@@ -150,7 +150,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
  * Request body: { id: string, updates: Partial<WatchlistItem> }
  */
 export async function PUT(request: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('tradeManagement');
   if (authError) return authError;
 
   try {

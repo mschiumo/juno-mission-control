@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import { getAllTrades } from '@/lib/db/trades-v2';
 import {
   getGoalById,
@@ -41,7 +41,7 @@ function normalizeGuardrails(gs?: GoalGuardrail[]): GoalGuardrail[] | undefined 
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('goals');
   if (error) return error;
 
   try {
@@ -96,7 +96,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams): Prom
 }
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('goals');
   if (error) return error;
 
   try {

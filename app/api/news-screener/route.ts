@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireFeature } from '@/lib/auth-session';
 
 // News categories with their keywords for filtering
 const NEWS_CATEGORIES = {
@@ -495,6 +496,9 @@ function getMockNews(): NewsItem[] {
  * Main GET handler for news screener
  */
 export async function GET() {
+  const { error: entitlementError } = await requireFeature('marketNews');
+  if (entitlementError) return entitlementError;
+
   const timestamp = new Date().toISOString();
   
   try {

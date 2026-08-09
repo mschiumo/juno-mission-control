@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import { getCombinedDailyFees } from '@/lib/db/fees';
 
 export async function GET() {
-  const authResult = await requireUserId();
+  const authResult = await requireFeature('journal');
   if (authResult.error) return authResult.error;
   const { userId } = authResult;
 

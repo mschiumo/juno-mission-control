@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getAllTrades } from '@/lib/db/trades-v2';
 import { getESTDateFromTimestamp } from '@/lib/date-utils';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import { getAccountSettings } from '@/lib/db/account-settings';
 import { tradingJournalTrades } from '@/lib/account-classification';
 import { getBrokerConnection } from '@/lib/db/broker-connections';
 
 export async function GET() {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('journal');
   if (error) return error;
 
   try {

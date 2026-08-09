@@ -7,14 +7,14 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import { isSnapTradeConfigured, deleteUser } from '@/lib/snaptrade';
 import { getBrokerConnection, deleteBrokerConnection } from '@/lib/db/broker-connections';
 import { clearBrokerDailyBalances } from '@/lib/db/balances';
 import { clearBrokerDailyFees } from '@/lib/db/fees';
 
 export async function DELETE(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireUserId();
+  const { userId, error: authError } = await requireFeature('brokerageSync');
   if (authError) return authError;
 
   const connection = await getBrokerConnection(userId);

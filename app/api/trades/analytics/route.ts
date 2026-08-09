@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getAllTrades } from '@/lib/db/trades-v2';
 import { Trade, TradeSide, TradeStatus } from '@/types/trading';
-import { requireUserId } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 
 export async function GET() {
-  const { userId, error } = await requireUserId();
+  const { userId, error } = await requireFeature('journal');
   if (error) return error;
 
   try {
