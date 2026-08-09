@@ -490,6 +490,48 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ═══ SUPPORTED BROKERS — sliding logo strip ═══ */}
+      <section className="py-9 border-y border-[#30363d] bg-[#161b22]/40 overflow-hidden">
+        <p className="text-center text-[11px] text-[#8b949e] font-semibold uppercase tracking-[0.15em] mb-6">
+          Works with your broker · powered by SnapTrade
+        </p>
+        <div className="broker-marquee overflow-hidden">
+          <div className="broker-marquee-track">
+            {[0, 1].map(copy => (
+              <div key={copy} className="flex shrink-0 items-center" aria-hidden={copy === 1}>
+                {([
+                  ['schwab.png', 'Charles Schwab'],
+                  ['robinhood.png', 'Robinhood'],
+                  ['fidelity.png', 'Fidelity'],
+                  ['etrade.png', 'E*TRADE'],
+                  ['webull.png', 'Webull'],
+                  ['interactive-brokers.png', 'Interactive Brokers'],
+                  ['vanguard.png', 'Vanguard'],
+                  ['thinkorswim.png', 'thinkorswim'],
+                  ['tastytrade.png', 'tastytrade'],
+                  ['coinbase.png', 'Coinbase'],
+                ] as [string, string][]).map(([file, name]) => (
+                  <div
+                    key={name}
+                    className="group flex items-center gap-2.5 px-8 opacity-60 hover:opacity-100 transition-opacity duration-300"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/brokers/${file}`}
+                      alt={`${name} logo`}
+                      className="w-7 h-7 rounded-lg grayscale group-hover:grayscale-0 transition-[filter] duration-300"
+                    />
+                    <span className="text-sm font-medium text-[#8b949e] group-hover:text-white whitespace-nowrap transition-colors duration-300">
+                      {name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ═══ FEATURES ═══ */}
       <section id="features" className="py-16 px-6">
         <div className="max-w-7xl mx-auto">
