@@ -28,6 +28,8 @@ export interface PlanStatus {
   expiresAt: string | null;
   /** Source of the current record ('trial', 'referral', 'billing', ...). */
   source: string | null;
+  /** False only for accounts that signed up after confirmation shipped. */
+  emailVerified: boolean;
 }
 
 const EMPTY_STATUS: PlanStatus = {
@@ -36,6 +38,7 @@ const EMPTY_STATUS: PlanStatus = {
   referralAvailable: false,
   expiresAt: null,
   source: null,
+  emailVerified: true,
 };
 
 let cached: PlanStatus | null = null;

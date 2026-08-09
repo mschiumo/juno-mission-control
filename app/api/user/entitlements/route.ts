@@ -9,6 +9,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { requireUserId } from '@/lib/auth-session';
+import { getUserById, isEmailVerified } from '@/lib/db/users';
 import { isOwnerEmail } from '@/lib/owner';
 import {
   getEntitlements,
@@ -26,7 +27,8 @@ export async function GET(): Promise<NextResponse> {
   const session = await auth();
   const email = session?.user?.email;
 
-  const [entitlements, record, trialUsed, referralUsed] = await Promise.all([
+  const [user, entitlements, record, trialUsed, referralUsed] = await Promise.all([
+    getUserById(userId),
     getEntitlements(userId, email),
     getEntitlementRecord(userId),
     hasUsedTrial(userId),
@@ -43,6 +45,7 @@ export async function GET(): Promise<NextResponse> {
       referralAvailable: !owner && !referralUsed,
       expiresAt: owner ? null : (active && record?.expiresAt ? record.expiresAt : null),
       source: owner ? 'owner' : (active ? record?.source ?? null : null),
+      emailVerified: isEmailVerified(user),
     },
   });
 }
