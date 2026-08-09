@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { PLATINUM_COMING_SOON } from '@/lib/entitlements';
 import {
   BookOpen,
+  Target,
   Crosshair,
   Sunrise,
   LineChart,
@@ -336,6 +337,41 @@ function AgentProposalMock() {
   );
 }
 
+function GoalsMock() {
+  const goals = [
+    { label: 'Win rate ≥ 60%', value: '64%', pct: 78, color: '#3fb950', note: 'On track' },
+    { label: 'Risk ≤ $250 per trade', value: '100%', pct: 100, color: '#3fb950', note: '21 / 21 trades' },
+    { label: 'Max 3 trades per day', value: '2.1 avg', pct: 62, color: '#F97316', note: '2 overtrades this month' },
+  ] as const;
+  return (
+    <div className={panel}>
+      <div className="flex items-center justify-between mb-1">
+        <span className={label}>Trading Goals · August</span>
+        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#3fb950]/15 text-[#3fb950]">2 OF 3 ON TRACK</span>
+      </div>
+      <p className="text-[11px] text-[#8b949e] mb-4">Progress updates itself from your journal — no manual check-ins.</p>
+      <div className="space-y-3.5">
+        {goals.map(g => (
+          <div key={g.label}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] text-[#c9d1d9]">{g.label}</span>
+              <span className="text-xs font-bold font-mono" style={{ color: g.color }}>{g.value}</span>
+            </div>
+            <div className="h-2 rounded-full bg-[#161b22] border border-[#30363d] overflow-hidden">
+              <div className="h-full rounded-full" style={{ width: `${g.pct}%`, background: g.color, opacity: 0.85 }} />
+            </div>
+            <p className="text-[9px] text-[#8b949e] mt-0.5">{g.note}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex items-center justify-between bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2">
+        <span className="text-[10px] text-[#8b949e]">Discipline streak — every rule kept</span>
+        <span className="text-xs font-bold text-[#F97316] font-mono">7 days</span>
+      </div>
+    </div>
+  );
+}
+
 /* ── Slides ──────────────────────────────────────────────────────────── */
 
 const SLIDES = [
@@ -392,6 +428,15 @@ const SLIDES = [
     desc: 'Weekly and monthly AI reports across your journal: what is working, what is costing you money, and the behavioral patterns you cannot see from inside the trade.',
     tags: ['Weekly reports', 'Pattern detection', 'Behavioral coaching'],
     mock: <AIInsightsMock />,
+  },
+  {
+    slug: 'goals',
+    icon: Target,
+    kicker: 'Trading Goals',
+    title: 'Goals that keep score for you',
+    desc: 'Set the rules you want to trade by — win rate, risk per trade, trade frequency — and they track themselves from your real results. No manual check-ins, no fudging the numbers: your journal is the referee, and every kept rule adds to the discipline streak.',
+    tags: ['Self-tracking', 'Auto-updated from your journal', 'Discipline streaks'],
+    mock: <GoalsMock />,
   },
   {
     slug: 'projection',
