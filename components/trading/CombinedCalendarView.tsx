@@ -192,6 +192,17 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
   // Days after it may show partial fills — rendered as a non-clickable
   // "still syncing" icon. Null → no broker linked, everything renders normally.
   const [lastCompleteTradeDay, setLastCompleteTradeDay] = useState<string | null>(null);
+  // Which pending-sync day's tooltip is open. Driven by hover on desktop and
+  // tap on touch devices (native title tooltips never show on touch).
+  const [syncTooltipDate, setSyncTooltipDate] = useState<string | null>(null);
+
+  // Close the tap-opened tooltip when tapping anywhere else.
+  useEffect(() => {
+    if (!syncTooltipDate) return;
+    const close = () => setSyncTooltipDate(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [syncTooltipDate]);
 
   // Fetch data on mount
   useEffect(() => {
@@ -720,18 +731,23 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                   {hasTrades && isPendingSync && (
                     /* Broker hasn't finished syncing this day — show an inert
                        orange icon (matches the today-outline color) instead of
-                       the clickable P&L-colored one. */
-                    <div
+                       the clickable P&L-colored one. Hover or tap explains why
+                       via a styled tooltip; it never opens the trade modal. */
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSyncTooltipDate(d => (d === dayData.date ? null : dayData.date));
+                      }}
+                      onMouseEnter={() => setSyncTooltipDate(dayData.date)}
+                      onMouseLeave={() => setSyncTooltipDate(d => (d === dayData.date ? null : d))}
+                      aria-label="Trades for this day are still syncing from your brokerage"
                       className="
                         relative flex items-center justify-center shrink-0
-                        w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl cursor-default
+                        w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl cursor-help
                         bg-gradient-to-br from-[#F97316]/30 to-[#F97316]/15 text-[#F97316]
                         ring-1 ring-[#F97316]/50 shadow-[0_2px_8px_-2px_rgba(249,115,22,0.3)]
                       "
-                      title={
-                        "This day's trades haven't fully synced from your brokerage yet.\n" +
-                        'Totals may be incomplete — the icon unlocks once the full day is in.'
-                      }
                     >
                       <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
                       {dayData.trades && dayData.trades.trades > 1 && (
@@ -746,7 +762,43 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                           {dayData.trades.trades}
                         </span>
                       )}
-                    </div>
+                      {syncTooltipDate === dayData.date && (
+                        <span
+                          role="tooltip"
+                          className={`
+                            absolute bottom-full mb-2 z-50 w-52 sm:w-56
+                            rounded-lg border border-[#F97316]/40 bg-[#1c2128]
+                            p-2.5 text-left shadow-xl shadow-black/40
+                            pointer-events-none normal-case
+                            ${index % 7 <= 1
+                              ? 'left-0'
+                              : index % 7 >= 5
+                                ? 'right-0'
+                                : 'left-1/2 -translate-x-1/2'}
+                          `}
+                        >
+                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#F97316]">
+                            <RefreshCw className="w-3 h-3" strokeWidth={2.5} />
+                            Trades still syncing
+                          </span>
+                          <span className="mt-1 block text-[11px] font-normal leading-relaxed text-[#8b949e]">
+                            This day&apos;s trades haven&apos;t fully synced from your brokerage
+                            yet, so totals may be incomplete. It unlocks once the full day is in.
+                          </span>
+                          <span
+                            className={`
+                              absolute top-full h-2 w-2 -translate-y-1 rotate-45
+                              border-b border-r border-[#F97316]/40 bg-[#1c2128]
+                              ${index % 7 <= 1
+                                ? 'left-3 sm:left-4'
+                                : index % 7 >= 5
+                                  ? 'right-3 sm:right-4'
+                                  : 'left-1/2 -translate-x-1/2'}
+                            `}
+                          />
+                        </span>
+                      )}
+                    </button>
                   )}
                   {hasTrades && !isPendingSync && (
                     <button
