@@ -12,6 +12,7 @@ import {
 
 import { TIER_PRICING, ANNUAL_DISCOUNT, PLATINUM_COMING_SOON } from '@/lib/entitlements';
 import FeatureCarousel from '@/components/landing/FeatureCarousel';
+import ComparePlans from '@/components/landing/ComparePlans';
 
 const SUPPORT_EMAIL = 'confluencetradingsupport@gmail.com';
 
@@ -1296,57 +1297,9 @@ export default function LandingPage() {
             Cancel in two clicks &nbsp;·&nbsp; No card for the free trial &nbsp;·&nbsp; Export your data any time
           </p>
 
-          {/* Compare plans table */}
-          <div className="max-w-4xl mx-auto overflow-x-auto">
-            <table className="w-full text-sm border-separate" style={{ borderSpacing: 0 }}>
-              <thead>
-                <tr>
-                  <th className="text-left text-[#8b949e] font-semibold py-3 pr-4">Compare plans</th>
-                  {['Silver', 'Gold', 'Platinum'].map(name => (
-                    <th key={name} className={`text-center font-bold py-3 px-4 ${name === 'Gold' ? 'text-[#F97316]' : 'text-white'}`}>
-                      {name}
-                      {name === 'Platinum' && PLATINUM_COMING_SOON && (
-                        <span className="block text-[9px] font-semibold text-[#d29922] uppercase tracking-wider">Coming soon</span>
-                      )}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {([
-                  ['Trading journal with statement imports', true, true, true],
-                  ['Risk-first trade planning — entry, stop & target with risk $ and share size', true, true, true],
-                  ['Performance analytics & equity curve', true, true, true],
-                  ['Market news screener', true, true, true],
-                  ['Profit projection modeling', true, true, true],
-                  ['Docs & trading guides', true, true, true],
-                  ['Auto-synced journal from your broker', false, true, true],
-                  ['Pre-market gap scanner & live market data', false, true, true],
-                  ['Daily AI briefing emails', false, true, true],
-                  ['AI coaching reports on your journal', false, true, true],
-                  ['Self-tracking trading goals', false, true, true],
-                  ['AI-identified swing setups — you approve every order', false, false, true],
-                ] as [string, boolean, boolean, boolean][]).map(([label, s, g, pl], i) => (
-                  <tr key={label} className={i % 2 === 0 ? 'bg-[#161b22]/50' : ''}>
-                    <td className="py-3 pr-4 text-[#c9d1d9] border-t border-[#30363d]/50">{label}</td>
-                    {[s, g, pl].map((included, col) => (
-                      <td key={col} className="text-center py-3 px-4 border-t border-[#30363d]/50">
-                        {included ? (
-                          <CheckCircle className="w-4 h-4 text-[#3fb950] inline" />
-                        ) : (
-                          <span className="text-[#30363d]">—</span>
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="text-center text-xs text-[#8b949e] mt-6">
-              Silver is free forever. Every new account can also try Gold free for 7 days — no
-              credit card required. Have a referral code? Redeem it on the Plans page for a free
-              month of Gold.
-            </p>
+          {/* Compare plans table — per the Compare Plans design handoff */}
+          <ComparePlans />
+          <div className="max-w-4xl mx-auto">
             <p className="text-center text-[11px] text-[#484f58] mt-4 max-w-2xl mx-auto leading-relaxed">
               ConfluenceTrading is a journaling and analytics tool — nothing in the product is
               financial or investment advice. Trading involves substantial risk of loss; all

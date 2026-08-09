@@ -1,32 +1,32 @@
 /**
  * Welcome email — sent once, immediately after signup.
- * Three concrete first steps; no feature dump.
+ * Three concrete first steps; no feature dump. Light, personal layout.
  */
 
 import { Section, Text, Button } from '@react-email/components';
 import * as React from 'react';
-import { EmailLayout } from './EmailLayout';
+import { PersonalEmailLayout, FounderSignature } from './PersonalEmailLayout';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://confluencetrading.app';
 const SUPPORT_EMAIL = 'confluencetradingsupport@gmail.com';
 
 const heading: React.CSSProperties = {
-  color: '#ffffff',
+  color: '#1f2328',
   fontSize: '20px',
   fontWeight: 700,
-  margin: '0 0 8px',
+  margin: '0 0 10px',
 };
 
 const body: React.CSSProperties = {
-  color: '#c9d1d9',
+  color: '#3d444d',
   fontSize: '14px',
   lineHeight: '22px',
   margin: '0 0 14px',
 };
 
 const stepBox: React.CSSProperties = {
-  backgroundColor: '#161b22',
-  border: '1px solid #30363d',
+  backgroundColor: '#f6f8fa',
+  border: '1px solid #e5e9ef',
   borderRadius: '10px',
   padding: '14px 16px',
   margin: '0 0 10px',
@@ -42,7 +42,7 @@ const stepTitle: React.CSSProperties = {
 };
 
 const stepText: React.CSSProperties = {
-  color: '#8b949e',
+  color: '#57606a',
   fontSize: '13px',
   lineHeight: '20px',
   margin: 0,
@@ -52,12 +52,15 @@ const footnote: React.CSSProperties = {
   color: '#8b949e',
   fontSize: '12px',
   lineHeight: '18px',
-  margin: '14px 0 0',
+  margin: '16px 0 0',
 };
 
 export function WelcomeEmail({ name }: { name?: string }) {
   return (
-    <EmailLayout footerReason="You're receiving this because you created a ConfluenceTrading account." previewText="Your trading journal is ready — here's how to get your first insight in five minutes.">
+    <PersonalEmailLayout
+      previewText="Your trading journal is ready — here's how to get your first insight in five minutes."
+      footerReason="You're receiving this because you created a ConfluenceTrading account."
+    >
       <Section style={{ padding: '0 24px' }}>
         <Text style={heading}>Welcome{name ? `, ${name.split(' ')[0]}` : ''} 👋</Text>
         <Text style={body}>
@@ -89,7 +92,7 @@ export function WelcomeEmail({ name }: { name?: string }) {
           </Text>
         </div>
 
-        <Section style={{ textAlign: 'center' as const, padding: '10px 0 0' }}>
+        <Section style={{ textAlign: 'center' as const, padding: '12px 0 4px' }}>
           <Button
             href={`${APP_URL}/plans`}
             style={{
@@ -109,12 +112,9 @@ export function WelcomeEmail({ name }: { name?: string }) {
           Questions at any point — just reply to this email or write to {SUPPORT_EMAIL}. A real
           person reads every message.
         </Text>
-        <Text style={{ ...footnote, marginTop: '18px', color: '#c9d1d9' }}>
-          — Michael J. Schiuma
-          <br />
-          Founder, ConfluenceTrading
-        </Text>
+
+        <FounderSignature />
       </Section>
-    </EmailLayout>
+    </PersonalEmailLayout>
   );
 }

@@ -1,40 +1,41 @@
 /**
  * Trial-ending reminder — sent once, roughly a day before the Gold trial
  * expires. Honest about exactly what happens: automatic downgrade to free
- * Silver, journal data kept, brokerage connection disconnected.
+ * Silver, journal data kept, brokerage connection disconnected. Light,
+ * personal layout.
  */
 
 import { Section, Text, Button } from '@react-email/components';
 import * as React from 'react';
-import { EmailLayout } from './EmailLayout';
+import { PersonalEmailLayout, FounderSignature } from './PersonalEmailLayout';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://confluencetrading.app';
 const SUPPORT_EMAIL = 'confluencetradingsupport@gmail.com';
 
 const heading: React.CSSProperties = {
-  color: '#ffffff',
+  color: '#1f2328',
   fontSize: '20px',
   fontWeight: 700,
-  margin: '0 0 8px',
+  margin: '0 0 10px',
 };
 
 const body: React.CSSProperties = {
-  color: '#c9d1d9',
+  color: '#3d444d',
   fontSize: '14px',
   lineHeight: '22px',
   margin: '0 0 14px',
 };
 
 const infoBox: React.CSSProperties = {
-  backgroundColor: '#161b22',
-  border: '1px solid #30363d',
+  backgroundColor: '#f6f8fa',
+  border: '1px solid #e5e9ef',
   borderRadius: '10px',
   padding: '14px 16px',
   margin: '0 0 10px',
 };
 
 const infoTitle: React.CSSProperties = {
-  color: '#8b949e',
+  color: '#57606a',
   fontSize: '11px',
   fontWeight: 700,
   textTransform: 'uppercase',
@@ -43,7 +44,7 @@ const infoTitle: React.CSSProperties = {
 };
 
 const infoText: React.CSSProperties = {
-  color: '#c9d1d9',
+  color: '#3d444d',
   fontSize: '13px',
   lineHeight: '20px',
   margin: 0,
@@ -53,7 +54,7 @@ const footnote: React.CSSProperties = {
   color: '#8b949e',
   fontSize: '12px',
   lineHeight: '18px',
-  margin: '14px 0 0',
+  margin: '16px 0 0',
 };
 
 export function TrialEndingEmail({
@@ -69,10 +70,14 @@ export function TrialEndingEmail({
     day: 'numeric',
   });
   return (
-    <EmailLayout footerReason="You're receiving this because your free Gold trial is ending." previewText={`Your free Gold week ends ${when} — here's exactly what happens.`}>
+    <PersonalEmailLayout
+      previewText={`Your free Gold week ends ${when} — here's exactly what happens.`}
+      footerReason="You're receiving this because your free Gold trial is ending."
+    >
       <Section style={{ padding: '0 24px' }}>
         <Text style={heading}>
-          Your Gold trial ends {when}{name ? `, ${name.split(' ')[0]}` : ''}
+          Your Gold trial ends {when}
+          {name ? `, ${name.split(' ')[0]}` : ''}
         </Text>
         <Text style={body}>
           No surprises, and nothing to cancel — you never gave us a card. Here&apos;s exactly
@@ -102,7 +107,7 @@ export function TrialEndingEmail({
           that your brokerage connection doesn&apos;t miss a day.
         </Text>
 
-        <Section style={{ textAlign: 'center' as const, padding: '10px 0 0' }}>
+        <Section style={{ textAlign: 'center' as const, padding: '12px 0 4px' }}>
           <Button
             href={`${APP_URL}/plans`}
             style={{
@@ -118,10 +123,10 @@ export function TrialEndingEmail({
           </Button>
         </Section>
 
-        <Text style={footnote}>
-          Questions? Reply here or write to {SUPPORT_EMAIL}.
-        </Text>
+        <Text style={footnote}>Questions? Reply here or write to {SUPPORT_EMAIL}.</Text>
+
+        <FounderSignature />
       </Section>
-    </EmailLayout>
+    </PersonalEmailLayout>
   );
 }

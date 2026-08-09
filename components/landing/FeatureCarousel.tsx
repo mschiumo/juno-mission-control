@@ -349,6 +349,15 @@ const SLIDES = [
     mock: <JournalMock />,
   },
   {
+    slug: 'agents',
+    icon: Sparkles,
+    kicker: 'Agents · Platinum',
+    title: 'The agent proposes. You decide.',
+    desc: 'An AI agent scans a swing-trading universe and stages complete proposals — entry, stop, target, and its reasoning. Working in tandem with your Robinhood connection, orders are placed only after you approve, and hard guardrails are enforced on every one. Track proposals, fills, and stops in one terminal.',
+    tags: ['Swing-trade proposals', 'You approve every order', 'Works with Robinhood', 'Hard guardrails'],
+    mock: <AgentProposalMock />,
+  },
+  {
     slug: 'risk',
     icon: Crosshair,
     kicker: 'Risk & Trade Management',
@@ -383,15 +392,6 @@ const SLIDES = [
     desc: 'Weekly and monthly AI reports across your journal: what is working, what is costing you money, and the behavioral patterns you cannot see from inside the trade.',
     tags: ['Weekly reports', 'Pattern detection', 'Behavioral coaching'],
     mock: <AIInsightsMock />,
-  },
-  {
-    slug: 'agents',
-    icon: Sparkles,
-    kicker: 'Agents · Platinum',
-    title: 'The agent proposes. You decide.',
-    desc: 'An AI agent scans a swing-trading universe and stages complete proposals — entry, stop, target, and its reasoning. Working in tandem with your Robinhood connection, orders are placed only after you approve, and hard guardrails are enforced on every one. Track proposals, fills, and stops in one terminal.',
-    tags: ['Swing-trade proposals', 'You approve every order', 'Works with Robinhood', 'Hard guardrails'],
-    mock: <AgentProposalMock />,
   },
   {
     slug: 'projection',
@@ -441,7 +441,7 @@ export default function FeatureCarousel() {
         >
           {SLIDES.map((s) => (
             <div key={s.kicker} className="w-full shrink-0 px-1">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center rounded-3xl border border-[#30363d] bg-[#161b22]/40 p-6 md:p-10">
+              <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center rounded-3xl border border-[#30363d] bg-[#161b22]/40 p-6 md:p-10">
                 <div>
                   <div className="flex items-center gap-2 mb-4">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#F97316]/25 bg-[#F97316]/10">
