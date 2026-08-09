@@ -23,6 +23,7 @@ import {
 import { getBrokerConnection } from '@/lib/db/broker-connections';
 import { isRecordActive } from '@/lib/entitlements';
 import { disconnectBrokerage, retryOrphanedDeregistrations } from '@/lib/brokerage-access';
+import { recordPlanEvent } from '@/lib/db/plan-events';
 
 export async function GET(request: Request): Promise<NextResponse> {
   const authError = requireCronSecret(request);
@@ -38,6 +39,11 @@ export async function GET(request: Request): Promise<NextResponse> {
         const result = await disconnectBrokerage(userId);
         if (result.hadConnection) disconnected++;
         if (result.orphaned) orphaned++;
+        await recordPlanEvent({
+          type: 'plan_expired',
+          userId,
+          detail: `Lapsed below Gold; brokerage ${result.deregistered ? 'disconnected' : 'queued for retry'}`,
+        });
       }
       // Only drop fully-inactive records from the index; an active Silver
       // holder stays listed for support even though they hold no brokerage.

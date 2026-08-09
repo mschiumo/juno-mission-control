@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createUser } from '@/lib/db/users';
+import { recordPlanEvent } from '@/lib/db/plan-events';
 
 export async function POST(request: Request) {
   try {
@@ -22,7 +23,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
     }
 
-    await createUser(email, name, password);
+    const user = await createUser(email, name, password);
+    await recordPlanEvent({ type: 'signup', userId: user.id, email });
 
     return NextResponse.json({ success: true });
   } catch (err) {

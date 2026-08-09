@@ -14,13 +14,14 @@ import MotivationalBanner from "@/components/MotivationalBanner";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
 import FinancesView from "@/components/finances/FinancesView";
+import AccountMetricsView from "@/components/admin/AccountMetricsView";
 import LandingPage from "@/components/landing/LandingPage";
 import Link from 'next/link';
-import { LayoutDashboard, Target, TrendingUp, Wallet, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, Target, TrendingUp, Wallet, Users, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
 
-type TabId = 'dashboard' | 'finances' | 'trading' | 'goals';
+type TabId = 'dashboard' | 'finances' | 'trading' | 'goals' | 'accounts';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -37,6 +38,7 @@ function DashboardContent() {
     if (tab === 'trading') return 'trading';
     if (tab === 'finances' && isOwner) return 'finances';
     if (tab === 'goals' && isOwner) return 'goals';
+    if (tab === 'accounts' && isOwner) return 'accounts';
     if (isOwner) return 'dashboard';
     return 'trading';
   }, [searchParams, isOwner]);
@@ -46,7 +48,7 @@ function DashboardContent() {
 
   // Redirect non-owners away from owner-only tabs (dashboard, finances, goals)
   useEffect(() => {
-    if (!isOwner && (activeTab === 'dashboard' || activeTab === 'finances' || activeTab === 'goals')) {
+    if (!isOwner && activeTab !== 'trading') {
       setActiveTab('trading');
     }
   }, [isOwner, activeTab]);
@@ -69,6 +71,7 @@ function DashboardContent() {
         { id: 'finances' as const, label: 'Finances', icon: Wallet },
         { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
         { id: 'goals' as const, label: 'Goals', icon: Target },
+        { id: 'accounts' as const, label: 'Accounts', icon: Users },
       ]
     : [];
 
@@ -239,6 +242,11 @@ function DashboardContent() {
             <Suspense fallback={<div className="p-8 text-center" style={{ color: 'var(--text-tertiary)' }}>Loading goals...</div>}>
               <GoalsCard />
             </Suspense>
+          </div>
+        ) : activeTab === 'accounts' ? (
+          /* Owner-only account metrics */
+          <div className="max-w-[1600px] mx-auto">
+            <AccountMetricsView />
           </div>
         ) : null}
       </main>

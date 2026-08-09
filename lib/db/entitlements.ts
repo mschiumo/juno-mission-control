@@ -10,6 +10,7 @@
  */
 
 import { getRedisClient } from '@/lib/redis';
+import { recordPlanEvent } from '@/lib/db/plan-events';
 import { getUserByEmail } from '@/lib/db/users';
 import { OWNER_EMAIL, isOwnerEmail } from '@/lib/owner';
 import {
@@ -138,6 +139,7 @@ export async function startTrial(
     note: `${TRIAL_DAYS}-day free trial`,
   });
   await redis.set(trialUsedKey(userId), new Date().toISOString());
+  await recordPlanEvent({ type: 'trial_started', userId, detail: `Gold trial until ${expiresAt}` });
   return { ok: true, record };
 }
 
@@ -184,6 +186,11 @@ export async function redeemReferralCode(
     note: `Referral code ${code.trim()}`,
   });
   await redis.set(referralUsedKey(userId), new Date().toISOString());
+  await recordPlanEvent({
+    type: 'referral_redeemed',
+    userId,
+    detail: `Code ${code.trim()} — ${grant.tier} until ${expiresAt}`,
+  });
   return { ok: true, record };
 }
 

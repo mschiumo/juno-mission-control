@@ -22,6 +22,7 @@ import {
 } from '@/lib/db/entitlements';
 import { disconnectBrokerage } from '@/lib/brokerage-access';
 import { tierAtLeast } from '@/lib/entitlements';
+import { recordPlanEvent } from '@/lib/db/plan-events';
 
 export async function GET(): Promise<NextResponse> {
   const { error: ownerError } = await requireOwner();
@@ -83,6 +84,13 @@ export async function PATCH(request: Request): Promise<NextResponse> {
     teardown = await disconnectBrokerage(user.id);
     if (tier === null) await clearPlanIndex(user.id);
   }
+
+  await recordPlanEvent({
+    type: tier === null ? 'admin_revoke' : 'admin_grant',
+    userId: user.id,
+    email,
+    detail: tier === null ? 'Record cleared by owner' : `Granted ${tier}${body.expiresAt ? ` until ${body.expiresAt}` : ''}`,
+  });
 
   return NextResponse.json({ success: true, record, teardown });
 }

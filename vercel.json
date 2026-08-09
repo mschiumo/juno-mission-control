@@ -109,6 +109,10 @@
     {
       "path": "/api/cron-jobs/entitlements-sweep",
       "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron-jobs/owner-metrics-digest",
+      "schedule": "30 12 * * *"
     }
   ]
 }
