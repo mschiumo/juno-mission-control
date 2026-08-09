@@ -1420,6 +1420,9 @@ export default function LandingPage() {
             <Link href="/terms" className="text-xs text-[#8b949e] hover:text-[#F97316] transition-colors">
               Terms &amp; Conditions
             </Link>
+            <Link href="/privacy" className="text-xs text-[#8b949e] hover:text-[#F97316] transition-colors">
+              Privacy
+            </Link>
             <a href={`mailto:${SUPPORT_EMAIL}`} className="text-xs text-[#8b949e] hover:text-[#F97316] transition-colors">
               {SUPPORT_EMAIL}
             </a>
