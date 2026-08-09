@@ -476,6 +476,20 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
         setLocateFailed(true);
         return;
       }
+      // A target that fills the screen (the P&L calendar, a full-width table)
+      // leaves no side with room for the card — anchoring it there just puts
+      // the card on top of the thing it is meant to be pointing at. Fall back
+      // to the centered, spotlight-free card: the copy is the point.
+      const tooLarge =
+        r.height > window.innerHeight * 0.6 || r.width > window.innerWidth * 0.92;
+      if (tooLarge) {
+        // locateFailed is what tells the renderer "no usable anchor, show the
+        // centered card" — without it cardReady never becomes true and the
+        // step renders nothing at all.
+        setTargetRect(null);
+        setLocateFailed(true);
+        return;
+      }
       setTargetRect({ top: r.top, left: r.left, width: r.width, height: r.height });
     }, 320);
   }, [current?.targetDataTour]);
