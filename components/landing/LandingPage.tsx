@@ -218,10 +218,11 @@ function FounderSection() {
           <h2 className="text-3xl font-bold text-white mb-1">Michael J. Schiuma</h2>
           <p className="text-sm text-[#8b949e] mb-5">Founder, ConfluenceTrading</p>
           <p className="text-[#c9d1d9] leading-relaxed mb-4">
-            &ldquo;I built ConfluenceTrading because my own trading needed structure. The journal,
-            the risk-first calculator, the AI coaching — every feature exists because I use it in
-            my own sessions, every market day. Discipline isn&apos;t a personality trait; it&apos;s
-            a system. This is mine, and now it&apos;s yours.&rdquo;
+            &ldquo;I built ConfluenceTrading as a solution to my own issues with trading
+            psychology. Everyone can become a trader, but only the disciplined become great
+            traders. With ConfluenceTrading, the tools are there for you. I stand by that,
+            because I use them in my own sessions, every market day. Discipline isn&apos;t a
+            personality trait; it&apos;s a system. This is mine, and now it&apos;s yours.&rdquo;
           </p>
           <p className="text-sm text-[#8b949e]">
             Questions land in my inbox —{' '}
