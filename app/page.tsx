@@ -16,6 +16,7 @@ import TradingView from "@/components/TradingView";
 import FinancesView from "@/components/finances/FinancesView";
 import AccountMetricsView from "@/components/admin/AccountMetricsView";
 import LandingPage from "@/components/landing/LandingPage";
+import UserAvatar from "@/components/UserAvatar";
 import Link from 'next/link';
 import { LayoutDashboard, Target, TrendingUp, Wallet, Users, Menu, X, LogOut } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
@@ -123,13 +124,8 @@ function DashboardContent() {
               <div className="hidden md:flex items-center gap-2">
                 <LiveClock />
                 <div className="flex items-center gap-1" style={{ borderLeft: '1px solid var(--border-subtle)', paddingLeft: '10px' }}>
-                  <Link
-                    href="/profile"
-                    title="Profile & Settings"
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold transition-all duration-200"
-                    style={{ background: 'linear-gradient(135deg, #FF6B00, #cc4e00)', boxShadow: '0 1px 6px rgba(255,107,0,0.25)' }}
-                  >
-                    {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
+                  <Link href="/profile" title="Profile & Settings" className="transition-all duration-200">
+                    <UserAvatar name={session?.user?.name} size={28} />
                   </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
@@ -184,13 +180,8 @@ function DashboardContent() {
               <div className="pt-2 flex items-center justify-between" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                 <LiveClock />
                 <div className="flex items-center gap-1">
-                  <Link
-                    href="/profile"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                    style={{ background: 'linear-gradient(135deg, #FF6B00, #cc4e00)' }}
-                  >
-                    {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
+                  <Link href="/profile" onClick={() => setMobileMenuOpen(false)}>
+                    <UserAvatar name={session?.user?.name} size={28} />
                   </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
