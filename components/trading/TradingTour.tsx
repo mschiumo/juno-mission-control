@@ -389,7 +389,10 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
   const [locateFailed, setLocateFailed] = useState(false);
 
-  const current = steps[step];
+  // A plan with no tourable features yields no steps (e.g. a user with no
+  // active plan yet) — the empty-steps early return below renders nothing
+  // rather than crashing; the clamp guards a plan change mid-tour.
+  const current = steps[Math.min(step, Math.max(steps.length - 1, 0))];
   const isFirst = step === 0;
   const isLast = step === steps.length - 1;
 
@@ -399,7 +402,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
   }, []);
 
   const locateTarget = useCallback(() => {
-    if (!current.targetDataTour) {
+    if (!current?.targetDataTour) {
       setTargetRect(null);
       return;
     }
@@ -421,12 +424,12 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
       }
       setTargetRect({ top: r.top, left: r.left, width: r.width, height: r.height });
     }, 320);
-  }, [current.targetDataTour]);
+  }, [current?.targetDataTour]);
 
   useEffect(() => {
     setTargetRect(null);
     setLocateFailed(false);
-    if (current.subtab !== activeSubTab) {
+    if (current && current.subtab !== activeSubTab) {
       onNavigate(current.subtab);
       const t = setTimeout(locateTarget, 480);
       return () => clearTimeout(t);
@@ -456,7 +459,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
 
     if (!targetRect) {
       // Centered modal — wider when a preview panel is present
-      const w = current.preview ? Math.min(720, vw - 32) : Math.min(TOOLTIP_WIDTH, vw - 32);
+      const w = current?.preview ? Math.min(720, vw - 32) : Math.min(TOOLTIP_WIDTH, vw - 32);
       return {
         position: 'fixed',
         top: '50%',
@@ -468,7 +471,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
     }
 
     const { top, left, width, height } = targetRect;
-    const side = current.tooltipSide ?? 'bottom';
+    const side = current?.tooltipSide ?? 'bottom';
     const vh = window.innerHeight;
     const CARD_H = 360;
 
@@ -577,6 +580,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
   }
 
   const hasTarget = !!targetRect;
+  if (!current) return null;
+
   const side = current.tooltipSide;
   // Don't render the card until position is known — prevents flash to wrong spot
   const cardReady = !current.targetDataTour || hasTarget || locateFailed;
