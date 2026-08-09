@@ -61,6 +61,15 @@ export async function getUserByEmail(email: string): Promise<AppUser | null> {
   return JSON.parse(data) as AppUser;
 }
 
+export async function updatePassword(id: string, newPassword: string): Promise<boolean> {
+  const redis = await getRedisClient();
+  const user = await getUserById(id);
+  if (!user) return false;
+  user.passwordHash = await bcrypt.hash(newPassword, 12);
+  await redis.set(userKey(id), JSON.stringify(user));
+  return true;
+}
+
 export async function verifyPassword(user: AppUser, password: string): Promise<boolean> {
   return bcrypt.compare(password, user.passwordHash);
 }

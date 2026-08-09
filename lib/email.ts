@@ -17,10 +17,13 @@ export async function sendEmail({
   to,
   subject,
   react,
+  replyTo,
 }: {
   to: string;
   subject: string;
   react: React.ReactElement;
+  /** Where a reply should land (e.g. the monitored support inbox). */
+  replyTo?: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
   const resend = getResend();
   if (!resend) {
@@ -34,6 +37,7 @@ export async function sendEmail({
       to,
       subject,
       react,
+      ...(replyTo ? { replyTo } : {}),
     });
     if (error) {
       console.error('[Email] Resend error:', error);

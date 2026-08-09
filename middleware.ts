@@ -41,7 +41,7 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  const publicPaths = ['/', '/login', '/signup', '/terms'];
+  const publicPaths = ['/', '/login', '/signup', '/terms', '/forgot-password', '/reset-password'];
   const authPages = ['/login', '/signup']; // redirect away from these when already logged in
 
   if (!isLoggedIn && !publicPaths.includes(nextUrl.pathname)) {

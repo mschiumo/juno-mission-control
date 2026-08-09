@@ -80,7 +80,12 @@ export async function GET(request: NextRequest): Promise<NextResponse | Response
       trial: '[TEST] Your free Gold week ends tomorrow',
       digest: '[TEST] ConfluenceTrading metrics digest',
     };
-    const result = await sendEmail({ to: OWNER_EMAIL, subject: SUBJECTS[template], react: element });
+    const result = await sendEmail({
+      to: OWNER_EMAIL,
+      subject: SUBJECTS[template],
+      react: element,
+      replyTo: 'confluencetradingsupport@gmail.com',
+    });
     return NextResponse.json({ success: result.success, to: OWNER_EMAIL, template, error: result.error });
   }
 

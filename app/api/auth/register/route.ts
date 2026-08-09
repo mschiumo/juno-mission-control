@@ -35,6 +35,7 @@ export async function POST(request: Request) {
         to: email,
         subject: 'Welcome to ConfluenceTrading — your journal is ready',
         react: WelcomeEmail({ name }),
+        replyTo: 'confluencetradingsupport@gmail.com',
       });
       if (sent.success) await markLifecycleEmailSent(user.id, 'welcome');
     } catch (err) {

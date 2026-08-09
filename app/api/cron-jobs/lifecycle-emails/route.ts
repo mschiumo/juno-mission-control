@@ -62,6 +62,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           to: user.email,
           subject: 'Welcome to ConfluenceTrading — your journal is ready',
           react: WelcomeEmail({ name: user.name }),
+          replyTo: 'confluencetradingsupport@gmail.com',
         });
         attempted.push({ email: user.email, kind: 'welcome', ok: sent.success });
         if (sent.success) {
@@ -81,6 +82,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           to: user.email,
           subject: 'How is ConfluenceTrading working for you?',
           react: CheckinEmail({ name: user.name }),
+          replyTo: 'confluencetradingsupport@gmail.com',
         });
         attempted.push({ email: user.email, kind: 'checkin', ok: sent.success });
         if (sent.success) {
@@ -102,6 +104,7 @@ export async function GET(request: Request): Promise<NextResponse> {
             to: user.email,
             subject: 'Your free Gold week ends tomorrow',
             react: TrialEndingEmail({ name: user.name, expiresAt: record.expiresAt }),
+            replyTo: 'confluencetradingsupport@gmail.com',
           });
           attempted.push({ email: user.email, kind: 'trialReminder', ok: sent.success });
           if (sent.success) {
