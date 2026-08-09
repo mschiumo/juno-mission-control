@@ -117,14 +117,6 @@ export function TradeManagementArticle() {
           both.
         </Note>
       </DocSection>
-
-      <DocSection title="Trading Mode (fullscreen)">
-        <P>
-          Click <UI>Trading Mode</UI> (top right) to go fullscreen for the session: your active trades in a strip across
-          the top and a four-column watchlist below — nothing else. Press <Kbd>Esc</Kbd> or click <UI>Exit</UI> to
-          leave.
-        </P>
-      </DocSection>
     </div>
   );
 }

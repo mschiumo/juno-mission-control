@@ -11,6 +11,8 @@ interface EmailAlertPrefs {
 
 interface UserPrefs {
   tradingTourCompleted?: boolean;
+  /** Tier the user held when they finished the tour — upgrading re-offers it. */
+  tourCompletedTier?: string;
   startingBalance?: number;
   emailAlerts?: EmailAlertPrefs;
   tradingRules?: string[];
@@ -61,6 +63,10 @@ export async function PATCH(request: Request) {
 
   if (typeof body.tradingTourCompleted === 'boolean') {
     updated.tradingTourCompleted = body.tradingTourCompleted;
+  }
+
+  if (typeof body.tourCompletedTier === 'string') {
+    updated.tourCompletedTier = body.tourCompletedTier;
   }
 
   if (typeof body.startingBalance === 'number' && body.startingBalance >= 0) {

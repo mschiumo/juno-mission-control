@@ -5,7 +5,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
 import { useEntitlements } from '@/lib/use-entitlements';
-import type { Features } from '@/lib/entitlements';
+import { TIER_ORDER, type Features, type Tier } from '@/lib/entitlements';
 import {
   LayoutDashboard,
   TrendingUp,
@@ -68,6 +68,7 @@ export default function TradingView() {
   const isOwner = isOwnerEmail(session?.user?.email);
   const { entitlements, loading: entitlementsLoading } = useEntitlements();
   const features = entitlements.features;
+  const tier = entitlements.tier;
 
   // Get subtab from URL or default to 'overview'
   const getSubTabFromUrl = useCallback((): TradingSubTab => {
@@ -117,16 +118,26 @@ export default function TradingView() {
   }, [isOwner]);
   const [showTour, setShowTour] = useState(false);
 
+  // Show the tour on first arrival, and again after an upgrade — the tour is
+  // filtered by plan, so a Silver user who moves to Gold has never been shown
+  // the brokerage, Market, Goals, or AI-coaching steps.
   useEffect(() => {
+    if (entitlementsLoading) return;
     fetch('/api/user/prefs')
       .then((r) => r.json())
       .then((data) => {
-        if (!data?.prefs?.tradingTourCompleted) {
+        const prefs = data?.prefs ?? {};
+        if (!prefs.tradingTourCompleted) {
+          setShowTour(true);
+          return;
+        }
+        const completedAt = prefs.tourCompletedTier as Tier | undefined;
+        if (completedAt && TIER_ORDER[tier] > (TIER_ORDER[completedAt] ?? 0)) {
           setShowTour(true);
         }
       })
       .catch(() => {});
-  }, []);
+  }, [entitlementsLoading, tier]);
 
   // Update URL when subtab changes
   const setActiveSubTab = useCallback(
@@ -161,10 +172,11 @@ export default function TradingView() {
 
   function handleTourComplete() {
     setShowTour(false);
+    // Record the tier too: a later upgrade re-offers the tour with its new steps.
     fetch('/api/user/prefs', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tradingTourCompleted: true }),
+      body: JSON.stringify({ tradingTourCompleted: true, tourCompletedTier: tier }),
     }).catch(() => {});
   }
 
@@ -372,9 +384,9 @@ export default function TradingView() {
       {showTour && !entitlementsLoading && (
         <TradingTour
           features={features}
-          // The onboarding tour only covers the standard sub-tabs; 'agents' (owner-only)
-          // and 'docs' aren't part of it, so present them as 'overview' to the tour's narrower type.
-          activeSubTab={activeSubTab === 'agents' || activeSubTab === 'docs' ? 'overview' : activeSubTab}
+          // The tour covers every sub-tab except Agents (whose walkthrough is its
+          // own thing), so only that one is presented as 'overview'.
+          activeSubTab={activeSubTab === 'agents' ? 'overview' : activeSubTab}
           onNavigate={setActiveSubTab}
           onComplete={handleTourComplete}
         />

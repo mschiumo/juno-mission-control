@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import type { Features } from '@/lib/entitlements';
 import {
   X,
@@ -11,17 +11,20 @@ import {
   Calculator,
   TrendingUp,
   BarChart2,
-  Maximize2,
   Brain,
   LineChart,
   Lightbulb,
   TrendingDown,
   Newspaper,
+  Link2,
+  Target,
+  GraduationCap,
+  CalendarDays,
   ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react';
 
-type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management';
+type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management' | 'docs';
 type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
 
 /** Mini visual mockup shown alongside the step description */
@@ -182,6 +185,7 @@ const SUBTAB_FEATURE: Record<TradingSubTab, keyof Features> = {
   goals: 'goals',
   projection: 'profitProjection',
   'trade-management': 'tradeManagement',
+  docs: 'docs',
 };
 
 const STEPS: TourStep[] = [
@@ -190,47 +194,60 @@ const STEPS: TourStep[] = [
     icon: <LayoutDashboard className="w-9 h-9 text-[#F97316]" />,
     title: 'Welcome to Your Trading Hub',
     description:
-      'The Trading tab is your all-in-one workspace for tracking, analyzing, and planning trades. This quick tour will walk you through the most important features — it only takes a minute.',
-    tip: 'Use the tabs at the top to switch between sections at any time.',
+      'This is your workspace for journaling trades, managing risk, and finding out what actually works in your trading. The tour only covers what your plan includes, and it takes about a minute.',
+    tip: 'You can relaunch this tour any time from the ? icon at the right of the tab bar.',
   },
   {
     subtab: 'overview',
     targetDataTour: 'trading-nav',
     tooltipSide: 'bottom',
     icon: <LayoutDashboard className="w-9 h-9 text-[#F97316]" />,
-    title: 'Five Sections, One Tab',
+    title: 'Your Sections',
     description:
-      'Overview shows your P&L calendar and trade journal. Market gives you a live gap scanner. Trade Management has the position calculator and watchlist. Performance tracks your stats and AI journal insights. Profit Projection lets you model your strategy.',
-    tip: "Click any tab to jump to that section — we'll show you each one.",
+      'Journal holds your P&L calendar and daily entries. Trade Management has the risk calculator and watchlist. Performance tracks your stats, Profit Projection models your strategy, and Docs explains everything in depth. Market, Market News, and Goals appear here too when your plan includes them.',
+    tip: "Click any tab to jump straight there — we'll visit each one in turn.",
+  },
+  {
+    subtab: 'overview',
+    requiresFeature: 'brokerageSync',
+    targetDataTour: 'brokerage-sync',
+    tooltipSide: 'bottom',
+    icon: <Link2 className="w-9 h-9 text-[#F97316]" />,
+    title: 'Connect Your Brokerage',
+    description:
+      'Link your brokerage here and your journal fills itself — trades, fills, and balances sync automatically each day through SnapTrade, which supports Schwab, Robinhood, Fidelity, E*TRADE, Webull, Interactive Brokers and more. While a brokerage is linked it is the single source of your journal, so the numbers always match your statements.',
+    tip: 'Disconnecting is one click and restores whatever you had imported by hand beforehand.',
   },
   {
     subtab: 'overview',
     targetDataTour: 'trading-import',
     tooltipSide: 'left',
     icon: <Upload className="w-9 h-9 text-[#F97316]" />,
-    title: 'Import from ThinkorSwim',
+    title: 'Import Your Trades by Hand',
     description:
-      "Export Today's Trade Activity from TOS and drop the CSV here. Confluence Trading pairs buys with sells, calculates P&L, and flags trades that already exist in your journal so you can merge or skip them.",
+      'No brokerage connection needed: export an account statement or trade activity file from your broker — ThinkorSwim, Schwab, or any CSV — and drop it here. Confluence Trading pairs buys with sells, calculates P&L, and flags trades already in your journal so you can merge or skip them. There is a downloadable template in the import window if your broker exports something unusual.',
     tip: 'Merged trades keep your notes — brokerage numbers always win for the financials.',
   },
   {
-    subtab: 'trade-management',
-    icon: <Calculator className="w-9 h-9 text-[#F97316]" />,
-    title: 'Position Calculator',
+    subtab: 'overview',
+    targetDataTour: 'trading-calendar',
+    tooltipSide: 'top',
+    icon: <CalendarDays className="w-9 h-9 text-[#F97316]" />,
+    title: 'The P&L Calendar',
     description:
-      "Enter your ticker, dollar risk, entry price, and stop — the calculator instantly tells you how many shares to buy. Never over-size a position again.",
-    tip: 'Hit "Trading Mode" for a distraction-free fullscreen layout during the session.',
-    preview: <CalcPreview />,
+      'Every trading day shows its net result, and clicking a day opens that day\u2019s trades alongside your journal entry. Writing two honest sentences a day is what makes the AI coaching and your own reviews worth reading later.',
+    tip: 'Tag your setups and emotional state — those tags become the patterns you analyze.',
   },
   {
+    // Centered card, no spotlight: the calculator sits low in a tall column,
+    // so anchoring to it scrolled the page away from the card.
     subtab: 'trade-management',
-    targetDataTour: 'trading-mode',
-    tooltipSide: 'bottom',
-    icon: <Maximize2 className="w-9 h-9 text-[#F97316]" />,
-    title: 'Trading Mode',
+    icon: <Calculator className="w-9 h-9 text-[#F97316]" />,
+    title: 'Size Every Trade by Risk',
     description:
-      'Enter a distraction-free fullscreen workspace designed for the live session. Trading Mode shows your active trades strip and watchlist side-by-side — no tabs, no clutter.',
-    tip: 'Press Esc at any time to exit Trading Mode and return to the full dashboard.',
+      'Enter your ticker, dollar risk, entry, and stop — the calculator returns the exact share size, with your reward-to-risk ratio alongside it. Decide what a trade may cost you before you decide how many shares to buy.',
+    tip: 'Keep the dollar risk identical across trades; consistency is what makes your stats mean something.',
+    preview: <CalcPreview />,
   },
   {
     subtab: 'market',
@@ -239,8 +256,8 @@ const STEPS: TourStep[] = [
     icon: <Newspaper className="w-9 h-9 text-[#F97316]" />,
     title: 'Daily Market Briefing',
     description:
-      'Every weekday morning before the bell, an AI-generated briefing lands here with overnight futures, index levels, big movers, and key news — all in one snapshot. Reviewing it takes 30 seconds and gives you context most traders skip.',
-    tip: 'Check the briefing each morning before placing your first trade. Knowing the macro backdrop helps you size positions and pick the right setups.',
+      'Every weekday before the bell, an AI-generated briefing lands here with overnight futures, index levels, big movers, and the news that matters — one snapshot, 30 seconds to read. Turn on the email in your profile and it arrives in your inbox instead.',
+    tip: 'Read it before your first trade; the macro backdrop shapes which setups are worth taking.',
     preview: <BriefingPreview />,
   },
   {
@@ -250,25 +267,43 @@ const STEPS: TourStep[] = [
     icon: <TrendingUp className="w-9 h-9 text-[#F97316]" />,
     title: 'Live Gap Scanner',
     description:
-      'Stocks gapping ≥ 2% with significant volume refresh every 15 seconds. The scanner is fully customizable — adjust gap %, volume, and price filters to match your strategy. Star any ticker to pin it to your watchlist.',
-    tip: 'Sort by gap % or volume to find the highest-conviction setups quickly.',
+      'Stocks gapping with significant volume, refreshed continuously through the session. Adjust gap %, volume, and price filters to match your strategy, and star any ticker to pin it to your watchlist.',
+    tip: 'Sort by gap % or relative volume to surface the highest-conviction setups first.',
+  },
+  {
+    subtab: 'market-news',
+    icon: <Newspaper className="w-9 h-9 text-[#F97316]" />,
+    title: 'Market News, Filtered',
+    description:
+      'Live headlines tagged by sentiment and category — Fed and rates, macro, M&A, earnings, AI, crypto — so you can scan the day\u2019s catalysts without a dozen browser tabs.',
+    tip: 'Check the high-impact digest before the open; it is the fastest read on the page.',
+  },
+  {
+    subtab: 'goals',
+    icon: <Target className="w-9 h-9 text-[#F97316]" />,
+    title: 'Goals That Track Themselves',
+    description:
+      'Set the rules you want to trade by — win rate, risk per trade, trades per day — and they update from your real journal data. No manual check-ins and no fudging: progress comes from what you actually did.',
+    tip: 'Start with one process goal (like risk per trade) rather than a profit target — process is what you control.',
   },
   {
     subtab: 'performance',
     icon: <LineChart className="w-9 h-9 text-[#F97316]" />,
-    title: 'Equity Curve',
+    title: 'Your Numbers, Honestly',
     description:
-      'Track your account growth over time with an interactive equity curve. See your net liquidating value, total P&L, win rate, and average win/loss at a glance — all updated automatically as you import trades.',
-    tip: 'Set your starting balance to see accurate percentage returns from day one.',
+      'Equity curve, net liquidating value, win rate, profit factor, drawdown, and a breakdown by strategy — all recalculated as trades land in your journal, whether they arrive by brokerage sync or by import.',
+    tip: 'Set your starting balance once so percentage returns are accurate from day one.',
   },
   {
     subtab: 'performance',
     requiresFeature: 'journalInsights',
+    targetDataTour: 'journal-insights',
+    tooltipSide: 'top',
     icon: <Brain className="w-9 h-9 text-[#F97316]" />,
     title: 'AI Journal Insights',
     description:
-      'Generate an AI-powered analysis of your trade journal. The report surfaces what\'s working, areas to improve, and behavioral patterns across your entries — so you can spot recurring mistakes and double down on winning habits.',
-    tip: 'Generate a report weekly to track how your patterns evolve over time.',
+      'Generate a weekly or monthly report across your journal and trades. It surfaces what is working, what is costing you money, and the behavioral patterns that are invisible from inside a trade.',
+    tip: 'Generate one every week — the value is in watching the patterns change over time.',
     preview: <JournalInsightsPreview />,
   },
   {
@@ -278,8 +313,16 @@ const STEPS: TourStep[] = [
     icon: <BarChart2 className="w-9 h-9 text-[#F97316]" />,
     title: 'Profit Projection',
     description:
-      'Enter your win rate, average R:R, and trades per day to see projected monthly P&L, max drawdown, and Sharpe ratio. Stress-test your strategy before risking real capital.',
+      'Enter your win rate, average R:R, and trades per day to model best, base, and worst-case months before you risk capital on a strategy change.',
     tip: 'Small improvements in win rate compound dramatically over hundreds of trades.',
+  },
+  {
+    subtab: 'docs',
+    icon: <GraduationCap className="w-9 h-9 text-[#F97316]" />,
+    title: 'Docs & Guides',
+    description:
+      'Every feature explained in depth, plus trading guides on risk, journaling discipline, and getting the most out of the analytics. Start here whenever something is unclear.',
+    tip: 'That is the tour — questions any time: confluencetradingsupport@gmail.com.',
   },
 ];
 
@@ -387,6 +430,11 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
+  // Real rendered card height. Steps with a preview panel are far taller than
+  // any fixed guess, and a stale guess is what pushes the footer (Back/Next)
+  // off-screen — the overlay is fixed, so there is nothing to scroll to reach it.
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [cardH, setCardH] = useState(360);
   const [locateFailed, setLocateFailed] = useState(false);
 
   // A plan with no tourable features yields no steps (e.g. a user with no
@@ -413,11 +461,31 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
       setLocateFailed(true);
       return;
     }
-    // Scroll to top so elements are measured at their natural page position
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Bring the TARGET into view — not the top of the page. Scrolling to top
+    // left below-the-fold targets (the calculator, projection, insights) far
+    // down the document, so the spotlight sat off-screen and the card was
+    // dragged down with it, out of reach.
+    // Instant, not smooth: the rect is measured right after this, and a
+    // mid-flight smooth scroll yields a stale position (the spotlight then
+    // sits away from the element it is supposed to be highlighting).
+    el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
     setTimeout(() => {
       const r = el.getBoundingClientRect();
       if (r.width === 0 && r.height === 0) {
+        setTargetRect(null);
+        setLocateFailed(true);
+        return;
+      }
+      // A target that fills the screen (the P&L calendar, a full-width table)
+      // leaves no side with room for the card — anchoring it there just puts
+      // the card on top of the thing it is meant to be pointing at. Fall back
+      // to the centered, spotlight-free card: the copy is the point.
+      const tooLarge =
+        r.height > window.innerHeight * 0.6 || r.width > window.innerWidth * 0.92;
+      if (tooLarge) {
+        // locateFailed is what tells the renderer "no usable anchor, show the
+        // centered card" — without it cardReady never becomes true and the
+        // step renders nothing at all.
         setTargetRect(null);
         setLocateFailed(true);
         return;
@@ -453,6 +521,16 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
     if (!isFirst) setStep((s) => s - 1);
   }
 
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const measure = () => setCardH(el.getBoundingClientRect().height || 360);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [step, targetRect]);
+
   // Tooltip card position — anchored to the spotlight box
   function tooltipStyle(): React.CSSProperties {
     const vw = window.innerWidth;
@@ -473,7 +551,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
     const { top, left, width, height } = targetRect;
     const side = current?.tooltipSide ?? 'bottom';
     const vh = window.innerHeight;
-    const CARD_H = 360;
+    // Never taller than the viewport; the body scrolls internally past that.
+    const CARD_H = Math.min(cardH, vh - 24);
 
     // Wide elements need special treatment — there's no clean side to anchor.
     const isWide = width > vw * 0.75;
@@ -483,7 +562,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
       if (!isTall) {
         return {
           position: 'fixed',
-          top: sBottom + GAP,
+          top: Math.max(12, Math.min(sBottom + GAP, vh - Math.min(cardH, vh - 24) - 12)),
           left: '50%',
           transform: 'translateX(-50%)',
           width: Math.min(TOOLTIP_WIDTH, vw - 32),
@@ -492,7 +571,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
       } else {
         return {
           position: 'fixed',
-          top: Math.max(80, top - CARD_H - GAP),
+          top: Math.max(12, Math.min(top - CARD_H - GAP, vh - CARD_H - 12)),
           left: '50%',
           transform: 'translateX(-50%)',
           width: Math.min(TOOLTIP_WIDTH, vw - 32),
@@ -511,17 +590,20 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
     const cx = left + width / 2;
     const cy = top + height / 2;
 
+    // One clamp for every branch: the card must always sit fully on screen.
+    const fit = (t: number) => Math.max(12, Math.min(t, vh - CARD_H - 12));
+
     if (side === 'bottom') {
-      style.top = Math.min(sBottom + GAP, vh - CARD_H - 8);
+      style.top = fit(sBottom + GAP);
       style.left = Math.max(8, Math.min(cx - tw / 2, vw - tw - 8));
     } else if (side === 'top') {
-      style.top = Math.max(8, sTop - GAP - CARD_H);
+      style.top = fit(sTop - GAP - CARD_H);
       style.left = Math.max(8, Math.min(cx - tw / 2, vw - tw - 8));
     } else if (side === 'right') {
-      style.top = Math.max(8, Math.min(cy - CARD_H / 2, vh - CARD_H - 8));
+      style.top = fit(cy - CARD_H / 2);
       style.left = Math.min(sRight + GAP, vw - tw - 8);
     } else {
-      style.top = Math.max(8, Math.min(cy - CARD_H / 2, vh - CARD_H - 8));
+      style.top = fit(cy - CARD_H / 2);
       style.left = Math.max(8, sLeft - GAP - tw);
     }
 
@@ -604,14 +686,15 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
 
       {/* Tooltip card — only rendered once position is known */}
       {cardReady && <div
-        style={{ ...tooltipStyle(), pointerEvents: 'auto' }}
-        className="bg-[#161b22] border border-[#30363d] rounded-2xl shadow-2xl overflow-visible"
+        ref={cardRef}
+        style={{ ...tooltipStyle(), pointerEvents: 'auto', maxHeight: 'calc(100vh - 24px)' }}
+        className="bg-[#161b22] border border-[#30363d] rounded-2xl shadow-2xl flex flex-col"
       >
         {/* Arrow toward highlighted element */}
         {hasTarget && side && <Arrow side={side} />}
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/60 rounded-t-2xl">
+        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#0d1117]/60 rounded-t-2xl">
           <span className="text-xs font-semibold text-[#8b949e] uppercase tracking-widest">
             Tour · {step + 1} of {steps.length}
           </span>
@@ -624,8 +707,8 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-5 py-5 sm:px-8 sm:py-7">
+        {/* Body — scrolls internally so the footer controls stay reachable */}
+        <div className="px-5 py-5 sm:px-8 sm:py-7 overflow-y-auto min-h-0 flex-1">
           <div className="flex flex-col sm:flex-row sm:items-start gap-5">
             {/* Preview mockup (left side, when present) */}
             {current.preview}
@@ -654,7 +737,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
         </div>
 
         {/* Progress dots */}
-        <div className="flex justify-center gap-2 pb-2">
+        <div className="shrink-0 flex justify-center gap-2 pb-2">
           {steps.map((_, i) => (
             <button
               key={i}
@@ -668,7 +751,7 @@ export default function TradingTour({ activeSubTab, onNavigate, onComplete, feat
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-5 border-t border-[#30363d]">
+        <div className="shrink-0 flex items-center justify-between px-6 py-5 border-t border-[#30363d]">
           <button
             onClick={prev}
             disabled={isFirst}

@@ -38,7 +38,7 @@ export function GettingStartedArticle() {
             ],
             [
               <FeatureLink key="t" subtab="trade-management">Trade Management</FeatureLink>,
-              <>Daily favorites watchlist, position-size calculator, and the potential → active → closed trade workflow, plus a fullscreen Trading Mode. See <DocLink doc="trade-management">Trade Management</DocLink>.</>,
+              <>Daily favorites watchlist, position-size calculator, and the potential → active → closed trade workflow. See <DocLink doc="trade-management">Trade Management</DocLink>.</>,
             ],
             [
               <FeatureLink key="g" subtab="goals">Goals</FeatureLink>,
@@ -76,7 +76,7 @@ export function GettingStartedArticle() {
       <DocSection title="The guided tour">
         <P>
           The first time you open the Trading tab, a 10-step interactive tour spotlights the essentials: importing from
-          thinkorswim, the position calculator, Trading Mode, the daily market briefing, the gap scanner, the equity
+          thinkorswim, the position calculator, the daily market briefing, the gap scanner, the equity
           curve, AI journal insights, and profit projection. You can re-run it anytime — click the orange{' '}
           <UI>?</UI> button at the far right of the sub-tab bar (on mobile, open the section dropdown and tap{' '}
           <UI>Tutorial — Take the Tour</UI>).
