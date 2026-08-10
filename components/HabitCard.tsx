@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, ClipboardList, AlertTriangle, CheckCircle2, Minus, Moon } from 'lucide-react';
+import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, ClipboardList, AlertTriangle, CheckCircle2, Minus, Moon, Pause, Play } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -54,6 +54,7 @@ interface Habit {
   frequency: HabitFrequency;
   history: boolean[]; // Last 7 days (oldest to newest)
   order: number;
+  paused?: boolean;
 }
 
 interface HabitStats {
@@ -69,15 +70,17 @@ interface PendingChange {
 }
 
 // Mirrors the server's stats math (frequency-aware weekly goals) so optimistic
-// updates don't briefly disagree with what the server sends back.
+// updates don't briefly disagree with what the server sends back. Paused habits
+// are excluded — they can't be completed, so they shouldn't count.
 function computeStats(habits: Habit[]): HabitStats {
-  const completedToday = habits.filter(h => h.completedToday).length;
-  const totalHabits = habits.length;
-  const longestStreak = Math.max(...habits.map(h => h.streak), 0);
-  const totalCompletions = habits.reduce((acc, h) =>
+  const active = habits.filter(h => !h.paused);
+  const completedToday = active.filter(h => h.completedToday).length;
+  const totalHabits = active.length;
+  const longestStreak = Math.max(...active.map(h => h.streak), 0);
+  const totalCompletions = active.reduce((acc, h) =>
     acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
   );
-  const totalGoal = habits.reduce((acc, h) => acc + frequencyGoal(h.frequency), 0);
+  const totalGoal = active.reduce((acc, h) => acc + frequencyGoal(h.frequency), 0);
   const weeklyCompletion = totalGoal > 0 ? Math.round((totalCompletions / totalGoal) * 100) : 0;
   return { totalHabits, completedToday, longestStreak, weeklyCompletion };
 }
@@ -113,11 +116,12 @@ interface SortableHabitItemProps {
   onToggle: (habitId: string) => void;
   onDelete: (habitId: string) => void;
   onEdit: (habit: Habit) => void;
+  onTogglePause: (habitId: string) => void;
   dayLabels: string[];
   disabled?: boolean;
 }
 
-function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disabled }: SortableHabitItemProps) {
+function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, dayLabels, disabled }: SortableHabitItemProps) {
   const {
     attributes,
     listeners,
@@ -141,7 +145,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disab
         habit.completedToday
           ? 'bg-[#22c55e]/10 border-[#22c55e]/30'
           : 'bg-[#0d1117] border-[#30363d] hover:border-[#F97316]/50'
-      } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''} ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
+      } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''} ${disabled ? 'opacity-60 pointer-events-none' : ''} ${habit.paused && !disabled ? 'opacity-50' : ''}`}
     >
       <div className="flex items-center gap-3">
         <button
@@ -155,7 +159,8 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disab
 
         <button
           onClick={() => onToggle(habit.id)}
-          disabled={disabled}
+          disabled={disabled || habit.paused}
+          title={habit.paused ? 'Paused — resume to check off' : undefined}
           className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center disabled:opacity-50 ${
             habit.completedToday
               ? 'bg-[#22c55e] border-[#22c55e]'
@@ -171,6 +176,11 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disab
             <span className={`font-medium truncate ${habit.completedToday ? 'text-[#737373] line-through' : 'text-white'}`}>
               {habit.name}
             </span>
+            {habit.paused && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#30363d] text-[#8b949e] font-medium flex-shrink-0">
+                paused
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             <div className="flex items-center gap-1 flex-shrink-0">
@@ -201,6 +211,16 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, dayLabels, disab
               />
             ))}
           </div>
+          <button
+            onClick={() => onTogglePause(habit.id)}
+            disabled={disabled}
+            className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
+            title={habit.paused ? 'Resume habit' : 'Pause habit'}
+          >
+            {habit.paused
+              ? <Play className="w-3.5 h-3.5 text-[#737373] hover:text-[#22c55e]" />
+              : <Pause className="w-3.5 h-3.5 text-[#737373] hover:text-[#F97316]" />}
+          </button>
           <button
             onClick={() => onEdit(habit)}
             disabled={disabled}
@@ -524,6 +544,33 @@ export default function HabitCard() {
     }
   };
 
+  const togglePauseHabit = async (habitId: string) => {
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return;
+    const newPaused = !habit.paused;
+
+    setSyncStatus('syncing');
+    try {
+      const response = await fetch('/api/habit-status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ habitId, paused: newPaused })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setHabits(data.data.habits);
+        setStats(data.data.stats);
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus('error');
+      }
+    } catch (error) {
+      console.error('Failed to toggle habit pause:', error);
+      setSyncStatus('error');
+    }
+  };
+
   const formatLastUpdated = () => {
     if (!lastUpdated) return '';
     return lastUpdated.toLocaleString('en-US', {
@@ -538,10 +585,14 @@ export default function HabitCard() {
   const marketClosed = isMarketClosedToday();
   const visibleHabits = marketClosed ? habits.filter(h => !isWeekdayOnlyHabit(h)) : habits;
   const hiddenTradingCount = habits.length - visibleHabits.length;
-  const visibleCompletedToday = visibleHabits.filter(h => h.completedToday).length;
 
-  const completionRate = visibleHabits.length > 0
-    ? Math.round((visibleCompletedToday / visibleHabits.length) * 100)
+  // Paused habits stay in the visible list (faded, uncheckable) but drop out
+  // of today's numbers — same treatment as weekend-hidden trading habits.
+  const activeHabits = visibleHabits.filter(h => !h.paused);
+  const visibleCompletedToday = activeHabits.filter(h => h.completedToday).length;
+
+  const completionRate = activeHabits.length > 0
+    ? Math.round((visibleCompletedToday / activeHabits.length) * 100)
     : 0;
 
   const getDayLabels = () => {
@@ -593,7 +644,8 @@ export default function HabitCard() {
 
   const computeReport = () => {
     const now = new Date();
-    const analysis = habits.map(h => {
+    const reportHabits = habits.filter(h => !h.paused);
+    const analysis = reportHabits.map(h => {
       const goal = frequencyGoal(h.frequency);
       const completions = h.history.filter(Boolean).length + (h.completedToday ? 1 : 0);
       const rate = Math.round((completions / goal) * 100);
@@ -613,11 +665,11 @@ export default function HabitCard() {
       if (h.weeklyRate === 0) recommendations.push(`"${h.name}" hasn't been logged once this week — consider adjusting its time slot.`);
       else recommendations.push(`"${h.name}" is missed most days (${h.weeklyRate}%) — try anchoring it to an existing routine.`);
     });
-    if (strong.length === habits.length && habits.length > 0)
+    if (strong.length === reportHabits.length && reportHabits.length > 0)
       recommendations.push('You\'re completing every habit this week. Consider raising the bar or adding a new challenge.');
-    if (stats.weeklyCompletion < 40 && habits.length > 3)
+    if (stats.weeklyCompletion < 40 && reportHabits.length > 3)
       recommendations.push('With many habits tracked, focus on your top 2–3 until consistency builds.');
-    if (!habits.some(h => h.completedToday) && now.getHours() >= 10)
+    if (!reportHabits.some(h => h.completedToday) && now.getHours() >= 10)
       recommendations.push('No habits logged yet today — you still have time to build momentum.');
     if (recommendations.length === 0)
       recommendations.push('Solid week overall. Keep the momentum going and stay consistent.');
@@ -632,7 +684,7 @@ export default function HabitCard() {
           <Activity className="w-4 h-4 text-[#F97316]" />
           <h2 className="text-sm font-semibold text-white">Habits</h2>
           <span className="text-[10px] text-[#8b949e]">
-            {visibleCompletedToday}/{visibleHabits.length} today
+            {visibleCompletedToday}/{activeHabits.length} today
           </span>
           {getSyncIndicator()}
         </div>
@@ -677,7 +729,7 @@ export default function HabitCard() {
             { value: `${completionRate}%`, label: 'Today' },
             { value: stats.longestStreak, label: 'Best Streak' },
             { value: `${stats.weeklyCompletion}%`, label: 'This Week' },
-            { value: visibleHabits.length, label: 'Total' }
+            { value: activeHabits.length, label: 'Total' }
           ].map((stat, i) => (
             <div key={i} className="bg-[#0d1117] rounded-lg p-2 text-center border border-[#30363d]">
               <div className="text-sm font-bold text-[#F97316]">{stat.value}</div>
@@ -739,6 +791,7 @@ export default function HabitCard() {
                     onToggle={toggleHabit}
                     onDelete={deleteHabit}
                     onEdit={openEditModal}
+                    onTogglePause={togglePauseHabit}
                     dayLabels={dayLabels}
                     disabled={hasPendingChanges}
                   />

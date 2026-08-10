@@ -92,13 +92,31 @@ interface HabitData {
   streak: number;
   history: boolean[]; // Last 7 days (oldest to newest)
   order: number;
+  paused?: boolean;
 }
 
-type HabitDefinition = Pick<HabitData, 'id' | 'name' | 'icon' | 'target' | 'category' | 'frequency' | 'order'>;
+type HabitDefinition = Pick<HabitData, 'id' | 'name' | 'icon' | 'target' | 'category' | 'frequency' | 'order' | 'paused'>;
+
+/** Stats exclude paused habits — they're neither completable nor tracked while paused. */
+function computeStats(habits: HabitData[]) {
+  const active = habits.filter(h => !h.paused);
+  const completedToday = active.filter(h => h.completedToday).length;
+  const totalCompletions = active.reduce((acc, h) =>
+    acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
+  );
+  const totalGoal = active.reduce((acc, h) => acc + weeklyGoal(h.frequency), 0);
+
+  return {
+    totalHabits: active.length,
+    completedToday,
+    longestStreak: Math.max(...active.map(h => h.streak), 0),
+    weeklyCompletion: totalGoal > 0 ? Math.round((totalCompletions / totalGoal) * 100) : 0,
+  };
+}
 
 async function saveHabitsList(redis: ReturnType<typeof createClient>, userId: string, habits: HabitData[]) {
-  const defs: HabitDefinition[] = habits.map(({ id, name, icon, target, category, frequency, order }) => ({
-    id, name, icon, target, category, frequency, order,
+  const defs: HabitDefinition[] = habits.map(({ id, name, icon, target, category, frequency, order, paused }) => ({
+    id, name, icon, target, category, frequency, order, paused,
   }));
   await redis.set(getHabitsListKey(userId), JSON.stringify(defs));
 }
@@ -292,27 +310,11 @@ export async function GET() {
     // Sort habits by order
     habits.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-    // Calculate stats from history
-    const completedToday = habits.filter(h => h.completedToday).length;
-    const totalHabits = habits.length;
-    const longestStreak = Math.max(...habits.map(h => h.streak), 0);
-
-    const totalCompletions = habits.reduce((acc, h) =>
-      acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
-    );
-    const totalGoal = habits.reduce((acc, h) => acc + weeklyGoal(h.frequency), 0);
-    const weeklyCompletion = totalGoal > 0 ? Math.round((totalCompletions / totalGoal) * 100) : 0;
-
     return NextResponse.json({
       success: true,
       data: {
         habits,
-        stats: {
-          totalHabits,
-          completedToday,
-          longestStreak,
-          weeklyCompletion
-        }
+        stats: computeStats(habits)
       },
       timestamp: new Date().toISOString(),
       serverAvailable: !!redis
@@ -380,30 +382,24 @@ export async function POST(request: Request) {
     if (habitIndex === -1) {
       return NextResponse.json({ success: false, error: 'Habit not found' }, { status: 404 });
     }
-    
+
+    if (habits[habitIndex].paused) {
+      return NextResponse.json({ success: false, error: 'Habit is paused' }, { status: 400 });
+    }
+
     habits[habitIndex].completedToday = completed;
-    
+
     // Recalculate streak based on new state
     habits[habitIndex].streak = calculateStreak(completed, habits[habitIndex].history);
-    
+
     // Save back to Redis
     await redis.set(storageKey, JSON.stringify(habits));
-    
-    const completedToday = habits.filter(h => h.completedToday).length;
-    const totalCompletions = habits.reduce((acc, h) =>
-      acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
-    );
-    const totalGoal = habits.reduce((acc, h) => acc + weeklyGoal(h.frequency), 0);
+
     return NextResponse.json({
       success: true,
       data: {
         habits,
-        stats: {
-          totalHabits: habits.length,
-          completedToday,
-          longestStreak: Math.max(...habits.map(h => h.streak)),
-          weeklyCompletion: totalGoal > 0 ? Math.round((totalCompletions / totalGoal) * 100) : 0,
-        }
+        stats: computeStats(habits)
       }
     });
   } catch (error) {
@@ -468,22 +464,11 @@ export async function PUT(request: Request) {
     await redis.set(storageKey, JSON.stringify(habits));
     await saveHabitsList(redis, userId, habits);
 
-    const completedToday = habits.filter(h => h.completedToday).length;
-    const totalCompletions = habits.reduce((acc, h) =>
-      acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
-    );
-    const totalGoal = habits.reduce((acc, h) => acc + weeklyGoal(h.frequency), 0);
-
     return NextResponse.json({
       success: true,
       data: {
         habits,
-        stats: {
-          totalHabits: habits.length,
-          completedToday,
-          longestStreak: Math.max(...habits.map(h => h.streak), 0),
-          weeklyCompletion: totalGoal > 0 ? Math.round((totalCompletions / totalGoal) * 100) : 0,
-        }
+        stats: computeStats(habits)
       }
     });
   } catch (error) {
@@ -536,21 +521,11 @@ export async function DELETE(request: Request) {
     await redis.set(storageKey, JSON.stringify(reorderedHabits));
     await saveHabitsList(redis, userId, reorderedHabits);
 
-    const completedToday = reorderedHabits.filter(h => h.completedToday).length;
-    const totalCompletions = reorderedHabits.reduce((acc, h) =>
-      acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
-    );
-    const totalGoal = reorderedHabits.reduce((acc, h) => acc + weeklyGoal(h.frequency), 0);
     return NextResponse.json({
       success: true,
       data: {
         habits: reorderedHabits,
-        stats: {
-          totalHabits: reorderedHabits.length,
-          completedToday,
-          longestStreak: Math.max(...reorderedHabits.map(h => h.streak), 0),
-          weeklyCompletion: totalGoal > 0 ? Math.round((totalCompletions / totalGoal) * 100) : 0,
-        }
+        stats: computeStats(reorderedHabits)
       }
     });
   } catch (error) {
@@ -565,14 +540,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { habitIds } = body;
-
-    if (!habitIds || !Array.isArray(habitIds)) {
-      return NextResponse.json({
-        success: false,
-        error: 'habitIds array is required'
-      }, { status: 400 });
-    }
+    const { habitIds, habitId, paused } = body;
 
     const redis = await getRedisClient();
     const today = getToday();
@@ -590,7 +558,33 @@ export async function PATCH(request: Request) {
     } else {
       return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
     }
-    
+
+    if (habitId && typeof paused === 'boolean') {
+      // ── PAUSE / RESUME a habit ───────────────────────────────────────────
+      const idx = habits.findIndex(h => h.id === habitId);
+      if (idx === -1) return NextResponse.json({ success: false, error: 'Habit not found' }, { status: 404 });
+
+      habits[idx] = { ...habits[idx], paused };
+
+      await redis.set(storageKey, JSON.stringify(habits));
+      await saveHabitsList(redis, userId, habits);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          habits,
+          stats: computeStats(habits)
+        }
+      });
+    }
+
+    if (!habitIds || !Array.isArray(habitIds)) {
+      return NextResponse.json({
+        success: false,
+        error: 'habitIds array is required'
+      }, { status: 400 });
+    }
+
     // Update order based on the new habitIds array
     const updatedHabits = habits.map(habit => {
       const newIndex = habitIds.indexOf(habit.id);
@@ -599,28 +593,18 @@ export async function PATCH(request: Request) {
       }
       return habit;
     });
-    
+
     // Sort by the new order
     updatedHabits.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    
+
     await redis.set(storageKey, JSON.stringify(updatedHabits));
     await saveHabitsList(redis, userId, updatedHabits);
 
-    const completedToday = updatedHabits.filter(h => h.completedToday).length;
-    const totalCompletions = updatedHabits.reduce((acc, h) =>
-      acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
-    );
-    const totalGoal = updatedHabits.reduce((acc, h) => acc + weeklyGoal(h.frequency), 0);
     return NextResponse.json({
       success: true,
       data: {
         habits: updatedHabits,
-        stats: {
-          totalHabits: updatedHabits.length,
-          completedToday,
-          longestStreak: Math.max(...updatedHabits.map(h => h.streak), 0),
-          weeklyCompletion: totalGoal > 0 ? Math.round((totalCompletions / totalGoal) * 100) : 0,
-        }
+        stats: computeStats(updatedHabits)
       }
     });
   } catch (error) {
