@@ -13,14 +13,14 @@
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { auth } from '@/auth';
-import { requireUserId } from '@/lib/auth-session';
+import { requireVerifiedEmail } from '@/lib/auth-session';
 import { TIER_PRICING, PLATINUM_COMING_SOON, type Tier } from '@/lib/entitlements';
 import { getStripe, isStripeConfigured, priceIdFor, getStripeCustomerId } from '@/lib/stripe';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://confluencetrading.app';
 
 export async function POST(request: Request): Promise<NextResponse> {
-  const authResult = await requireUserId();
+  const authResult = await requireVerifiedEmail();
   if (authResult.error) return authResult.error;
   const { userId } = authResult;
 

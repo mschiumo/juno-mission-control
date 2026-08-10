@@ -7,6 +7,19 @@ export interface AppUser {
   name: string;
   passwordHash: string;
   createdAt: string;
+  /**
+   * ISO timestamp of email confirmation, or null while pending.
+   *
+   * `undefined` means the account predates verification — those users are
+   * grandfathered in as verified rather than locked out of their own data.
+   * Only `null` (set explicitly at signup) counts as unverified.
+   */
+  emailVerified?: string | null;
+}
+
+/** Accounts created before verification shipped are treated as verified. */
+export function isEmailVerified(user: Pick<AppUser, 'emailVerified'> | null | undefined): boolean {
+  return !!user && user.emailVerified !== null;
 }
 
 const USER_INDEX_KEY = 'user:index';
@@ -29,6 +42,7 @@ export async function createUser(email: string, name: string, password: string):
     name,
     passwordHash,
     createdAt: new Date().toISOString(),
+    emailVerified: null,
   };
 
   await redis.set(userKey(id), JSON.stringify(user));
@@ -66,6 +80,15 @@ export async function updatePassword(id: string, newPassword: string): Promise<b
   const user = await getUserById(id);
   if (!user) return false;
   user.passwordHash = await bcrypt.hash(newPassword, 12);
+  await redis.set(userKey(id), JSON.stringify(user));
+  return true;
+}
+
+export async function markEmailVerified(id: string): Promise<boolean> {
+  const redis = await getRedisClient();
+  const user = await getUserById(id);
+  if (!user) return false;
+  user.emailVerified = new Date().toISOString();
   await redis.set(userKey(id), JSON.stringify(user));
   return true;
 }
@@ -124,6 +147,7 @@ export async function deleteUserAccount(id: string): Promise<void> {
     userKey(id),
     `user:prefs:${id}`,
     `user:lifecycle-emails:${id}`,
+    `user:verify-rl:${id}`,
     `user:stripe-customer:${id}`,
     `user:avatar:${id}`,
     `user:entitlements:${id}`,

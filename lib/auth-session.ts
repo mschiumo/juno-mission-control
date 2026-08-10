@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { isOwnerEmail } from '@/lib/owner';
 import { type Features } from '@/lib/entitlements';
 import { getEntitlements } from '@/lib/db/entitlements';
-import { getUserById } from '@/lib/db/users';
+import { getUserById, isEmailVerified } from '@/lib/db/users';
 
 /**
  * Get the authenticated user's ID from the session.
@@ -94,6 +94,34 @@ export async function requireFeature(feature: keyof Features): Promise<
     };
   }
   return { userId, email: email ?? '' };
+}
+
+/**
+ * Require a confirmed email address. Used on the routes that cost money or
+ * grant paid access — starting a trial, checkout — so an unconfirmed address
+ * can't farm free trials. Journaling and the rest of the free tier stay open,
+ * because locking someone out of their own data over an unread email is worse
+ * than the abuse it prevents.
+ */
+export async function requireVerifiedEmail(): Promise<
+  { userId: string; error?: never } | { userId?: never; error: NextResponse }
+> {
+  const authResult = await requireUserId();
+  if (authResult.error) return { error: authResult.error };
+  const user = await getUserById(authResult.userId);
+  if (!isEmailVerified(user)) {
+    return {
+      error: NextResponse.json(
+        {
+          success: false,
+          code: 'EMAIL_UNVERIFIED',
+          error: 'Confirm your email address first — check your inbox for the confirmation link.',
+        },
+        { status: 403 },
+      ),
+    };
+  }
+  return { userId: authResult.userId };
 }
 
 /**
