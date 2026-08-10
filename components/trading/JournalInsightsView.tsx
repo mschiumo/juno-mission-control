@@ -359,7 +359,9 @@ export default function JournalInsightsView() {
       const res = await fetch('/api/journal-insights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ period }),
+        // force a fresh Claude call only when regenerating an existing report;
+        // the first generation has no cached report to guard against.
+        body: JSON.stringify({ period, force: !!report }),
       });
 
       const data = await res.json();

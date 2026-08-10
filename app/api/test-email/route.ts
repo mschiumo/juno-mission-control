@@ -8,7 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireOwner } from '@/lib/auth-session';
 import { getUserById } from '@/lib/db/users';
 import { sendEmail } from '@/lib/email';
 import { MarketBriefingEmail } from '@/lib/emails/MarketBriefingEmail';
@@ -76,7 +76,10 @@ const SAMPLE_GAP_DATA = {
 };
 
 export async function GET(request: Request) {
-  const authResult = await requireUserId();
+  // Owner-only: sends real email via Resend. Left open to any logged-in user it
+  // was an outbound-email abuse vector (loop to burn Resend quota / harm sender
+  // reputation), compounded by signup having no email verification.
+  const authResult = await requireOwner();
   if (authResult.error) return authResult.error;
 
   const user = await getUserById(authResult.userId);

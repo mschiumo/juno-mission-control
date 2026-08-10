@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
+import { requireOwner } from '@/lib/auth-session';
 
 const HABITS_KEY_PREFIX = 'habits_data';
 const EVENING_CHECKINS_KEY = 'evening_checkins';
@@ -53,6 +54,10 @@ async function getRedisClient() {
  * Creates 02/19 habit data with 100% completion
  */
 export async function POST() {
+  // Owner-only: legacy seeder that writes global (un-namespaced) habit data.
+  const { error: authError } = await requireOwner();
+  if (authError) return authError;
+
   try {
     const redis = await getRedisClient();
     
