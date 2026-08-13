@@ -233,6 +233,9 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
     // Total Position Value = Share Size * Entry Price
     const positionValue = shareSize * entry;
 
+    // Signed % move from entry to target, e.g. +10.0 / -5.0 (null when entry or target unset)
+    const targetPercent = entry > 0 && target > 0 ? ((target - entry) / entry) * 100 : null;
+
     // Validation status - use selected riskRatio from inputs
     const desiredRatio = parseFloat(inputs.riskRatio) || 2;
     let status: 'valid' | 'marginal' | 'invalid' = 'invalid';
@@ -260,6 +263,7 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
       potentialReward,
       actualRR,
       positionValue,
+      targetPercent,
       status,
       statusMessage,
       risk,
@@ -463,11 +467,12 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
       </div>
 
       {/* Metrics strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
         {[
           { label: 'Stop Size', value: calculations.stopSize > 0 ? formatCurrency(calculations.stopSize) : '—', color: 'text-white', tooltip: showTooltips && calculations.stopSize > 0 ? `${formatCurrency(calculations.entry)} − ${formatCurrency(calculations.stop)}` : null },
           { label: 'Shares', value: calculations.shareSize > 0 ? formatNumber(calculations.shareSize) : '—', color: 'text-white', tooltip: showTooltips && calculations.shareSize > 0 ? `$${calculations.risk} ÷ ${formatCurrency(calculations.stopSize)}` : null },
           { label: 'R:R', value: calculations.actualRR > 0 ? `${calculations.actualRR.toFixed(2)}:1` : '—', color: calculations.actualRR >= calculations.ratio ? 'text-[#3fb950]' : calculations.actualRR >= calculations.ratio * 0.75 ? 'text-yellow-400' : calculations.actualRR > 0 ? 'text-[#f85149]' : 'text-white', tooltip: null },
+          { label: '% Change', value: calculations.targetPercent !== null ? `${calculations.targetPercent >= 0 ? '+' : ''}${calculations.targetPercent.toFixed(1)}%` : '—', color: calculations.targetPercent === null ? 'text-white' : calculations.targetPercent >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]', tooltip: showTooltips && calculations.targetPercent !== null ? `${formatCurrency(calculations.entry)} → ${formatCurrency(calculations.target)}` : null },
           { label: 'Profit', value: calculations.potentialReward > 0 ? formatCurrency(calculations.potentialReward) : '—', color: 'text-[#3fb950]', tooltip: null },
           { label: 'Position', value: calculations.positionValue > 0 ? formatCurrency(calculations.positionValue) : '—', color: 'text-white', tooltip: null },
         ].map(({ label, value, color, tooltip }) => (
