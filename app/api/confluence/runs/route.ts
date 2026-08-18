@@ -28,6 +28,15 @@ export async function POST(): Promise<NextResponse> {
   try {
     const expired = await expireStaleProposals(userId);
     const run = await runAgent(userId, { cadence: 'manual' });
+    // runAgent RECORDS a failure rather than throwing, so a failed screen used
+    // to come back as success:true — the UI then showed a green "run complete —
+    // 0 new proposals" over a run that produced nothing because it errored.
+    if (run.status === 'failed') {
+      return NextResponse.json(
+        { success: false, run, expired, error: run.error || 'The screen failed — no proposals were produced.' },
+        { status: 502 },
+      );
+    }
     return NextResponse.json({ success: true, run, expired }, { status: 201 });
   } catch (e) {
     console.error('Error running ConfluenceTrading agent:', e);

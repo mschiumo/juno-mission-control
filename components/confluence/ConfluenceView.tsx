@@ -170,6 +170,8 @@ export default function ConfluenceView() {
   const pending = proposals.filter((p) => p.status === 'pending');
 
   const buyingPower = perfStats?.buyingPower ?? null;
+  // LIVE mode where the Robinhood read failed: every money figure is unknown.
+  const liveUnavailable = perfStats?.source === 'live_unavailable';
   const blocked = buyingPower != null ? pending.filter((p) => proposalNotional(p) > buyingPower) : [];
 
   /**
@@ -559,13 +561,23 @@ export default function ConfluenceView() {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {buyingPower != null && (
+          {buyingPower != null ? (
             <span className="flex items-baseline gap-1.5" title={`acct ${maskAcct(account)}`}>
               <span className="ct-eyebrow" style={{ fontSize: 9.5, fontWeight: 500, letterSpacing: '0.1em' }}>BUYING POWER</span>
               <span className="ct-num" style={{ fontSize: 14, fontWeight: 600, color: blocked.length > 0 ? 'var(--ct-neg)' : 'var(--ct-text)' }}>
                 {money(buyingPower)}
               </span>
             </span>
+          ) : (
+            liveUnavailable && (
+              // Never leave this slot blank in live mode: an absent figure reads
+              // as "nothing to show", when what it means is "the broker did not
+              // answer and no number here can be trusted".
+              <span className="flex items-baseline gap-1.5" title={perfStats?.liveError}>
+                <span className="ct-eyebrow" style={{ fontSize: 9.5, fontWeight: 500, letterSpacing: '0.1em' }}>BUYING POWER</span>
+                <span className="ct-num" style={{ fontSize: 14, fontWeight: 600, color: 'var(--ct-neg)' }}>unavailable</span>
+              </span>
+            )
           )}
           {!tradingEnabled && (
             <span
@@ -579,6 +591,24 @@ export default function ConfluenceView() {
           <ModePill paperMode={paperMode} label={paperMode ? 'PAPER MODE' : 'LIVE MODE'} />
         </div>
       </div>
+
+      {liveUnavailable && (
+        <div
+          style={{
+            padding: '11px 16px',
+            borderRadius: 10,
+            background: 'var(--ct-neg-bg)',
+            border: '1px solid var(--ct-neg-border)',
+            color: 'var(--ct-neg-text)',
+            fontFamily: 'var(--ct-sans)',
+            fontSize: 13,
+          }}
+        >
+          <b>Not connected to Robinhood.</b> Live mode is on, but the account could not be read, so
+          balances and buying power are unknown — no simulated figures are shown in their place.
+          Approvals will fail until this clears. {perfStats?.liveError}
+        </div>
+      )}
 
       {buyingPowerBanner}
 

@@ -331,11 +331,21 @@ export interface BalancePoint {
 
 /** Performance snapshot for the Agents → Performance panel. */
 export interface PerformanceStats {
-  /** 'live' = real Robinhood portfolio; 'paper' = simulated from the order log. */
-  source: 'live' | 'paper';
-  accountValue: number;
-  buyingPower: number;
-  cash: number;
+  /**
+   * Where the account top-line came from:
+   *  - 'live'             — the real Robinhood portfolio.
+   *  - 'paper'            — simulated from the order log (paper mode only).
+   *  - 'live_unavailable' — LIVE mode, but the broker could not be read. The
+   *    money fields are null: the paper model must NEVER stand in for a real
+   *    balance, and callers must render "unknown" rather than a number.
+   */
+  source: 'live' | 'paper' | 'live_unavailable';
+  /** Why the live read failed. Present only on 'live_unavailable'. */
+  liveError?: string;
+  /** Null only when source is 'live_unavailable'. */
+  accountValue: number | null;
+  buyingPower: number | null;
+  cash: number | null;
   /** Cost basis currently deployed in open positions. */
   investedCost: number;
   /** Notional of active (non-terminal) orders. */
