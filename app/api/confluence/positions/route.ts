@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server';
 import { requireOwner } from '@/lib/auth-session';
 import { getSystemState } from '@/lib/db/confluence/system-state';
 import { getActiveOrders, getAllOrders } from '@/lib/db/confluence/orders';
-import { callRobinhoodTool, isRobinhoodConfigured } from '@/lib/confluence/robinhood/mcp-client';
+import { callRobinhoodTool, isRobinhoodAvailable } from '@/lib/confluence/robinhood/mcp-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +37,7 @@ export async function GET(): Promise<NextResponse> {
   if (!state.agenticAccount) {
     return NextResponse.json({ success: true, positions: [], reason: 'No agentic account pinned.' });
   }
-  if (!isRobinhoodConfigured()) {
+  if (!(await isRobinhoodAvailable())) {
     return NextResponse.json({ success: true, positions: [], reason: 'Robinhood is not configured on the server.' });
   }
 

@@ -156,11 +156,40 @@ the env list and records `universeSource: env-fallback` in its metadata.
 
 ---
 
+## Price freshness at approval
+
+A proposal's suggested limit is derived from **one** input: the last settled
+close when the screen ran (`entry = close × 0.995` for the value-TA strategy).
+Proposals stay actionable for 7 days, so approving one after the next session
+has closed would rest a GFD order at a price the market has already left behind
+— it simply never fills. (That is what stalled agentic entries in August 2026:
+SLB, HBAN, D and SU were all priced off session N−1 and submitted during N+1.)
+
+Each proposal therefore records `pricedAsOf` — the bar session its prices came
+from. On approval the server re-fetches that symbol's technicals and compares:
+
+- **same session** → the approval proceeds unchanged.
+- **a newer session has settled** → HTTP 409 `stale_price`, with the strategy
+  re-run against current data and the refreshed limit/stop/target/quantity
+  attached. Agents shows them and offers *Approve at $X*, which re-submits with
+  `acknowledgeStale: true` and is audited as an ordinary `proposal.edited` diff.
+- **the setup no longer clears its gates** → 409 `setup_gone`; reject and wait
+  for the next screen.
+- **freshness can't be established** (provider error, >12s, no basis recorded)
+  → `unverified`, and the approval proceeds as before. A stale limit costs
+  nothing but a missed fill, so this deliberately fails open.
+
+The proposal itself is never mutated — re-pricing only ever changes the ORDER's
+parameters, and only with an explicit second tap.
+
+---
+
 ## Safety recap
 
 - The scheduled agent is **read-only** (order tools denied) — it cannot trade.
 - It only writes **pending** proposals; you approve every one before anything is
-  placed.
+  placed — and an approval priced off a superseded session is held until you
+  confirm the refreshed numbers (see *Price freshness at approval*).
 - The app's **kill switch** (Agents → Settings, `trading_enabled`) and exposure
   caps gate the deterministic execution service regardless of what the agent
   proposes.

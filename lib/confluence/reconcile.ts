@@ -22,7 +22,7 @@
 import { appendAudit } from '@/lib/db/confluence/audit';
 import { getAllOrders, transitionOrder } from '@/lib/db/confluence/orders';
 import { getSystemState } from '@/lib/db/confluence/system-state';
-import { callRobinhoodTool, isRobinhoodConfigured } from '@/lib/confluence/robinhood/mcp-client';
+import { callRobinhoodTool, isRobinhoodAvailable } from '@/lib/confluence/robinhood/mcp-client';
 import { refreshOrderStatus } from './execution';
 import type { ExecutionOrder } from '@/types/confluence';
 
@@ -121,7 +121,7 @@ export async function reconcileOrders(userId: string): Promise<ReconcileResult> 
   if (result.checked === 0) return result;
 
   const state = await getSystemState(userId);
-  if (!state.agenticAccount || !isRobinhoodConfigured()) {
+  if (!state.agenticAccount || !(await isRobinhoodAvailable())) {
     result.skippedReason = 'Robinhood not configured or no agentic account pinned.';
     return result;
   }

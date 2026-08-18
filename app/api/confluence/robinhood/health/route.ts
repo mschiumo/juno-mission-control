@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server';
 import { requireOwner } from '@/lib/auth-session';
-import { callRobinhoodTool, isRobinhoodConfigured } from '@/lib/confluence/robinhood/mcp-client';
+import { callRobinhoodTool, isRobinhoodAvailable } from '@/lib/confluence/robinhood/mcp-client';
 
 interface RhAccount {
   account_number?: string;
@@ -29,7 +29,7 @@ export async function GET(): Promise<NextResponse> {
   const { error } = await requireOwner();
   if (error) return error;
 
-  if (!isRobinhoodConfigured()) {
+  if (!(await isRobinhoodAvailable())) {
     return NextResponse.json({
       success: true,
       connected: false,

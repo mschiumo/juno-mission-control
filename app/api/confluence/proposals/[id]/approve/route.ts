@@ -13,6 +13,10 @@
  *   2. Resolve final order params (agent suggestion + edits).
  *   3. Guardrail pre-check (UX): kill switch / caps / account / duplicate order.
  *      If blocked, leave the proposal pending so the user can adjust.
+ *   3b. Freshness gate: a plan priced off a superseded session is refused (409
+ *      `stale_price`) with the re-priced plan attached, so a GFD order is never
+ *      anchored to a close the market has moved past. `acknowledgeStale: true`
+ *      (sent once the owner has seen the refreshed numbers) proceeds.
  *   4. Flip to `approved` (decidedAt/decidedBy), audit edited (if any) + approved.
  *   5. Hand off to the deterministic execution service (re-checks + places).
  */
@@ -28,6 +32,7 @@ import { checkGuardrails } from '@/lib/confluence/guardrails';
 import { checkPreTradeReviewRules } from '@/lib/confluence/review/rules';
 import { getRiskConfig, getRoundTrips } from '@/lib/db/confluence/review';
 import { executeApprovedProposal } from '@/lib/confluence/execution';
+import { repriceProposal } from '@/lib/confluence/agent/reprice';
 import type { OrderParams, TimeInForce } from '@/types/confluence';
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -39,6 +44,12 @@ interface ApproveBody {
   stopPrice?: number | null;
   targetPrice?: number | null;
   note?: string;
+  /**
+   * Set by the UI when the owner has SEEN a re-priced plan and is approving it
+   * anyway. Without it, a proposal priced off a superseded session is refused
+   * rather than sent to the broker at a limit the market has left behind.
+   */
+  acknowledgeStale?: boolean;
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
@@ -159,6 +170,47 @@ async function approveLocked(
       { success: false, error: reviewCheck.reason, code: reviewCheck.code, guardrail: true },
       { status: 422 },
     );
+  }
+
+  // 3b. Freshness gate. The suggested limit is a function of ONE input: the
+  // last settled close when the screen ran. Submitting it after a newer
+  // session has settled anchors a GFD order to a superseded price — it sits
+  // off the market and expires unfilled at the close, which is exactly why
+  // agentic entries stopped filling. Re-price instead and let the owner
+  // approve the current numbers (an ordinary edit, audited as such).
+  if (!body.acknowledgeStale) {
+    const repriced = await repriceProposal(proposal, state);
+    if (repriced.code === 'stale' || repriced.code === 'setup_gone') {
+      await appendAudit(userId, {
+        actor: 'system',
+        actorId: 'system',
+        eventType: 'proposal.stale_price',
+        entityType: 'proposal',
+        entityId: id,
+        before: { pricedAsOf: repriced.pricedAsOf, limitPrice: proposal.suggestedLimitPrice },
+        after: repriced.code === 'stale' ? { asOf: repriced.asOf, ...repriced.plan } : { asOf: repriced.asOf },
+        note:
+          repriced.code === 'stale'
+            ? `Approval held: ${proposal.symbol} was priced off the ${repriced.pricedAsOf} close but ${repriced.asOf} has settled. Refreshed limit $${repriced.plan.limitPrice} (was $${proposal.suggestedLimitPrice}).`
+            : `Approval held: ${proposal.symbol} was priced off the ${repriced.pricedAsOf} close and no longer clears its gates as of ${repriced.asOf}.`,
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          code: repriced.code,
+          error:
+            repriced.code === 'stale'
+              ? `Prices moved: this screen was priced off the ${repriced.pricedAsOf} close, but ${repriced.asOf} has since settled. Review the refreshed plan before approving.`
+              : `This setup no longer qualifies: it was priced off the ${repriced.pricedAsOf} close and fails its gates as of ${repriced.asOf}.`,
+          stale: {
+            pricedAsOf: repriced.pricedAsOf,
+            asOf: repriced.asOf,
+            plan: repriced.code === 'stale' ? repriced.plan : null,
+          },
+        },
+        { status: 409 },
+      );
+    }
   }
 
   // 4. Commit the decision. The proposal's suggested_* fields are NOT changed.

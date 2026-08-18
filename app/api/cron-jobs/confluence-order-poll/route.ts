@@ -32,7 +32,7 @@ import { postToCronResults } from '@/lib/cron-helpers';
 import { getActiveOrders, getAllOrders } from '@/lib/db/confluence/orders';
 import { appendAudit } from '@/lib/db/confluence/audit';
 import { getRedisClient } from '@/lib/redis';
-import { callRobinhoodTool, isRobinhoodConfigured } from '@/lib/confluence/robinhood/mcp-client';
+import { callRobinhoodTool, isRobinhoodAvailable } from '@/lib/confluence/robinhood/mcp-client';
 import { getSystemState } from '@/lib/db/confluence/system-state';
 import { cancelOrder, placeTakeProfit, refreshOrderStatus, restoreProtectiveStop } from '@/lib/confluence/execution';
 import { reconcileOrders } from '@/lib/confluence/reconcile';
@@ -189,7 +189,7 @@ async function processTakeProfits(
 ): Promise<{ lines: string[]; emailEvents: ExecutionEmailEvent[] }> {
   const lines: string[] = [];
   const emailEvents: ExecutionEmailEvent[] = [];
-  if (!isRobinhoodConfigured()) return { lines, emailEvents };
+  if (!(await isRobinhoodAvailable())) return { lines, emailEvents };
   const all = await getAllOrders(userId);
 
   // Net held shares per symbol from the fill log.
