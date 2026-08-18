@@ -11,114 +11,29 @@
  * concrete action. Without those, `configured: true` was the only signal, and
  * it is satisfied by a static token alone; a deployment that had silently
  * fallen back to one looked identical to a healthy OAuth setup.
+ *
+ * The check itself lives in lib/confluence/robinhood/health-check.ts, shared
+ * with the weekday alert cron so this endpoint and the watchdog can never
+ * disagree about what "connected" means.
  */
 
 import { NextResponse } from 'next/server';
 import { requireOwner } from '@/lib/auth-session';
-import { callRobinhoodTool, isRobinhoodAvailable } from '@/lib/confluence/robinhood/mcp-client';
-import { describeRobinhoodAuth, type RobinhoodAuthDiagnostics } from '@/lib/confluence/robinhood/oauth';
-
-interface RhAccount {
-  account_number?: string;
-  brokerage_account_type?: string;
-  type?: string;
-  nickname?: string;
-  agentic_allowed?: boolean;
-  is_default?: boolean;
-}
-
-function mask(n: string | undefined): string {
-  if (!n) return '—';
-  return n.length > 4 ? `••••${n.slice(-4)}` : n;
-}
+import { checkRobinhoodHealth } from '@/lib/confluence/robinhood/health-check';
 
 export async function GET(): Promise<NextResponse> {
   const { error } = await requireOwner();
   if (error) return error;
 
-  if (!(await isRobinhoodAvailable())) {
-    return NextResponse.json({
-      success: true,
-      connected: false,
-      configured: false,
-      auth: await describeRobinhoodAuth(),
-      message: 'Robinhood auth not configured (set ROBINHOOD_OAUTH_CLIENT_ID + ROBINHOOD_OAUTH_REFRESH_TOKEN).',
-    });
-  }
-
-  // Which credential path is live. Reported on every response: a bare
-  // `configured: true` cannot distinguish a healthy OAuth setup from a
-  // fallback to the static token, which is what made a 401 unattributable.
-  const auth = await describeRobinhoodAuth();
-
-  try {
-    const res = await callRobinhoodTool<{ data?: { accounts?: RhAccount[] } }>('get_accounts', {});
-    const accounts = (res?.data?.accounts ?? []).map((a) => ({
-      account: mask(a.account_number),
-      type: a.brokerage_account_type || a.type,
-      nickname: a.nickname,
-      agentic_allowed: !!a.agentic_allowed,
-      is_default: !!a.is_default,
-    }));
-    return NextResponse.json({
-      success: true,
-      connected: true,
-      configured: true,
-      auth,
-      accountCount: accounts.length,
-      accounts,
-    });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'Unknown error';
-    return NextResponse.json({
-      success: true,
-      connected: false,
-      configured: true,
-      auth,
-      error: message,
-      hint: diagnose(message, auth),
-    });
-  }
-}
-
-/**
- * Turn a broker failure into the next concrete action.
- *
- * Robinhood answers an unrecognised bearer with `401 … client id not allowed:
- * <missing>` — it resolves the OAuth client FROM the token, so `<missing>`
- * means the token it received maps to no allowed agentic client. That is a
- * different failure from a refresh that never succeeded, and it is reached
- * only after a token was obtained and sent.
- */
-function diagnose(message: string, auth: RobinhoodAuthDiagnostics): string | undefined {
-  const clientIdRejected = message.includes('401') && message.toLowerCase().includes('client id');
-  if (clientIdRejected && auth.tokenSource === 'static') {
-    return (
-      'The bearer sent came from the static ROBINHOOD_MCP_TOKEN, because ' +
-      (auth.clientIdSet
-        ? 'no refresh token is available'
-        : 'ROBINHOOD_OAUTH_CLIENT_ID is not set') +
-      '. A pasted access token is short-lived and is not bound to the registered agentic client, so ' +
-      'Robinhood resolves no client id from it. Set ROBINHOOD_OAUTH_CLIENT_ID + a fresh ' +
-      'ROBINHOOD_OAUTH_REFRESH_TOKEN (docs/CONFLUENCE_ROBINHOOD_TOKEN.md) and clear the stale ' +
-      'Redis key confluence:robinhood:refresh, which takes precedence over the env seed.'
-    );
-  }
-  if (clientIdRejected) {
-    return (
-      'Robinhood resolved no allowed OAuth client from the access token. Tokens are still being issued, ' +
-      'so the grant is intact — but this client was registered dynamically (scripts/robinhood-oauth.mjs ' +
-      'POSTs to agent.robinhood.com/mcp/trading/register), and the MCP no longer accepts it. Note the ' +
-      'split: tokens come from api.robinhood.com, which keeps minting for a client the MCP has dropped. ' +
-      'Re-run `node scripts/robinhood-oauth.mjs` — it mints a NEW client_id, so update BOTH ' +
-      'ROBINHOOD_OAUTH_CLIENT_ID and ROBINHOOD_OAUTH_REFRESH_TOKEN, not just the token. Then POST ' +
-      '/api/confluence/robinhood/reset-auth (or use Agents → Settings → Reconnect Robinhood): the cached ' +
-      'refresh token in Redis outranks the env seed, and pairing it with the new client id fails as ' +
-      'invalid_grant, which looks like a bad capture.'
-    );
-  }
-  if (message.includes('token refresh failed')) {
-    return 'The refresh grant itself was rejected — re-run the OAuth capture (docs/CONFLUENCE_ROBINHOOD_TOKEN.md).';
-  }
-  return undefined;
+  const health = await checkRobinhoodHealth();
+  return NextResponse.json({
+    success: true,
+    connected: health.connected,
+    configured: health.configured,
+    auth: health.auth,
+    ...(health.accounts ? { accountCount: health.accounts.length, accounts: health.accounts } : {}),
+    ...(health.error ? { error: health.error } : {}),
+    ...(health.hint ? { hint: health.hint } : {}),
+    ...(health.message ? { message: health.message } : {}),
+  });
 }

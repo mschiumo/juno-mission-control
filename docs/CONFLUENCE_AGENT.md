@@ -184,6 +184,35 @@ parameters, and only with an explicit second tap.
 
 ---
 
+## Broker-connection watchdog
+
+The agentic rail died around 14 Aug 2026 and nothing said so until the 18th —
+four days of failed screens and unfillable approvals, discovered only because
+the numbers on screen looked wrong. `/api/cron-jobs/confluence-health-alert`
+closes that gap.
+
+It runs weekdays at 12:30 UTC (8:30am ET): half an hour after the morning
+screen, so it reports what actually happened, and an hour before the open, so
+there is still time to re-capture a token and re-run. It calls the same
+read-only `get_accounts` check the health endpoint uses
+(`lib/confluence/robinhood/health-check.ts` — shared precisely so the endpoint
+and the watchdog cannot disagree), and places no orders.
+
+Email cadence, in `lib/confluence/health-alert.ts`:
+
+- **breaks** → alert immediately;
+- **stays broken** → one reminder per ~20h, so a long outage never goes quiet
+  but never floods either;
+- **recovers** → one "restored" note, which is how you know a fix worked.
+
+Each alert carries the broker's own error, how long it has been down, which
+credential path is live (`refresh`/`static`, client id present, where the
+refresh token came from), the remedy when the failure is recognised, and the
+last screen's error if that failed too. Unreadable prior state biases toward
+alerting: "unknown" must never read as "healthy".
+
+---
+
 ## Safety recap
 
 - The scheduled agent is **read-only** (order tools denied) — it cannot trade.

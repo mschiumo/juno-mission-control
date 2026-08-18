@@ -26,6 +26,9 @@
     "app/api/cron-jobs/confluence-agent/route.ts": {
       "maxDuration": 300
     },
+    "app/api/cron-jobs/confluence-health-alert/route.ts": {
+      "maxDuration": 60
+    },
     "app/api/cron-jobs/confluence-weekly-review/route.ts": {
       "maxDuration": 120
     },
@@ -84,6 +87,10 @@
     {
       "path": "/api/cron-jobs/confluence-agent",
       "schedule": "0 12 * * 1-5"
+    },
+    {
+      "path": "/api/cron-jobs/confluence-health-alert",
+      "schedule": "30 12 * * 1-5"
     },
     {
       "path": "/api/cron-jobs/confluence-weekly-review",
