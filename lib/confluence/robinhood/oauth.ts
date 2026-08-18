@@ -49,6 +49,73 @@ export async function isRobinhoodAvailable(): Promise<boolean> {
   return !!(await currentRefreshToken());
 }
 
+/**
+ * Which credential path is actually in play — presence only, never values.
+ *
+ * `isRobinhoodAvailable()` collapses several very different states into one
+ * boolean, and the health endpoint reported only that boolean as
+ * `configured: true`. So a deployment missing ROBINHOOD_OAUTH_CLIENT_ID —
+ * which makes getRobinhoodAccessToken() silently fall back to the short-lived
+ * static ROBINHOOD_MCP_TOKEN — looked identical to a healthy OAuth setup.
+ * That ambiguity is what made a 401 from Robinhood unattributable.
+ */
+export interface RobinhoodAuthDiagnostics {
+  /** The branch getRobinhoodAccessToken() will take. */
+  tokenSource: 'refresh' | 'static' | 'none';
+  clientIdSet: boolean;
+  staticTokenSet: boolean;
+  /** Where the refresh token would come from (Redis wins over the env seed). */
+  refreshTokenSource: 'redis' | 'env' | 'none';
+  /** True when an unexpired access token is cached in Redis. */
+  accessTokenCached: boolean;
+}
+
+/**
+ * Describe the current auth configuration WITHOUT revealing any secret.
+ * Every field is a boolean or an enum — no token, prefix, or length.
+ */
+export async function describeRobinhoodAuth(): Promise<RobinhoodAuthDiagnostics> {
+  const clientIdSet = !!process.env.ROBINHOOD_OAUTH_CLIENT_ID;
+  const staticTokenSet = !!process.env.ROBINHOOD_MCP_TOKEN;
+
+  let refreshTokenSource: RobinhoodAuthDiagnostics['refreshTokenSource'] = 'none';
+  try {
+    const redis = await getRedisClient();
+    if (await redis.get(REFRESH_KEY)) refreshTokenSource = 'redis';
+  } catch {
+    /* fall through to the env seed */
+  }
+  if (refreshTokenSource === 'none' && process.env.ROBINHOOD_OAUTH_REFRESH_TOKEN) {
+    refreshTokenSource = 'env';
+  }
+
+  const cached = await readCachedAccess();
+  const accessTokenCached = !!cached && cached.expiresAt - EXPIRY_MARGIN_MS > Date.now();
+
+  const tokenSource = resolveTokenSource({ clientIdSet, refreshTokenSource, staticTokenSet });
+  return { tokenSource, clientIdSet, staticTokenSet, refreshTokenSource, accessTokenCached };
+}
+
+/**
+ * Which branch {@link getRobinhoodAccessToken} will take, given what exists.
+ *
+ * Pure, and kept beside the real resolver on purpose: a diagnostic that drifts
+ * from the code it describes is worse than none — it would confidently
+ * misattribute an outage. Any change to getRobinhoodAccessToken's precedence
+ * must change this too (test/confluence-broker/auth-precedence.test.ts).
+ */
+export function resolveTokenSource(input: {
+  clientIdSet: boolean;
+  refreshTokenSource: RobinhoodAuthDiagnostics['refreshTokenSource'];
+  staticTokenSet: boolean;
+}): RobinhoodAuthDiagnostics['tokenSource'] {
+  // The refresh flow requires BOTH a client id and a refresh token; without
+  // either, the static token is used — silently, which is the trap.
+  if (input.clientIdSet && input.refreshTokenSource !== 'none') return 'refresh';
+  if (input.staticTokenSet) return 'static';
+  return 'none';
+}
+
 /** Current refresh token: Redis (may have rotated) → env seed. */
 async function currentRefreshToken(): Promise<string | null> {
   try {
