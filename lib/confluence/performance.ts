@@ -13,7 +13,7 @@ import { getAllProposals } from '@/lib/db/confluence/proposals';
 import { getSystemState } from '@/lib/db/confluence/system-state';
 import { recordBalancePoint } from '@/lib/db/confluence/balance-history';
 import { orderNotional } from './guardrails';
-import { isRobinhoodConfigured } from './robinhood/oauth';
+import { isRobinhoodAvailable } from './robinhood/oauth';
 import { getAccountSummary } from './broker/live-adapter';
 import { isActiveOrderStatus } from '@/types/confluence';
 import type { ExecutionOrder, PerformanceStats, Position } from '@/types/confluence';
@@ -129,7 +129,7 @@ export async function computePerformance(userId: string): Promise<PerformanceRes
   let buyingPower: number;
   let cash: number;
 
-  const liveAvailable = !state.paperMode && isRobinhoodConfigured() && !!state.agenticAccount;
+  const liveAvailable = !state.paperMode && !!state.agenticAccount && (await isRobinhoodAvailable());
   if (liveAvailable) {
     try {
       const summary = await getAccountSummary(state.agenticAccount!);

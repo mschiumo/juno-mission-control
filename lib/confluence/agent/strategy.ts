@@ -28,6 +28,12 @@ export interface Candidate {
   suggestedQuantity: number;
   suggestedStopPrice?: number;
   suggestedTargetPrice?: number;
+  /**
+   * Session date (YYYY-MM-DD) of the bar the entry was priced from — carried
+   * onto the proposal so approval can detect a stale limit. Only strategies
+   * that consume technicals can set it.
+   */
+  pricedAsOf?: string;
   fundamentals: FundamentalMetric[];
   /** Optional 0–100 ranking score; the runner keeps the best-scored candidates. */
   score?: number;

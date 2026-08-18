@@ -258,6 +258,7 @@ export function evaluateValueTaPullback(
     suggestedQuantity: quantity,
     suggestedStopPrice: stop,
     suggestedTargetPrice: target,
+    pricedAsOf: t.asOf,
     fundamentals,
     score,
   };
@@ -398,6 +399,7 @@ export function evaluateInverseEtfHedge(
     suggestedQuantity: quantity,
     suggestedStopPrice: stop,
     suggestedTargetPrice: target,
+    pricedAsOf: t.asOf,
     fundamentals: [
       { label: 'Type', value: 'Inverse index ETF (1x)' },
       { label: 'Sleeve', value: 'Hedge — technicals only' },

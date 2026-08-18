@@ -60,7 +60,12 @@ export default function ConfluenceView() {
   const [perfStats, setPerfStats] = useState<PerformanceStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [banner, setBanner] = useState<{ kind: 'error' | 'ok'; msg: string } | null>(null);
+  const [banner, setBanner] = useState<{
+    kind: 'error' | 'ok';
+    msg: string;
+    /** Optional one-tap follow-up, e.g. approving a re-priced plan. */
+    action?: { label: string; run: () => void };
+  } | null>(null);
 
   const loadAll = useCallback(async () => {
     try {
@@ -167,10 +172,23 @@ export default function ConfluenceView() {
   const buyingPower = perfStats?.buyingPower ?? null;
   const blocked = buyingPower != null ? pending.filter((p) => proposalNotional(p) > buyingPower) : [];
 
-  const handleApprove = useCallback(
+  /**
+   * The single approve call. `acknowledgeStale` is set only on the follow-up
+   * tap after the owner has been shown a re-priced plan — the server refuses a
+   * plan priced off a superseded session without it, which is what stops GFD
+   * entries from resting at a limit the market has already left behind.
+   */
+  const approveWith = useCallback(
     async (
       id: string,
-      edits: { limitPrice: number; quantity: number; stopPrice?: number; targetPrice?: number; timeInForce: string },
+      body: {
+        limitPrice: number;
+        quantity: number;
+        stopPrice?: number;
+        targetPrice?: number;
+        timeInForce: string;
+        acknowledgeStale?: boolean;
+      },
     ) => {
       setBusy(true);
       setBanner(null);
@@ -179,16 +197,44 @@ export default function ConfluenceView() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            limitPrice: edits.limitPrice,
-            quantity: edits.quantity,
-            stopPrice: edits.stopPrice ?? null,
-            targetPrice: edits.targetPrice ?? null,
-            timeInForce: edits.timeInForce,
+            limitPrice: body.limitPrice,
+            quantity: body.quantity,
+            stopPrice: body.stopPrice ?? null,
+            targetPrice: body.targetPrice ?? null,
+            timeInForce: body.timeInForce,
+            ...(body.acknowledgeStale ? { acknowledgeStale: true } : {}),
           }),
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
-          setBanner({ kind: 'error', msg: data.error || 'Approval failed.' });
+          // The screen's limit was anchored to a session that has since been
+          // superseded — submitting it would rest the order off the market.
+          // Show the refreshed plan and let the owner approve THOSE numbers.
+          if (data.code === 'stale_price' && data.stale?.plan) {
+            const p = data.stale.plan;
+            setBanner({
+              kind: 'error',
+              msg:
+                `${data.error} Refreshed: limit $${p.limitPrice}` +
+                `${p.stopPrice != null ? `, stop $${p.stopPrice}` : ''}` +
+                `${p.targetPrice != null ? `, target $${p.targetPrice}` : ''}` +
+                ` × ${p.quantity} ${p.quantity === 1 ? 'share' : 'shares'}.`,
+              action: {
+                label: `Approve at $${p.limitPrice}`,
+                run: () =>
+                  void approveWith(id, {
+                    limitPrice: p.limitPrice,
+                    quantity: p.quantity,
+                    stopPrice: p.stopPrice ?? undefined,
+                    targetPrice: p.targetPrice ?? undefined,
+                    timeInForce: body.timeInForce,
+                    acknowledgeStale: true,
+                  }),
+              },
+            });
+          } else {
+            setBanner({ kind: 'error', msg: data.error || 'Approval failed.' });
+          }
         } else {
           const sym = data.order?.symbol ?? '';
           setBanner({ kind: 'ok', msg: `Approved ${sym} — order ${data.order?.status ?? 'staged'}.` });
@@ -202,6 +248,14 @@ export default function ConfluenceView() {
       }
     },
     [loadAll, loadPerf],
+  );
+
+  const handleApprove = useCallback(
+    (
+      id: string,
+      edits: { limitPrice: number; quantity: number; stopPrice?: number; targetPrice?: number; timeInForce: string },
+    ) => approveWith(id, edits),
+    [approveWith],
   );
 
   const handleReject = useCallback(
@@ -538,9 +592,33 @@ export default function ConfluenceView() {
             color: banner.kind === 'error' ? 'var(--ct-neg-text)' : 'var(--ct-pos-text)',
             fontFamily: 'var(--ct-sans)',
             fontSize: 13,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
           }}
         >
-          {banner.msg}
+          <span>{banner.msg}</span>
+          {banner.action && (
+            <button
+              onClick={banner.action.run}
+              disabled={busy}
+              style={{
+                flexShrink: 0,
+                padding: '6px 12px',
+                borderRadius: 8,
+                border: '1px solid currentColor',
+                color: 'inherit',
+                fontFamily: 'var(--ct-sans)',
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+              className="disabled:opacity-50"
+            >
+              {banner.action.label}
+            </button>
+          )}
         </div>
       )}
 

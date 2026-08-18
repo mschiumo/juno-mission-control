@@ -31,10 +31,22 @@ const EXPIRY_MARGIN_MS = 60_000; // refresh a minute early
 const ACCESS_KEY = 'confluence:robinhood:access'; // { token, expiresAt }
 const REFRESH_KEY = 'confluence:robinhood:refresh'; // current refresh token (survives rotation)
 
-/** True when either a refresh-token flow or a static token is configured. */
-export function isRobinhoodConfigured(): boolean {
-  const hasRefresh = !!(process.env.ROBINHOOD_OAUTH_CLIENT_ID && process.env.ROBINHOOD_OAUTH_REFRESH_TOKEN);
-  return hasRefresh || !!process.env.ROBINHOOD_MCP_TOKEN;
+/**
+ * True when a token can actually be resolved — i.e. exactly the precedence
+ * {@link getRobinhoodAccessToken} follows, Redis included.
+ *
+ * This MUST stay async and Redis-aware. Refresh tokens rotate, and the rotated
+ * one is persisted to Redis (REFRESH_KEY), not back into the environment. An
+ * env-only check therefore reports "not configured" for a perfectly working
+ * connection whose env seed has been superseded or removed — which is what the
+ * Positions/Quotes panels showed ("reconnecting…", zero positions) and what
+ * silently disabled auto take-profit in the order-poll cron, all while orders
+ * kept reaching the broker through the Redis-backed token.
+ */
+export async function isRobinhoodAvailable(): Promise<boolean> {
+  if (process.env.ROBINHOOD_MCP_TOKEN) return true;
+  if (!process.env.ROBINHOOD_OAUTH_CLIENT_ID) return false;
+  return !!(await currentRefreshToken());
 }
 
 /** Current refresh token: Redis (may have rotated) → env seed. */

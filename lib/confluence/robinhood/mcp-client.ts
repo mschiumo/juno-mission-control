@@ -15,7 +15,7 @@
 
 import { getRobinhoodAccessToken } from './oauth';
 
-export { ConfluenceNotConfigured, isRobinhoodConfigured } from './oauth';
+export { ConfluenceNotConfigured, isRobinhoodAvailable } from './oauth';
 
 const DEFAULT_URL = 'https://agent.robinhood.com/mcp/trading';
 // Per-request cap. An unbounded hang here would leave an order stuck `staged`

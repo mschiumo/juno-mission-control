@@ -25,6 +25,7 @@ import { applyBuyingPowerGate } from './buying-power-gate';
 import { getTechnicalsProvider, type Technicals } from '@/lib/confluence/technicals';
 import { chunk, formatSkip, MCP_SYMBOL_BATCH_SIZE } from '@/lib/confluence/batching';
 import { ConfluenceNotConfigured } from '@/lib/confluence/robinhood/mcp-client';
+import { strategyContextFor } from './context';
 import type { Candidate, SizedOutCandidate, StrategyContext } from './strategy';
 import { getStrategy, type StrategyDefinition } from './strategies';
 import { analyzeWithClaude } from './claude-analyst';
@@ -267,15 +268,10 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
 
   try {
     const state = await getSystemState(userId);
-    // Keep sizing comfortably under the per-position cap.
-    const perPositionBudgetUsd = Math.min(state.perPositionCapUsd, 1000);
-    // Risk-based sizing budget: default 1% of the total exposure cap per trade,
-    // overridable with CONFLUENCE_RISK_PER_TRADE_USD.
-    const riskOverride = Number(process.env.CONFLUENCE_RISK_PER_TRADE_USD);
-    const maxRiskPerTradeUsd =
-      Number.isFinite(riskOverride) && riskOverride > 0
-        ? riskOverride
-        : state.totalExposureCapUsd * 0.01;
+    // Sizing context — shared with the approval-time re-price so a refreshed
+    // plan is sized exactly as the screen would have sized it.
+    const ctx = strategyContextFor(state);
+    const { perPositionBudgetUsd } = ctx;
     const max = opts.maxProposals ?? 10;
     const ttlDays = opts.proposalTtlDays ?? 7;
     const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000).toISOString();
@@ -305,7 +301,6 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
         ...universeMeta,
       };
     } else {
-      const ctx: StrategyContext = { perPositionBudgetUsd, maxRiskPerTradeUsd };
       const det = await deterministicCandidates(strat, ctx, resolved);
       candidates = det.candidates;
       universeSize = det.universeSize;
@@ -369,6 +364,9 @@ export async function runAgent(userId: string, opts: RunOptions): Promise<AgentR
         suggestedQuantity: candidate.suggestedQuantity,
         suggestedStopPrice: candidate.suggestedStopPrice,
         suggestedTargetPrice: candidate.suggestedTargetPrice,
+        // The session these prices came from — approval re-prices when a newer
+        // session has settled (see lib/confluence/agent/reprice.ts).
+        pricedAsOf: candidate.pricedAsOf,
         fundamentals: candidate.fundamentals,
         status: 'pending',
         expiresAt,

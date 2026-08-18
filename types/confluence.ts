@@ -154,6 +154,15 @@ export interface Proposal {
   suggestedQuantity?: number; // shares (fractional allowed)
   suggestedStopPrice?: number;
   suggestedTargetPrice?: number;
+  /**
+   * The trading session the suggested prices were derived from (YYYY-MM-DD) —
+   * the `asOf` of the technicals snapshot that priced the entry. Approval
+   * compares this against the latest settled session: a limit computed off a
+   * stale close sits away from the market and the GFD order expires unfilled,
+   * so approval re-prices instead of submitting it. Absent on proposals
+   * created before this was recorded (and on strategies without technicals).
+   */
+  pricedAsOf?: string;
   /** The Massive data behind the call (fundamentals_snapshot). */
   fundamentals: FundamentalMetric[];
   status: ProposalStatus;
@@ -266,6 +275,8 @@ export type AuditEventType =
   | 'proposal.edited'
   | 'proposal.expired'
   | 'proposal.reverted'
+  /** Approval held: the plan was priced off a session that has been superseded. */
+  | 'proposal.stale_price'
   | 'order.staged'
   | 'order.submitted'
   | 'order.status_changed'

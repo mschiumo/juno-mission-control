@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireOwner } from '@/lib/auth-session';
-import { callRobinhoodTool, isRobinhoodConfigured } from '@/lib/confluence/robinhood/mcp-client';
+import { callRobinhoodTool, isRobinhoodAvailable } from '@/lib/confluence/robinhood/mcp-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (symbols.length === 0) {
     return NextResponse.json({ success: true, quotes: {} });
   }
-  if (!isRobinhoodConfigured()) {
+  if (!(await isRobinhoodAvailable())) {
     return NextResponse.json({ success: true, quotes: {}, reason: 'Robinhood is not configured on the server.' });
   }
 
