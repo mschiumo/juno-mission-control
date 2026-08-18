@@ -155,3 +155,48 @@ auto-refreshes.
   pre-check. See the go-live checklist in the PR / `docs/CONFLUENCE_AGENT.md`.
 - The app's live MCP transport + Robinhood response-field mapping are **not yet
   E2E-verified** — the first real order is a supervised test on the $50 account.
+
+
+---
+
+## Recovery: `401 … client id not allowed: <missing>`
+
+Seen in production 2026-08-18. `/api/confluence/robinhood/health` reported:
+
+```
+connected: false, configured: true,
+auth: { tokenSource: "refresh", clientIdSet: true, staticTokenSet: false,
+        refreshTokenSource: "redis", accessTokenCached: true }
+error: "Robinhood MCP initialize failed (HTTP 401) for get_accounts:
+        client id not allowed: <missing>"
+```
+
+**What it means.** The failure is at MCP `initialize`, which is only reached
+after a token has been obtained — so the grant is intact and tokens are still
+being issued. Robinhood derives the OAuth client id *from* the bearer, so
+`<missing>` means it resolved no permitted agentic client.
+
+The cause is the split between two hosts. `scripts/robinhood-oauth.mjs`
+registers the client **dynamically** against `agent.robinhood.com`, but tokens
+are refreshed at `api.robinhood.com`. The token service happily keeps minting
+access tokens for a dynamically-registered client the MCP service has since
+dropped — so the app looks authenticated right up until every call 401s.
+
+**Recovery, in order (all four steps, or it fails differently):**
+
+1. `node scripts/robinhood-oauth.mjs` — mints a **new** `client_id`.
+2. Update **both** `ROBINHOOD_OAUTH_CLIENT_ID` *and*
+   `ROBINHOOD_OAUTH_REFRESH_TOKEN` in Vercel. Updating only the token leaves the
+   dead client id in place and reproduces the same 401.
+3. **Agents → Settings → Reconnect Robinhood** (or `POST
+   /api/confluence/robinhood/reset-auth`). The refresh token cached in Redis
+   (`confluence:robinhood:refresh`) outranks the env seed, and pairing it with
+   the new client id fails as `invalid_grant` — which reads like a botched
+   capture rather than a stale cache. This also clears the cached access token
+   (`confluence:robinhood:access`), which would otherwise be reused until it
+   expires.
+4. Re-check `/api/confluence/robinhood/health` → expect `connected: true`.
+
+Do **not** set `ROBINHOOD_MCP_TOKEN` in production. It is a short-lived pasted
+access token, it is not part of the deployed setup, and its only effect when
+the OAuth path breaks is to mask the failure behind a token that cannot work.

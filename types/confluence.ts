@@ -289,6 +289,8 @@ export type AuditEventType =
   | 'order.take_profit_skipped'
   | 'order.reconciled'
   | 'position.target_reached'
+  /** Owner cleared the cached Robinhood credentials (Redis), forcing a re-seed. */
+  | 'robinhood.auth_reset'
   | 'killswitch.activated'
   | 'killswitch.deactivated'
   | 'paper_mode.changed';
