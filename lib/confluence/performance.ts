@@ -5,7 +5,8 @@
  * (FIFO), so the panel works in paper mode today. Open positions are marked to
  * market with best-effort quotes (graceful when unavailable — e.g. no egress).
  * The top-line account (value / buying power / cash) comes from the real
- * Robinhood portfolio in LIVE mode, or a simple paper model in PAPER mode.
+ * Robinhood portfolio in LIVE mode, or a simple paper model in PAPER mode —
+ * never one standing in for the other (see the top-line block below).
  */
 
 import { getAllOrders } from '@/lib/db/confluence/orders';
@@ -13,13 +14,68 @@ import { getAllProposals } from '@/lib/db/confluence/proposals';
 import { getSystemState } from '@/lib/db/confluence/system-state';
 import { recordBalancePoint } from '@/lib/db/confluence/balance-history';
 import { orderNotional } from './guardrails';
-import { isRobinhoodAvailable } from './robinhood/oauth';
-import { getAccountSummary } from './broker/live-adapter';
+import { getAccountSummary, type LiveAccountSummary } from './broker/live-adapter';
 import { isActiveOrderStatus } from '@/types/confluence';
 import type { ExecutionOrder, PerformanceStats, Position } from '@/types/confluence';
 
 /** Simulated starting cash for the paper account model. */
 const PAPER_STARTING_CASH = 10_000;
+
+export interface AccountTopLine {
+  source: 'live' | 'paper' | 'live_unavailable';
+  accountValue: number | null;
+  buyingPower: number | null;
+  cash: number | null;
+  liveError?: string;
+}
+
+/**
+ * Decide the account top-line. Pure — the broker fetch happens in the caller.
+ *
+ * The one invariant worth stating outright: **the paper model is only ever
+ * reachable in paper mode.** This used to fall through to it whenever a live
+ * read failed, which rendered a $10,000 simulated buying power beside a LIVE
+ * MODE badge for an account holding $120 — a number indistinguishable from a
+ * real balance, and the one the proposal queue used to judge affordability.
+ * In live mode an unreadable broker yields nulls and a reason, never a stand-in.
+ */
+export function resolveAccountTopLine(input: {
+  paperMode: boolean;
+  /** The broker's answer, or null when it could not be read. */
+  live: LiveAccountSummary | null;
+  /** Why the broker read failed (live mode only). */
+  fetchError?: string;
+  investedCost: number;
+  realizedPnl: number;
+  markedValue: number;
+  quotesAvailable: boolean;
+}): AccountTopLine {
+  if (input.paperMode) {
+    const cash = PAPER_STARTING_CASH - input.investedCost + input.realizedPnl;
+    return {
+      source: 'paper',
+      // Value = cash + positions marked (or at cost when quotes are unavailable).
+      accountValue: cash + (input.quotesAvailable ? input.markedValue : input.investedCost),
+      buyingPower: cash,
+      cash,
+    };
+  }
+  if (!input.live) {
+    return {
+      source: 'live_unavailable',
+      accountValue: null,
+      buyingPower: null,
+      cash: null,
+      liveError: input.fetchError ?? 'The Robinhood portfolio could not be read.',
+    };
+  }
+  return {
+    source: 'live',
+    accountValue: input.live.accountValue,
+    buyingPower: input.live.buyingPower,
+    cash: input.live.cash,
+  };
+}
 
 /** Best-effort current price via Yahoo (keyless); undefined on any failure. */
 async function fetchQuote(symbol: string): Promise<number | undefined> {
@@ -123,40 +179,40 @@ export async function computePerformance(userId: string): Promise<PerformanceRes
     .filter((o) => isActiveOrderStatus(o.status) && (o.kind ?? 'entry') === 'entry')
     .reduce((s, o) => s + orderNotional(o.limitPrice, o.quantity), 0);
 
-  // Account top-line: real portfolio in live mode, else the paper model.
-  let source: 'live' | 'paper' = 'paper';
-  let accountValue: number;
-  let buyingPower: number;
-  let cash: number;
-
-  const liveAvailable = !state.paperMode && !!state.agenticAccount && (await isRobinhoodAvailable());
-  if (liveAvailable) {
+  // ── Account top-line. Fetch first (live mode only), then decide purely.
+  let live: LiveAccountSummary | null = null;
+  let fetchError: string | undefined;
+  if (!state.paperMode) {
     try {
-      const summary = await getAccountSummary(state.agenticAccount!);
-      source = 'live';
-      accountValue = summary.accountValue;
-      buyingPower = summary.buyingPower;
-      cash = summary.cash;
-    } catch {
-      // fall through to paper model if the live fetch fails
-      source = 'paper';
-      accountValue = 0;
-      buyingPower = 0;
-      cash = 0;
+      if (!state.agenticAccount) {
+        throw new Error('No agentic account is pinned (Agents → Settings).');
+      }
+      // Let the broker call raise: its message carries the actual cause (an
+      // expired refresh token, transport failure, …), which is what the owner
+      // needs to see. A pre-flight "is a token configured" check can only
+      // report presence, never validity.
+      live = await getAccountSummary(state.agenticAccount);
+    } catch (err) {
+      fetchError = err instanceof Error ? err.message : 'Unknown error reading the Robinhood portfolio.';
     }
   }
-  if (source === 'paper') {
-    cash = PAPER_STARTING_CASH - investedCost + realizedPnl;
-    // Value = cash + positions marked (or at cost when quotes are unavailable).
-    accountValue = cash + (quotesAvailable ? markedValue : investedCost);
-    buyingPower = cash;
-  }
+  const { source, accountValue, buyingPower, cash, liveError } = resolveAccountTopLine({
+    paperMode: state.paperMode,
+    live,
+    fetchError,
+    investedCost,
+    realizedPnl,
+    markedValue,
+    quotesAvailable,
+  });
 
+  const round2 = (v: number | null) => (v == null ? null : Number(v.toFixed(2)));
   const stats: PerformanceStats = {
     source,
-    accountValue: Number(accountValue!.toFixed(2)),
-    buyingPower: Number(buyingPower!.toFixed(2)),
-    cash: Number(cash!.toFixed(2)),
+    ...(liveError ? { liveError } : {}),
+    accountValue: round2(accountValue),
+    buyingPower: round2(buyingPower),
+    cash: round2(cash),
     investedCost: Number(investedCost.toFixed(2)),
     openExposure: Number(openExposure.toFixed(2)),
     totalExposureCapUsd: state.totalExposureCapUsd,
@@ -179,9 +235,12 @@ export async function computePerformance(userId: string): Promise<PerformanceRes
     },
   };
 
-  // Record today's equity point for the curve (upsert).
-  const today = new Date().toISOString().slice(0, 10);
-  await recordBalancePoint(userId, today, stats.accountValue);
+  // Record today's equity point for the curve (upsert). Skipped when the
+  // account value is unknown — a gap in the curve is honest; a zero is not.
+  if (stats.accountValue != null) {
+    const today = new Date().toISOString().slice(0, 10);
+    await recordBalancePoint(userId, today, stats.accountValue);
+  }
 
   return { stats, positions };
 }

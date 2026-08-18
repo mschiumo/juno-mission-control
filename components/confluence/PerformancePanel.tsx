@@ -9,18 +9,18 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { RefreshCw, TrendingUp, TrendingDown, Wallet, Activity, FlaskConical } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Wallet, Activity, FlaskConical, AlertTriangle } from 'lucide-react';
 import type { PerformanceResponse } from '@/types/confluence';
 
-function usd(n: number | undefined): string {
+function usd(n: number | null | undefined): string {
   if (n == null) return '—';
   return n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
-function usd2(n: number | undefined): string {
+function usd2(n: number | null | undefined): string {
   if (n == null) return '—';
   return n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 }
-function signed(n: number | undefined): string {
+function signed(n: number | null | undefined): string {
   if (n == null) return '—';
   return `${n >= 0 ? '+' : ''}${usd2(n)}`;
 }
@@ -96,8 +96,8 @@ export default function PerformancePanel() {
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold"
             style={{ background: stats.source === 'live' ? 'var(--negative-dim)' : 'var(--warning-dim)', color: stats.source === 'live' ? 'var(--negative)' : 'var(--warning)' }}
           >
-            <FlaskConical className="w-3.5 h-3.5" />
-            {stats.source === 'live' ? 'LIVE ACCOUNT' : 'PAPER ACCOUNT'}
+            {stats.source === 'live_unavailable' ? <AlertTriangle className="w-3.5 h-3.5" /> : <FlaskConical className="w-3.5 h-3.5" />}
+            {stats.source === 'live' ? 'LIVE ACCOUNT' : stats.source === 'paper' ? 'PAPER ACCOUNT' : 'ACCOUNT UNAVAILABLE'}
           </span>
           {!stats.quotesAvailable && stats.positionsCount > 0 && (
             <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>positions shown at cost (quotes unavailable)</span>
@@ -108,9 +108,24 @@ export default function PerformancePanel() {
         </button>
       </div>
 
+      {/* Live mode, but the broker could not be read. Say so loudly rather than
+          filling the cards with a simulation that looks like a real balance. */}
+      {stats.source === 'live_unavailable' && (
+        <div
+          className="flex items-start gap-2 px-3 py-2.5 rounded-lg text-[12px]"
+          style={{ background: 'var(--negative-dim)', color: 'var(--negative)' }}
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+          <span>
+            <b>Robinhood account could not be read</b> — balances below are unknown, not zero, and
+            no paper figures are being substituted. {stats.liveError}
+          </span>
+        </div>
+      )}
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Kpi label="Account value" value={usd2(stats.accountValue)} sub={stats.source === 'paper' ? 'paper' : 'Robinhood'} />
+        <Kpi label="Account value" value={usd2(stats.accountValue)} sub={stats.source === 'paper' ? 'paper' : stats.source === 'live' ? 'Robinhood' : 'unavailable'} />
         <Kpi label="Buying power" value={usd2(stats.buyingPower)} sub={`cash ${usd(stats.cash)}`} />
         <Kpi label="Total P&L" value={signed(totalPnl)} color={pnlColor(totalPnl)} sub={`realized ${signed(stats.realizedPnl)}`} />
         <Kpi label="Unrealized P&L" value={signed(stats.unrealizedPnl)} color={pnlColor(stats.unrealizedPnl)} sub={`${stats.positionsCount} position${stats.positionsCount === 1 ? '' : 's'}`} />
@@ -195,7 +210,9 @@ export default function PerformancePanel() {
         <Wallet className="w-3.5 h-3.5" />
         {stats.source === 'paper'
           ? 'Paper account: value = starting cash + realized + unrealized P&L, derived from filled paper orders.'
-          : 'Live account: balances from your Robinhood agentic account.'}
+          : stats.source === 'live'
+            ? 'Live account: balances from your Robinhood agentic account.'
+            : 'Live mode: balances come only from Robinhood, and that read failed — nothing here is simulated.'}
       </div>
     </div>
   );
