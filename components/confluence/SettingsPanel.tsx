@@ -9,7 +9,7 @@
  */
 
 import { useState } from 'react';
-import { ShieldAlert, Power, FlaskConical, Save } from 'lucide-react';
+import { ShieldAlert, Power, FlaskConical, Save, PlugZap } from 'lucide-react';
 import type { SystemState } from '@/types/confluence';
 
 interface Props {
@@ -29,6 +29,8 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
   const [totalCap, setTotalCap] = useState(String(state.totalExposureCapUsd));
   const [maxAgeDays, setMaxAgeDays] = useState(String(state.entryOrderMaxAgeDays));
   const [account, setAccount] = useState(state.agenticAccount ?? '');
+  const [resetting, setResetting] = useState(false);
+  const [resetMsg, setResetMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const capsDirty =
     Number(perPosition) !== state.perPositionCapUsd ||
@@ -209,6 +211,54 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
         >
           <Save className="w-4 h-4" /> Save caps
         </button>
+      </div>
+
+      {/* Reconnect Robinhood — clears the CACHED credentials only. */}
+      <div className="card">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--surface-2)' }}>
+              <PlugZap className="w-4.5 h-4.5" style={{ color: 'var(--text-secondary)' }} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Reconnect Robinhood</h3>
+              <p className="text-[12px] mt-1" style={{ color: 'var(--text-secondary)' }}>
+                Clears the cached refresh + access tokens so the app re-seeds from the environment. Run this
+                <b> after </b> updating <code>ROBINHOOD_OAUTH_CLIENT_ID</code> and{' '}
+                <code>ROBINHOOD_OAUTH_REFRESH_TOKEN</code> — the cached refresh token outranks the env seed,
+                so a re-capture does not take effect until this is done. Places no orders and moves no money.
+              </p>
+              {resetMsg && (
+                <p className="text-[12px] mt-2" style={{ color: resetMsg.ok ? 'var(--positive)' : 'var(--negative)' }}>
+                  {resetMsg.text}
+                </p>
+              )}
+            </div>
+          </div>
+          <button
+            className="btn-ghost flex items-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-50 flex-shrink-0"
+            disabled={busy || resetting}
+            onClick={async () => {
+              setResetting(true);
+              setResetMsg(null);
+              try {
+                const res = await fetch('/api/confluence/robinhood/reset-auth', { method: 'POST' });
+                const data = await res.json();
+                setResetMsg(
+                  res.ok && data.success
+                    ? { ok: true, text: `${data.message} (cleared — refresh: ${data.cleared?.refreshToken ? 'yes' : 'none'}, access: ${data.cleared?.accessToken ? 'yes' : 'none'})` }
+                    : { ok: false, text: data.error || 'Could not clear the cached credentials.' },
+                );
+              } catch {
+                setResetMsg({ ok: false, text: 'Request failed.' });
+              } finally {
+                setResetting(false);
+              }
+            }}
+          >
+            <PlugZap className="w-4 h-4" /> {resetting ? 'Clearing…' : 'Clear cached credentials'}
+          </button>
+        </div>
       </div>
 
       {/* Kill switch icon reference kept for a11y parity */}

@@ -106,14 +106,15 @@ function diagnose(message: string, auth: RobinhoodAuthDiagnostics): string | und
   }
   if (clientIdRejected) {
     return (
-      'Robinhood resolved no allowed OAuth client from the access token. The token refreshed ' +
-      'successfully, so the grant itself is intact — the client id it was minted under is no longer ' +
-      'permitted for agentic MCP access. Re-run the OAuth capture against the registered client ' +
-      '(docs/CONFLUENCE_ROBINHOOD_TOKEN.md), then clear Redis key confluence:robinhood:refresh so the ' +
-      'new refresh token is the one used.' +
-      (auth.accessTokenCached
-        ? ' An access token is still cached in Redis (confluence:robinhood:access) — clear it too, or it will be reused until it expires.'
-        : '')
+      'Robinhood resolved no allowed OAuth client from the access token. Tokens are still being issued, ' +
+      'so the grant is intact — but this client was registered dynamically (scripts/robinhood-oauth.mjs ' +
+      'POSTs to agent.robinhood.com/mcp/trading/register), and the MCP no longer accepts it. Note the ' +
+      'split: tokens come from api.robinhood.com, which keeps minting for a client the MCP has dropped. ' +
+      'Re-run `node scripts/robinhood-oauth.mjs` — it mints a NEW client_id, so update BOTH ' +
+      'ROBINHOOD_OAUTH_CLIENT_ID and ROBINHOOD_OAUTH_REFRESH_TOKEN, not just the token. Then POST ' +
+      '/api/confluence/robinhood/reset-auth (or use Agents → Settings → Reconnect Robinhood): the cached ' +
+      'refresh token in Redis outranks the env seed, and pairing it with the new client id fails as ' +
+      'invalid_grant, which looks like a bad capture.'
     );
   }
   if (message.includes('token refresh failed')) {
