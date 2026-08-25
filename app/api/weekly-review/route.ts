@@ -9,6 +9,7 @@ import { tradingJournalTrades } from '@/lib/account-classification';
 import { computeWeeklyPnl, type WeeklyPnl } from '@/lib/trading/weekly-pnl';
 import { pctPaid, projectDebtFreeDate, paceStatus, DEBT_TARGET, type BalanceEntry } from '@/lib/debt-math';
 import { isTrainingHabit } from '@/lib/habit-sync';
+import { frequencyGoal } from '@/lib/habit-frequency';
 
 // Weekly Scoreboard — the "four numbers" from MJ's plan (card balance,
 // trades journaled, training sessions, posts published) plus the debt
@@ -190,17 +191,6 @@ function isWriteHabit(h: { id: string; name: string }): boolean {
   return h.id === 'write' || /\bwrit|poem|poetry/i.test(h.name);
 }
 
-function weeklyGoal(frequency: string | undefined): number {
-  switch (frequency) {
-    case 'weekdays': return 5;
-    case '3x':       return 3;
-    case '4x':       return 4;
-    case '5x':       return 5;
-    case '6x':       return 6;
-    default:         return 7; // 'daily' or unset
-  }
-}
-
 /**
  * Days this week the "Write" habit was checked off, with the weekly goal
  * taken from the habit's own frequency setting. Null when no Write-like
@@ -222,7 +212,7 @@ async function writingDays(
     try {
       const habits = JSON.parse(raw) as { id: string; name: string; frequency?: string; completedToday: boolean }[];
       const matches = habits.filter(isWriteHabit);
-      if (matches.length > 0) goal = weeklyGoal(matches[0].frequency);
+      if (matches.length > 0) goal = frequencyGoal(matches[0].frequency);
       if (matches.some((h) => h.completedToday)) days++;
     } catch {
       /* malformed day — skip */
