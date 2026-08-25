@@ -194,14 +194,21 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
 
   useEffect(() => {
     if (!actionsOpen) return;
-    const close = (e: PointerEvent) => {
+    // Close on click, not pointerdown: closing collapses the in-flow strip and
+    // shifts the rows below, so an earlier close would move the tap's target
+    // out from under the finger before the click lands. While the row is
+    // disabled it's pointer-events-none — taps meant for the strip would fall
+    // through to the container and read as "outside", so stay put until the
+    // sync settles.
+    const close = (e: MouseEvent) => {
+      if (disabled) return;
       if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
         setActionsOpen(false);
       }
     };
-    document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
-  }, [actionsOpen]);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [actionsOpen, disabled]);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -257,7 +264,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
         <div className="flex-1 min-w-0">
           <div className="flex items-start sm:items-center gap-2">
             <span className="text-lg leading-6 flex-shrink-0">{habit.icon}</span>
-            <span className={`font-medium line-clamp-2 sm:line-clamp-none sm:truncate ${done ? 'text-[#737373] line-through' : 'text-white'}`}>
+            <span className={`font-medium line-clamp-2 break-words sm:line-clamp-none sm:truncate ${done ? 'text-[#737373] line-through' : 'text-white'}`}>
               {habit.name}
             </span>
             {habit.paused && (
@@ -342,7 +349,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
             Edit
           </button>
           <button
-            onClick={() => { setActionsOpen(false); onDelete(habit.id); }}
+            onClick={() => onDelete(habit.id)}
             disabled={disabled}
             className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium text-[#da3633] hover:bg-[#da3633]/15 transition-colors disabled:opacity-50"
           >
