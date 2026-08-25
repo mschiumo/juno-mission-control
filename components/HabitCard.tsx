@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, ClipboardList, AlertTriangle, CheckCircle2, Minus, Moon, Pause, Play } from 'lucide-react';
+import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, ClipboardList, AlertTriangle, CheckCircle2, Minus, Moon, MoreVertical, Pause, Play } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -187,6 +187,29 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
     isDragging,
   } = useSortable({ id: habit.id });
 
+  // Pause/edit/delete live behind a ⋯ toggle so the habit name keeps the row's
+  // width (three always-visible buttons were truncating titles on phones).
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!actionsOpen) return;
+    // Close on click, not pointerdown: closing collapses the in-flow strip and
+    // shifts the rows below, so an earlier close would move the tap's target
+    // out from under the finger before the click lands. While the row is
+    // disabled it's pointer-events-none — taps meant for the strip would fall
+    // through to the container and read as "outside", so stay put until the
+    // sync settles.
+    const close = (e: MouseEvent) => {
+      if (disabled) return;
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
+        setActionsOpen(false);
+      }
+    };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [actionsOpen, disabled]);
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -201,7 +224,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => { setNodeRef(node); actionsRef.current = node; }}
       style={style}
       className={`p-3 rounded-lg border transition-all ${
         done
@@ -209,11 +232,11 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
           : 'bg-[#0d1117] border-[#30363d] hover:border-[#F97316]/50'
       } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''} ${disabled ? 'opacity-60 pointer-events-none' : ''} ${habit.paused && !disabled ? 'opacity-50' : ''}`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <button
           {...attributes}
           {...listeners}
-          className="p-1.5 hover:bg-[#262626] rounded-lg cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+          className="p-1 sm:p-1.5 hover:bg-[#262626] rounded-lg cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
           title="Drag to reorder"
         >
           <GripVertical className="w-4 h-4 text-[#737373]" />
@@ -229,7 +252,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
                 ? `Done for this ${unit} — resets ${resetsOn}`
                 : undefined
           }
-          className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center ${
+          className={`flex-shrink-0 w-7 h-7 sm:w-6 sm:h-6 rounded-full border-2 transition-all flex items-center justify-center ${
             done
               ? 'bg-[#22c55e] border-[#22c55e]'
               : 'border-[#737373] hover:border-[#F97316]'
@@ -239,9 +262,9 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
         </button>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-lg flex-shrink-0">{habit.icon}</span>
-            <span className={`font-medium truncate ${done ? 'text-[#737373] line-through' : 'text-white'}`}>
+          <div className="flex items-start sm:items-center gap-2">
+            <span className="text-lg leading-6 flex-shrink-0">{habit.icon}</span>
+            <span className={`font-medium line-clamp-2 break-words sm:line-clamp-none sm:truncate ${done ? 'text-[#737373] line-through' : 'text-white'}`}>
               {habit.name}
             </span>
             {habit.paused && (
@@ -283,8 +306,8 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="hidden sm:flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="hidden sm:flex items-center gap-1 mr-1">
             {habit.history.map((completed, idx) => (
               <div
                 key={idx}
@@ -294,33 +317,47 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
             ))}
           </div>
           <button
-            onClick={() => onTogglePause(habit.id)}
+            onClick={() => setActionsOpen(o => !o)}
             disabled={disabled}
-            className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
-            title={habit.paused ? 'Resume habit' : 'Pause habit'}
+            className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+              actionsOpen ? 'bg-[#30363d] text-white' : 'hover:bg-[#30363d] text-[#737373]'
+            }`}
+            title={actionsOpen ? 'Close' : 'Pause, edit, or delete'}
           >
-            {habit.paused
-              ? <Play className="w-3.5 h-3.5 text-[#737373] hover:text-[#22c55e]" />
-              : <Pause className="w-3.5 h-3.5 text-[#737373] hover:text-[#F97316]" />}
+            {actionsOpen ? <X className="w-4 h-4" /> : <MoreVertical className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Revealed as a full-width strip so the title never gets squeezed. */}
+      {actionsOpen && (
+        <div className="mt-2 pt-2 border-t border-[#30363d] flex items-center gap-2">
+          <button
+            onClick={() => { onTogglePause(habit.id); setActionsOpen(false); }}
+            disabled={disabled}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-colors disabled:opacity-50"
+          >
+            {habit.paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+            {habit.paused ? 'Resume' : 'Pause'}
           </button>
           <button
-            onClick={() => onEdit(habit)}
+            onClick={() => { setActionsOpen(false); onEdit(habit); }}
             disabled={disabled}
-            className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors disabled:opacity-50"
-            title="Edit habit"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-colors disabled:opacity-50"
           >
-            <Pencil className="w-3.5 h-3.5 text-[#737373] hover:text-[#F97316]" />
+            <Pencil className="w-3.5 h-3.5" />
+            Edit
           </button>
           <button
             onClick={() => onDelete(habit.id)}
             disabled={disabled}
-            className="p-1.5 hover:bg-[#da3633]/20 rounded-lg transition-colors disabled:opacity-50"
-            title="Delete habit"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium text-[#da3633] hover:bg-[#da3633]/15 transition-colors disabled:opacity-50"
           >
-            <Trash2 className="w-4 h-4 text-[#737373] hover:text-[#da3633]" />
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
           </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -756,7 +793,7 @@ export default function HabitCard() {
   };
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col h-[900px]">
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col max-h-[900px] xl:h-[900px]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/50 flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -893,7 +930,7 @@ export default function HabitCard() {
 
         {/* Legend */}
         {habits.length > 0 && !loading && (
-          <div className="mt-3 pt-3 border-t border-[#30363d]">
+          <div className="hidden sm:block mt-3 pt-3 border-t border-[#30363d]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-[#8b949e]">Last 7 Days</span>
@@ -915,7 +952,7 @@ export default function HabitCard() {
       {/* Add / Edit Habit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 sm:p-6 w-full max-w-md max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-white">
                 {editingHabit ? 'Edit Habit' : 'Add New Habit'}
