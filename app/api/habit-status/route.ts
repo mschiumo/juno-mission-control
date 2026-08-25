@@ -1,22 +1,19 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
 import { requireUserId } from '@/lib/auth-session';
+import {
+  type HabitFrequency,
+  type PeriodProgress,
+  datesBetween,
+  isHabitFrequency,
+  lookbackDays,
+  normalizeFrequency,
+  periodProgress,
+  shiftDate,
+} from '@/lib/habit-frequency';
 
 const STORAGE_KEY_PREFIX = 'habits_data';
 const HABITS_LIST_KEY = 'habits_list';
-
-type HabitFrequency = 'daily' | 'weekdays' | '3x' | '4x' | '5x' | '6x';
-
-function weeklyGoal(frequency: HabitFrequency | string | undefined): number {
-  switch (frequency) {
-    case 'weekdays': return 5;
-    case '3x':       return 3;
-    case '4x':       return 4;
-    case '5x':       return 5;
-    case '6x':       return 6;
-    default:         return 7; // 'daily' or undefined
-  }
-}
 
 // MJ's specific habits with rolling history
 const DEFAULT_HABITS = [
@@ -32,7 +29,7 @@ let redisClient: ReturnType<typeof createClient> | null = null;
 
 async function getRedisClient() {
   if (redisClient) return redisClient;
-  
+
   try {
     const client = createClient({ url: process.env.REDIS_URL || undefined });
     client.on('error', (err) => console.error('Redis Client Error:', err));
@@ -66,19 +63,7 @@ function getToday() {
 }
 
 function getPreviousDate(dateStr: string, daysBack: number) {
-  // Parse the EST date string
-  const [year, month, day] = dateStr.split('-').map(Number);
-  const date = new Date(year, month - 1, day); // Month is 0-indexed
-  date.setDate(date.getDate() - daysBack);
-
-  // Return in YYYY-MM-DD format
-  const prevDateStr = date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
-  const [prevMonth, prevDay, prevYear] = prevDateStr.split('/');
-  return `${prevYear}-${prevMonth}-${prevDay}`;
+  return shiftDate(dateStr, -daysBack);
 }
 
 interface HabitData {
@@ -95,22 +80,38 @@ interface HabitData {
   paused?: boolean;
 }
 
+/** What the client receives: stored habit + its current period standing. */
+type DecoratedHabit = HabitData & PeriodProgress;
+
 type HabitDefinition = Pick<HabitData, 'id' | 'name' | 'icon' | 'target' | 'category' | 'frequency' | 'order' | 'paused'>;
 
-/** Stats exclude paused habits — they're neither completable nor tracked while paused. */
-function computeStats(habits: HabitData[]) {
+/**
+ * Stats exclude paused habits — they're neither completable nor tracked while
+ * paused. "Done today" counts a habit that's already fulfilled for its period
+ * (a weekly habit logged on Monday still reads as done on Thursday), and the
+ * weekly bar caps each habit at its own goal so over-completion can't push a
+ * partial week to 100%. Monthly habits sit outside the weekly bar.
+ */
+function computeStats(habits: DecoratedHabit[]) {
   const active = habits.filter(h => !h.paused);
-  const completedToday = active.filter(h => h.completedToday).length;
-  const totalCompletions = active.reduce((acc, h) =>
-    acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
-  );
-  const totalGoal = active.reduce((acc, h) => acc + weeklyGoal(h.frequency), 0);
+  const doneToday = active.filter(h => h.completedToday || h.fulfilled).length;
+
+  const weekly = active.filter(h => h.periodType === 'week');
+  const weeklyDone = weekly.reduce((acc, h) => acc + Math.min(h.periodCompletions, h.periodGoal), 0);
+  const weeklyGoalTotal = weekly.reduce((acc, h) => acc + h.periodGoal, 0);
+
+  const monthly = active.filter(h => h.periodType === 'month');
+  const monthlyDone = monthly.reduce((acc, h) => acc + Math.min(h.periodCompletions, h.periodGoal), 0);
+  const monthlyGoalTotal = monthly.reduce((acc, h) => acc + h.periodGoal, 0);
 
   return {
     totalHabits: active.length,
-    completedToday,
+    completedToday: doneToday,
     longestStreak: Math.max(...active.map(h => h.streak), 0),
-    weeklyCompletion: totalGoal > 0 ? Math.round((totalCompletions / totalGoal) * 100) : 0,
+    weeklyCompletion: weeklyGoalTotal > 0 ? Math.round((weeklyDone / weeklyGoalTotal) * 100) : 0,
+    monthlyCompletion: monthlyGoalTotal > 0 ? Math.round((monthlyDone / monthlyGoalTotal) * 100) : 0,
+    monthlyHabits: monthly.length,
+    fulfilled: active.filter(h => h.fulfilled).length,
   };
 }
 
@@ -134,7 +135,7 @@ async function loadHabitsList(redis: ReturnType<typeof createClient>, userId: st
 /**
  * Calculate the current streak by walking backwards through history
  * Streak = consecutive days of completion, ending with today/yesterday
- * 
+ *
  * Logic:
  * - If completedToday: streak includes today, then walk backwards through history
  * - If not completedToday: streak only counts completed days in history (consecutive from yesterday back)
@@ -142,7 +143,7 @@ async function loadHabitsList(redis: ReturnType<typeof createClient>, userId: st
  */
 function calculateStreak(completedToday: boolean, history: boolean[]): number {
   let streak = 0;
-  
+
   if (completedToday) {
     streak = 1; // Count today
     // Walk backwards through history (newest first = end of array)
@@ -163,62 +164,87 @@ function calculateStreak(completedToday: boolean, history: boolean[]): number {
       }
     }
   }
-  
+
   return streak;
 }
 
 /**
- * Fetch historical completion data for a habit
- * Walks backwards through dates to build a complete picture
+ * Read every prior day the current periods touch (at least the last 7, more when
+ * a monthly habit is in play) in one round trip, and return
+ * `date -> habitId -> completed`.
  */
-async function fetchHistoricalData(redis: ReturnType<typeof createClient> | null, userId: string, startDate: string, daysToFetch: number): Promise<Map<string, HabitData[]>> {
-  const historicalData = new Map<string, HabitData[]>();
+async function loadPriorDays(
+  redis: ReturnType<typeof createClient> | null,
+  userId: string,
+  today: string,
+  daysBack: number
+): Promise<Map<string, Map<string, boolean>>> {
+  const byDate = new Map<string, Map<string, boolean>>();
+  if (!redis || daysBack <= 0) return byDate;
 
-  if (!redis) return historicalData;
+  const dates = datesBetween(shiftDate(today, -daysBack), shiftDate(today, -1));
+  const values = await redis.mGet(dates.map(d => getStorageKey(userId, d)));
 
-  for (let i = 0; i < daysToFetch; i++) {
-    const date = getPreviousDate(startDate, i);
-    const key = getStorageKey(userId, date);
-    const data = await redis.get(key);
-    if (data) {
-      historicalData.set(date, JSON.parse(data));
+  dates.forEach((date, i) => {
+    const raw = values[i];
+    if (!raw) return;
+    try {
+      const day = JSON.parse(raw) as { id: string; completedToday?: boolean }[];
+      byDate.set(date, new Map(day.map(h => [h.id, !!h.completedToday])));
+    } catch {
+      /* malformed day — treated as no data */
     }
-  }
+  });
 
-  return historicalData;
+  return byDate;
 }
 
 /**
- * Build complete history by looking at actual historical data
- * This handles gaps in the rolling 7-day window stored in Redis
+ * Attach the rolling 7-day history, the recomputed streak, and each habit's
+ * standing inside its own period (week for everything but `monthly`). This is
+ * what makes a fulfilled habit stay checked for the rest of its period.
  */
-function buildCompleteHistory(
-  habitId: string, 
-  currentHistory: boolean[], 
-  historicalData: Map<string, HabitData[]>, 
-  today: string
-): boolean[] {
-  const completeHistory: boolean[] = [];
-  
-  // Walk backwards through dates
-  for (let i = 1; i <= 7; i++) {
-    const date = getPreviousDate(today, i);
-    const dayData = historicalData.get(date);
-    
-    if (dayData) {
-      const habit = dayData.find(h => h.id === habitId);
-      if (habit) {
-        completeHistory.unshift(habit.completedToday); // Add to front (oldest first)
-      } else {
-        completeHistory.unshift(false);
-      }
-    } else {
-      // No data for this date - assume false
-      completeHistory.unshift(false);
+async function decorateHabits(
+  redis: ReturnType<typeof createClient> | null,
+  userId: string,
+  today: string,
+  habits: HabitData[]
+): Promise<DecoratedHabit[]> {
+  const daysBack = Math.max(7, lookbackDays(habits.map(h => h.frequency), today));
+  const byDate = await loadPriorDays(redis, userId, today, daysBack);
+
+  const historyDates = datesBetween(shiftDate(today, -7), shiftDate(today, -1));
+
+  return habits.map(habit => {
+    const frequency = normalizeFrequency(habit.frequency);
+    const history = historyDates.map(date => byDate.get(date)?.get(habit.id) ?? false);
+
+    const completedDates: string[] = [];
+    for (const [date, day] of byDate) {
+      if (day.get(habit.id)) completedDates.push(date);
     }
-  }
-  
-  return completeHistory;
+    if (habit.completedToday) completedDates.push(today);
+
+    return {
+      ...habit,
+      frequency,
+      history,
+      streak: calculateStreak(habit.completedToday, history),
+      ...periodProgress(frequency, today, completedDates),
+    };
+  });
+}
+
+/** Shape used by the offline/no-Redis fallbacks — no history to read. */
+function bareHabits(today: string): DecoratedHabit[] {
+  return DEFAULT_HABITS.map((h, index) => ({
+    ...h,
+    completedToday: false,
+    streak: 0,
+    history: [false, false, false, false, false, false, false],
+    order: index,
+    ...periodProgress(h.frequency, today, []),
+  }));
 }
 
 // Initialize or shift history for a new day
@@ -227,6 +253,7 @@ function initializeHabits(previousData: HabitData[] | null, today: string, habit
     const source = habitDefs ?? DEFAULT_HABITS.map((h, i) => ({ ...h, order: i }));
     return source.map(h => ({
       ...h,
+      frequency: normalizeFrequency(h.frequency),
       completedToday: false,
       streak: 0,
       history: [false, false, false, false, false, false, false] as boolean[],
@@ -237,12 +264,13 @@ function initializeHabits(previousData: HabitData[] | null, today: string, habit
   return previousData.map(h => {
     const yesterdayCompleted = h.completedToday;
     const newHistory = [...h.history.slice(1), yesterdayCompleted];
-    
+
     // Calculate streak using the new history
     const streak = calculateStreak(false, newHistory);
 
     return {
       ...h,
+      frequency: normalizeFrequency(h.frequency),
       completedToday: false, // Reset for new day
       streak,
       history: newHistory
@@ -250,92 +278,86 @@ function initializeHabits(previousData: HabitData[] | null, today: string, habit
   });
 }
 
+/**
+ * Today's stored habits, initializing the day from yesterday (and the user's
+ * saved habit list) the first time it's touched. Returns null when Redis is
+ * unavailable.
+ */
+async function loadToday(
+  redis: ReturnType<typeof createClient>,
+  userId: string,
+  today: string,
+  { persist = false }: { persist?: boolean } = {}
+): Promise<HabitData[]> {
+  const stored = await redis.get(getStorageKey(userId, today));
+  if (stored) return JSON.parse(stored);
+
+  const yesterdayData = await redis.get(getStorageKey(userId, getPreviousDate(today, 1)));
+  const habitDefs = await loadHabitsList(redis, userId);
+  const habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today, habitDefs);
+  if (persist) await redis.set(getStorageKey(userId, today), JSON.stringify(habits));
+  return habits;
+}
+
+/** Decorate + sort + wrap in the standard success payload. */
+async function respondWith(
+  redis: ReturnType<typeof createClient> | null,
+  userId: string,
+  today: string,
+  habits: HabitData[]
+) {
+  const decorated = await decorateHabits(redis, userId, today, habits);
+  decorated.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  return NextResponse.json({
+    success: true,
+    data: { habits: decorated, stats: computeStats(decorated) },
+  });
+}
+
 export async function GET() {
   const { userId, error } = await requireUserId();
   if (error) return error;
 
+  const today = getToday();
+
   try {
     const redis = await getRedisClient();
-    const today = getToday();
-    const storageKey = getStorageKey(userId, today);
 
-    let habits: HabitData[];
-
-    if (redis) {
-      // Try to load today's data
-      const stored = await redis.get(storageKey);
-
-      if (stored) {
-        // Today's data exists - recalculate streaks to ensure accuracy
-        habits = JSON.parse(stored);
-
-        // Fetch historical data for accurate streak calculation
-        const historicalData = await fetchHistoricalData(redis, userId, today, 30);
-
-        habits = habits.map(habit => {
-          // Build complete history from historical data
-          const completeHistory = buildCompleteHistory(habit.id, habit.history, historicalData, today);
-
-          // Recalculate streak based on complete history
-          const streak = calculateStreak(habit.completedToday, completeHistory);
-
-          return {
-            ...habit,
-            history: completeHistory,
-            streak
-          };
-        });
-      } else {
-        // No data for today - check yesterday to initialize
-        const yesterday = getPreviousDate(today, 1);
-        const yesterdayKey = getStorageKey(userId, yesterday);
-        const yesterdayData = await redis.get(yesterdayKey);
-
-        const habitDefs = await loadHabitsList(redis, userId);
-        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today, habitDefs);
-        await redis.set(storageKey, JSON.stringify(habits));
-      }
-    } else {
+    if (!redis) {
       // No Redis - check localStorage fallback via client (handled in HabitCard)
-      // Return defaults but indicate server is unavailable
-      habits = DEFAULT_HABITS.map((h, index) => ({
-        ...h,
-        completedToday: false,
-        streak: 0,
-        history: [false, false, false, false, false, false, false],
-        order: index
-      }));
+      const habits = bareHabits(today);
+      return NextResponse.json({
+        success: true,
+        data: { habits, stats: computeStats(habits) },
+        timestamp: new Date().toISOString(),
+        serverAvailable: false,
+      });
     }
-    
-    // Sort habits by order
-    habits.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    const habits = await loadToday(redis, userId, today, { persist: true });
+    const decorated = await decorateHabits(redis, userId, today, habits);
+    decorated.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        habits: decorated,
+        stats: computeStats(decorated)
+      },
+      timestamp: new Date().toISOString(),
+      serverAvailable: true
+    });
+  } catch (error) {
+    console.error('Habit status error:', error);
+
+    // Fallback - still return defaults but with error indication
+    const habits = bareHabits(today);
 
     return NextResponse.json({
       success: true,
       data: {
         habits,
         stats: computeStats(habits)
-      },
-      timestamp: new Date().toISOString(),
-      serverAvailable: !!redis
-    });
-  } catch (error) {
-    console.error('Habit status error:', error);
-    
-    // Fallback - still return defaults but with error indication
-    const habits = DEFAULT_HABITS.map((h, index) => ({
-      ...h,
-      completedToday: false,
-      streak: 0,
-      history: [false, false, false, false, false, false, false],
-      order: index
-    }));
-    
-    return NextResponse.json({ 
-      success: true, 
-      data: {
-        habits,
-        stats: { totalHabits: habits.length, completedToday: 0, longestStreak: 0, weeklyCompletion: 0 }
       },
       serverAvailable: false,
       error: 'Server error, using defaults'
@@ -356,27 +378,13 @@ export async function POST(request: Request) {
     }
 
     const redis = await getRedisClient();
-    const today = getToday();
-    const storageKey = getStorageKey(userId, today);
-
-    // Load current habits
-    let habits: HabitData[];
-    if (redis) {
-      const stored = await redis.get(storageKey);
-      if (stored) {
-        habits = JSON.parse(stored);
-      } else {
-        // Initialize from yesterday if needed — use the user's saved habit list
-        // (not DEFAULT_HABITS) so custom habits survive a fresh-day toggle.
-        const yesterday = getPreviousDate(today, 1);
-        const yesterdayData = await redis.get(getStorageKey(userId, yesterday));
-        const habitDefs = await loadHabitsList(redis, userId);
-        habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today, habitDefs);
-      }
-    } else {
+    if (!redis) {
       return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
     }
-    
+
+    const today = getToday();
+    const habits = await loadToday(redis, userId, today);
+
     // Update the habit
     const habitIndex = habits.findIndex(h => h.id === habitId);
     if (habitIndex === -1) {
@@ -393,15 +401,9 @@ export async function POST(request: Request) {
     habits[habitIndex].streak = calculateStreak(completed, habits[habitIndex].history);
 
     // Save back to Redis
-    await redis.set(storageKey, JSON.stringify(habits));
+    await redis.set(getStorageKey(userId, today), JSON.stringify(habits));
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        habits,
-        stats: computeStats(habits)
-      }
-    });
+    return respondWith(redis, userId, today, habits);
   } catch (error) {
     console.error('Habit update error:', error);
     return NextResponse.json({ success: false, error: 'Failed to update habit' }, { status: 500 });
@@ -424,21 +426,9 @@ export async function PUT(request: Request) {
     if (!redis) return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
 
     const today = getToday();
-    const storageKey = getStorageKey(userId, today);
+    const habits = await loadToday(redis, userId, today);
 
-    let habits: HabitData[];
-    const stored = await redis.get(storageKey);
-    if (stored) {
-      habits = JSON.parse(stored);
-    } else {
-      const yesterday = getPreviousDate(today, 1);
-      const yesterdayData = await redis.get(getStorageKey(userId, yesterday));
-      const habitDefs = await loadHabitsList(redis, userId);
-      habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today, habitDefs);
-    }
-
-    const freq: HabitFrequency = (['daily','weekdays','3x','4x','5x','6x'] as HabitFrequency[]).includes(frequency)
-      ? frequency : 'daily';
+    const freq: HabitFrequency = isHabitFrequency(frequency) ? frequency : 'daily';
 
     if (habitId) {
       // ── EDIT existing habit ──────────────────────────────────────────────
@@ -461,16 +451,10 @@ export async function PUT(request: Request) {
       });
     }
 
-    await redis.set(storageKey, JSON.stringify(habits));
+    await redis.set(getStorageKey(userId, today), JSON.stringify(habits));
     await saveHabitsList(redis, userId, habits);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        habits,
-        stats: computeStats(habits)
-      }
-    });
+    return respondWith(redis, userId, today, habits);
   } catch (error) {
     console.error('Habit PUT error:', error);
     return NextResponse.json({ success: false, error: 'Failed to save habit' }, { status: 500 });
@@ -490,44 +474,33 @@ export async function DELETE(request: Request) {
     }
 
     const redis = await getRedisClient();
-    const today = getToday();
-    const storageKey = getStorageKey(userId, today);
-
-    // Load current habits
-    let habits: HabitData[];
-    if (redis) {
-      const stored = await redis.get(storageKey);
-      if (stored) {
-        habits = JSON.parse(stored);
-      } else {
-        return NextResponse.json({ success: false, error: 'No habits found' }, { status: 404 });
-      }
-    } else {
+    if (!redis) {
       return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
     }
-    
+
+    const today = getToday();
+    const stored = await redis.get(getStorageKey(userId, today));
+    if (!stored) {
+      return NextResponse.json({ success: false, error: 'No habits found' }, { status: 404 });
+    }
+    const habits: HabitData[] = JSON.parse(stored);
+
     // Remove the habit
     const filteredHabits = habits.filter(h => h.id !== habitId);
-    
+
     if (filteredHabits.length === habits.length) {
       return NextResponse.json({ success: false, error: 'Habit not found' }, { status: 404 });
     }
-    
+
     // Reorder remaining habits
     const reorderedHabits = filteredHabits
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       .map((h, index) => ({ ...h, order: index }));
-    
-    await redis.set(storageKey, JSON.stringify(reorderedHabits));
+
+    await redis.set(getStorageKey(userId, today), JSON.stringify(reorderedHabits));
     await saveHabitsList(redis, userId, reorderedHabits);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        habits: reorderedHabits,
-        stats: computeStats(reorderedHabits)
-      }
-    });
+    return respondWith(redis, userId, today, reorderedHabits);
   } catch (error) {
     console.error('Habit delete error:', error);
     return NextResponse.json({ success: false, error: 'Failed to delete habit' }, { status: 500 });
@@ -543,21 +516,16 @@ export async function PATCH(request: Request) {
     const { habitIds, habitId, paused } = body;
 
     const redis = await getRedisClient();
-    const today = getToday();
-    const storageKey = getStorageKey(userId, today);
-
-    // Load current habits
-    let habits: HabitData[];
-    if (redis) {
-      const stored = await redis.get(storageKey);
-      if (stored) {
-        habits = JSON.parse(stored);
-      } else {
-        return NextResponse.json({ success: false, error: 'No habits found' }, { status: 404 });
-      }
-    } else {
+    if (!redis) {
       return NextResponse.json({ success: false, error: 'Redis not available' }, { status: 503 });
     }
+
+    const today = getToday();
+    const stored = await redis.get(getStorageKey(userId, today));
+    if (!stored) {
+      return NextResponse.json({ success: false, error: 'No habits found' }, { status: 404 });
+    }
+    const habits: HabitData[] = JSON.parse(stored);
 
     if (habitId && typeof paused === 'boolean') {
       // ── PAUSE / RESUME a habit ───────────────────────────────────────────
@@ -566,16 +534,10 @@ export async function PATCH(request: Request) {
 
       habits[idx] = { ...habits[idx], paused };
 
-      await redis.set(storageKey, JSON.stringify(habits));
+      await redis.set(getStorageKey(userId, today), JSON.stringify(habits));
       await saveHabitsList(redis, userId, habits);
 
-      return NextResponse.json({
-        success: true,
-        data: {
-          habits,
-          stats: computeStats(habits)
-        }
-      });
+      return respondWith(redis, userId, today, habits);
     }
 
     if (!habitIds || !Array.isArray(habitIds)) {
@@ -597,16 +559,10 @@ export async function PATCH(request: Request) {
     // Sort by the new order
     updatedHabits.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-    await redis.set(storageKey, JSON.stringify(updatedHabits));
+    await redis.set(getStorageKey(userId, today), JSON.stringify(updatedHabits));
     await saveHabitsList(redis, userId, updatedHabits);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        habits: updatedHabits,
-        stats: computeStats(updatedHabits)
-      }
-    });
+    return respondWith(redis, userId, today, updatedHabits);
   } catch (error) {
     console.error('Habit reorder error:', error);
     return NextResponse.json({ success: false, error: 'Failed to reorder habits' }, { status: 500 });

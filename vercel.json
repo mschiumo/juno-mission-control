@@ -49,6 +49,9 @@
     },
     "app/api/cron-jobs/weekly-journal-insights/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/cron-jobs/weekly-habits-recap/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
@@ -131,6 +134,10 @@
     {
       "path": "/api/cron-jobs/weekly-journal-insights",
       "schedule": "0 2 * * 6"
+    },
+    {
+      "path": "/api/cron-jobs/weekly-habits-recap",
+      "schedule": "0 10 * * 1"
     }
   ]
 }

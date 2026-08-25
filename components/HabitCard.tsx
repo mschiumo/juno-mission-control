@@ -21,27 +21,14 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-type HabitFrequency = 'daily' | 'weekdays' | '3x' | '4x' | '5x' | '6x';
-
-const FREQUENCY_OPTIONS: { value: HabitFrequency; label: string }[] = [
-  { value: 'daily',    label: 'Daily' },
-  { value: 'weekdays', label: 'Weekdays' },
-  { value: '3x',       label: '3x/wk' },
-  { value: '4x',       label: '4x/wk' },
-  { value: '5x',       label: '5x/wk' },
-  { value: '6x',       label: '6x/wk' },
-];
-
-function frequencyGoal(f: HabitFrequency | undefined): number {
-  switch (f) {
-    case 'weekdays': return 5;
-    case '3x':       return 3;
-    case '4x':       return 4;
-    case '5x':       return 5;
-    case '6x':       return 6;
-    default:         return 7;
-  }
-}
+import {
+  type HabitFrequency,
+  type HabitPeriod,
+  FREQUENCY_OPTIONS,
+  frequencyGoal,
+  frequencyLabel,
+  frequencyPeriod,
+} from '@/lib/habit-frequency';
 
 interface Habit {
   id: string;
@@ -55,6 +42,13 @@ interface Habit {
   history: boolean[]; // Last 7 days (oldest to newest)
   order: number;
   paused?: boolean;
+  // Period standing, computed server-side (see lib/habit-frequency.ts).
+  periodType: HabitPeriod;
+  periodStart: string;
+  periodGoal: number;
+  periodCompletions: number;
+  /** Goal met for this week/month — stays checked until the period resets. */
+  fulfilled: boolean;
 }
 
 interface HabitStats {
@@ -62,6 +56,9 @@ interface HabitStats {
   completedToday: number;
   longestStreak: number;
   weeklyCompletion: number;
+  monthlyCompletion: number;
+  monthlyHabits: number;
+  fulfilled: number;
 }
 
 interface PendingChange {
@@ -69,20 +66,79 @@ interface PendingChange {
   previousState: boolean;
 }
 
-// Mirrors the server's stats math (frequency-aware weekly goals) so optimistic
+// Mirrors the server's stats math (see app/api/habit-status) so optimistic
 // updates don't briefly disagree with what the server sends back. Paused habits
 // are excluded — they can't be completed, so they shouldn't count.
 function computeStats(habits: Habit[]): HabitStats {
   const active = habits.filter(h => !h.paused);
-  const completedToday = active.filter(h => h.completedToday).length;
-  const totalHabits = active.length;
-  const longestStreak = Math.max(...active.map(h => h.streak), 0);
-  const totalCompletions = active.reduce((acc, h) =>
-    acc + h.history.filter(Boolean).length + (h.completedToday ? 1 : 0), 0
-  );
-  const totalGoal = active.reduce((acc, h) => acc + frequencyGoal(h.frequency), 0);
-  const weeklyCompletion = totalGoal > 0 ? Math.round((totalCompletions / totalGoal) * 100) : 0;
-  return { totalHabits, completedToday, longestStreak, weeklyCompletion };
+  const weekly = active.filter(h => periodOf(h) === 'week');
+  const weeklyDone = weekly.reduce((acc, h) => acc + Math.min(completionsOf(h), goalOf(h)), 0);
+  const weeklyGoal = weekly.reduce((acc, h) => acc + goalOf(h), 0);
+  const monthly = active.filter(h => periodOf(h) === 'month');
+  const monthlyDone = monthly.reduce((acc, h) => acc + Math.min(completionsOf(h), goalOf(h)), 0);
+  const monthlyGoal = monthly.reduce((acc, h) => acc + goalOf(h), 0);
+
+  return {
+    totalHabits: active.length,
+    completedToday: active.filter(isDone).length,
+    longestStreak: Math.max(...active.map(h => h.streak), 0),
+    weeklyCompletion: weeklyGoal > 0 ? Math.round((weeklyDone / weeklyGoal) * 100) : 0,
+    monthlyCompletion: monthlyGoal > 0 ? Math.round((monthlyDone / monthlyGoal) * 100) : 0,
+    monthlyHabits: monthly.length,
+    fulfilled: active.filter(h => isFulfilled(h)).length,
+  };
+}
+
+// Tolerant accessors — a habit read back from the localStorage cache predates
+// the period fields, so fall back to the frequency rather than render NaN.
+function goalOf(h: Habit): number {
+  return h.periodGoal ?? frequencyGoal(h.frequency);
+}
+
+function periodOf(h: Habit): HabitPeriod {
+  return h.periodType ?? frequencyPeriod(h.frequency);
+}
+
+function completionsOf(h: Habit): number {
+  return h.periodCompletions ?? (h.completedToday ? 1 : 0);
+}
+
+function isFulfilled(h: Habit): boolean {
+  return h.fulfilled ?? completionsOf(h) >= goalOf(h);
+}
+
+/** Rendered as checked: logged today, or already done for the whole period. */
+function isDone(h: Habit): boolean {
+  return h.completedToday || isFulfilled(h);
+}
+
+/**
+ * Locked once the period's goal is met on an *earlier* day — the point of the
+ * cumulative model is that it stays checked until the period resets. Today's
+ * own check stays undoable so a mis-tap is still fixable.
+ */
+function isLocked(h: Habit): boolean {
+  return isFulfilled(h) && !h.completedToday;
+}
+
+/** "3/5 this week" · "Done for this month". */
+function periodSummary(h: Habit): string {
+  const unit = periodOf(h) === 'month' ? 'month' : 'week';
+  return `${Math.min(completionsOf(h), goalOf(h))}/${goalOf(h)} this ${unit}`;
+}
+
+/** Optimistic period math for a toggle, so the UI doesn't wait on the server. */
+function withToggle(habits: Habit[], habitId: string, completed: boolean): Habit[] {
+  return habits.map(h => {
+    if (h.id !== habitId) return h;
+    const completions = Math.max(0, completionsOf(h) + (completed ? 1 : -1));
+    return {
+      ...h,
+      completedToday: completed,
+      periodCompletions: completions,
+      fulfilled: completions >= goalOf(h),
+    };
+  });
 }
 
 // Trading habits are hidden on Sat/Sun (market closed). Habit ids aren't stable
@@ -137,12 +193,18 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const done = isDone(habit);
+  const locked = isLocked(habit);
+  const unit = periodOf(habit) === 'month' ? 'month' : 'week';
+  const resetsOn = unit === 'week' ? 'Monday' : 'the 1st';
+  const showStreak = habit.frequency === 'daily' || habit.frequency === 'weekdays';
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={`p-3 rounded-lg border transition-all ${
-        habit.completedToday
+        done
           ? 'bg-[#22c55e]/10 border-[#22c55e]/30'
           : 'bg-[#0d1117] border-[#30363d] hover:border-[#F97316]/50'
       } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''} ${disabled ? 'opacity-60 pointer-events-none' : ''} ${habit.paused && !disabled ? 'opacity-50' : ''}`}
@@ -159,21 +221,27 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
 
         <button
           onClick={() => onToggle(habit.id)}
-          disabled={disabled || habit.paused}
-          title={habit.paused ? 'Paused — resume to check off' : undefined}
-          className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center disabled:opacity-50 ${
-            habit.completedToday
+          disabled={disabled || habit.paused || locked}
+          title={
+            habit.paused
+              ? 'Paused — resume to check off'
+              : locked
+                ? `Done for this ${unit} — resets ${resetsOn}`
+                : undefined
+          }
+          className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center ${
+            done
               ? 'bg-[#22c55e] border-[#22c55e]'
               : 'border-[#737373] hover:border-[#F97316]'
-          }`}
+          } ${locked ? 'cursor-default' : 'disabled:opacity-50'}`}
         >
-          {habit.completedToday && <Check className="w-4 h-4 text-white" />}
+          {done && <Check className="w-4 h-4 text-white" />}
         </button>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-lg flex-shrink-0">{habit.icon}</span>
-            <span className={`font-medium truncate ${habit.completedToday ? 'text-[#737373] line-through' : 'text-white'}`}>
+            <span className={`font-medium truncate ${done ? 'text-[#737373] line-through' : 'text-white'}`}>
               {habit.name}
             </span>
             {habit.paused && (
@@ -182,14 +250,28 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3 mt-1 flex-wrap">
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <Flame className={`w-3 h-3 ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#737373]'}`} />
-              <span className={`text-xs ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#737373]'}`}>
-                {habit.streak} day{habit.streak !== 1 ? 's' : ''}
-              </span>
-            </div>
-            {!habit.completedToday && habit.streak >= 2 && (
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#30363d] text-[#8b949e] font-medium flex-shrink-0"
+              title={`Goal: ${goalOf(habit)}x per ${unit}`}
+            >
+              {frequencyLabel(habit.frequency)}
+            </span>
+            <span
+              className={`text-[10px] font-medium flex-shrink-0 ${locked ? 'text-[#22c55e]' : 'text-[#8b949e]'}`}
+              title={locked ? `Resets ${resetsOn}` : undefined}
+            >
+              {locked ? `Done for this ${unit}` : periodSummary(habit)}
+            </span>
+            {showStreak && (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Flame className={`w-3 h-3 ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#737373]'}`} />
+                <span className={`text-xs ${habit.streak > 0 ? 'text-[#F97316]' : 'text-[#737373]'}`}>
+                  {habit.streak} day{habit.streak !== 1 ? 's' : ''}
+                </span>
+              </div>
+            )}
+            {showStreak && !habit.completedToday && habit.streak >= 2 && (
               <span
                 className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#d29922]/15 text-[#d29922] font-medium flex-shrink-0"
                 title={`Complete today to keep your ${habit.streak}-day streak alive`}
@@ -249,7 +331,10 @@ export default function HabitCard() {
     totalHabits: 0,
     completedToday: 0,
     longestStreak: 0,
-    weeklyCompletion: 0
+    weeklyCompletion: 0,
+    monthlyCompletion: 0,
+    monthlyHabits: 0,
+    fulfilled: 0
   });
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -410,6 +495,8 @@ export default function HabitCard() {
   const toggleHabit = async (habitId: string) => {
     const habit = habits.find(h => h.id === habitId);
     if (!habit || pendingChanges.has(habitId)) return;
+    // Fulfilled on an earlier day — locked until the period resets.
+    if (isLocked(habit)) return;
     
     const newCompletedState = !habit.completedToday;
     const previousState = habit.completedToday;
@@ -419,11 +506,7 @@ export default function HabitCard() {
     setSyncStatus('syncing');
     
     // Optimistic update - update UI immediately
-    const updatedHabits = habits.map(h => 
-      h.id === habitId 
-        ? { ...h, completedToday: newCompletedState }
-        : h
-    );
+    const updatedHabits = withToggle(habits, habitId, newCompletedState);
     setHabits(updatedHabits);
     setStats(computeStats(updatedHabits));
     
@@ -453,14 +536,9 @@ export default function HabitCard() {
     } catch (error) {
       console.error('Failed to persist habit:', error);
       
-      // REVERT: Restore previous state on error
-      const revertedHabits = habits.map(h => 
-        h.id === habitId 
-          ? { ...h, completedToday: previousState }
-          : h
-      );
-      setHabits(revertedHabits);
-      setStats(computeStats(revertedHabits));
+      // REVERT: Restore previous state on error (`habits` is the pre-toggle list)
+      setHabits(habits);
+      setStats(computeStats(habits));
 
       setSyncStatus('error');
     } finally {
@@ -589,7 +667,7 @@ export default function HabitCard() {
   // Paused habits stay in the visible list (faded, uncheckable) but drop out
   // of today's numbers — same treatment as weekend-hidden trading habits.
   const activeHabits = visibleHabits.filter(h => !h.paused);
-  const visibleCompletedToday = activeHabits.filter(h => h.completedToday).length;
+  const visibleCompletedToday = activeHabits.filter(isDone).length;
 
   const completionRate = activeHabits.length > 0
     ? Math.round((visibleCompletedToday / activeHabits.length) * 100)
@@ -646,14 +724,15 @@ export default function HabitCard() {
     const now = new Date();
     const reportHabits = habits.filter(h => !h.paused);
     const analysis = reportHabits.map(h => {
-      const goal = frequencyGoal(h.frequency);
-      const completions = h.history.filter(Boolean).length + (h.completedToday ? 1 : 0);
-      const rate = Math.round((completions / goal) * 100);
+      const goal = goalOf(h);
+      const completions = completionsOf(h);
+      const rate = Math.min(100, Math.round((completions / goal) * 100));
       return {
         ...h,
         weeklyCompletions: completions,
         weeklyGoal: goal,
         weeklyRate: rate,
+        unit: periodOf(h) === 'month' ? 'month' : 'week',
         tier: (rate >= 71 ? 'strong' : rate >= 43 ? 'moderate' : 'struggling') as 'strong' | 'moderate' | 'struggling',
       };
     });
@@ -662,14 +741,14 @@ export default function HabitCard() {
     const struggling = analysis.filter(h => h.tier === 'struggling');
     const recommendations: string[] = [];
     struggling.slice(0, 3).forEach(h => {
-      if (h.weeklyRate === 0) recommendations.push(`"${h.name}" hasn't been logged once this week — consider adjusting its time slot.`);
-      else recommendations.push(`"${h.name}" is missed most days (${h.weeklyRate}%) — try anchoring it to an existing routine.`);
+      if (h.weeklyRate === 0) recommendations.push(`"${h.name}" hasn't been logged once this ${h.unit} — consider adjusting its time slot.`);
+      else recommendations.push(`"${h.name}" is short of its goal (${h.weeklyCompletions}/${h.weeklyGoal} this ${h.unit}) — try anchoring it to an existing routine.`);
     });
     if (strong.length === reportHabits.length && reportHabits.length > 0)
-      recommendations.push('You\'re completing every habit this week. Consider raising the bar or adding a new challenge.');
+      recommendations.push('You\'re hitting every habit\'s goal. Consider raising the bar or adding a new challenge.');
     if (stats.weeklyCompletion < 40 && reportHabits.length > 3)
       recommendations.push('With many habits tracked, focus on your top 2–3 until consistency builds.');
-    if (!reportHabits.some(h => h.completedToday) && now.getHours() >= 10)
+    if (!reportHabits.some(isDone) && now.getHours() >= 10)
       recommendations.push('No habits logged yet today — you still have time to build momentum.');
     if (recommendations.length === 0)
       recommendations.push('Solid week overall. Keep the momentum going and stay consistent.');
@@ -724,11 +803,14 @@ export default function HabitCard() {
 
       {/* Stats + Progress — fixed */}
       <div className="px-4 pt-3 pb-2 flex-shrink-0">
-        <div className="grid grid-cols-4 gap-2 mb-3">
+        <div className={`grid ${stats.monthlyHabits > 0 ? 'grid-cols-5' : 'grid-cols-4'} gap-2 mb-3`}>
           {[
             { value: `${completionRate}%`, label: 'Today' },
             { value: stats.longestStreak, label: 'Best Streak' },
             { value: `${stats.weeklyCompletion}%`, label: 'This Week' },
+            ...(stats.monthlyHabits > 0
+              ? [{ value: `${stats.monthlyCompletion}%`, label: 'This Month' }]
+              : []),
             { value: activeHabits.length, label: 'Total' }
           ].map((stat, i) => (
             <div key={i} className="bg-[#0d1117] rounded-lg p-2 text-center border border-[#30363d]">
@@ -878,6 +960,7 @@ export default function HabitCard() {
                   <button
                     key={opt.value}
                     onClick={() => setNewHabitFrequency(opt.value)}
+                    title={opt.hint}
                     className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
                       newHabitFrequency === opt.value
                         ? 'border-[#F97316] bg-[#F97316]/20 text-[#F97316]'
@@ -888,6 +971,10 @@ export default function HabitCard() {
                   </button>
                 ))}
               </div>
+              <p className="text-[10px] text-[#737373] mt-2 leading-relaxed">
+                Counted cumulatively Monday–Sunday (monthly habits run the calendar month).
+                Once the goal is hit, the habit stays checked until the period resets.
+              </p>
             </div>
 
             <div className="mb-5">
@@ -979,7 +1066,7 @@ export default function HabitCard() {
                         {report.strong.map(h => (
                           <div key={h.id} className="flex items-center justify-between bg-[#22c55e]/5 border border-[#22c55e]/20 rounded-lg px-3 py-2">
                             <div className="flex items-center gap-2 min-w-0"><span className="text-base flex-shrink-0">{h.icon}</span><span className="text-xs text-white truncate">{h.name}</span></div>
-                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} days</span><span className="text-[10px] font-medium text-[#22c55e]">{h.weeklyRate}%</span></div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} this {h.unit}</span><span className="text-[10px] font-medium text-[#22c55e]">{h.weeklyRate}%</span></div>
                           </div>
                         ))}
                       </div>
@@ -992,7 +1079,7 @@ export default function HabitCard() {
                         {report.moderate.map(h => (
                           <div key={h.id} className="flex items-center justify-between bg-[#d29922]/5 border border-[#d29922]/20 rounded-lg px-3 py-2">
                             <div className="flex items-center gap-2 min-w-0"><span className="text-base flex-shrink-0">{h.icon}</span><span className="text-xs text-white truncate">{h.name}</span></div>
-                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} days</span><span className="text-[10px] font-medium text-[#d29922]">{h.weeklyRate}%</span></div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} this {h.unit}</span><span className="text-[10px] font-medium text-[#d29922]">{h.weeklyRate}%</span></div>
                           </div>
                         ))}
                       </div>
@@ -1005,7 +1092,7 @@ export default function HabitCard() {
                         {report.struggling.map(h => (
                           <div key={h.id} className="flex items-center justify-between bg-[#ef4444]/5 border border-[#ef4444]/20 rounded-lg px-3 py-2">
                             <div className="flex items-center gap-2 min-w-0"><span className="text-base flex-shrink-0">{h.icon}</span><span className="text-xs text-white truncate">{h.name}</span></div>
-                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} days</span><span className="text-[10px] font-medium text-[#ef4444]">{h.weeklyRate}%</span></div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} this {h.unit}</span><span className="text-[10px] font-medium text-[#ef4444]">{h.weeklyRate}%</span></div>
                           </div>
                         ))}
                       </div>
