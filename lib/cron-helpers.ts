@@ -228,13 +228,15 @@ export async function getCachedGapScanResults(): Promise<unknown | null> {
   }
 }
 
+export type EmailAlertType = 'marketBriefing' | 'gapScanner' | 'dailyRecap';
+
 /**
  * Send emails to all users who have opted in for a specific alert type.
  * Accepts a single alert type or an array (user is included if ANY match).
  * Returns the count of emails sent and any errors.
  */
 export async function sendEmailsToSubscribers(
-  alertType: 'marketBriefing' | 'gapScanner' | ('marketBriefing' | 'gapScanner')[],
+  alertType: EmailAlertType | EmailAlertType[],
   subjectFn: () => string,
   reactFn: () => React.ReactElement,
 ): Promise<{ sent: number; errors: number }> {

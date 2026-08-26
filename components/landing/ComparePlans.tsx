@@ -25,7 +25,7 @@ const ROWS: { label: string; silver: boolean; gold: boolean; platinum: boolean; 
   { label: 'Docs & trading guides', silver: true, gold: true, platinum: true },
   { label: 'Auto-synced journal from your broker', silver: false, gold: true, platinum: true },
   { label: 'Pre-market gap scanner & live market data', silver: false, gold: true, platinum: true },
-  { label: 'Daily AI briefing emails', silver: false, gold: true, platinum: true },
+  { label: 'Daily AI briefing & market recap emails', silver: false, gold: true, platinum: true },
   { label: 'AI coaching reports on your journal', silver: false, gold: true, platinum: true },
   { label: 'Self-tracking trading goals', silver: false, gold: true, platinum: true },
   { label: 'AI-identified swing setups — you approve every order', silver: false, gold: false, platinum: true, dim: true },

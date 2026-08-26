@@ -7,6 +7,7 @@ import { getEntitlements } from '@/lib/db/entitlements';
 interface EmailAlertPrefs {
   marketBriefing: boolean;
   gapScanner: boolean;
+  dailyRecap: boolean;
 }
 
 interface UserPrefs {
@@ -92,6 +93,7 @@ export async function PATCH(request: Request) {
     updated.emailAlerts = {
       marketBriefing: !!body.emailAlerts.marketBriefing,
       gapScanner: !!body.emailAlerts.gapScanner,
+      dailyRecap: !!body.emailAlerts.dailyRecap,
     };
   }
 

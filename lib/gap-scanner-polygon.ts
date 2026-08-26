@@ -219,9 +219,10 @@ export async function fetchAllSnapshots(
 /**
  * Fetch only Polygon's top 20 gainers and top 20 losers.
  * Response is ~20KB vs 20-50MB for the all-tickers snapshot, avoiding OOM on Vercel.
- * Used by the cron job; the user-facing route uses fetchAllSnapshots during market hours.
+ * Used by the gap-scanner cron and the daily-market-recap cron; the user-facing
+ * route uses fetchAllSnapshots during market hours.
  */
-async function fetchGainersAndLosers(): Promise<PolygonSnapshot[]> {
+export async function fetchGainersAndLosers(): Promise<PolygonSnapshot[]> {
   if (!POLYGON_API_KEY) {
     throw new Error('POLYGON_API_KEY environment variable is required');
   }
