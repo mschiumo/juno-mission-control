@@ -80,7 +80,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, ...snapshot });
     }
 
-    const scan = await scanIntradayWindows(windows, { minMovePercent: 5 });
+    // Alert gates: ≥5% windowed move, ≥1.5M shares traded TODAY (session
+    // volume, not the 90-day average), ≥$50M market cap.
+    const scan = await scanIntradayWindows(windows, {
+      minMovePercent: 5,
+      minVolume: 1_500_000,
+      minMarketCap: 50_000_000,
+    });
     const scored = scoreMovers(scan.movers);
 
     // Diff against the previous run BEFORE overwriting it.

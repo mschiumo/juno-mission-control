@@ -401,7 +401,7 @@ export async function scanIntradayWindows(
   const startTime = Date.now();
   const {
     minMovePercent = 5,
-    minVolume = 1_000_000,
+    minVolume = 1_500_000,
     minMarketCap = 50_000_000,
     minPrice = 1,
     maxPrice = 1000,
@@ -460,10 +460,12 @@ export async function scanIntradayWindows(
     if (!price || !high || !low) continue;
     if (price < minPrice || price > maxPrice) continue;
 
+    // Alert rule: minVolume is a hard floor on TODAY's session volume — a name
+    // must have actually traded the shares this session. The 90-day average is
+    // kept only to compute RVOL for scoring.
     const avgVol = avgVolumeMap?.[snap.ticker] ?? 0;
     const volume = snap.day?.v || 0;
-    const volumeForFilter = avgVol > 0 ? avgVol : volume;
-    if (volumeForFilter < minVolume) continue;
+    if (volume < minVolume) continue;
 
     const info = infoMap.get(snap.ticker);
     const marketCap = info?.marketCap ?? 0;
