@@ -11,6 +11,7 @@ import {
   Mail,
   Bell,
   BarChart3,
+  Sunset,
   LogOut,
   Loader2,
   Check,
@@ -31,6 +32,7 @@ interface UserProfile {
 
 interface EmailAlerts {
   marketBriefing: boolean;
+  dailyRecap?: boolean;
 }
 
 interface UserPrefs {
@@ -189,11 +191,11 @@ export default function ProfilePage() {
     fetchData();
   }, [fetchData]);
 
-  const toggleEmailAlert = async (key: 'marketBriefing') => {
+  const toggleEmailAlert = async (key: 'marketBriefing' | 'dailyRecap') => {
     if (!prefs) return;
     setSaving(key);
 
-    const current = prefs.emailAlerts || { marketBriefing: false };
+    const current = prefs.emailAlerts || { marketBriefing: false, dailyRecap: false };
     const updated = { ...current, [key]: !current[key] };
 
     try {
@@ -259,7 +261,7 @@ export default function ProfilePage() {
     }
   };
 
-  const emailAlerts = prefs?.emailAlerts || { marketBriefing: false };
+  const emailAlerts = prefs?.emailAlerts || { marketBriefing: false, dailyRecap: false };
 
   if (loading) {
     return (
@@ -563,6 +565,42 @@ export default function ProfilePage() {
                   {saving === 'marketBriefing' ? (
                     <Loader2 className="w-3 h-3 text-[#8b949e] animate-spin" />
                   ) : emailAlerts.marketBriefing ? (
+                    <Check className="w-3 h-3 text-[#F97316]" />
+                  ) : null}
+                </span>
+              </button>
+            </div>
+
+            {/* Daily Market Recap Toggle */}
+            <div className="flex items-center justify-between px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 p-2 rounded-lg bg-[#F97316]/10">
+                  <Sunset className="w-4 h-4 text-[#F97316]" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">Daily Market Recap</p>
+                  <p className="text-xs text-[#8b949e] mt-0.5">
+                    AI-generated wrap-up of the market day — movers, macro, earnings — each weekday at 5 PM ET
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => toggleEmailAlert('dailyRecap')}
+                disabled={saving === 'dailyRecap'}
+                className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ml-4 ${
+                  emailAlerts.dailyRecap
+                    ? 'bg-[#F97316]'
+                    : 'bg-[#30363d]'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform duration-200 flex items-center justify-center ${
+                    emailAlerts.dailyRecap ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                >
+                  {saving === 'dailyRecap' ? (
+                    <Loader2 className="w-3 h-3 text-[#8b949e] animate-spin" />
+                  ) : emailAlerts.dailyRecap ? (
                     <Check className="w-3 h-3 text-[#F97316]" />
                   ) : null}
                 </span>
