@@ -114,6 +114,24 @@ export default function ConfluenceView() {
     loadPerf();
   }, [loadAll, loadPerf]);
 
+  // Surface the outcome of the in-app Robinhood reconnect: the OAuth callback
+  // lands back here with ?rh=connected|failed. Read once, then strip the
+  // params so a refresh doesn't replay a stale verdict.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const rh = params.get('rh');
+    if (!rh) return;
+    setBanner(
+      rh === 'connected'
+        ? { kind: 'ok', msg: 'Robinhood reconnected — the broker connection is live again.' }
+        : { kind: 'error', msg: `Robinhood reconnect failed: ${params.get('rhReason') || 'unknown error'}` },
+    );
+    params.delete('rh');
+    params.delete('rhReason');
+    const qs = params.toString();
+    window.history.replaceState(null, '', qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+  }, []);
+
   // Auto-refresh positions/orders while the tab is focused (cache reads — a
   // broker poll stays behind the explicit Refresh button).
   useEffect(() => {

@@ -1,6 +1,8 @@
-import { Section, Text } from '@react-email/components';
+import { Button, Section, Text } from '@react-email/components';
 import * as React from 'react';
 import { EmailLayout } from './EmailLayout';
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://confluencetrading.app';
 
 /**
  * Broker-connection alert — sent when the agentic rail stops working, once a
@@ -98,8 +100,20 @@ export function ConfluenceHealthAlertEmail({
           </Section>
         ) : null}
 
+        {!recovered ? (
+          <Section style={{ textAlign: 'center' as const, padding: '16px 0 4px' }}>
+            <Button href={`${APP_URL}/api/confluence/robinhood/oauth/start`} style={reconnectButton}>
+              Reconnect Robinhood
+            </Button>
+            <Text style={footnote}>
+              Sign in to Robinhood and approve — about a minute. The app registers itself and stores the
+              new credentials; no terminal, no env edits.
+            </Text>
+          </Section>
+        ) : null}
+
         <Text style={footnote}>
-          Checked automatically each weekday morning, before the market opens. Full detail at
+          Checked automatically twice a day, every day. Full detail at
           /api/confluence/robinhood/health.
         </Text>
       </Section>
@@ -170,4 +184,15 @@ const footnote: React.CSSProperties = {
   fontSize: '11px',
   lineHeight: '17px',
   margin: '14px 0 0',
+};
+
+const reconnectButton: React.CSSProperties = {
+  backgroundColor: '#F87171',
+  borderRadius: '8px',
+  color: '#0B0F14',
+  display: 'inline-block',
+  fontSize: '13px',
+  fontWeight: 700,
+  padding: '10px 22px',
+  textDecoration: 'none',
 };

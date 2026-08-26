@@ -291,6 +291,8 @@ export type AuditEventType =
   | 'position.target_reached'
   /** Owner cleared the cached Robinhood credentials (Redis), forcing a re-seed. */
   | 'robinhood.auth_reset'
+  /** Owner completed the in-app Robinhood OAuth flow; fresh credentials stored. */
+  | 'robinhood.reconnected'
   | 'killswitch.activated'
   | 'killswitch.deactivated'
   | 'paper_mode.changed';

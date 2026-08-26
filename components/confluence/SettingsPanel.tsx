@@ -213,7 +213,7 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
         </button>
       </div>
 
-      {/* Reconnect Robinhood — clears the CACHED credentials only. */}
+      {/* Reconnect Robinhood — the full in-app OAuth flow, plus the cache-clear escape hatch. */}
       <div className="card">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
@@ -223,10 +223,10 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
             <div className="min-w-0">
               <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Reconnect Robinhood</h3>
               <p className="text-[12px] mt-1" style={{ color: 'var(--text-secondary)' }}>
-                Clears the cached refresh + access tokens so the app re-seeds from the environment. Run this
-                <b> after </b> updating <code>ROBINHOOD_OAUTH_CLIENT_ID</code> and{' '}
-                <code>ROBINHOOD_OAUTH_REFRESH_TOKEN</code> — the cached refresh token outranks the env seed,
-                so a re-capture does not take effect until this is done. Places no orders and moves no money.
+                Sign in to Robinhood and approve access — about a minute. The app registers itself and
+                stores the new credentials, so use this whenever the connection dies (Robinhood drops
+                dynamically-registered clients from time to time). No env edits needed. Places no orders
+                and moves no money.
               </p>
               {resetMsg && (
                 <p className="text-[12px] mt-2" style={{ color: resetMsg.ok ? 'var(--positive)' : 'var(--negative)' }}>
@@ -235,10 +235,18 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
               )}
             </div>
           </div>
-          <button
-            className="btn-ghost flex items-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-50 flex-shrink-0"
-            disabled={busy || resetting}
-            onClick={async () => {
+          <div className="flex flex-col items-stretch gap-2 flex-shrink-0">
+            <a
+              className="btn-primary flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm"
+              href="/api/confluence/robinhood/oauth/start"
+            >
+              <PlugZap className="w-4 h-4" /> Reconnect via Robinhood login
+            </a>
+            <button
+              className="btn-ghost flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-50"
+              title="Escape hatch for the manual script runbook: drops the Redis-cached client id + tokens so the ROBINHOOD_OAUTH_* env vars re-seed."
+              disabled={busy || resetting}
+              onClick={async () => {
               setResetting(true);
               setResetMsg(null);
               try {
@@ -255,9 +263,10 @@ export default function SettingsPanel({ state, busy, onSave }: Props) {
                 setResetting(false);
               }
             }}
-          >
-            <PlugZap className="w-4 h-4" /> {resetting ? 'Clearing…' : 'Clear cached credentials'}
-          </button>
+            >
+              <PlugZap className="w-4 h-4" /> {resetting ? 'Clearing…' : 'Clear cached credentials'}
+            </button>
+          </div>
         </div>
       </div>
 

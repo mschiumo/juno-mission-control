@@ -2,11 +2,13 @@
  * Broker-connection watchdog — the thing that was missing when the agentic
  * rail died on ~Aug 14 2026 and nobody noticed until Aug 18.
  *
- * Runs each weekday at 12:30 UTC (8:30am ET), half an hour after the screen
- * and a full hour before the open. That ordering is deliberate: by then the
- * morning screen has either produced proposals or failed, so this reports the
- * real outcome AND still leaves time to re-capture the token and re-run before
- * the market opens.
+ * Runs twice a day, EVERY day (00:30 + 12:30 UTC). The 12:30 slot (8:30am ET)
+ * lands half an hour after the weekday screen and a full hour before the open,
+ * so it reports the real outcome and still leaves time to reconnect before the
+ * market opens. The second run + weekend coverage exist because the Aug 22–24
+ * 2026 outage began over a weekend and sat undetected for up to 63 hours; a
+ * twice-daily real round-trip also keeps the dynamically-registered client
+ * warm at the MCP host instead of idling all weekend.
  *
  * READ-ONLY — calls `get_accounts` and reads the run log. Places no orders.
  *
@@ -63,7 +65,7 @@ async function writeState(state: HealthAlertState): Promise<void> {
 /** One-line summary of the live credential path, for the email body. */
 function summarizeAuth(auth: Awaited<ReturnType<typeof checkRobinhoodHealth>>['auth']): string {
   return (
-    `${auth.tokenSource} · client id ${auth.clientIdSet ? 'set' : 'MISSING'} · ` +
+    `${auth.tokenSource} · client id from ${auth.clientIdSource} · ` +
     `refresh token from ${auth.refreshTokenSource} · ` +
     `static token ${auth.staticTokenSet ? 'SET (should not be, in prod)' : 'unset'}`
   );
