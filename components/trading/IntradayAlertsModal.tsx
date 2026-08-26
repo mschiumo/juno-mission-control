@@ -8,6 +8,8 @@ interface Props {
   open: boolean;
   onClose: () => void;
   snapshot: IntradayAlertSnapshot | null;
+  /** Alerts to display — the badge pre-filters out tickers already viewed today. */
+  alerts: IntradayAlert[];
   muted: boolean;
   onToggleMute: () => void;
   onAdded: (ticker: string) => void;
@@ -35,7 +37,7 @@ function fmtTime(iso: string): string {
   }
 }
 
-export default function IntradayAlertsModal({ open, onClose, snapshot, muted, onToggleMute, onAdded }: Props) {
+export default function IntradayAlertsModal({ open, onClose, snapshot, alerts, muted, onToggleMute, onAdded }: Props) {
   const [adding, setAdding] = useState<Record<string, boolean>>({});
   const [added, setAdded] = useState<Record<string, boolean>>({});
 
@@ -49,7 +51,9 @@ export default function IntradayAlertsModal({ open, onClose, snapshot, muted, on
 
   if (!open) return null;
 
-  const alerts = snapshot?.alerts ?? [];
+  // Empty because everything from the latest scan was already viewed, vs. the
+  // scan itself finding nothing.
+  const allViewed = alerts.length === 0 && (snapshot?.alerts.length ?? 0) > 0;
 
   const handleAdd = async (alert: IntradayAlert) => {
     setAdding((s) => ({ ...s, [alert.symbol]: true }));
@@ -85,7 +89,7 @@ export default function IntradayAlertsModal({ open, onClose, snapshot, muted, on
           <div className="flex items-center gap-2.5">
             <span className="text-base font-semibold text-white">Intraday Alerts</span>
             <span className="text-xs text-[#8b949e]">
-              Top {alerts.length}
+              {alerts.length} new
               {snapshot?.generatedAt ? ` · ${fmtTime(snapshot.generatedAt)}` : ''}
             </span>
           </div>
@@ -109,7 +113,9 @@ export default function IntradayAlertsModal({ open, onClose, snapshot, muted, on
             <div className="px-5 py-12 text-center text-[#8b949e]">
               <Clock className="w-6 h-6 mx-auto mb-2 opacity-50" />
               <p className="text-sm">
-                {snapshot?.message ?? 'No alerts yet. The scanner runs every 30 minutes during market hours.'}
+                {allViewed
+                  ? 'All caught up — you have viewed every alert from the latest scan. New tickers will appear here.'
+                  : (snapshot?.message ?? 'No alerts yet. The scanner runs every 30 minutes during market hours.')}
               </p>
             </div>
           ) : (

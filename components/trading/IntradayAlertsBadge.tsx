@@ -1,48 +1,57 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Bell } from 'lucide-react';
 import type { IntradayAlertSnapshot } from '@/types/intraday-alerts';
 import { useAlertChime } from './useAlertChime';
 import IntradayAlertsModal from './IntradayAlertsModal';
 
-const SEEN_KEY = 'ct:intraday-alerts:last-seen';
+const SEEN_SYMBOLS_KEY = 'ct:intraday-alerts:seen-symbols';
 const MUTED_KEY = 'ct:intraday-alerts:muted';
 const POLL_MS = 60_000;
 
+/** Per-ticker "already viewed" set, scoped to one trading date. */
+function loadSeenSymbols(tradingDate: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_SYMBOLS_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as { date?: string; symbols?: string[] };
+    if (parsed.date !== tradingDate || !Array.isArray(parsed.symbols)) return new Set();
+    return new Set(parsed.symbols);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistSeenSymbols(tradingDate: string, symbols: string[]) {
+  if (symbols.length === 0) return;
+  try {
+    const merged = new Set(loadSeenSymbols(tradingDate));
+    symbols.forEach((s) => merged.add(s));
+    localStorage.setItem(SEEN_SYMBOLS_KEY, JSON.stringify({ date: tradingDate, symbols: [...merged] }));
+  } catch {
+    /* ignore — worst case a ticker re-alerts */
+  }
+}
+
 /**
  * Alert bell for the Daily Favorites card header. Polls the latest intraday
- * alert snapshot; glows + chimes when a fresh snapshot the user hasn't opened
- * arrives. Clicking opens the full alert modal and marks the snapshot seen.
+ * alert snapshot; glows + chimes when it contains tickers the user hasn't
+ * viewed yet. Opening the modal marks the shown tickers as viewed for the rest
+ * of the trading day — later scans won't re-surface them, only new symbols.
  */
 export default function IntradayAlertsBadge() {
   const [snapshot, setSnapshot] = useState<IntradayAlertSnapshot | null>(null);
+  const [seenSymbols, setSeenSymbols] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
   const [muted, setMuted] = useState(false);
-  const [hasUnseen, setHasUnseen] = useState(false);
   const playChime = useAlertChime();
   const lastChimedRef = useRef<string | null>(null);
+  const openRef = useRef(false);
 
   useEffect(() => {
     setMuted(localStorage.getItem(MUTED_KEY) === '1');
   }, []);
-
-  const evaluate = useCallback(
-    (snap: IntradayAlertSnapshot | null) => {
-      if (!snap || snap.alerts.length === 0) {
-        setHasUnseen(false);
-        return;
-      }
-      const unseen = localStorage.getItem(SEEN_KEY) !== snap.generatedAt;
-      setHasUnseen(unseen);
-      // Chime once per fresh snapshot the user hasn't seen.
-      if (unseen && lastChimedRef.current !== snap.generatedAt) {
-        lastChimedRef.current = snap.generatedAt;
-        if (localStorage.getItem(MUTED_KEY) !== '1') playChime();
-      }
-    },
-    [playChime],
-  );
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -51,11 +60,13 @@ export default function IntradayAlertsBadge() {
       const json = await res.json();
       const snap: IntradayAlertSnapshot | null = json?.data ?? null;
       setSnapshot(snap);
-      evaluate(snap);
+      // Sync the seen-set to the snapshot's trading date (auto-resets on a new
+      // day) — but never mid-view, so open-modal rows don't vanish under the user.
+      if (snap && !openRef.current) setSeenSymbols(loadSeenSymbols(snap.tradingDate));
     } catch {
       /* ignore — keep last snapshot */
     }
-  }, [evaluate]);
+  }, []);
 
   useEffect(() => {
     fetchAlerts();
@@ -63,13 +74,46 @@ export default function IntradayAlertsBadge() {
     return () => clearInterval(id);
   }, [fetchAlerts]);
 
-  const alertCount = snapshot?.alerts.length ?? 0;
-  const glow = hasUnseen && alertCount > 0;
+  // Tickers already viewed in the modal are dropped everywhere: badge count,
+  // glow, chime, and the modal list itself.
+  const visibleAlerts = useMemo(
+    () => (snapshot?.alerts ?? []).filter((a) => !seenSymbols.has(a.symbol)),
+    [snapshot, seenSymbols],
+  );
+
+  // Chime once per fresh snapshot that still contains unviewed tickers.
+  useEffect(() => {
+    if (!snapshot || visibleAlerts.length === 0) return;
+    if (lastChimedRef.current === snapshot.generatedAt) return;
+    lastChimedRef.current = snapshot.generatedAt;
+    if (localStorage.getItem(MUTED_KEY) !== '1') playChime();
+  }, [snapshot, visibleAlerts, playChime]);
+
+  const alertCount = visibleAlerts.length;
+  const glow = alertCount > 0 && !open;
 
   const handleOpen = () => {
+    openRef.current = true;
     setOpen(true);
-    if (snapshot?.generatedAt) localStorage.setItem(SEEN_KEY, snapshot.generatedAt);
-    setHasUnseen(false);
+    if (snapshot) {
+      persistSeenSymbols(
+        snapshot.tradingDate,
+        visibleAlerts.map((a) => a.symbol),
+      );
+    }
+  };
+
+  const handleClose = () => {
+    // Also mark tickers that arrived while the modal was open, then re-filter.
+    if (snapshot) {
+      persistSeenSymbols(
+        snapshot.tradingDate,
+        visibleAlerts.map((a) => a.symbol),
+      );
+      setSeenSymbols(loadSeenSymbols(snapshot.tradingDate));
+    }
+    openRef.current = false;
+    setOpen(false);
   };
 
   const toggleMute = () => {
@@ -108,8 +152,9 @@ export default function IntradayAlertsBadge() {
 
       <IntradayAlertsModal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleClose}
         snapshot={snapshot}
+        alerts={visibleAlerts}
         muted={muted}
         onToggleMute={toggleMute}
         onAdded={() => {
