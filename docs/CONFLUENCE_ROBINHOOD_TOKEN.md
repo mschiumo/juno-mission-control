@@ -1,9 +1,27 @@
-# Capturing & refreshing `ROBINHOOD_MCP_TOKEN` (live execution rail)
+# Robinhood credentials for the live execution rail
 
 The live execution path (Milestone 3) calls the Robinhood Trading MCP
 server-side. Robinhood agentic access is **OAuth 2.1 + PKCE** — there is **no
-static API key**. This runbook mints a token **for this app** by running the
-OAuth flow yourself.
+static API key**, and no permanent credential of any kind: clients are
+registered dynamically and Robinhood culls those registrations on its own
+schedule (observed twice in Aug 2026), so reconnecting is a recurring event,
+not a one-time setup.
+
+## The normal path: in-app reconnect (one click)
+
+**Agents → Settings → "Reconnect Robinhood"** (also linked from the
+broker-down alert email). The app registers a fresh dynamic client against its
+own callback URL (`/api/confluence/robinhood/oauth/start` →
+`…/oauth/callback`), sends you to Robinhood to sign in (pick the **Agentic**
+account), stores the new `client_id` + refresh token in Redis
+(`confluence:robinhood:client-id` / `:refresh` — these outrank the
+`ROBINHOOD_OAUTH_*` env seeds), verifies with a real `get_accounts`, and
+audits the event. No terminal, no Vercel env edits.
+
+Everything below is the **manual fallback** for when the in-app flow itself is
+unavailable. After any manual capture, clear the Redis cache ("Clear cached
+credentials" in Settings, or `POST /api/confluence/robinhood/reset-auth`) or
+the cached credentials keep winning over your new env values.
 
 > **Why not just reuse the token Claude Desktop/Code already has?** That token
 > belongs to a different (interactive) client and repurposing it for a headless
@@ -159,9 +177,14 @@ auto-refreshes.
 
 ---
 
-## Recovery: `401 … client id not allowed: <missing>`
+## Recovery: `401 … client id not allowed` / `401 … token revoked`
 
-Seen in production 2026-08-18. `/api/confluence/robinhood/health` reported:
+**Short version: use Agents → Settings → "Reconnect Robinhood" — it performs
+this whole recovery in one login.** The manual runbook below documents what
+that button does and remains the fallback.
+
+Seen in production 2026-08-18 (`client id not allowed: <missing>`) and again
+2026-08-24 (`token revoked` — same two-host failure, different wording). `/api/confluence/robinhood/health` reported:
 
 ```
 connected: false, configured: true,

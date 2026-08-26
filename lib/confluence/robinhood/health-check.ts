@@ -92,7 +92,22 @@ export function diagnoseRobinhoodFailure(
   message: string,
   auth: RobinhoodAuthDiagnostics,
 ): string | undefined {
-  const clientIdRejected = message.includes('401') && message.toLowerCase().includes('client id');
+  const lower = message.toLowerCase();
+
+  // Aug 24 2026 outage: `401 … token revoked` at MCP initialize while the token
+  // endpoint kept refreshing happily — same two-host split as the client-id
+  // failure, different wording, and it shipped alert emails with NO hint
+  // because nothing matched it.
+  if (message.includes('401') && lower.includes('revoked')) {
+    return (
+      'Robinhood revoked this token/client at the MCP host (the token endpoint may still be minting ' +
+      'access tokens for it — the two services disagree). Fix: Agents → Settings → "Reconnect Robinhood" ' +
+      '(or the button in this email) — sign in and approve; the app registers a fresh client and stores ' +
+      'the new credentials itself. No env edits needed.'
+    );
+  }
+
+  const clientIdRejected = message.includes('401') && lower.includes('client id');
   if (clientIdRejected && auth.tokenSource === 'static') {
     return (
       'The bearer sent came from the static ROBINHOOD_MCP_TOKEN, because ' +
@@ -106,18 +121,14 @@ export function diagnoseRobinhoodFailure(
   if (clientIdRejected) {
     return (
       'Robinhood resolved no allowed OAuth client from the access token. Tokens are still being issued, ' +
-      'so the grant is intact — but this client was registered dynamically (scripts/robinhood-oauth.mjs ' +
-      'POSTs to agent.robinhood.com/mcp/trading/register), and the MCP no longer accepts it. Note the ' +
-      'split: tokens come from api.robinhood.com, which keeps minting for a client the MCP has dropped. ' +
-      'Re-run `node scripts/robinhood-oauth.mjs` — it mints a NEW client_id, so update BOTH ' +
-      'ROBINHOOD_OAUTH_CLIENT_ID and ROBINHOOD_OAUTH_REFRESH_TOKEN, not just the token. Then POST ' +
-      '/api/confluence/robinhood/reset-auth (or use Agents → Settings → Reconnect Robinhood): the cached ' +
-      'refresh token in Redis outranks the env seed, and pairing it with the new client id fails as ' +
-      'invalid_grant, which looks like a bad capture.'
+      'so the grant is intact — but the client was registered dynamically and the MCP no longer accepts ' +
+      'it (tokens come from api.robinhood.com, which keeps minting for a client the MCP host has ' +
+      'dropped). Fix: Agents → Settings → "Reconnect Robinhood" — sign in and approve; the app registers ' +
+      'a fresh client and stores the new credentials itself. No env edits needed.'
     );
   }
   if (message.includes('token refresh failed')) {
-    return 'The refresh grant itself was rejected — re-run the OAuth capture (docs/CONFLUENCE_ROBINHOOD_TOKEN.md).';
+    return 'The refresh grant itself was rejected — reconnect from Agents → Settings → "Reconnect Robinhood".';
   }
   return undefined;
 }

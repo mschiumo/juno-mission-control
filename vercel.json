@@ -93,7 +93,7 @@
     },
     {
       "path": "/api/cron-jobs/confluence-health-alert",
-      "schedule": "30 12 * * 1-5"
+      "schedule": "30 */12 * * *"
     },
     {
       "path": "/api/cron-jobs/confluence-weekly-review",
