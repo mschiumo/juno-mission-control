@@ -129,7 +129,20 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
     otherTrades: false,
     closedPositions: false,
   });
-  
+
+  // While searching Active Trades: keep the section expanded and bring the
+  // first matching card into view (the section may be scrolled off-screen).
+  const firstActiveMatchRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!activeTradesSearchQuery.trim()) return;
+    setCollapsedSections(prev => (prev.activeTrades ? { ...prev, activeTrades: false } : prev));
+    const timer = setTimeout(() => {
+      firstActiveMatchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [activeTradesSearchQuery]);
+
+
   // Edit Active Trade state
   const [editingTrade, setEditingTrade] = useState<ActiveTrade | null>(null);
   const [isEditTradeModalOpen, setIsEditTradeModalOpen] = useState(false);
@@ -1810,12 +1823,13 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
           <div className="flex items-center gap-2">
             {/* Search Input */}
             <div className="relative">
+              <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search ticker..."
                 value={activeTradesSearchQuery}
                 onChange={(e) => setActiveTradesSearchQuery(e.target.value)}
-                className="w-28 sm:w-40 px-3 py-1.5 bg-[#0F0F0F] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#6e7681] focus:outline-none focus:border-green-500 transition-colors"
+                className="w-36 sm:w-48 pl-9 pr-8 py-1.5 bg-[#0F0F0F] border border-[#30363d] rounded-lg text-sm text-white placeholder-[#6e7681] focus:outline-none focus:border-green-500 transition-colors"
               />
               {activeTradesSearchQuery && (
                 <button
@@ -1939,9 +1953,10 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 );
               }
               
-              return filteredActiveTrades.map((trade) => (
+              return filteredActiveTrades.map((trade, index) => (
               <div
                 key={trade.id}
+                ref={index === 0 ? firstActiveMatchRef : undefined}
                 draggable
                 data-dnd-id={trade.id}
                 data-dnd-type="active"
