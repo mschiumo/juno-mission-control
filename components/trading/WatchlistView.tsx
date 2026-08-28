@@ -78,14 +78,17 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  // Normalized form of the query — every filter below must use this so a
+  // padded or whitespace-only input behaves identically in all sections.
+  const tickerQuery = searchQuery.trim().toLowerCase();
   const [sideFilter, setSideFilter] = useState<'all' | 'long' | 'short'>('all');
-  
+
   // Compute filtered watchlist based on search and side filter
   const filteredWatchlist = useMemo(() => {
     return watchlist.filter(item => {
       // Search filter
-      const matchesSearch = !searchQuery || 
-        item.ticker.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = !tickerQuery ||
+        item.ticker.toLowerCase().includes(tickerQuery);
       
       // Side filter
       let matchesSide = true;
@@ -98,7 +101,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
       
       return matchesSearch && matchesSide;
     });
-  }, [watchlist, searchQuery, sideFilter]);
+  }, [watchlist, tickerQuery, sideFilter]);
   
   const favorites = filteredWatchlist.filter(i => i.isFavorite);
   const others = filteredWatchlist.filter(i => !i.isFavorite);
@@ -112,6 +115,14 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   const [activeTradesLoading, setActiveTradesLoading] = useState(false);
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
+
+  // Active trades visible under the current search. Preserves the user's
+  // manual ordering — order changes only on close/delete or drag-drop.
+  const filteredActiveTrades = useMemo(() => {
+    return tickerQuery
+      ? activeTrades.filter(trade => trade.ticker.toLowerCase().includes(tickerQuery))
+      : activeTrades;
+  }, [activeTrades, tickerQuery]);
 
   // Order Placed state (persisted in localStorage)
   const [orderPlacedMap, setOrderPlacedMap] = useState<Record<string, boolean>>({});
@@ -148,35 +159,20 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
 
   // Global ticker search: the single bar above Active Trades filters Active
   // Trades, Potential Trades (Favorites + Other) and Closed Positions at once.
-  // While a query is set, expand the sections that contain matches and bring
-  // the first match into view (it may be scrolled off-screen).
+  // Section expansion during a search is DERIVED at render time (see
+  // sectionCollapsed below) rather than written into collapsedSections, so a
+  // transient search never touches the user's persisted collapse preferences
+  // and matches that finish loading mid-search still become visible. This
+  // effect only scrolls the first match into view.
   const rootRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return;
-    const hit = (ticker: string) => ticker.toLowerCase().includes(q);
-    setCollapsedSections(prev => {
-      const next = {
-        activeTrades: prev.activeTrades && !activeTrades.some(t => hit(t.ticker)),
-        favorites: prev.favorites && !watchlist.some(w => w.isFavorite && hit(w.ticker)),
-        otherTrades: prev.otherTrades && !watchlist.some(w => !w.isFavorite && hit(w.ticker)),
-        closedPositions: prev.closedPositions && !closedPositions.some(p => hit(p.ticker)),
-      };
-      return (
-        next.activeTrades === prev.activeTrades &&
-        next.favorites === prev.favorites &&
-        next.otherTrades === prev.otherTrades &&
-        next.closedPositions === prev.closedPositions
-      ) ? prev : next;
-    });
+    if (!searchQuery.trim()) return;
     const timer = setTimeout(() => {
       // Every rendered card/row is a match while a query is active, so the
       // first [data-dnd-type] element in DOM order is the top result.
       rootRef.current?.querySelector('[data-dnd-type]')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 250);
     return () => clearTimeout(timer);
-    // Keyed to the query alone — background list refreshes must not re-scroll.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
 
@@ -1261,10 +1257,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   const toggleSelectAllActiveTrades = () => {
     // "Select all" operates over the currently visible (search-filtered) list
     // so users don't accidentally select hidden trades.
-    const visibleIds = (searchQuery
-      ? activeTrades.filter(t => t.ticker.toLowerCase().includes(searchQuery.toLowerCase()))
-      : activeTrades
-    ).map(t => t.id);
+    const visibleIds = filteredActiveTrades.map(t => t.id);
     if (visibleIds.every(id => selectedActiveTrades.has(id)) && visibleIds.length > 0) {
       setSelectedActiveTrades(prev => {
         const next = new Set(prev);
@@ -1483,16 +1476,36 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
   // Filter closed positions to exclude ones already in calendar and apply search
   const visibleClosedPositions = useMemo(() => {
     let filtered = closedPositions.filter(position => !isPositionInCalendar(position));
-    
+
     // Apply search filter
-    if (searchQuery) {
+    if (tickerQuery) {
       filtered = filtered.filter(position =>
-        position.ticker.toLowerCase().includes(searchQuery.toLowerCase())
+        position.ticker.toLowerCase().includes(tickerQuery)
       );
     }
-    
+
     return filtered;
-  }, [closedPositions, isPositionInCalendar, searchQuery]);
+  }, [closedPositions, isPositionInCalendar, tickerQuery]);
+
+  // Positions hidden because they were added to the calendar — independent of
+  // the search filter so the header count stays truthful while searching.
+  const inCalendarCount = useMemo(
+    () => closedPositions.filter(position => isPositionInCalendar(position)).length,
+    [closedPositions, isPositionInCalendar]
+  );
+
+  // Effective collapse per section: the user's persisted preference, except a
+  // section is forced open while the search has visible matches in it. Uses
+  // the same filtered lists the sections render, so the side pills and the
+  // in-calendar exclusion are respected.
+  const favoriteMatches = filteredWatchlist.some(i => i.isFavorite);
+  const otherMatches = filteredWatchlist.some(i => !i.isFavorite);
+  const sectionCollapsed = {
+    activeTrades: collapsedSections.activeTrades && !(tickerQuery && filteredActiveTrades.length > 0),
+    favorites: collapsedSections.favorites && !(tickerQuery && favoriteMatches),
+    otherTrades: collapsedSections.otherTrades && !(tickerQuery && otherMatches),
+    closedPositions: collapsedSections.closedPositions && !(tickerQuery && visibleClosedPositions.length > 0),
+  };
 
   // ===== ADD TO CALENDAR: Closed Position → Calendar Trade =====
   const handleAddToCalendarClick = (position: ClosedPosition) => {
@@ -1852,9 +1865,9 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
             <button
               onClick={() => toggleSection('activeTrades')}
               className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-              title={collapsedSections.activeTrades ? 'Expand section' : 'Collapse section'}
+              title={sectionCollapsed.activeTrades ? 'Expand section' : 'Collapse section'}
             >
-              {collapsedSections.activeTrades ? (
+              {sectionCollapsed.activeTrades ? (
                 <ChevronDown className="w-5 h-5" />
               ) : (
                 <ChevronUp className="w-5 h-5" />
@@ -1864,9 +1877,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
           <div className="flex items-center gap-2">
             {/* Select All — operates over the visible (search-filtered) list */}
             {activeTrades.length > 0 && (() => {
-              const visible = searchQuery
-                ? activeTrades.filter(t => t.ticker.toLowerCase().includes(searchQuery.toLowerCase()))
-                : activeTrades;
+              const visible = filteredActiveTrades;
               const allSelected = visible.length > 0 && visible.every(t => selectedActiveTrades.has(t.id));
               return (
                 <button
@@ -1926,7 +1937,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
         {/* Active Trades List - Collapsible */}
         <div
           className={`overflow-hidden transition-all duration-300 ease-in-out ${
-            collapsedSections.activeTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+            sectionCollapsed.activeTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
           }`}
         >
         {activeTradesLoading && activeTrades.length === 0 ? (
@@ -1951,16 +1962,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {(() => {
-              // Filter by search query and preserve the user's manual ordering.
-              // Order changes only on close/delete or drag-drop — no automatic
-              // re-sorting by orderPlaced, P&L, date, etc.
-              const filteredActiveTrades = searchQuery
-                ? activeTrades.filter(trade =>
-                    trade.ticker.toLowerCase().includes(searchQuery.toLowerCase())
-                  )
-                : activeTrades;
-
-              if (filteredActiveTrades.length === 0 && searchQuery) {
+              if (filteredActiveTrades.length === 0 && tickerQuery) {
                 return (
                   <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
                     <p className="text-sm text-[#8b949e]">No active positions found for "{searchQuery}"</p>
@@ -2285,7 +2287,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
             <div>
               <h3 className="text-lg font-semibold text-white">Potential Trades</h3>
               <p className="text-sm text-[#8b949e]">
-                {(searchQuery || sideFilter !== 'all') ? (
+                {(tickerQuery || sideFilter !== 'all') ? (
                   <>
                     {filteredWatchlist.length} of {watchlist.length} trade{watchlist.length !== 1 ? 's' : ''}
                   </>
@@ -2390,12 +2392,12 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
         ) : (
           <div className="space-y-6">
             {/* FAVORITES SECTION */}
-            {filteredWatchlist.length === 0 && (searchQuery || sideFilter !== 'all') ? (
+            {filteredWatchlist.length === 0 && (tickerQuery || sideFilter !== 'all') ? (
               <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
                 <Search className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
                 <p className="text-sm text-[#8b949e]">
                   No trades found
-                  {searchQuery && ` for "${searchQuery}"`}
+                  {tickerQuery && ` for "${searchQuery}"`}
                   {sideFilter !== 'all' && ` (${sideFilter === 'long' ? 'Long' : 'Short'} trades)`}
                 </p>
                 <button
@@ -2441,9 +2443,9 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                         <button
                           onClick={() => toggleSection('favorites')}
                           className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-                          title={collapsedSections.favorites ? 'Expand section' : 'Collapse section'}
+                          title={sectionCollapsed.favorites ? 'Expand section' : 'Collapse section'}
                         >
-                          {collapsedSections.favorites ? (
+                          {sectionCollapsed.favorites ? (
                             <ChevronDown className="w-5 h-5" />
                           ) : (
                             <ChevronUp className="w-5 h-5" />
@@ -2454,7 +2456,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     {/* Favorites List - Collapsible */}
                     <div
                       className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                        collapsedSections.favorites ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+                        sectionCollapsed.favorites ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
                       }`}
                     >
                       <div className={`grid ${cardGridClass} gap-3 items-start`}>
@@ -2595,9 +2597,9 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                     <button
                       onClick={() => toggleSection('otherTrades')}
                       className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-                      title={collapsedSections.otherTrades ? 'Expand section' : 'Collapse section'}
+                      title={sectionCollapsed.otherTrades ? 'Expand section' : 'Collapse section'}
                     >
-                      {collapsedSections.otherTrades ? (
+                      {sectionCollapsed.otherTrades ? (
                         <ChevronDown className="w-5 h-5" />
                       ) : (
                         <ChevronUp className="w-5 h-5" />
@@ -2608,7 +2610,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
                 {/* Other Trades List - Collapsible */}
                 <div
                   className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                    collapsedSections.otherTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+                    sectionCollapsed.otherTrades ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
                   }`}
                 >
                   <div className={`grid ${cardGridClass} gap-3 items-start`}>
@@ -2737,8 +2739,8 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
               <h3 className="text-lg font-semibold text-white">Closed Positions</h3>
               <p className="text-sm text-[#8b949e]">
                 {visibleClosedPositions.length} archived position{visibleClosedPositions.length !== 1 ? 's' : ''}
-                {closedPositions.length !== visibleClosedPositions.length && (
-                  <span className="text-[#F97316]"> ({closedPositions.length - visibleClosedPositions.length} in calendar)</span>
+                {inCalendarCount > 0 && (
+                  <span className="text-[#F97316]"> ({inCalendarCount} in calendar)</span>
                 )}
               </p>
             </div>
@@ -2746,9 +2748,9 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
             <button
               onClick={() => toggleSection('closedPositions')}
               className="p-1.5 text-[#8b949e] hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
-              title={collapsedSections.closedPositions ? 'Expand section' : 'Collapse section'}
+              title={sectionCollapsed.closedPositions ? 'Expand section' : 'Collapse section'}
             >
-              {collapsedSections.closedPositions ? (
+              {sectionCollapsed.closedPositions ? (
                 <ChevronDown className="w-5 h-5" />
               ) : (
                 <ChevronUp className="w-5 h-5" />
@@ -2802,7 +2804,7 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
         {/* Closed Positions List - Collapsible */}
         <div
           className={`overflow-hidden transition-all duration-300 ease-in-out ${
-            collapsedSections.closedPositions ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+            sectionCollapsed.closedPositions ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
           }`}
         >
         {closedPositionsLoading && closedPositions.length === 0 ? (
@@ -2820,22 +2822,22 @@ export default function WatchlistView({ hideActiveTrades = false, hideClosedPosi
           <div className="text-center py-8 border border-dashed border-[#30363d] rounded-xl">
             <History className="w-10 h-10 text-[#30363d] mx-auto mb-3" />
             <p className="text-sm text-[#8b949e]">
-              {searchQuery
+              {tickerQuery
                 ? `No positions found for "${searchQuery}"`
-                : closedPositions.length > 0 
+                : closedPositions.length > 0
                   ? 'All positions have been added to calendar'
                   : 'No closed positions'
               }
             </p>
             <p className="text-xs text-[#6e7681] mt-1">
-              {searchQuery
+              {tickerQuery
                 ? ''
-                : closedPositions.length > 0 
+                : closedPositions.length > 0
                   ? 'View them in Calendar Overview'
                   : 'Closed trades will appear here'
               }
             </p>
-            {searchQuery && (
+            {tickerQuery && (
               <button
                 onClick={() => setSearchQuery('')}
                 className="mt-2 text-sm text-blue-400 hover:text-blue-300"
