@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Plus,
-  Search,
   Trash2,
   ChevronDown,
   ChevronUp,
@@ -71,7 +70,6 @@ export default function QuickWatchlist({
   const [tickerInput, setTickerInput] = useState('');
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [activeTrades, setActiveTrades] = useState<ActiveTradeWithPnL[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [sort, setSort] = useState<SortState>({ field: 'addedAt', direction: 'desc' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -443,7 +441,7 @@ export default function QuickWatchlist({
   }, [removeFromFavorites]);
 
   const copyTickers = async () => {
-    const tickers = filteredAndSortedWatchlist.map(item => item.ticker).join(' ');
+    const tickers = sortedWatchlist.map(item => item.ticker).join(' ');
     await navigator.clipboard.writeText(tickers);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -452,7 +450,7 @@ export default function QuickWatchlist({
   const exportToCSV = () => {
     const rows = [
       ['Ticker', 'Prev Close', 'Premarket Price', 'Change %'],
-      ...filteredAndSortedWatchlist.map(item => {
+      ...sortedWatchlist.map(item => {
         const pm = premarketData[item.ticker];
         return [
           item.ticker,
@@ -478,11 +476,8 @@ export default function QuickWatchlist({
     }));
   };
 
-  const filteredAndSortedWatchlist = useMemo(() => {
-    let filtered = displayItems.filter(item =>
-      item.ticker.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    return filtered.sort((a, b) => {
+  const sortedWatchlist = useMemo(() => {
+    return [...displayItems].sort((a, b) => {
       let comparison = 0;
       switch (sort.field) {
         case 'ticker': comparison = a.ticker.localeCompare(b.ticker); break;
@@ -502,7 +497,7 @@ export default function QuickWatchlist({
       }
       return sort.direction === 'asc' ? comparison : -comparison;
     });
-  }, [displayItems, searchQuery, sort, premarketData]);
+  }, [displayItems, sort, premarketData]);
 
   const getSortIcon = (field: SortField) => {
     if (sort.field !== field) return <ArrowUpDown className="w-3 h-3 text-[#8b949e]" />;
@@ -586,7 +581,7 @@ export default function QuickWatchlist({
             </div>
           )}
 
-          {/* Single row: Ticker input + Add button + Search */}
+          {/* Single row: Ticker input + Add button */}
           <div className="flex gap-2 shrink-0">
             <form onSubmit={handleAddTicker} className="flex gap-2 flex-1 relative">
               <div className="flex-1 relative">
@@ -640,18 +635,6 @@ export default function QuickWatchlist({
                 Add
               </button>
             </form>
-            
-            {/* Search input */}
-            <div className="relative w-40">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6e7681]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search..."
-                className="w-full pl-9 pr-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm placeholder-[#6e7681] focus:outline-none focus:border-[#F97316]"
-              />
-            </div>
           </div>
 
           {error && (
@@ -660,7 +643,7 @@ export default function QuickWatchlist({
             </div>
           )}
 
-          {filteredAndSortedWatchlist.length > 0 ? (
+          {sortedWatchlist.length > 0 ? (
             <div className="border border-[#30363d] rounded-lg overflow-hidden flex flex-col flex-1 min-h-0">
               {/* Header */}
               <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[#0d1117] border-b border-[#30363d] text-xs shrink-0">
@@ -674,7 +657,7 @@ export default function QuickWatchlist({
                 <div className="col-span-4 sm:col-span-3 text-right text-[#8b949e]">Actions</div>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto">
-                {filteredAndSortedWatchlist.map((item) => {
+                {sortedWatchlist.map((item) => {
                   const premarket = premarketData[item.ticker];
                   return (
                     <div key={`${item.source}-${item.id}`} className="grid grid-cols-12 gap-2 px-3 py-2 border-b border-[#30363d] last:border-b-0 hover:bg-[#0d1117]/50 transition-colors items-center">
