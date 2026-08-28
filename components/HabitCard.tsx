@@ -190,7 +190,21 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
   // Pause/edit/delete live behind a ⋯ toggle so the habit name keeps the row's
   // width (three always-visible buttons were truncating titles on phones).
   const [actionsOpen, setActionsOpen] = useState(false);
+  // Touch screens have no hover, so the paused tooltip is also toggled by
+  // tapping the "paused" badge.
+  const [pausedTipOpen, setPausedTipOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!pausedTipOpen) return;
+    const close = (e: MouseEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
+        setPausedTipOpen(false);
+      }
+    };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [pausedTipOpen]);
 
   useEffect(() => {
     if (!actionsOpen) return;
@@ -210,10 +224,12 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
     return () => document.removeEventListener('click', close);
   }, [actionsOpen, disabled]);
 
+  // Only set an inline opacity while dragging — an unconditional `opacity: 1`
+  // silently overrides the class-based paused/disabled fades below.
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    ...(isDragging ? { opacity: 0.5 } : {}),
   };
 
   const done = isDone(habit);
@@ -226,13 +242,17 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
     <div
       ref={(node) => { setNodeRef(node); actionsRef.current = node; }}
       style={style}
-      className={`p-3 rounded-lg border transition-all ${
-        done
-          ? 'bg-[#22c55e]/10 border-[#22c55e]/30'
-          : 'bg-[#0d1117] border-[#30363d] hover:border-[#F97316]/50'
-      } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''} ${disabled ? 'opacity-60 pointer-events-none' : ''} ${habit.paused && !disabled ? 'opacity-50' : ''}`}
+      className={`relative p-3 rounded-lg border transition-all ${
+        habit.paused
+          ? 'bg-[#0d1117] border-[#30363d] border-dashed'
+          : done
+            ? 'bg-[#22c55e]/10 border-[#22c55e]/30'
+            : 'bg-[#0d1117] border-[#30363d] hover:border-[#F97316]/50'
+      } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''} ${disabled ? 'opacity-60 pointer-events-none' : ''} ${habit.paused && !disabled ? 'group/paused' : ''}`}
     >
-      <div className="flex items-center gap-2 sm:gap-3">
+      {/* The fade lives on this inner row (not the card) so the tooltip below
+          stays at full opacity; grayscale mutes the emoji/streak colors too. */}
+      <div className={`flex items-center gap-2 sm:gap-3 ${habit.paused && !disabled ? 'opacity-40 grayscale transition-[opacity,filter]' : ''}`}>
         <button
           {...attributes}
           {...listeners}
@@ -268,9 +288,16 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
               {habit.name}
             </span>
             {habit.paused && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#30363d] text-[#8b949e] font-medium flex-shrink-0">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setPausedTipOpen(o => !o); }}
+                aria-expanded={pausedTipOpen}
+                aria-label="Why is this habit paused?"
+                className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[#30363d] text-[#8b949e] font-medium flex-shrink-0"
+              >
+                <Pause className="w-2.5 h-2.5" />
                 paused
-              </span>
+              </button>
             )}
           </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -329,11 +356,36 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
         </div>
       </div>
 
+      {/* Styled paused tooltip — hover on desktop, tap the badge on touch
+          screens. Anchored to the card (not the badge) so it can't clip on
+          the horizontal axis, and kept outside the faded row so it renders
+          at full opacity. */}
+      {habit.paused && !disabled && (
+        <div
+          role="tooltip"
+          className={`pointer-events-none absolute inset-x-2 top-full z-30 -mt-0.5 transition-opacity duration-150 ${
+            pausedTipOpen ? 'visible opacity-100' : 'invisible opacity-0 sm:group-hover/paused:visible sm:group-hover/paused:opacity-100'
+          }`}
+        >
+          <div className="mx-auto h-2 w-2 rotate-45 border-l border-t border-[#30363d] bg-[#1c2128] translate-y-1" />
+          <div className="mx-auto w-max max-w-full rounded-lg border border-[#30363d] bg-[#1c2128] px-3 py-2 shadow-xl shadow-black/60">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#F97316]">
+              <Pause className="w-3 h-3" />
+              Habit paused
+            </div>
+            <p className="mt-0.5 text-[11px] leading-snug text-[#8b949e]">
+              This habit is not in effect — it won&apos;t count toward today&apos;s
+              progress, stats, or streaks. Use ⋯ → Resume to pick it back up.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Revealed as a full-width strip so the title never gets squeezed. */}
       {actionsOpen && (
         <div className="mt-2 pt-2 border-t border-[#30363d] flex items-center gap-2">
           <button
-            onClick={() => { onTogglePause(habit.id); setActionsOpen(false); }}
+            onClick={() => { onTogglePause(habit.id); setActionsOpen(false); setPausedTipOpen(false); }}
             disabled={disabled}
             className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-colors disabled:opacity-50"
           >
