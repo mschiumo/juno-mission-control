@@ -1,9 +1,11 @@
 /**
  * Scheduled SnapTrade sync (Vercel cron)
  *
- * Re-syncs every user who has linked a brokerage. Gated by CRON_SECRET in
- * middleware.ts (Authorization: Bearer <CRON_SECRET>), same as the other
- * /api/cron-jobs/* routes. No-ops cleanly when SnapTrade isn't configured.
+ * Re-syncs every user who has linked a brokerage. Runs every 6 hours
+ * (01/07/13/19 UTC) so the Journal picks up SnapTrade's overnight brokerage
+ * refresh without a manual sync. Gated by CRON_SECRET in middleware.ts
+ * (Authorization: Bearer <CRON_SECRET>), same as the other /api/cron-jobs/*
+ * routes. No-ops cleanly when SnapTrade isn't configured.
  */
 
 import { NextResponse } from 'next/server';
