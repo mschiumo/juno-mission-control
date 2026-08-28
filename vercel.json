@@ -124,7 +124,7 @@
     },
     {
       "path": "/api/cron-jobs/snaptrade-sync",
-      "schedule": "0 1 * * *"
+      "schedule": "0 1,7,13,19 * * *"
     },
     {
       "path": "/api/cron-jobs/entitlements-sweep",
