@@ -40,7 +40,11 @@ function weekLabel(start: string): string {
   return new Date(start + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default function WeeklyScoreboard() {
+// variant 'inline' is the original full-width layout (Fitness card's Scoreboard
+// tab); 'card' fills its parent's height with a 2x2 tile grid for the
+// standalone ScoreboardCard in the dashboard's right column.
+export default function WeeklyScoreboard({ variant = 'inline' }: { variant?: 'inline' | 'card' }) {
+  const card = variant === 'card';
   const [data, setData] = useState<Scoreboard | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -67,27 +71,29 @@ export default function WeeklyScoreboard() {
   }, [load]);
 
   const numbers = data?.numbers;
+  // In card mode tiles stretch to fill the column, so center their content.
+  const tileCls = `bg-[#0d1117] border border-[#30363d] rounded-lg p-3${card ? ' flex flex-col justify-center' : ''}`;
 
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-3">
+    <div className={card ? 'p-4 h-full flex flex-col' : 'p-4'}>
+      <div className="flex items-center justify-between mb-3 flex-shrink-0">
         <span className="flex items-center gap-1.5 text-[10px] text-[#8b949e]">
-          <ClipboardCheck className="w-3 h-3 text-[#F97316]" />
+          {!card && <ClipboardCheck className="w-3 h-3 text-[#F97316]" />}
           {data ? `Week of ${weekLabel(data.week.start)}` : 'Weekly review'}
         </span>
         <span className="text-[10px] text-[#484f58]">trading p&l · training · journal · writing</span>
       </div>
 
       {loading && !data ? (
-        <div className="flex items-center justify-center py-6 text-[#8b949e]">
+        <div className={`flex items-center justify-center py-6 text-[#8b949e] ${card ? 'flex-1' : ''}`}>
           <Loader2 className="w-5 h-5 animate-spin" />
         </div>
       ) : !data ? (
         <p className="text-xs text-[#8b949e]">Couldn&apos;t load the scoreboard — refresh to retry.</p>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className={card ? 'grid grid-cols-2 auto-rows-fr gap-2.5 flex-1 min-h-0' : 'grid grid-cols-2 md:grid-cols-4 gap-2.5'}>
           {/* Trading P&L (auto) */}
-          <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3">
+          <div className={tileCls}>
             <div className="flex items-center gap-1.5 mb-1">
               <LineChart className="w-3 h-3 text-[#F97316]" />
               <span className="text-[9px] uppercase tracking-wider text-[#8b949e] font-medium">Trading P&L</span>
@@ -106,7 +112,7 @@ export default function WeeklyScoreboard() {
           </div>
 
           {/* Training (auto) */}
-          <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3">
+          <div className={tileCls}>
             <div className="flex items-center gap-1.5 mb-1">
               <Dumbbell className="w-3 h-3 text-[#F97316]" />
               <span className="text-[9px] uppercase tracking-wider text-[#8b949e] font-medium">Training Days</span>
@@ -119,7 +125,7 @@ export default function WeeklyScoreboard() {
           </div>
 
           {/* Journaling (auto) */}
-          <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3">
+          <div className={tileCls}>
             <div className="flex items-center gap-1.5 mb-1">
               <BookOpen className="w-3 h-3 text-[#F97316]" />
               <span className="text-[9px] uppercase tracking-wider text-[#8b949e] font-medium">Journaling</span>
@@ -132,7 +138,7 @@ export default function WeeklyScoreboard() {
           </div>
 
           {/* Writing (auto — 'Write' habit check-offs) */}
-          <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3">
+          <div className={tileCls}>
             <div className="flex items-center gap-1.5 mb-1">
               <PenLine className="w-3 h-3 text-[#F97316]" />
               <span className="text-[9px] uppercase tracking-wider text-[#8b949e] font-medium">Writing Days</span>

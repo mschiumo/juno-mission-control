@@ -7,6 +7,7 @@ import GapScannerCard from "@/components/GapScannerCard";
 import DailyJournalCard from "@/components/DailyJournalCard";
 import CountdownCard from "@/components/CountdownCard";
 import DaysSinceCard from "@/components/DaysSinceCard";
+import ScoreboardCard from "@/components/ScoreboardCard";
 import FitnessCard from "@/components/FitnessCard";
 import GoalsCard from "@/components/GoalsCard";
 import LiveClock from "@/components/LiveClock";
@@ -217,6 +218,10 @@ function DashboardContent() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <CountdownCard />
                   <DaysSinceCard />
+                </div>
+                {/* Stretches so the column's bottom edge lines up with HabitCard */}
+                <div className="xl:flex-1 xl:min-h-0">
+                  <ScoreboardCard />
                 </div>
               </div>
             </div>
