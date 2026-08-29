@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, ChevronLeft, ChevronRight, Flame, Check, Settings } from 'lucide-react';
+import { Sparkles, ChevronLeft, ChevronRight, Flame, Check, Settings, NotebookPen } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
 import {
-  hasContent, moodOf, DEFAULT_TEXT_PROMPTS,
+  hasContent, DEFAULT_TEXT_PROMPTS,
   type JournalPrompt, type PromptDef, type GoalReview,
 } from '@/lib/journal-prompts';
 import JournalReportModal from '@/components/JournalReportModal';
@@ -53,13 +53,13 @@ function shortWeekLabel(dateStr: string): string {
 // Encouraging note for an active journaling streak, scaled to the milestone reached.
 function streakMessage(streak: number): string | null {
   if (streak <= 0) return null;
-  if (streak === 1) return '1 day — great start, come back tomorrow!';
-  if (streak === 2) return '2 days! keep it going!';
-  if (streak < 7) return `${streak} days! great job, keep it up!`;
-  if (streak < 14) return `${streak} days! a full week strong — amazing!`;
-  if (streak < 30) return `${streak} days! two weeks and counting 💪`;
-  if (streak < 100) return `${streak} days! a whole month — incredible 🚀`;
-  return `${streak} days! legendary dedication 🏆`;
+  if (streak === 1) return '1 day — great start, come back tomorrow';
+  if (streak === 2) return '2 days — keep it going';
+  if (streak < 7) return `${streak} days — building momentum`;
+  if (streak < 14) return `${streak} days — a full week strong`;
+  if (streak < 30) return `${streak} days — two weeks and counting`;
+  if (streak < 100) return `${streak} days — over a month of consistency`;
+  return `${streak} days — exceptional dedication`;
 }
 
 export default function DailyJournalCard() {
@@ -123,7 +123,7 @@ export default function DailyJournalCard() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#30363d] bg-gradient-to-r from-[#F97316]/10 to-transparent">
         <div className="flex items-center gap-2">
-          <span className="text-base leading-none">📓</span>
+          <NotebookPen className="w-4 h-4 text-[#F97316]" />
           <h2 className="text-sm font-semibold text-white">Daily Journal</h2>
           {streak > 0 && (
             <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[#F97316]/15 text-[#F97316] font-semibold">
@@ -160,8 +160,9 @@ export default function DailyJournalCard() {
 
       {/* Streak encouragement */}
       {streak > 0 && (
-        <div className="px-4 py-1.5 border-b border-[#30363d] bg-[#F97316]/5 text-[11px] font-medium text-[#F97316]">
-          🔥 {streakMessage(streak)}
+        <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-[#30363d] bg-[#F97316]/5 text-[11px] font-medium text-[#F97316]">
+          <Flame className="w-3 h-3 flex-shrink-0" />
+          {streakMessage(streak)}
         </div>
       )}
 
@@ -189,7 +190,6 @@ export default function DailyJournalCard() {
         <div className="grid grid-cols-7 gap-1">
           {weekDays.map((d, i) => {
             const done = hasContent(entries[d]?.prompts);
-            const mood = moodOf(entries[d]?.prompts);
             const isToday = d === today;
             const isFuture = d > today;
             return (
@@ -221,7 +221,7 @@ export default function DailyJournalCard() {
                     ${isToday ? 'ring-1 ring-[#F97316]/60' : ''}
                   `}
                 >
-                  {done ? mood || <Check className="w-4 h-4" strokeWidth={3} /> : dayNum(d)}
+                  {done ? <Check className="w-4 h-4" strokeWidth={3} /> : dayNum(d)}
                 </span>
               </button>
             );
