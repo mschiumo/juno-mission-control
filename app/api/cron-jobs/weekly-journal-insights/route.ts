@@ -1,11 +1,14 @@
 /**
  * Weekly Journal Insights Email (Vercel cron) — owner-only.
  *
- * Runs Saturday 02:00 UTC (Friday evening ET, after market close and after the
- * 01:00 UTC SnapTrade sync so Friday's trades are already in). Generates the
- * weekly journal-insights report for the app owner — persisted to the same
- * Redis keys the Journal Insights tab reads, so it also appears in the archive
- * — and emails the rundown to the owner's inbox.
+ * Runs Saturday 21:00 UTC (Saturday afternoon ET). SnapTrade can take until
+ * the next morning to propagate Friday's activity, so the old Saturday 02:00
+ * UTC run often missed Friday; by Saturday afternoon the 6-hourly SnapTrade
+ * sync (01/07/13/19 UTC) has picked Friday up. The report window is the
+ * Monday of the current week through the run time, so all of Mon–Fri is
+ * covered. Generates the weekly journal-insights report for the app owner —
+ * persisted to the same Redis keys the Journal Insights tab reads, so it also
+ * appears in the archive — and emails the rundown to the owner's inbox.
  *
  * Gated by CRON_SECRET in middleware.ts (Authorization: Bearer <CRON_SECRET>),
  * same as the other /api/cron-jobs/* routes.
