@@ -20,6 +20,7 @@ import {
   getCachedGapScanResults,
 } from '@/lib/cron-helpers';
 import { getRedisClient } from '@/lib/redis';
+import { getDailyQuote } from '@/lib/daily-quote';
 import { fetchCryptoBrief, type CryptoBriefData } from '@/lib/crypto-brief';
 
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
@@ -348,6 +349,7 @@ export interface BriefingData {
   crypto: MarketItem[];
   futures: MarketItem[];
   cryptoBrief?: CryptoBriefData;
+  quote?: { quote: string; author: string };
   aiSummary: {
     marketOverview: string;
     bigMovers: { symbol: string; move: string; reason: string }[];
@@ -556,7 +558,7 @@ export async function GET(request: Request) {
     }
 
     // Fetch all data in parallel
-    const [indices, stocks, crypto, futures, news, calendarEvents, earningsEvents, cryptoBrief] = await Promise.all([
+    const [indices, stocks, crypto, futures, news, calendarEvents, earningsEvents, cryptoBrief, dailyQuote] = await Promise.all([
       fetchPolygonSnapshots(['SPY', 'QQQ', 'DIA', 'VIX']),
       fetchPolygonSnapshots(['AAPL', 'NVDA', 'MSFT', 'TSLA', 'META', 'AMZN', 'GOOGL']),
       fetchCoinGeckoPrices(),
@@ -565,6 +567,8 @@ export async function GET(request: Request) {
       fetchEconomicCalendar(),
       fetchUpcomingEarnings(),
       fetchCryptoBrief(),
+      // Same daily motivational quote shown on the dashboard banner
+      getDailyQuote().then(r => r.data).catch(() => null),
     ]);
 
     // Generate AI summary
@@ -579,6 +583,7 @@ export async function GET(request: Request) {
       crypto,
       futures,
       cryptoBrief,
+      quote: dailyQuote ? { quote: dailyQuote.quote, author: dailyQuote.author } : undefined,
       aiSummary,
     };
 
@@ -629,6 +634,7 @@ export async function GET(request: Request) {
             crypto: briefing.crypto,
             futures: briefing.futures,
             cryptoBrief: briefing.cryptoBrief,
+            quote: briefing.quote,
             aiSummary: briefing.aiSummary,
             gapData,
           });
