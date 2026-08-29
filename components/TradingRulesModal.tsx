@@ -73,6 +73,48 @@ function isTradingDay(et: EtParts): boolean {
   return !US_MARKET_HOLIDAYS.has(et.ymd);
 }
 
+// Two-tone "opening bell" chime, synthesized via Web Audio API so no audio
+// asset needs to be bundled. Fails silently if the API isn't available or
+// the browser blocks audio for autoplay reasons — the modal still opens.
+function playOpeningBell(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') void ctx.resume();
+
+    const playTone = (frequency: number, startAt: number, duration: number, peak = 0.35) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = frequency;
+      // Bell-like envelope: fast attack, exponential decay
+      gain.gain.setValueAtTime(0.0001, startAt);
+      gain.gain.exponentialRampToValueAtTime(peak, startAt + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startAt);
+      osc.stop(startAt + duration);
+    };
+
+    const t0 = ctx.currentTime;
+    playTone(880, t0, 1.4);             // A5
+    playTone(1318.51, t0 + 0.12, 1.3);  // E6 — perfect fifth above
+
+    // Close the context after the chime finishes so we don't leak audio nodes.
+    window.setTimeout(() => {
+      ctx.close().catch(() => {});
+    }, 1800);
+  } catch {
+    // Audio is non-critical; ignore any failure.
+  }
+}
+
 export default function TradingRulesModal() {
   const [show, setShow] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
@@ -112,7 +154,9 @@ export default function TradingRulesModal() {
       const msUntil = Math.max(0, (triggerMinutes - minutesNow) * 60 * 1000);
 
       timer = setTimeout(() => {
-        if (!cancelled) setShow(true);
+        if (cancelled) return;
+        playOpeningBell();
+        setShow(true);
       }, msUntil);
     }
 
