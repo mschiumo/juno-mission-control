@@ -1,6 +1,6 @@
 import { createClient } from 'redis';
 import { NextResponse } from 'next/server';
-import { requireUserId } from '@/lib/auth-session';
+import { requireOwner } from '@/lib/auth-session';
 
 interface ActivityItem {
   id: string;
@@ -40,7 +40,9 @@ async function getRedisClient() {
 }
 
 export async function GET() {
-  const authResult = await requireUserId();
+  // Owner-only: the activity log is a single global key (system/cron/api events),
+  // not per-user. Any logged-in user could previously read and pollute it.
+  const authResult = await requireOwner();
   if (authResult.error) return authResult.error;
 
   try {
@@ -79,6 +81,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const authResult = await requireOwner();
+  if (authResult.error) return authResult.error;
+
   try {
     const body = await request.json();
     const { action, details, type, url } = body;

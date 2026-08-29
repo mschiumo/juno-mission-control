@@ -8,6 +8,7 @@ import {
   indexKey,
   type SavedReport,
 } from '@/lib/journal-insights';
+import { consumeReportGeneration, rateLimitMessage } from '@/lib/report-rate-limit';
 
 // GET — fetch saved report for current period + archived reports
 export async function GET(request: NextRequest) {
@@ -68,6 +69,31 @@ export async function POST(request: NextRequest) {
         );
       }
       return NextResponse.json({ success: true, report: JSON.parse(data) });
+    }
+
+    // Cached-report guard: a saved report for the current period is served
+    // as-is unless the caller explicitly forces a regenerate. This stops a
+    // looped POST from calling Claude on every request (the previous behavior
+    // regenerated unconditionally), while the UI's Regenerate button opts in
+    // via `force`.
+    const force = body.force === true;
+    const currentPeriodKey = getPeriodKey(period);
+    if (!force) {
+      const redis = await getRedisClient();
+      const existing = await redis.get(redisKey(userId, period, currentPeriodKey));
+      if (existing) {
+        return NextResponse.json({ success: true, report: JSON.parse(existing), cached: true });
+      }
+    }
+
+    // Per-user daily cap on actual Claude calls (shared with the weekly cron's
+    // feature bucket). Only consumed when we're about to generate.
+    const rate = await consumeReportGeneration(userId, 'journal-insights');
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { success: false, error: rateLimitMessage(rate.limit) },
+        { status: 429 },
+      );
     }
 
     const generated = await generateJournalInsightsReport(userId, period);

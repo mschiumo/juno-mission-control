@@ -115,7 +115,9 @@ export default function JournalReportModal({ onClose }: { onClose: () => void })
       const res = await fetch('/api/personal-journal-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ period }),
+        // force a fresh Claude call only when regenerating an existing report;
+        // the first generation has no cached report to guard against.
+        body: JSON.stringify({ period, force: !!report }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
