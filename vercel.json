@@ -140,7 +140,7 @@
     },
     {
       "path": "/api/cron-jobs/weekly-journal-insights",
-      "schedule": "0 2 * * 6"
+      "schedule": "0 21 * * 6"
     },
     {
       "path": "/api/cron-jobs/weekly-habits-recap",
