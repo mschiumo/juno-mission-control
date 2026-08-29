@@ -13,6 +13,7 @@ import {
   BarChart3,
   Bitcoin,
   ExternalLink,
+  Quote,
 } from 'lucide-react';
 import EmailCTA from './EmailCTA';
 
@@ -45,6 +46,7 @@ interface BriefingData {
   stocks: MarketItem[];
   crypto: MarketItem[];
   futures?: MarketItem[];
+  quote?: { quote: string; author: string };
   aiSummary: AiSummary;
 }
 
@@ -487,6 +489,23 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
             </div>
           ) : (
             <div className="space-y-5">
+              {/* Daily Motivational — same quote as the dashboard banner */}
+              {briefing.quote && (
+                <div className="bg-gradient-to-r from-[#ff6b35]/10 via-[#ff8c5a]/10 to-[#ff6b35]/10 border border-[#ff6b35]/30 rounded-xl p-4">
+                  <div className="flex items-start gap-2">
+                    <Quote className="w-4 h-4 text-[#ff6b35] flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white italic">
+                        &ldquo;{briefing.quote.quote}&rdquo;
+                      </p>
+                      <cite className="text-xs text-[#ff8c5a] not-italic block mt-2">
+                        — {briefing.quote.author}
+                      </cite>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Email CTA */}
               <EmailCTA type="marketBriefing" variant="banner" />
 

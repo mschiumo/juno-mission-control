@@ -56,6 +56,7 @@ interface BriefingEmailProps {
   crypto: MarketItem[];
   futures?: MarketItem[];
   cryptoBrief?: CryptoBriefData;
+  quote?: { quote: string; author: string };
   aiSummary: {
     marketOverview: string;
     bigMovers: { symbol: string; move: string; reason: string }[];
@@ -327,7 +328,7 @@ function SectionHeader({ icon, title }: { icon: string; title: string }) {
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 
-export function MarketBriefingEmail({ date, indices, stocks, crypto, futures, cryptoBrief, aiSummary, gapData }: BriefingEmailProps) {
+export function MarketBriefingEmail({ date, indices, stocks, crypto, futures, cryptoBrief, quote, aiSummary, gapData }: BriefingEmailProps) {
   const sentiment = SENTIMENT_CONFIG[aiSummary.sentiment] || SENTIMENT_CONFIG.neutral;
   const futuresList = futures ?? [];
   const allItems = [...futuresList, ...indices, ...stocks, ...crypto];
@@ -338,6 +339,14 @@ export function MarketBriefingEmail({ date, indices, stocks, crypto, futures, cr
 
   return (
     <EmailLayout previewText={`Market Briefing ${date} — ${aiSummary.sentiment}`}>
+
+      {/* Daily Motivational — same quote as the dashboard banner */}
+      {quote && (
+        <Section style={quoteCard}>
+          <Text style={quoteText}>&ldquo;{quote.quote}&rdquo;</Text>
+          <Text style={quoteAuthor}>— {quote.author}</Text>
+        </Section>
+      )}
 
       {/* Header — title + sentiment */}
       <Section style={card}>
@@ -494,6 +503,30 @@ const card: React.CSSProperties = {
   padding: '20px 24px',
   marginBottom: '12px',
   boxShadow: '0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02)',
+};
+
+const quoteCard: React.CSSProperties = {
+  background: `linear-gradient(135deg, rgba(255,107,0,0.08) 0%, transparent 70%), ${P.surface1}`,
+  border: `1px solid rgba(255,107,0,0.25)`,
+  borderLeft: `3px solid ${P.accent}`,
+  borderRadius: '14px',
+  padding: '16px 24px',
+  marginBottom: '12px',
+};
+
+const quoteText: React.CSSProperties = {
+  color: P.textPrimary,
+  fontSize: '15px',
+  fontStyle: 'italic' as const,
+  lineHeight: '23px',
+  margin: 0,
+};
+
+const quoteAuthor: React.CSSProperties = {
+  color: P.accent,
+  fontSize: '12px',
+  fontWeight: 600,
+  margin: '8px 0 0',
 };
 
 const dateText: React.CSSProperties = {
