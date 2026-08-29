@@ -71,13 +71,47 @@ export default function WeeklyScoreboard({ variant = 'inline' }: { variant?: 'in
   }, [load]);
 
   const numbers = data?.numbers;
-  // In card mode tiles stretch to fill the column, so center their content.
-  const tileCls = `bg-[#0d1117] border border-[#30363d] rounded-lg p-3${card ? ' flex flex-col justify-center' : ''}`;
+  // In card mode tiles stretch to fill the column, so center their content and
+  // scale up type/icons; the inline (Fitness tab) sizes are unchanged.
+  const tileCls = card
+    ? 'bg-[#0d1117] border border-[#30363d] rounded-lg p-4 flex flex-col justify-center'
+    : 'bg-[#0d1117] border border-[#30363d] rounded-lg p-3';
+  const headCls = card ? 'flex items-center gap-2 mb-2.5' : 'flex items-center gap-1.5 mb-1';
+  const labelCls = card
+    ? 'text-xs uppercase tracking-wider text-[#8b949e] font-semibold'
+    : 'text-[9px] uppercase tracking-wider text-[#8b949e] font-medium';
+  const numCls = card ? 'text-3xl font-bold tabular-nums' : 'text-base font-bold tabular-nums';
+  const denomCls = card ? 'text-[#484f58] text-base font-semibold' : 'text-[#484f58] text-xs font-semibold';
+  const subCls = card ? 'text-[11px] text-[#484f58] mt-1' : 'text-[10px] text-[#484f58] mt-0.5';
+
+  const tileIcon = (Icon: typeof LineChart) =>
+    card ? (
+      <span className="w-7 h-7 rounded-lg bg-[#F97316]/10 flex items-center justify-center flex-shrink-0">
+        <Icon className="w-4 h-4 text-[#F97316]" />
+      </span>
+    ) : (
+      <Icon className="w-3 h-3 text-[#F97316]" />
+    );
+
+  // Card mode only: progress toward the weekly target under each count.
+  const targetBar = (value: number, goal: number) =>
+    card ? (
+      <div className="h-1.5 rounded-full bg-[#161b22] border border-white/5 overflow-hidden mt-3">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${
+            value >= goal
+              ? 'bg-gradient-to-r from-[#22c55e] to-[#4ade80]'
+              : 'bg-gradient-to-r from-[#F97316] to-[#f59e0b]'
+          }`}
+          style={{ width: `${Math.min(100, (value / goal) * 100)}%` }}
+        />
+      </div>
+    ) : null;
 
   return (
     <div className={card ? 'p-4 h-full flex flex-col' : 'p-4'}>
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <span className="flex items-center gap-1.5 text-[10px] text-[#8b949e]">
+        <span className={`flex items-center gap-1.5 ${card ? 'text-[11px] font-medium' : 'text-[10px]'} text-[#8b949e]`}>
           {!card && <ClipboardCheck className="w-3 h-3 text-[#F97316]" />}
           {data ? `Week of ${weekLabel(data.week.start)}` : 'Weekly review'}
         </span>
@@ -94,18 +128,18 @@ export default function WeeklyScoreboard({ variant = 'inline' }: { variant?: 'in
         <div className={card ? 'grid grid-cols-2 auto-rows-fr gap-2.5 flex-1 min-h-0' : 'grid grid-cols-2 md:grid-cols-4 gap-2.5'}>
           {/* Trading P&L (auto) */}
           <div className={tileCls}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <LineChart className="w-3 h-3 text-[#F97316]" />
-              <span className="text-[9px] uppercase tracking-wider text-[#8b949e] font-medium">Trading P&L</span>
+            <div className={headCls}>
+              {tileIcon(LineChart)}
+              <span className={labelCls}>Trading P&L</span>
             </div>
             <span
-              className={`text-base font-bold tabular-nums ${
+              className={`${numCls} ${
                 numbers!.pnl > 0 ? 'text-[#22c55e]' : numbers!.pnl < 0 ? 'text-[#ef4444]' : 'text-white'
               }`}
             >
               {numbers!.pnl > 0 ? '+' : ''}{fmtUSD(numbers!.pnl)}
             </span>
-            <p className="text-[10px] text-[#484f58] mt-0.5">
+            <p className={subCls}>
               auto · {numbers!.pnlTrades} closed trade{numbers!.pnlTrades !== 1 ? 's' : ''}
               {numbers!.pnlFees ? ` · after ${fmtUSD(numbers!.pnlFees)} fees` : ' this week'}
             </p>
@@ -113,50 +147,53 @@ export default function WeeklyScoreboard({ variant = 'inline' }: { variant?: 'in
 
           {/* Training (auto) */}
           <div className={tileCls}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <Dumbbell className="w-3 h-3 text-[#F97316]" />
-              <span className="text-[9px] uppercase tracking-wider text-[#8b949e] font-medium">Training Days</span>
+            <div className={headCls}>
+              {tileIcon(Dumbbell)}
+              <span className={labelCls}>Training Days</span>
             </div>
-            <span className="text-base font-bold tabular-nums">
+            <span className={numCls}>
               <span className={numbers!.training >= WEEKLY_TARGETS.training ? 'text-[#22c55e]' : 'text-white'}>{numbers!.training}</span>
-              <span className="text-[#484f58] text-xs font-semibold"> / {WEEKLY_TARGETS.training}</span>
+              <span className={denomCls}> / {WEEKLY_TARGETS.training}</span>
             </span>
-            <p className="text-[10px] text-[#484f58] mt-0.5">auto · Strava + workout split</p>
+            <p className={subCls}>auto · Strava + workout split</p>
+            {targetBar(numbers!.training, WEEKLY_TARGETS.training)}
           </div>
 
           {/* Journaling (auto) */}
           <div className={tileCls}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <BookOpen className="w-3 h-3 text-[#F97316]" />
-              <span className="text-[9px] uppercase tracking-wider text-[#8b949e] font-medium">Journaling</span>
+            <div className={headCls}>
+              {tileIcon(BookOpen)}
+              <span className={labelCls}>Journaling</span>
             </div>
-            <span className="text-base font-bold tabular-nums">
+            <span className={numCls}>
               <span className={numbers!.journal >= WEEKLY_TARGETS.journal ? 'text-[#22c55e]' : 'text-white'}>{numbers!.journal}</span>
-              <span className="text-[#484f58] text-xs font-semibold"> / {WEEKLY_TARGETS.journal} days</span>
+              <span className={denomCls}> / {WEEKLY_TARGETS.journal} days</span>
             </span>
-            <p className="text-[10px] text-[#484f58] mt-0.5">auto · daily journal entries</p>
+            <p className={subCls}>auto · daily journal entries</p>
+            {targetBar(numbers!.journal, WEEKLY_TARGETS.journal)}
           </div>
 
           {/* Writing (auto — 'Write' habit check-offs) */}
           <div className={tileCls}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <PenLine className="w-3 h-3 text-[#F97316]" />
-              <span className="text-[9px] uppercase tracking-wider text-[#8b949e] font-medium">Writing Days</span>
+            <div className={headCls}>
+              {tileIcon(PenLine)}
+              <span className={labelCls}>Writing Days</span>
             </div>
             {numbers!.writing ? (
               <>
-                <span className="text-base font-bold tabular-nums">
+                <span className={numCls}>
                   <span className={numbers!.writing.days >= numbers!.writing.goal ? 'text-[#22c55e]' : 'text-white'}>
                     {numbers!.writing.days}
                   </span>
-                  <span className="text-[#484f58] text-xs font-semibold"> / {numbers!.writing.goal} days</span>
+                  <span className={denomCls}> / {numbers!.writing.goal} days</span>
                 </span>
-                <p className="text-[10px] text-[#484f58] mt-0.5">auto · &apos;Write&apos; habit check-offs</p>
+                <p className={subCls}>auto · &apos;Write&apos; habit check-offs</p>
+                {targetBar(numbers!.writing.days, numbers!.writing.goal)}
               </>
             ) : (
               <>
-                <span className="text-base font-bold text-[#484f58]">—</span>
-                <p className="text-[10px] text-[#484f58] mt-0.5">add a &apos;Write&apos; habit to track this</p>
+                <span className={card ? 'text-3xl font-bold text-[#484f58]' : 'text-base font-bold text-[#484f58]'}>—</span>
+                <p className={subCls}>add a &apos;Write&apos; habit to track this</p>
               </>
             )}
           </div>
