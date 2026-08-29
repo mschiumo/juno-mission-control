@@ -7,7 +7,7 @@ import {
   Calendar, ArrowRight, CheckCircle, LineChart,
   Activity, Shield, ChevronRight, LogIn,
   Sparkles, Brain, Lightbulb, TrendingDown, Download,
-  Bell, Newspaper, Sunrise, Star, SlidersHorizontal, Mail,
+  Bell, Newspaper, Sunrise, Star, SlidersHorizontal, Mail, Instagram,
 } from 'lucide-react';
 
 import { TIER_PRICING, ANNUAL_DISCOUNT, PLATINUM_COMING_SOON } from '@/lib/entitlements';
@@ -1392,13 +1392,24 @@ export default function LandingPage() {
               Terms, plans, or anything else — we read every message.
             </p>
           </div>
-          <a
-            href={`mailto:${SUPPORT_EMAIL}`}
-            className="inline-flex max-w-full items-center gap-2.5 px-4 sm:px-5 py-3 rounded-xl border border-[#30363d] bg-[#0d1117] text-xs sm:text-sm text-[#c9d1d9] hover:border-[#F97316]/50 hover:text-white transition-colors font-mono"
-          >
-            <Mail className="w-4 h-4 shrink-0 text-[#F97316]" />
-            <span className="break-all text-left">{SUPPORT_EMAIL}</span>
-          </a>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="inline-flex max-w-full items-center gap-2.5 px-4 sm:px-5 py-3 rounded-xl border border-[#30363d] bg-[#0d1117] text-xs sm:text-sm text-[#c9d1d9] hover:border-[#F97316]/50 hover:text-white transition-colors font-mono"
+            >
+              <Mail className="w-4 h-4 shrink-0 text-[#F97316]" />
+              <span className="break-all text-left">{SUPPORT_EMAIL}</span>
+            </a>
+            <a
+              href="https://www.instagram.com/confluencetrade"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex max-w-full items-center gap-2.5 px-4 sm:px-5 py-3 rounded-xl border border-[#30363d] bg-[#0d1117] text-xs sm:text-sm text-[#c9d1d9] hover:border-[#F97316]/50 hover:text-white transition-colors font-mono"
+            >
+              <Instagram className="w-4 h-4 shrink-0 text-[#F97316]" />
+              <span className="text-left">@confluencetrade</span>
+            </a>
+          </div>
         </div>
       </section>
 
@@ -1424,6 +1435,15 @@ export default function LandingPage() {
             <Link href="/privacy" className="text-xs text-[#8b949e] hover:text-[#F97316] transition-colors">
               Privacy
             </Link>
+            <a
+              href="https://www.instagram.com/confluencetrade"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-[#8b949e] hover:text-[#F97316] transition-colors"
+            >
+              <Instagram className="w-3.5 h-3.5" />
+              @confluencetrade
+            </a>
             <a href={`mailto:${SUPPORT_EMAIL}`} className="text-xs text-[#8b949e] hover:text-[#F97316] transition-colors">
               {SUPPORT_EMAIL}
             </a>
