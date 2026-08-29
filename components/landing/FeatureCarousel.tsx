@@ -29,6 +29,8 @@ import {
   ChevronRight,
   ArrowUpRight,
   ArrowDownRight,
+  Link2,
+  RefreshCw,
 } from 'lucide-react';
 
 /* ── Mockups ─────────────────────────────────────────────────────────── */
@@ -372,6 +374,62 @@ function GoalsMock() {
   );
 }
 
+function BrokerSyncMock() {
+  const activity = [
+    ['14 trades imported', 'Journal & P&L calendar updated'],
+    ['Account balance synced', 'Equity curve refreshed'],
+    ['Fees & commissions captured', 'Net P&L, not estimates'],
+  ] as const;
+  return (
+    <div className={panel}>
+      <div className="flex items-center justify-between mb-3">
+        <span className={label}>Broker Connection</span>
+        <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#3fb950]/15 border border-[#3fb950]/30">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
+          <span className="text-[9px] font-bold text-[#3fb950]">CONNECTED</span>
+        </span>
+      </div>
+
+      <div className="flex items-center gap-3 bg-[#161b22] border border-[#30363d] rounded-xl px-3 py-3 mb-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brokers/robinhood.png" alt="Robinhood" className="w-8 h-8 rounded-lg" />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold text-white">Robinhood</p>
+          <p className="text-[10px] text-[#8b949e]">Linked via SnapTrade · credentials never stored</p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-[10px] text-[#8b949e] flex items-center gap-1 justify-end">
+            <RefreshCw className="w-3 h-3 text-[#3fb950]" />
+            Auto-sync
+          </p>
+          <p className="text-[9px] text-[#8b949e]">Today · 4:15 PM ET</p>
+        </div>
+      </div>
+
+      <p className={`${label} mb-2`}>Today&apos;s sync</p>
+      <div className="space-y-1.5 mb-3">
+        {activity.map(([what, result]) => (
+          <div key={what} className="flex items-center gap-2.5 bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2">
+            <div className="w-4 h-4 rounded-full bg-[#3fb950]/15 flex items-center justify-center shrink-0">
+              <Check className="w-2.5 h-2.5 text-[#3fb950]" />
+            </div>
+            <span className="text-[11px] font-semibold text-white whitespace-nowrap">{what}</span>
+            <span className="hidden sm:block text-[10px] text-[#8b949e] truncate flex-1 text-right">{result}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-center gap-2">
+        {['schwab.png', 'fidelity.png', 'etrade.png', 'webull.png', 'interactive-brokers.png'].map(f => (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img key={f} src={`/brokers/${f}`} alt="" className="w-5 h-5 rounded-md opacity-60" />
+        ))}
+        <span className="text-[9px] text-[#8b949e] ml-1">+ more, powered by SnapTrade</span>
+      </div>
+    </div>
+  );
+}
+
 /* ── Slides ──────────────────────────────────────────────────────────── */
 
 const SLIDES = [
@@ -383,6 +441,15 @@ const SLIDES = [
     desc: 'A P&L calendar with a journal underneath — import broker statements in one click (or let Gold sync them automatically), tag strategy and emotional state, and review what actually happened instead of what you remember.',
     tags: ['P&L calendar', 'Statement import', 'Strategy & emotion tags'],
     mock: <JournalMock />,
+  },
+  {
+    slug: 'broker-sync',
+    icon: Link2,
+    kicker: 'Broker Sync · Gold',
+    title: 'Connect your broker once. Done.',
+    desc: 'Link your brokerage in about a minute and your trades, fees, and balances flow in automatically every trading day — no CSV exports, no manual entry, no fudged numbers. Works with Robinhood, Schwab, Fidelity, and more via SnapTrade; your login stays with your broker and is never stored here.',
+    tags: ['One-click connect', 'Daily auto-sync', 'Trades, fees & balances', 'Credentials never stored'],
+    mock: <BrokerSyncMock />,
   },
   {
     slug: 'agents',
