@@ -213,9 +213,11 @@ function DashboardContent() {
                 <HabitCard />
               </div>
               <div className="flex flex-col gap-5">
-                <CountdownCard />
-                <DaysSinceCard />
                 <DailyJournalCard />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <CountdownCard />
+                  <DaysSinceCard />
+                </div>
               </div>
             </div>
           </div>
