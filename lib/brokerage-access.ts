@@ -20,7 +20,12 @@ import { restoreTradesBackup, clearAllTrades, clearTradesBackup } from '@/lib/db
 
 const ORPHAN_KEY = 'broker:snaptrade:orphaned-users';
 
-async function recordOrphan(snaptradeUserId: string): Promise<void> {
+/**
+ * Queue a SnapTrade userId whose deleteUser call failed so the nightly sweep
+ * retries it. Shared with the Portfolio disconnect (its SnapTrade user is a
+ * plain userId string too, so the same retry loop handles it).
+ */
+export async function recordOrphan(snaptradeUserId: string): Promise<void> {
   try {
     const redis = await getRedisClient();
     await redis.sAdd(ORPHAN_KEY, snaptradeUserId);
