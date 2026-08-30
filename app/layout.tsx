@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
+import UsageTracker from "@/components/UsageTracker";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -75,6 +77,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${plexSans.variable} ${plexMono.variable} antialiased bg-[#0d1117] text-[#e6edf3] min-h-screen`}
       >
         <SessionProvider>
+          {/* Suspense: UsageTracker reads useSearchParams, which would
+              otherwise force the whole tree into client-side rendering. */}
+          <Suspense fallback={null}>
+            <UsageTracker />
+          </Suspense>
           {children}
         </SessionProvider>
       </body>

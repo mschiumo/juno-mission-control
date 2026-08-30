@@ -16,6 +16,7 @@ import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
 import FinancesView from "@/components/finances/FinancesView";
 import AccountMetricsView from "@/components/admin/AccountMetricsView";
+import UsageAnalyticsView from "@/components/admin/UsageAnalyticsView";
 import LandingPage from "@/components/landing/LandingPage";
 import UserAvatar from "@/components/UserAvatar";
 import VerifyEmailBanner from "@/components/VerifyEmailBanner";
@@ -244,9 +245,10 @@ function DashboardContent() {
             </Suspense>
           </div>
         ) : activeTab === 'accounts' ? (
-          /* Owner-only account metrics */
-          <div className="max-w-[1600px] mx-auto">
+          /* Owner-only account metrics + usage analytics */
+          <div className="max-w-[1600px] mx-auto space-y-10">
             <AccountMetricsView />
+            <UsageAnalyticsView />
           </div>
         ) : null}
       </main>
