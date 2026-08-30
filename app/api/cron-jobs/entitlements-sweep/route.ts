@@ -25,7 +25,7 @@ import { isRecordActive } from '@/lib/entitlements';
 import { disconnectBrokerage, retryOrphanedDeregistrations } from '@/lib/brokerage-access';
 import { disconnectPortfolio } from '@/lib/portfolio-access';
 import { getAllPortfolioConnections } from '@/lib/db/portfolio-connection';
-import { getEntitlements } from '@/lib/db/entitlements';
+import { getEntitlementsStrict } from '@/lib/db/entitlements';
 import { recordPlanEvent } from '@/lib/db/plan-events';
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -64,7 +64,10 @@ export async function GET(request: Request): Promise<NextResponse> {
   let portfoliosDisconnected = 0;
   for (const connection of await getAllPortfolioConnections()) {
     try {
-      const entitlements = await getEntitlements(connection.userId);
+      // Strict resolution: a Redis read failure throws into the catch below
+      // (skipped tonight, retried tomorrow) rather than resolving to free and
+      // irreversibly deregistering a still-paying user.
+      const entitlements = await getEntitlementsStrict(connection.userId);
       if (entitlements.features.portfolio) continue;
       const result = await disconnectPortfolio(connection.userId);
       if (result.hadConnection) portfoliosDisconnected++;
