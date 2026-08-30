@@ -19,6 +19,7 @@
  */
 
 import { getRedisClient } from '@/lib/redis';
+import { getUserById } from '@/lib/db/users';
 
 export type UsageEventType = 'pageview' | 'click';
 
@@ -35,6 +36,11 @@ export interface UsageEvent extends UsageEventInput {
   visitor: string;
 }
 
+export interface UsageEventWithLabel extends UsageEvent {
+  /** Human-readable visitor: account email, or "anonymous" for guests. */
+  visitorLabel: string;
+}
+
 export interface UsageDay {
   date: string;
   views: number;
@@ -49,7 +55,7 @@ export interface UsageSummary {
   rangeViews: number;
   topPages: { page: string; views: number }[];
   topClicks: { page: string; label: string; clicks: number }[];
-  recentEvents: UsageEvent[];
+  recentEvents: UsageEventWithLabel[];
 }
 
 const RETENTION_DAYS = 90;
@@ -170,7 +176,7 @@ export async function getUsageSummary(dayCount = 14): Promise<UsageSummary> {
     .slice(0, 12);
 
   const rawEvents: string[] = await redis.lRange(EVENTS_KEY, 0, 49);
-  const recentEvents = rawEvents
+  const parsedEvents = rawEvents
     .map((r) => {
       try {
         return JSON.parse(r) as UsageEvent;
@@ -179,6 +185,23 @@ export async function getUsageSummary(dayCount = 14): Promise<UsageSummary> {
       }
     })
     .filter((e): e is UsageEvent => !!e);
+
+  // Resolve "u:{userId}" visitors to emails for the feed — one lookup per
+  // distinct visitor, so at most a handful of Redis GETs.
+  const visitorLabels = new Map<string, string>();
+  for (const event of parsedEvents) {
+    if (visitorLabels.has(event.visitor)) continue;
+    if (event.visitor.startsWith('u:')) {
+      const user = await getUserById(event.visitor.slice(2));
+      visitorLabels.set(event.visitor, user?.email ?? 'deleted account');
+    } else {
+      visitorLabels.set(event.visitor, 'anonymous');
+    }
+  }
+  const recentEvents: UsageEventWithLabel[] = parsedEvents.map((e) => ({
+    ...e,
+    visitorLabel: visitorLabels.get(e.visitor) ?? 'anonymous',
+  }));
 
   return {
     generatedAt: new Date().toISOString(),

@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, Eye, MousePointerClick, RefreshCw, Users } from 'lucide-react';
+import { Activity, BarChart3, Eye, MousePointerClick, RefreshCw, Users } from 'lucide-react';
 import type { UsageSummary } from '@/lib/db/usage-analytics';
 
 const WINDOWS = [7, 14, 30] as const;
@@ -261,6 +261,53 @@ export default function UsageAnalyticsView() {
           }))}
           emptyText="No clicks recorded yet."
         />
+      </div>
+
+      {/* Recent activity feed */}
+      <div
+        className="rounded-xl p-5"
+        style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
+      >
+        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+          <Activity className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+          Recent activity
+        </h3>
+        {s.recentEvents.length === 0 ? (
+          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            No activity recorded yet — events appear here as visitors browse and click.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {s.recentEvents.slice(0, 25).map((e, i) => (
+              <div
+                key={`${e.at}-${i}`}
+                className="flex items-start gap-3 py-1.5"
+                style={{ borderBottom: i < Math.min(s.recentEvents.length, 25) - 1 ? '1px solid var(--border-subtle)' : 'none' }}
+              >
+                {e.type === 'pageview' ? (
+                  <Eye className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: 'var(--accent)' }} />
+                ) : (
+                  <MousePointerClick className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: '#58a6ff' }} />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>
+                    {e.type === 'pageview' ? (
+                      <>Viewed <strong>{e.page}</strong></>
+                    ) : (
+                      <>Clicked <strong>{e.label}</strong> <span style={{ color: 'var(--text-secondary)' }}>on {e.page}</span></>
+                    )}
+                  </p>
+                  <p className="text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>
+                    {e.visitorLabel}
+                  </p>
+                </div>
+                <span className="text-[11px] shrink-0" style={{ color: 'var(--text-tertiary)' }}>
+                  {new Date(e.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
