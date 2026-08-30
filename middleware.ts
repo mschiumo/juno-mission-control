@@ -28,6 +28,13 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  // Usage-analytics ingest: session-optional so logged-out landing-page
+  // visits count. The route validates and caps its own input; authenticated
+  // identity still comes from the session cookie, never the payload.
+  if (nextUrl.pathname === '/api/analytics/track') {
+    return NextResponse.next();
+  }
+
   // Agent API: token-authenticated (AGENT_SECRET) so headless Claude agents can
   // report proposals / work handed-off Collaborative goals without a user session.
   if (
