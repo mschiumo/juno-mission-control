@@ -42,7 +42,7 @@ import {
   Archive,
   ChevronDown,
 } from 'lucide-react';
-import { MetricCard, InfoTooltip } from '@/components/trading/performance-shared';
+import { InfoTooltip } from '@/components/trading/performance-shared';
 import { brokerLogoPath } from '@/lib/broker-logos';
 import PortfolioReviewModal, { type PortfolioReview } from './PortfolioReviewModal';
 
@@ -227,6 +227,41 @@ function ChartTooltip({
       <p className="font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>
         {usd0(payload[0].value)}
       </p>
+    </div>
+  );
+}
+
+/**
+ * Larger take on performance-shared's MetricCard for the headline stats —
+ * same anatomy, bumped padding and value size so the top row reads at a
+ * glance.
+ */
+function BigMetricCard({
+  icon,
+  label,
+  value,
+  valueStyle,
+  sub,
+  tooltip,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  valueStyle?: React.CSSProperties;
+  sub?: string;
+  tooltip?: string;
+}) {
+  return (
+    <div className="rounded-xl p-5" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
+      <div className="flex items-center gap-2 mb-2.5">
+        {icon}
+        <span className="text-[11px] uppercase tracking-wider font-semibold inline-flex items-center" style={{ color: 'var(--text-tertiary)' }}>
+          {label}
+          {tooltip && <InfoTooltip text={tooltip} />}
+        </span>
+      </div>
+      <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)', ...valueStyle }}>{value}</p>
+      {sub && <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
     </div>
   );
 }
@@ -607,18 +642,18 @@ export default function PortfolioView() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        <MetricCard
-          icon={<Wallet className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />}
+        <BigMetricCard
+          icon={<Wallet className="w-4 h-4" style={{ color: 'var(--accent)' }} />}
           label="Total Value"
           value={snapshot?.totalValue != null ? usd0(snapshot.totalValue) : '—'}
           sub={snapshot?.syncedAt ? `as of last broker sync` : undefined}
         />
-        <MetricCard
+        <BigMetricCard
           icon={
             (weekChange ?? 0) >= 0 ? (
-              <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--positive)' }} />
+              <TrendingUp className="w-4 h-4" style={{ color: 'var(--positive)' }} />
             ) : (
-              <TrendingDown className="w-3.5 h-3.5" style={{ color: 'var(--negative)' }} />
+              <TrendingDown className="w-4 h-4" style={{ color: 'var(--negative)' }} />
             )
           }
           label="Past Week"
@@ -626,8 +661,8 @@ export default function PortfolioView() {
           valueStyle={{ color: pnlColor(weekChange) }}
           tooltip="Change in derived account value (positions at cost) over the trailing 7 days."
         />
-        <MetricCard
-          icon={<TrendingUp className="w-3.5 h-3.5" style={{ color: pnlColor(snapshot?.openPnl) }} />}
+        <BigMetricCard
+          icon={<TrendingUp className="w-4 h-4" style={{ color: pnlColor(snapshot?.openPnl) }} />}
           label="Unrealized P&L"
           value={snapshot ? signed(snapshot.openPnl) : '—'}
           valueStyle={{ color: pnlColor(snapshot?.openPnl) }}
@@ -637,19 +672,19 @@ export default function PortfolioView() {
               : undefined
           }
         />
-        <MetricCard
-          icon={<Landmark className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />}
+        <BigMetricCard
+          icon={<Landmark className="w-4 h-4" style={{ color: 'var(--info)' }} />}
           label="Cash"
           value={snapshot?.cash != null ? usd0(snapshot.cash) : '—'}
         />
-        <MetricCard
-          icon={<Coins className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />}
+        <BigMetricCard
+          icon={<Coins className="w-4 h-4" style={{ color: 'var(--info)' }} />}
           label="Dividends 12m"
           value={summary.income ? usd(summary.income.dividends12m) : '—'}
           sub={summary.income ? `${usd(summary.income.dividends30d)} last 30d` : undefined}
         />
-        <MetricCard
-          icon={<Repeat className="w-3.5 h-3.5" style={{ color: 'var(--accent-light)' }} />}
+        <BigMetricCard
+          icon={<Repeat className="w-4 h-4" style={{ color: 'var(--accent-light)' }} />}
           label="Recurring In"
           value={recurringDeposits.length > 0 ? `${usd0(recurringMonthly)}/mo` : '—'}
           sub={
@@ -731,198 +766,6 @@ export default function PortfolioView() {
         ) : (
           <div className="h-32 flex items-center justify-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
             Not enough history yet — the series builds as syncs run.
-          </div>
-        )}
-      </div>
-
-      {/* Holdings */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
-      >
-        <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <PieChart className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Holdings
-          </span>
-          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            {snapshot?.positions.length ?? 0}
-          </span>
-        </div>
-        {snapshot && snapshot.positions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12px]" style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ color: 'var(--text-tertiary)' }}>
-                  <th className="py-2 pl-4 pr-3 font-medium text-left">Symbol</th>
-                  <th className="py-2 pr-3 font-medium text-right">Qty</th>
-                  <th className="py-2 pr-3 font-medium text-right">Avg Cost</th>
-                  <th className="py-2 pr-3 font-medium text-right">Price</th>
-                  <th className="py-2 pr-3 font-medium text-right">Value</th>
-                  <th className="py-2 pr-3 font-medium text-right">Unreal. P&L</th>
-                  <th className="py-2 pr-4 font-medium text-right">Weight</th>
-                </tr>
-              </thead>
-              <tbody>
-                {snapshot.positions.map(p => {
-                  const weight = summary.weights?.find(w => w.symbol === p.symbol)?.weight;
-                  const pnlPct =
-                    p.openPnl != null && p.costBasis ? (p.openPnl / p.costBasis) * 100 : null;
-                  return (
-                    <tr key={`${p.accountId}:${p.symbol}`} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <td className="py-2.5 pl-4 pr-3">
-                        <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                          {p.symbol}
-                        </span>
-                        {p.description && (
-                          <span className="ml-2 hidden sm:inline text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                            {p.description.length > 36 ? `${p.description.slice(0, 36)}…` : p.description}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-                        {p.units}
-                      </td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-                        {p.avgCost != null ? usd(p.avgCost) : '—'}
-                      </td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-                        {p.price != null ? usd(p.price) : '—'}
-                      </td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums font-medium" style={{ color: 'var(--text-primary)' }}>
-                        {p.marketValue != null ? usd(p.marketValue) : '—'}
-                      </td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums" style={{ color: pnlColor(p.openPnl) }}>
-                        {p.openPnl != null ? signed(p.openPnl) : '—'}
-                        {pnlPct != null && (
-                          <span className="ml-1 text-[10px]">({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 pr-4 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-                        {weight != null ? `${weight}%` : '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="p-6 text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            No open positions synced yet.
-          </div>
-        )}
-      </div>
-
-      {/* Transactions */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
-      >
-        <div className="flex flex-wrap items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <ReceiptText className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Transactions
-          </span>
-          <div className="flex-1" />
-          <div className="flex flex-wrap gap-1">
-            {TYPE_FILTERS.map(f => (
-              <button
-                key={f.id}
-                onClick={() => {
-                  setActivityFilter(f.id);
-                  setActivityLimit(50);
-                }}
-                className="px-2 py-1 rounded-md text-[11px] font-medium transition-all"
-                style={{
-                  background: activityFilter === f.id ? 'var(--accent-dim)' : 'transparent',
-                  color: activityFilter === f.id ? 'var(--accent-light)' : 'var(--text-tertiary)',
-                }}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        {activities.length > 0 ? (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px]" style={{ borderCollapse: 'collapse' }}>
-                <tbody>
-                  {activities.slice(0, activityLimit).map(a => {
-                    const badge = typeBadge(a.type);
-                    return (
-                      <tr key={a.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                        <td className="py-2.5 pl-4 pr-3 whitespace-nowrap tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
-                          {displayDate(a.date)}
-                        </td>
-                        <td className="py-2.5 pr-3">
-                          <span
-                            className="inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide"
-                            style={{ background: badge.bg, color: badge.color }}
-                          >
-                            {badge.label}
-                          </span>
-                          {isRecurring(a) && (
-                            <span
-                              className="ml-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium"
-                              style={{ background: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
-                              title="Part of a detected recurring schedule"
-                            >
-                              <Repeat className="w-2.5 h-2.5" />
-                              Recurring
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 pr-3" style={{ color: 'var(--text-secondary)' }}>
-                          {a.symbol && (
-                            <span className="font-semibold mr-2" style={{ color: 'var(--text-primary)' }}>
-                              {a.symbol}
-                            </span>
-                          )}
-                          {a.units != null && a.price != null && (
-                            <span className="tabular-nums mr-2">
-                              {Math.abs(a.units)} × {usd(a.price)}
-                            </span>
-                          )}
-                          {!a.symbol && a.description && (
-                            <span className="text-[11px]">
-                              {a.description.length > 60 ? `${a.description.slice(0, 60)}…` : a.description}
-                            </span>
-                          )}
-                        </td>
-                        <td
-                          className="py-2.5 pr-4 text-right tabular-nums font-medium whitespace-nowrap"
-                          style={{
-                            color:
-                              a.type === 'CONTRIBUTION' || a.type === 'DIVIDEND' || a.type === 'INTEREST'
-                                ? 'var(--positive)'
-                                : a.type === 'WITHDRAWAL' || a.type === 'FEE' || a.type === 'TAX'
-                                  ? 'var(--negative)'
-                                  : 'var(--text-secondary)',
-                          }}
-                        >
-                          {a.amount != null ? usd(a.amount) : '—'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {activities.length > activityLimit && (
-              <button
-                onClick={() => setActivityLimit(l => l + 100)}
-                className="w-full py-2.5 text-xs font-medium transition-all"
-                style={{ color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-subtle)' }}
-              >
-                Show more ({activities.length - activityLimit} more)
-              </button>
-            )}
-          </>
-        ) : (
-          <div className="p-6 text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            No transactions {activityFilter ? 'of this type ' : ''}synced yet.
           </div>
         )}
       </div>
@@ -1049,6 +892,200 @@ export default function PortfolioView() {
         ) : (
           <div className="p-6 text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
             No reviews yet — one runs automatically every Saturday morning, or run one now.
+          </div>
+        )}
+      </div>
+
+      {/* Holdings */}
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
+      >
+        <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <PieChart className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Holdings
+          </span>
+          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            {snapshot?.positions.length ?? 0}
+          </span>
+        </div>
+        {snapshot && snapshot.positions.length > 0 ? (
+          /* ~13 rows visible; the rest scroll inside the card. */
+          <div className="overflow-x-auto overflow-y-auto max-h-[520px]">
+            <table className="w-full text-[12px]" style={{ borderCollapse: 'collapse' }}>
+              <thead className="sticky top-0 z-10" style={{ background: 'var(--surface-1)' }}>
+                <tr style={{ color: 'var(--text-tertiary)' }}>
+                  <th className="py-2 pl-4 pr-3 font-medium text-left">Symbol</th>
+                  <th className="py-2 pr-3 font-medium text-right">Qty</th>
+                  <th className="py-2 pr-3 font-medium text-right">Avg Cost</th>
+                  <th className="py-2 pr-3 font-medium text-right">Price</th>
+                  <th className="py-2 pr-3 font-medium text-right">Value</th>
+                  <th className="py-2 pr-3 font-medium text-right">Unreal. P&L</th>
+                  <th className="py-2 pr-4 font-medium text-right">Weight</th>
+                </tr>
+              </thead>
+              <tbody>
+                {snapshot.positions.map(p => {
+                  const weight = summary.weights?.find(w => w.symbol === p.symbol)?.weight;
+                  const pnlPct =
+                    p.openPnl != null && p.costBasis ? (p.openPnl / p.costBasis) * 100 : null;
+                  return (
+                    <tr key={`${p.accountId}:${p.symbol}`} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                      <td className="py-2.5 pl-4 pr-3">
+                        <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                          {p.symbol}
+                        </span>
+                        {p.description && (
+                          <span className="ml-2 hidden sm:inline text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                            {p.description.length > 36 ? `${p.description.slice(0, 36)}…` : p.description}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                        {p.units}
+                      </td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                        {p.avgCost != null ? usd(p.avgCost) : '—'}
+                      </td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                        {p.price != null ? usd(p.price) : '—'}
+                      </td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {p.marketValue != null ? usd(p.marketValue) : '—'}
+                      </td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums" style={{ color: pnlColor(p.openPnl) }}>
+                        {p.openPnl != null ? signed(p.openPnl) : '—'}
+                        {pnlPct != null && (
+                          <span className="ml-1 text-[10px]">({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-4 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                        {weight != null ? `${weight}%` : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-6 text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            No open positions synced yet.
+          </div>
+        )}
+      </div>
+
+      {/* Transactions */}
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
+      >
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <ReceiptText className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Transactions
+          </span>
+          <div className="flex-1" />
+          <div className="flex flex-wrap gap-1">
+            {TYPE_FILTERS.map(f => (
+              <button
+                key={f.id}
+                onClick={() => {
+                  setActivityFilter(f.id);
+                  setActivityLimit(50);
+                }}
+                className="px-2 py-1 rounded-md text-[11px] font-medium transition-all"
+                style={{
+                  background: activityFilter === f.id ? 'var(--accent-dim)' : 'transparent',
+                  color: activityFilter === f.id ? 'var(--accent-light)' : 'var(--text-tertiary)',
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {activities.length > 0 ? (
+          <>
+            {/* ~13 rows visible; the rest scroll inside the card. */}
+            <div className="overflow-x-auto overflow-y-auto max-h-[520px]">
+              <table className="w-full text-[12px]" style={{ borderCollapse: 'collapse' }}>
+                <tbody>
+                  {activities.slice(0, activityLimit).map(a => {
+                    const badge = typeBadge(a.type);
+                    return (
+                      <tr key={a.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                        <td className="py-2.5 pl-4 pr-3 whitespace-nowrap tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+                          {displayDate(a.date)}
+                        </td>
+                        <td className="py-2.5 pr-3">
+                          <span
+                            className="inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide"
+                            style={{ background: badge.bg, color: badge.color }}
+                          >
+                            {badge.label}
+                          </span>
+                          {isRecurring(a) && (
+                            <span
+                              className="ml-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium"
+                              style={{ background: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+                              title="Part of a detected recurring schedule"
+                            >
+                              <Repeat className="w-2.5 h-2.5" />
+                              Recurring
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-3" style={{ color: 'var(--text-secondary)' }}>
+                          {a.symbol && (
+                            <span className="font-semibold mr-2" style={{ color: 'var(--text-primary)' }}>
+                              {a.symbol}
+                            </span>
+                          )}
+                          {a.units != null && a.price != null && (
+                            <span className="tabular-nums mr-2">
+                              {Math.abs(a.units)} × {usd(a.price)}
+                            </span>
+                          )}
+                          {!a.symbol && a.description && (
+                            <span className="text-[11px]">
+                              {a.description.length > 60 ? `${a.description.slice(0, 60)}…` : a.description}
+                            </span>
+                          )}
+                        </td>
+                        <td
+                          className="py-2.5 pr-4 text-right tabular-nums font-medium whitespace-nowrap"
+                          style={{
+                            color:
+                              a.type === 'CONTRIBUTION' || a.type === 'DIVIDEND' || a.type === 'INTEREST'
+                                ? 'var(--positive)'
+                                : a.type === 'WITHDRAWAL' || a.type === 'FEE' || a.type === 'TAX'
+                                  ? 'var(--negative)'
+                                  : 'var(--text-secondary)',
+                          }}
+                        >
+                          {a.amount != null ? usd(a.amount) : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {activities.length > activityLimit && (
+              <button
+                onClick={() => setActivityLimit(l => l + 100)}
+                className="w-full py-2.5 text-xs font-medium transition-all"
+                style={{ color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-subtle)' }}
+              >
+                Show more ({activities.length - activityLimit} more)
+              </button>
+            )}
+          </>
+        ) : (
+          <div className="p-6 text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            No transactions {activityFilter ? 'of this type ' : ''}synced yet.
           </div>
         )}
       </div>
