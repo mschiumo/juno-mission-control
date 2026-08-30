@@ -54,7 +54,7 @@
       "maxDuration": 120
     },
     "app/api/cron-jobs/weekly-journal-insights/route.ts": {
-      "maxDuration": 120
+      "maxDuration": 300
     },
     "app/api/cron-jobs/weekly-habits-recap/route.ts": {
       "maxDuration": 120

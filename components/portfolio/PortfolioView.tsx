@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * Portfolio tab — long-term investment account (owner-only).
+ * Portfolio tab — long-term investment account (Platinum feature; the owner
+ * always has it).
  *
  * A separate SnapTrade connection from the Trading tab's: this one tracks the
  * owner's buy-and-hold brokerage account and never feeds the Journal or the
@@ -10,7 +11,7 @@
  * AI review.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import {
   AreaChart,
@@ -38,9 +39,12 @@ import {
   CheckCircle2,
   X,
   Play,
+  Archive,
+  ChevronDown,
 } from 'lucide-react';
 import { MetricCard, InfoTooltip } from '@/components/trading/performance-shared';
 import { brokerLogoPath } from '@/lib/broker-logos';
+import PortfolioReviewModal, { type PortfolioReview } from './PortfolioReviewModal';
 
 /* ── API payload types (mirror the /api/portfolio responses) ─────────────── */
 
@@ -116,22 +120,7 @@ interface Activity {
   accountId: string;
 }
 
-interface Review {
-  periodKey: string;
-  periodLabel: string;
-  generatedAt: string;
-  analysis: string;
-  totalValue: number | null;
-  weekChange: number | null;
-  positionsCount: number;
-}
-
-interface StructuredReview {
-  keyTakeaway: string;
-  health: string[];
-  repositioning: string[];
-  watch: string[];
-}
+type Review = PortfolioReview;
 
 /* ── Formatting helpers ──────────────────────────────────────────────────── */
 
@@ -164,25 +153,6 @@ function displayDate(d: string): string {
     day: 'numeric',
     year: 'numeric',
   });
-}
-
-function parseReviewJson(raw: string): StructuredReview | null {
-  try {
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    const parsed = JSON.parse(match[0]);
-    if (parsed.keyTakeaway && Array.isArray(parsed.health)) {
-      return {
-        keyTakeaway: parsed.keyTakeaway,
-        health: parsed.health,
-        repositioning: Array.isArray(parsed.repositioning) ? parsed.repositioning : [],
-        watch: Array.isArray(parsed.watch) ? parsed.watch : [],
-      };
-    }
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 /* ── Transaction presentation ────────────────────────────────────────────── */
@@ -279,8 +249,10 @@ export default function PortfolioView() {
   const [activityLimit, setActivityLimit] = useState(50);
 
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [selectedReviewKey, setSelectedReviewKey] = useState<string | null>(null);
   const [runningReview, setRunningReview] = useState(false);
+  const [modalReview, setModalReview] = useState<Review | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const archiveRef = useRef<HTMLDivElement | null>(null);
 
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [chartPeriod, setChartPeriod] = useState<Period>('ALL');
@@ -397,14 +369,30 @@ export default function PortfolioView() {
     try {
       const res = await fetch('/api/portfolio/review', { method: 'POST' });
       const json = await res.json();
-      if (!json.success) setError(json.error || 'Review failed.');
+      if (json.success && json.data?.review) {
+        // Mirror Journal Insights: a fresh report opens straight into the modal.
+        setModalReview(json.data.review);
+      } else if (!json.success) {
+        setError(json.error || 'Review failed.');
+      }
       await loadReviews();
-      setSelectedReviewKey(null);
     } catch {
       setError('Review failed.');
     }
     setRunningReview(false);
   };
+
+  // Close the past-reviews dropdown on any outside click.
+  useEffect(() => {
+    if (!archiveOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (archiveRef.current && !archiveRef.current.contains(e.target as Node)) {
+        setArchiveOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [archiveOpen]);
 
   /* ── Derived view data ─────────────────────────────────────────────── */
 
@@ -446,9 +434,7 @@ export default function PortfolioView() {
     [summary?.recurring]
   );
 
-  const selectedReview =
-    reviews.find(r => r.periodKey === selectedReviewKey) ?? reviews[0] ?? null;
-  const structuredReview = selectedReview ? parseReviewJson(selectedReview.analysis) : null;
+  const latestReview = reviews[0] ?? null;
 
   /* ── Render ────────────────────────────────────────────────────────── */
 
@@ -948,23 +934,51 @@ export default function PortfolioView() {
       >
         <div className="flex flex-wrap items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <Sparkles className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Weekly Review
-          </span>
+          <div>
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Weekly Review
+            </span>
+            <p className="text-[10px] leading-tight" style={{ color: 'var(--text-tertiary)' }}>
+              Generated every Saturday — click a report to read it
+            </p>
+          </div>
           <div className="flex-1" />
           {reviews.length > 1 && (
-            <select
-              value={selectedReview?.periodKey ?? ''}
-              onChange={e => setSelectedReviewKey(e.target.value)}
-              className="text-[11px] rounded-md px-2 py-1"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
-            >
-              {reviews.map(r => (
-                <option key={r.periodKey} value={r.periodKey}>
-                  {r.periodLabel}
-                </option>
-              ))}
-            </select>
+            <div className="relative" ref={archiveRef}>
+              <button
+                onClick={() => setArchiveOpen(o => !o)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
+              >
+                <Archive className="w-3.5 h-3.5" />
+                Past Reviews
+                <ChevronDown className={`w-3 h-3 transition-transform ${archiveOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {archiveOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 w-60 rounded-lg shadow-xl z-20 overflow-hidden"
+                  style={{ background: 'var(--surface-3)', border: '1px solid var(--border-strong)' }}
+                >
+                  {reviews.map(r => (
+                    <button
+                      key={r.periodKey}
+                      onClick={() => {
+                        setModalReview(r);
+                        setArchiveOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2.5 transition-colors hover:bg-white/5"
+                    >
+                      <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {r.periodLabel}
+                      </p>
+                      <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                        Generated {displayDate(r.generatedAt.slice(0, 10))}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           <button
             onClick={handleRunReview}
@@ -973,44 +987,57 @@ export default function PortfolioView() {
             style={{ background: 'var(--accent-dim)', color: 'var(--accent-light)' }}
           >
             {runningReview ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-            {runningReview ? 'Analyzing…' : 'Run review'}
+            {runningReview ? 'Analyzing…' : latestReview ? 'Run again' : 'Run review'}
           </button>
         </div>
-        {selectedReview ? (
-          <div className="p-4 space-y-4">
+        {runningReview ? (
+          <div className="p-8 flex flex-col items-center gap-2 text-center">
+            <RefreshCw className="w-7 h-7 animate-spin" style={{ color: 'var(--accent)' }} />
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              Analyzing your holdings, income, and cash flows…
+            </p>
             <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-              {selectedReview.periodLabel} · generated {relativeTime(selectedReview.generatedAt)} ·{' '}
-              {selectedReview.positionsCount} positions
+              This may take a few seconds.
             </p>
-            {structuredReview ? (
-              <>
-                <div
-                  className="rounded-lg px-4 py-3"
-                  style={{ background: 'var(--accent-dim)', border: '1px solid rgba(255,107,0,0.3)' }}
-                >
-                  <p className="text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: 'var(--accent-light)' }}>
-                    Key takeaway
-                  </p>
-                  <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                    {structuredReview.keyTakeaway}
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  <ReviewList title="Portfolio health" items={structuredReview.health} color="var(--info)" />
-                  <ReviewList title="Worth a closer look" items={structuredReview.repositioning} color="var(--warning)" />
-                  {structuredReview.watch.length > 0 && (
-                    <ReviewList title="Watching next week" items={structuredReview.watch} color="var(--accent-light)" />
+          </div>
+        ) : latestReview ? (
+          <div className="p-4">
+            <button
+              onClick={() => setModalReview(latestReview)}
+              className="group w-full flex items-center gap-4 rounded-lg p-4 text-left transition-colors"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)' }}
+              onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,107,0,0.5)')}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-default)')}
+            >
+              <div
+                className="w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
+                style={{ background: 'var(--accent-dim)', border: '1px solid rgba(255,107,0,0.25)' }}
+              >
+                <Sparkles className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {latestReview.periodLabel} Review
+                </p>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                  {latestReview.positionsCount} positions
+                  {latestReview.totalValue != null && <> · {usd0(latestReview.totalValue)}</>}
+                  {latestReview.weekChange != null && (
+                    <>
+                      {' '}
+                      · <span style={{ color: pnlColor(latestReview.weekChange) }}>
+                        {signed(latestReview.weekChange)} this week
+                      </span>
+                    </>
                   )}
-                </div>
-              </>
-            ) : (
-              <p className="text-xs whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
-                {selectedReview.analysis}
-              </p>
-            )}
-            <p className="text-[10px]" style={{ color: 'var(--text-disabled)' }}>
-              Automated analysis of your own account data, for your personal review. Not financial advice.
-            </p>
+                  {' '}· generated {relativeTime(latestReview.generatedAt)}
+                </p>
+              </div>
+              <Sparkles
+                className="w-4 h-4 flex-shrink-0 transition-colors"
+                style={{ color: 'var(--text-tertiary)' }}
+              />
+            </button>
           </div>
         ) : (
           <div className="p-6 text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -1018,24 +1045,10 @@ export default function PortfolioView() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
 
-function ReviewList({ title, items, color }: { title: string; items: string[]; color: string }) {
-  return (
-    <div>
-      <p className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color }}>
-        {title}
-      </p>
-      <ul className="space-y-1.5">
-        {items.map((item, i) => (
-          <li key={i} className="text-xs flex gap-2" style={{ color: 'var(--text-secondary)' }}>
-            <span style={{ color }}>•</span>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
+      {modalReview && (
+        <PortfolioReviewModal review={modalReview} onClose={() => setModalReview(null)} />
+      )}
     </div>
   );
 }

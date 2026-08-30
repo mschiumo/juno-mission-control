@@ -1,5 +1,5 @@
 /**
- * GET /api/portfolio/summary — owner-only.
+ * GET /api/portfolio/summary — Platinum feature (owner always included).
  *
  * Everything the Portfolio tab needs in one call: connection status, the
  * stored snapshot (accounts, positions, derived value series), and analysis
@@ -7,7 +7,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import { isSnapTradeConfigured } from '@/lib/snaptrade';
 import {
   getPortfolioConnection,
@@ -23,7 +23,7 @@ import {
 import { getTodayInEST } from '@/lib/date-utils';
 
 export async function GET(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireOwner();
+  const { userId, error: authError } = await requireFeature('portfolio');
   if (authError) return authError;
 
   const connection = await getPortfolioConnection(userId);

@@ -1,5 +1,5 @@
 /**
- * POST /api/portfolio/connect/complete — owner-only.
+ * POST /api/portfolio/connect/complete — Platinum feature (owner always included).
  *
  * Finishes the portfolio connection flow after the user returns from
  * SnapTrade's Connection Portal: confirms an account was actually linked (via
@@ -11,7 +11,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import { isSnapTradeConfigured, listAccounts } from '@/lib/snaptrade';
 import {
   getPortfolioConnection,
@@ -29,7 +29,7 @@ interface SnapTradeAccountRaw {
 }
 
 export async function POST(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireOwner();
+  const { userId, error: authError } = await requireFeature('portfolio');
   if (authError) return authError;
 
   if (!isSnapTradeConfigured()) {

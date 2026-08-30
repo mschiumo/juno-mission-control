@@ -14,12 +14,26 @@ export interface WeeklyStats {
   worstTrade: { symbol: string; pnl: number } | null;
 }
 
+/** Compact long-term portfolio recap appended to the weekly trading recap. */
+export interface PortfolioRecap {
+  totalValue: number | null;
+  weekChange: number | null;
+  openPnl: number;
+  positionsCount: number;
+  dividends30d: number;
+  keyTakeaway: string | null;
+  /** Pressing items pulled from the weekly portfolio review (repositioning + watch). */
+  actionItems: string[];
+}
+
 export interface WeeklyJournalInsightsEmailProps {
   periodLabel: string;
   dateRangeLabel: string;
   stats: WeeklyStats;
   structured: StructuredAnalysis | null;
   rawAnalysis: string;
+  /** Rendered only when a long-term portfolio is connected. */
+  portfolio?: PortfolioRecap | null;
 }
 
 const GREEN = '#22C55E';
@@ -30,12 +44,19 @@ function money(n: number): string {
   return `${sign}$${Math.abs(n).toFixed(2)}`;
 }
 
+function bigMoney(n: number | null): string {
+  return n == null
+    ? '—'
+    : `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+}
+
 export function WeeklyJournalInsightsEmail({
   periodLabel,
   dateRangeLabel,
   stats,
   structured,
   rawAnalysis,
+  portfolio,
 }: WeeklyJournalInsightsEmailProps) {
   const pnlColor = stats.netPnL > 0 ? GREEN : stats.netPnL < 0 ? RED : '#A0AEC0';
 
@@ -111,6 +132,70 @@ export function WeeklyJournalInsightsEmail({
           <Text style={sectionHeading}>Analysis</Text>
           <Text style={bulletText}>{rawAnalysis}</Text>
         </Section>
+      )}
+
+      {portfolio && (
+        <>
+          <Section style={card}>
+            <Text style={kicker}>Long-term Portfolio</Text>
+            <Row>
+              <Column style={statCol}>
+                <Text style={statLabel}>Total Value</Text>
+                <Text style={statValue}>{bigMoney(portfolio.totalValue)}</Text>
+              </Column>
+              <Column style={statCol}>
+                <Text style={statLabel}>Past Week</Text>
+                <Text
+                  style={{
+                    ...statValue,
+                    color:
+                      (portfolio.weekChange ?? 0) > 0
+                        ? GREEN
+                        : (portfolio.weekChange ?? 0) < 0
+                          ? RED
+                          : '#A0AEC0',
+                  }}
+                >
+                  {portfolio.weekChange == null ? '—' : money(portfolio.weekChange)}
+                </Text>
+              </Column>
+              <Column style={statCol}>
+                <Text style={statLabel}>Unrealized P&amp;L</Text>
+                <Text
+                  style={{
+                    ...statValue,
+                    color: portfolio.openPnl > 0 ? GREEN : portfolio.openPnl < 0 ? RED : '#A0AEC0',
+                  }}
+                >
+                  {money(portfolio.openPnl)}
+                </Text>
+              </Column>
+              <Column style={statCol}>
+                <Text style={statLabel}>Holdings</Text>
+                <Text style={statValue}>{portfolio.positionsCount}</Text>
+              </Column>
+            </Row>
+            <Row>
+              <Column>
+                <Text style={bestWorst}>
+                  Dividends last 30d ${portfolio.dividends30d.toFixed(2)}
+                </Text>
+              </Column>
+            </Row>
+            {portfolio.keyTakeaway && (
+              <Text style={{ ...bulletText, marginTop: '12px', marginBottom: 0 }}>
+                {portfolio.keyTakeaway}
+              </Text>
+            )}
+          </Section>
+          {portfolio.actionItems.length > 0 && (
+            <InsightSection
+              title="Portfolio — Action Items"
+              items={portfolio.actionItems}
+              accent="#4DA6FF"
+            />
+          )}
+        </>
       )}
     </EmailLayout>
   );

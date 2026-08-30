@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { LayoutDashboard, Target, TrendingUp, Wallet, Users, Menu, X, LogOut, PieChart } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
+import { useEntitlements } from '@/lib/use-entitlements';
 
 type TabId = 'dashboard' | 'finances' | 'portfolio' | 'trading' | 'goals' | 'accounts';
 
@@ -36,28 +37,41 @@ function DashboardContent() {
   const searchParams = useSearchParams();
 
   const isOwner = isOwnerEmail(session?.user?.email);
+  const { entitlements, loading: entitlementsLoading } = useEntitlements();
+  // Portfolio is a Platinum feature; the owner always has it.
+  const canPortfolio = isOwner || entitlements.features.portfolio;
 
   // Get tab from URL query param; non-owners land on trading, not dashboard
   const getTabFromUrl = useCallback((): TabId => {
     const tab = searchParams.get('tab');
     if (tab === 'trading') return 'trading';
     if (tab === 'finances' && isOwner) return 'finances';
-    if (tab === 'portfolio' && isOwner) return 'portfolio';
+    if (tab === 'portfolio' && canPortfolio) return 'portfolio';
     if (tab === 'goals' && isOwner) return 'goals';
     if (tab === 'accounts' && isOwner) return 'accounts';
     if (isOwner) return 'dashboard';
     return 'trading';
-  }, [searchParams, isOwner]);
+  }, [searchParams, isOwner, canPortfolio]);
 
   const [activeTab, setActiveTabState] = useState<TabId>(getTabFromUrl);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Redirect non-owners away from owner-only tabs (dashboard, finances, goals)
+  // Redirect non-owners away from tabs their plan doesn't include. Waits for
+  // entitlements to load so a ?tab=portfolio deep link isn't bounced before
+  // the plan is known (features default to free while loading).
   useEffect(() => {
-    if (!isOwner && activeTab !== 'trading') {
+    if (entitlementsLoading) return;
+    if (!isOwner && activeTab !== 'trading' && !(activeTab === 'portfolio' && canPortfolio)) {
       setActiveTab('trading');
     }
-  }, [isOwner, activeTab]);
+  }, [isOwner, activeTab, entitlementsLoading, canPortfolio]);
+
+  // The initial tab state is computed before entitlements arrive, so a
+  // Platinum deep link to ?tab=portfolio starts on 'trading' — re-read the
+  // URL once the plan is known.
+  useEffect(() => {
+    if (!entitlementsLoading) setActiveTabState(getTabFromUrl());
+  }, [entitlementsLoading, getTabFromUrl]);
 
   // Update URL when tab changes (using replace to avoid bloating history)
   const setActiveTab = (tab: TabId) => {
@@ -80,7 +94,12 @@ function DashboardContent() {
         { id: 'goals' as const, label: 'Goals', icon: Target },
         { id: 'accounts' as const, label: 'Accounts', icon: Users },
       ]
-    : [];
+    : canPortfolio && !entitlementsLoading
+      ? [
+          { id: 'portfolio' as const, label: 'Portfolio', icon: PieChart },
+          { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
+        ]
+      : [];
 
   return (
     <div className="min-h-screen text-[var(--text-primary)]" style={{ background: 'var(--bg-base)' }}>
@@ -147,7 +166,7 @@ function DashboardContent() {
               </div>
 
               {/* Mobile Menu Button */}
-              {isOwner && <button
+              {tabs.length > 0 && <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden p-2 rounded-lg transition-colors"
                 style={{ color: 'var(--text-secondary)' }}

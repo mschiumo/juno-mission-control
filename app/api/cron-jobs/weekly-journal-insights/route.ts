@@ -24,7 +24,65 @@ import { postToCronResults, logToActivityLog } from '@/lib/cron-helpers';
 import {
   WeeklyJournalInsightsEmail,
   type WeeklyStats,
+  type PortfolioRecap,
 } from '@/lib/emails/WeeklyJournalInsightsEmail';
+import {
+  getPortfolioConnection,
+  getPortfolioSnapshot,
+  getPortfolioActivities,
+  getPortfolioReviews,
+} from '@/lib/db/portfolio-connection';
+import { generatePortfolioReview, parseReview, currentWeekKey } from '@/lib/portfolio-review';
+import { summarizeIncome } from '@/lib/portfolio-insights';
+import { getTodayInEST } from '@/lib/date-utils';
+
+/**
+ * Long-term portfolio recap for the email — stats plus the pressing action
+ * items from this week's portfolio review (generated Saturday 13:30 UTC by
+ * /api/cron-jobs/portfolio-weekly-review; regenerated here as a fallback if
+ * that run failed). Never throws: a portfolio failure must not block the
+ * trading recap.
+ */
+async function buildPortfolioRecap(userId: string): Promise<PortfolioRecap | null> {
+  try {
+    const connection = await getPortfolioConnection(userId);
+    if (!connection || connection.accounts.length === 0) return null;
+
+    const weekKey = currentWeekKey();
+    let review =
+      (await getPortfolioReviews(userId)).find((r) => r.periodKey === weekKey) ?? null;
+    if (!review) {
+      try {
+        review = (await generatePortfolioReview(userId))?.review ?? null;
+      } catch (error) {
+        console.error('[WeeklyJournalInsights] portfolio review fallback failed:', error);
+      }
+    }
+
+    const [snapshot, activities] = await Promise.all([
+      getPortfolioSnapshot(userId),
+      getPortfolioActivities(userId),
+    ]);
+    if (!snapshot && !review) return null;
+
+    const income = summarizeIncome(activities, getTodayInEST());
+    const structured = review ? parseReview(review.analysis) : null;
+    return {
+      totalValue: snapshot?.totalValue ?? review?.totalValue ?? null,
+      weekChange: review?.weekChange ?? null,
+      openPnl: snapshot?.openPnl ?? 0,
+      positionsCount: snapshot?.positions.length ?? review?.positionsCount ?? 0,
+      dividends30d: income.dividends30d,
+      keyTakeaway: structured?.keyTakeaway ?? null,
+      actionItems: structured
+        ? [...structured.repositioning, ...structured.watch].slice(0, 4)
+        : [],
+    };
+  } catch (error) {
+    console.error('[WeeklyJournalInsights] portfolio recap failed:', error);
+    return null;
+  }
+}
 
 function buildStats(trades: Trade[], entriesCount: number): WeeklyStats {
   const closed = trades.filter((t) => t.status === 'CLOSED');
@@ -89,6 +147,7 @@ export async function POST() {
     const { report, trades } = generated;
     const stats = buildStats(trades, report.entriesCount);
     const structured = parseAnalysis(report.analysis);
+    const portfolio = await buildPortfolioRecap(owner.id);
 
     const emailResult = await sendEmail({
       to: OWNER_EMAIL,
@@ -99,6 +158,7 @@ export async function POST() {
         stats,
         structured,
         rawAnalysis: report.analysis,
+        portfolio,
       }),
     });
 
@@ -106,7 +166,9 @@ export async function POST() {
       postToCronResults(
         'weekly-journal-insights',
         `${report.periodLabel}: ${stats.wins}W/${stats.losses}L, net $${stats.netPnL.toFixed(2)}, ` +
-          `${report.entriesCount} journal entries. Email ${emailResult.success ? 'sent' : `failed: ${emailResult.error}`}.`,
+          `${report.entriesCount} journal entries` +
+          `${portfolio ? `, portfolio recap included (${portfolio.positionsCount} positions)` : ''}. ` +
+          `Email ${emailResult.success ? 'sent' : `failed: ${emailResult.error}`}.`,
         'review',
       ),
       logToActivityLog(

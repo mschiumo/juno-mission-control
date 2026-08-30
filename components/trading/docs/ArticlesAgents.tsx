@@ -250,7 +250,7 @@ export function FaqArticle() {
     ],
     [
       'Which parts of Trading are owner-only?',
-      <>Just the <DocLink doc="agents">Agents</DocLink> tab (the agentic terminal, including <DocLink doc="review">Review</DocLink>) — it drives a real brokerage account, so it’s restricted to the app owner. Everything else — Journal, imports, Market, Trade Management, Goals, Performance, Profit Projection, and these docs — is available to every signed-in user, and each user’s data is fully private to their account.</>,
+      <>Just the <DocLink doc="agents">Agents</DocLink> tab (the agentic terminal, including <DocLink doc="review">Review</DocLink>) — it drives a real brokerage account, so it’s restricted to the app owner. Everything else — Journal, imports, Market, Trade Management, Goals, Performance, Profit Projection, and these docs — is available to every signed-in user, and each user’s data is fully private to their account. (Separately, the top-level Portfolio tab — long-term holdings with a weekly AI review — is part of the Platinum plan.)</>,
     ],
     [
       'How do I restart the guided tour?',

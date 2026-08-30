@@ -52,6 +52,8 @@ export interface Features {
   goals: boolean;
   /** Agentic trading (ConfluenceTrading). */
   agents: boolean;
+  /** Long-term Portfolio tab — second brokerage connection + weekly AI review. */
+  portfolio: boolean;
 }
 
 export interface Entitlements {
@@ -67,6 +69,7 @@ const SILVER_FEATURES: Features = {
   journalInsights: false,
   goals: false,
   agents: false,
+  portfolio: false,
   marketNews: true,
   tradeManagement: true,
   performance: true,
@@ -86,6 +89,7 @@ const GOLD_FEATURES: Features = {
 const PLATINUM_FEATURES: Features = {
   ...GOLD_FEATURES,
   agents: true,
+  portfolio: true,
 };
 
 /** What every signed-in user gets with no stored record: free Silver. */

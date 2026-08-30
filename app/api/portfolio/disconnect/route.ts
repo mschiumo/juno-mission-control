@@ -1,5 +1,5 @@
 /**
- * DELETE /api/portfolio/disconnect — owner-only.
+ * DELETE /api/portfolio/disconnect — Platinum feature (owner always included).
  *
  * Tears down the portfolio connection end to end: deregisters the dedicated
  * portfolio SnapTrade user (queued for the nightly orphan retry if the call
@@ -9,7 +9,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import { isSnapTradeConfigured, deleteUser } from '@/lib/snaptrade';
 import { recordOrphan } from '@/lib/brokerage-access';
 import {
@@ -19,7 +19,7 @@ import {
 } from '@/lib/db/portfolio-connection';
 
 export async function DELETE(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireOwner();
+  const { userId, error: authError } = await requireFeature('portfolio');
   if (authError) return authError;
 
   const connection = await getPortfolioConnection(userId);

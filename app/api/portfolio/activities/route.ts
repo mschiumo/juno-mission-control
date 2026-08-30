@@ -1,12 +1,12 @@
 /**
- * GET /api/portfolio/activities — owner-only.
+ * GET /api/portfolio/activities — Platinum feature (owner always included).
  *
  * The stored activity ledger (newest first), optionally filtered by type
  * group and capped. Used by the Portfolio tab's Transactions section.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import { getPortfolioActivities } from '@/lib/db/portfolio-connection';
 
 /** UI filter groups → the SnapTrade activity types they cover. */
@@ -21,7 +21,7 @@ const TYPE_GROUPS: Record<string, string[]> = {
 };
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const { userId, error: authError } = await requireOwner();
+  const { userId, error: authError } = await requireFeature('portfolio');
   if (authError) return authError;
 
   const group = req.nextUrl.searchParams.get('type') ?? '';

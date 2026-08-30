@@ -1230,10 +1230,12 @@ export default function LandingPage() {
               {
                 tier: 'platinum' as const,
                 name: 'Platinum',
-                tagline: 'AI-scouted setups. Your call.',
-                desc: 'An agent scans the market for swing-trade setups and stages every order for your review — nothing executes without your approval.',
+                tagline: 'The diversified trader',
+                desc: 'Trade short and long term in one terminal: an agent scouts swing setups you approve, while your long-term portfolio syncs in with its own weekly AI review.',
                 features: [
                   'Everything in Gold',
+                  'Long-term portfolio, synced — positions, dividends & deposits beside your trading',
+                  'Weekly AI portfolio review — concentration, income & repositioning flags',
                   'AI-identified swing-trade setups, with the reasoning attached',
                   'You approve every order — review, adjust, or reject each proposal',
                   'Full trade-lifecycle visibility — orders, fills, stops & progress in one terminal',
