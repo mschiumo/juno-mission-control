@@ -13,6 +13,7 @@ import { isSnapTradeConfigured } from '@/lib/snaptrade';
 import { getAllBrokerConnections } from '@/lib/db/broker-connections';
 import { syncUserTrades } from '@/lib/snaptrade-sync';
 import { getAllPortfolioConnections } from '@/lib/db/portfolio-connection';
+import { getEntitlements } from '@/lib/db/entitlements';
 import { syncPortfolio } from '@/lib/portfolio-sync';
 
 export async function POST() {
@@ -41,10 +42,21 @@ export async function POST() {
 
   // Long-term Portfolio connections live in their own namespace and sync
   // through their own pipeline — failures here never affect the Journal sync.
+  // Skip holders whose Platinum lapsed (the nightly sweep tears those down;
+  // this avoids paying for SnapTrade pulls in the meantime).
   const portfolioConnections = await getAllPortfolioConnections();
   const portfolioResults: Array<Record<string, unknown>> = [];
   for (const conn of portfolioConnections) {
     if (conn.accounts.length === 0) continue;
+    try {
+      const entitlements = await getEntitlements(conn.userId);
+      if (!entitlements.features.portfolio) {
+        portfolioResults.push({ userId: conn.userId, skipped: 'not entitled' });
+        continue;
+      }
+    } catch {
+      // Entitlement lookup failing shouldn't block the sync.
+    }
     try {
       const r = await syncPortfolio(conn);
       portfolioResults.push({ userId: conn.userId, positions: r.positions, activities: r.activities });

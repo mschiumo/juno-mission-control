@@ -15,6 +15,7 @@ import { requireUserId } from '@/lib/auth-session';
 import { isOwnerEmail } from '@/lib/owner';
 import { deleteUserAccount } from '@/lib/db/users';
 import { disconnectBrokerage } from '@/lib/brokerage-access';
+import { disconnectPortfolio } from '@/lib/portfolio-access';
 import { recordPlanEvent } from '@/lib/db/plan-events';
 import { getEntitlementRecord } from '@/lib/db/entitlements';
 import { getStripe } from '@/lib/stripe';
@@ -46,14 +47,17 @@ export async function DELETE(): Promise<NextResponse> {
       }
     }
     const teardown = await disconnectBrokerage(userId);
+    const portfolioTeardown = await disconnectPortfolio(userId);
     await deleteUserAccount(userId);
     await recordPlanEvent({
       type: 'account_deleted',
       userId,
       email: session?.user?.email ?? undefined,
-      detail: `Brokerage ${teardown.hadConnection ? (teardown.deregistered ? 'disconnected' : 'queued for retry') : 'not connected'}`,
+      detail:
+        `Brokerage ${teardown.hadConnection ? (teardown.deregistered ? 'disconnected' : 'queued for retry') : 'not connected'}; ` +
+        `portfolio ${portfolioTeardown.hadConnection ? (portfolioTeardown.deregistered ? 'disconnected' : 'queued for retry') : 'not connected'}`,
     });
-    return NextResponse.json({ success: true, teardown });
+    return NextResponse.json({ success: true, teardown, portfolioTeardown });
   } catch (error) {
     console.error('Account deletion failed:', error);
     return NextResponse.json(

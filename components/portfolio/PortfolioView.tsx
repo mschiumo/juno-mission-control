@@ -972,7 +972,14 @@ export default function PortfolioView() {
                         {r.periodLabel}
                       </p>
                       <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                        Generated {displayDate(r.generatedAt.slice(0, 10))}
+                        {/* Viewer-local, matching the modal header — slicing the
+                            ISO string would show the UTC day instead. */}
+                        Generated{' '}
+                        {new Date(r.generatedAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
                       </p>
                     </button>
                   ))}

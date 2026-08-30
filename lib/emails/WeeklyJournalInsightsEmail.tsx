@@ -29,7 +29,9 @@ export interface PortfolioRecap {
 export interface WeeklyJournalInsightsEmailProps {
   periodLabel: string;
   dateRangeLabel: string;
-  stats: WeeklyStats;
+  /** Null on a quiet week (no trades, no journal entries) — the trading
+   *  half renders a short note instead of stats and insights. */
+  stats: WeeklyStats | null;
   structured: StructuredAnalysis | null;
   rawAnalysis: string;
   /** Rendered only when a long-term portfolio is connected. */
@@ -58,7 +60,8 @@ export function WeeklyJournalInsightsEmail({
   rawAnalysis,
   portfolio,
 }: WeeklyJournalInsightsEmailProps) {
-  const pnlColor = stats.netPnL > 0 ? GREEN : stats.netPnL < 0 ? RED : '#A0AEC0';
+  const pnlColor =
+    stats && stats.netPnL > 0 ? GREEN : stats && stats.netPnL < 0 ? RED : '#A0AEC0';
 
   return (
     <EmailLayout previewText={`Weekly journal insights — ${periodLabel}`}>
@@ -68,7 +71,19 @@ export function WeeklyJournalInsightsEmail({
         <Text style={subtitle}>{dateRangeLabel}</Text>
       </Section>
 
+      {/* Quiet week: no trading stats to show, but the portfolio section below
+          still goes out. */}
+      {!stats && (
+        <Section style={card}>
+          <Text style={bulletText}>
+            No closed trades or journal entries this week — the trading recap
+            will return with your next active week.
+          </Text>
+        </Section>
+      )}
+
       {/* Stats row */}
+      {stats && (
       <Section style={card}>
         <Row>
           <Column style={statCol}>
@@ -112,6 +127,7 @@ export function WeeklyJournalInsightsEmail({
           </Row>
         )}
       </Section>
+      )}
 
       {structured ? (
         <>
@@ -127,12 +143,12 @@ export function WeeklyJournalInsightsEmail({
             <InsightSection title="Patterns Noticed" items={structured.patterns} accent="#818CF8" />
           )}
         </>
-      ) : (
+      ) : rawAnalysis ? (
         <Section style={card}>
           <Text style={sectionHeading}>Analysis</Text>
           <Text style={bulletText}>{rawAnalysis}</Text>
         </Section>
-      )}
+      ) : null}
 
       {portfolio && (
         <>

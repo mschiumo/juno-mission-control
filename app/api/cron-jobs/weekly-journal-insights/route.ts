@@ -18,7 +18,13 @@ import { NextResponse } from 'next/server';
 import type { Trade } from '@/types/trading';
 import { OWNER_EMAIL } from '@/lib/owner';
 import { getUserByEmail } from '@/lib/db/users';
-import { generateJournalInsightsReport, parseAnalysis } from '@/lib/journal-insights';
+import {
+  generateJournalInsightsReport,
+  parseAnalysis,
+  getDateRange,
+  getPeriodKey,
+  getPeriodLabel,
+} from '@/lib/journal-insights';
 import { sendEmail } from '@/lib/email';
 import { postToCronResults, logToActivityLog } from '@/lib/cron-helpers';
 import {
@@ -136,12 +142,43 @@ export async function POST() {
 
     const generated = await generateJournalInsightsReport(owner.id, 'week');
     if (!generated) {
+      // Quiet trading week. If a long-term portfolio is connected its recap
+      // still goes out (the review is generated regardless of trading
+      // activity); otherwise skip as before.
+      const portfolio = await buildPortfolioRecap(owner.id);
+      if (!portfolio) {
+        await postToCronResults(
+          'weekly-journal-insights',
+          'No journal entries or trades this week — skipped email.',
+          'review',
+        );
+        return NextResponse.json({ success: true, skipped: true, reason: 'No data for this week' });
+      }
+
+      const periodKey = getPeriodKey('week');
+      const periodLabel = getPeriodLabel('week', periodKey);
+      const emailResult = await sendEmail({
+        to: OWNER_EMAIL,
+        subject: `Weekly Journal Insights — ${periodLabel}`,
+        react: WeeklyJournalInsightsEmail({
+          periodLabel,
+          dateRangeLabel: tradingWeekLabel(getDateRange('week').start.toISOString()),
+          stats: null,
+          structured: null,
+          rawAnalysis: '',
+          portfolio,
+        }),
+      });
       await postToCronResults(
         'weekly-journal-insights',
-        'No journal entries or trades this week — skipped email.',
+        `Quiet trading week — sent portfolio-only recap (${portfolio.positionsCount} positions). ` +
+          `Email ${emailResult.success ? 'sent' : `failed: ${emailResult.error}`}.`,
         'review',
       );
-      return NextResponse.json({ success: true, skipped: true, reason: 'No data for this week' });
+      return NextResponse.json({
+        success: true,
+        data: { quietWeek: true, emailSent: emailResult.success, emailError: emailResult.error },
+      });
     }
 
     const { report, trades } = generated;

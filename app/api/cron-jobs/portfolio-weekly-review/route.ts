@@ -17,6 +17,7 @@
 import { NextResponse } from 'next/server';
 import { isSnapTradeConfigured } from '@/lib/snaptrade';
 import { getAllPortfolioConnections } from '@/lib/db/portfolio-connection';
+import { getEntitlements } from '@/lib/db/entitlements';
 import { syncPortfolio } from '@/lib/portfolio-sync';
 import { generatePortfolioReview } from '@/lib/portfolio-review';
 import { postToCronResults } from '@/lib/cron-helpers';
@@ -34,7 +35,23 @@ export async function POST() {
 
     const results: Array<Record<string, unknown>> = [];
     let generated = 0;
+    let failed = 0;
     for (const connection of connections) {
+      // Belt-and-braces beside the nightly sweep's teardown: never spend a
+      // sync + model call on a connection whose holder lost Platinum.
+      try {
+        const entitlements = await getEntitlements(connection.userId);
+        if (!entitlements.features.portfolio) {
+          results.push({ userId: connection.userId, skipped: 'not entitled' });
+          continue;
+        }
+      } catch (error) {
+        console.error(
+          `[PortfolioWeeklyReview] entitlement check failed for ${connection.userId}:`,
+          error
+        );
+      }
+
       // Freshen the snapshot first; a sync failure shouldn't kill the review —
       // the stored snapshot from the 6-hourly sync is at most hours old.
       if (isSnapTradeConfigured()) {
@@ -62,6 +79,7 @@ export async function POST() {
         }
       } catch (error) {
         console.error(`[PortfolioWeeklyReview] failed for ${connection.userId}:`, error);
+        failed += 1;
         results.push({
           userId: connection.userId,
           error: error instanceof Error ? error.message : String(error),
@@ -69,15 +87,31 @@ export async function POST() {
       }
     }
 
+    // A run where every generation failed is a systemic failure (bad API key,
+    // model outage) — surface it as an error so cron monitoring flags it,
+    // instead of a benign "0/N" success.
+    if (generated === 0 && failed > 0) {
+      await postToCronResults(
+        'portfolio-weekly-review',
+        `All ${failed} portfolio review generations failed — check ANTHROPIC_API_KEY / model status.`,
+        'error',
+      );
+      return NextResponse.json(
+        { success: false, data: { portfolios: connections.length, generated, failed, results } },
+        { status: 500 },
+      );
+    }
+
     await postToCronResults(
       'portfolio-weekly-review',
-      `Generated ${generated}/${connections.length} weekly portfolio reviews.`,
-      'review',
+      `Generated ${generated}/${connections.length} weekly portfolio reviews` +
+        `${failed > 0 ? ` (${failed} failed)` : ''}.`,
+      failed > 0 ? 'error' : 'review',
     );
 
     return NextResponse.json({
       success: true,
-      data: { portfolios: connections.length, generated, results, durationMs: Date.now() - startTime },
+      data: { portfolios: connections.length, generated, failed, results, durationMs: Date.now() - startTime },
     });
   } catch (error) {
     console.error('[PortfolioWeeklyReview] failed:', error);
