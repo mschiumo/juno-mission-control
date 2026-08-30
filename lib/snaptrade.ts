@@ -206,23 +206,57 @@ export async function getAllAccountActivities(params: {
   return all;
 }
 
+/** Raw SnapTrade position, narrowed to the fields the app consumes. */
+export interface SnapTradeRawPosition {
+  symbol?: {
+    symbol?: {
+      symbol?: string;
+      raw_symbol?: string;
+      description?: string | null;
+    };
+  } | null;
+  units?: number | null;
+  price?: number | null;
+  open_pnl?: number | null;
+  average_purchase_price?: number | null;
+}
+
 /**
- * Fetch the open positions for one account. Used to strip unrealized P&L out of
- * the broker's marked-to-market total value so the derived balance history is
- * anchored at cost (see lib/snaptrade-balances.ts).
+ * Fetch the open positions for one account. The trading sync only reads
+ * `open_pnl` (to strip unrealized P&L out of the broker's marked-to-market
+ * total value — see lib/snaptrade-balances.ts); the Portfolio tab consumes the
+ * full shape.
  */
 export async function listAccountPositions(params: {
   snaptradeUserId: string;
   userSecret: string;
   accountId: string;
-}): Promise<{ open_pnl?: number | null }[]> {
+}): Promise<SnapTradeRawPosition[]> {
   const snaptrade = getSnapTradeClient();
   const res = await snaptrade.accountInformation.getUserAccountPositions({
     userId: params.snaptradeUserId,
     userSecret: params.userSecret,
     accountId: params.accountId,
   });
-  return (res.data as { open_pnl?: number | null }[]) ?? [];
+  return (res.data as SnapTradeRawPosition[]) ?? [];
+}
+
+/**
+ * Fetch the cash/buying-power balances for one account (per currency).
+ * Not all brokerages report cash; callers must tolerate an empty list.
+ */
+export async function getAccountBalances(params: {
+  snaptradeUserId: string;
+  userSecret: string;
+  accountId: string;
+}): Promise<{ cash?: number | null; currency?: { code?: string } }[]> {
+  const snaptrade = getSnapTradeClient();
+  const res = await snaptrade.accountInformation.getUserAccountBalance({
+    userId: params.snaptradeUserId,
+    userSecret: params.userSecret,
+    accountId: params.accountId,
+  });
+  return (res.data as { cash?: number | null; currency?: { code?: string } }[]) ?? [];
 }
 
 /** Count a user's brokerage authorizations (connections) — used to enforce limits. */

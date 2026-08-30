@@ -15,17 +15,18 @@ import MotivationalBanner from "@/components/MotivationalBanner";
 import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
 import FinancesView from "@/components/finances/FinancesView";
+import PortfolioView from "@/components/portfolio/PortfolioView";
 import AccountMetricsView from "@/components/admin/AccountMetricsView";
 import UsageAnalyticsView from "@/components/admin/UsageAnalyticsView";
 import LandingPage from "@/components/landing/LandingPage";
 import UserAvatar from "@/components/UserAvatar";
 import VerifyEmailBanner from "@/components/VerifyEmailBanner";
 import Link from 'next/link';
-import { LayoutDashboard, Target, TrendingUp, Wallet, Users, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, Target, TrendingUp, Wallet, Users, Menu, X, LogOut, PieChart } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
 
-type TabId = 'dashboard' | 'finances' | 'trading' | 'goals' | 'accounts';
+type TabId = 'dashboard' | 'finances' | 'portfolio' | 'trading' | 'goals' | 'accounts';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -41,6 +42,7 @@ function DashboardContent() {
     const tab = searchParams.get('tab');
     if (tab === 'trading') return 'trading';
     if (tab === 'finances' && isOwner) return 'finances';
+    if (tab === 'portfolio' && isOwner) return 'portfolio';
     if (tab === 'goals' && isOwner) return 'goals';
     if (tab === 'accounts' && isOwner) return 'accounts';
     if (isOwner) return 'dashboard';
@@ -73,6 +75,7 @@ function DashboardContent() {
     ? [
         { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
         { id: 'finances' as const, label: 'Finances', icon: Wallet },
+        { id: 'portfolio' as const, label: 'Portfolio', icon: PieChart },
         { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
         { id: 'goals' as const, label: 'Goals', icon: Target },
         { id: 'accounts' as const, label: 'Accounts', icon: Users },
@@ -231,6 +234,11 @@ function DashboardContent() {
           /* Finances View */
           <div className="max-w-[1600px] mx-auto">
             <FinancesView />
+          </div>
+        ) : activeTab === 'portfolio' ? (
+          /* Long-term Portfolio View */
+          <div className="max-w-[1600px] mx-auto">
+            <PortfolioView />
           </div>
         ) : activeTab === 'trading' ? (
           /* Trading View */

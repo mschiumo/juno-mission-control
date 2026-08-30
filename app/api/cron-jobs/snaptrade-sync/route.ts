@@ -12,6 +12,8 @@ import { NextResponse } from 'next/server';
 import { isSnapTradeConfigured } from '@/lib/snaptrade';
 import { getAllBrokerConnections } from '@/lib/db/broker-connections';
 import { syncUserTrades } from '@/lib/snaptrade-sync';
+import { getAllPortfolioConnections } from '@/lib/db/portfolio-connection';
+import { syncPortfolio } from '@/lib/portfolio-sync';
 
 export async function POST() {
   const startTime = Date.now();
@@ -37,9 +39,31 @@ export async function POST() {
     }
   }
 
+  // Long-term Portfolio connections live in their own namespace and sync
+  // through their own pipeline — failures here never affect the Journal sync.
+  const portfolioConnections = await getAllPortfolioConnections();
+  const portfolioResults: Array<Record<string, unknown>> = [];
+  for (const conn of portfolioConnections) {
+    if (conn.accounts.length === 0) continue;
+    try {
+      const r = await syncPortfolio(conn);
+      portfolioResults.push({ userId: conn.userId, positions: r.positions, activities: r.activities });
+    } catch (error) {
+      console.error(`[SnapTradeSync] portfolio sync failed for user ${conn.userId}:`, error);
+      portfolioResults.push({ userId: conn.userId, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
   return NextResponse.json({
     success: true,
-    data: { users: connections.length, ok, failed, results, durationMs: Date.now() - startTime },
+    data: {
+      users: connections.length,
+      ok,
+      failed,
+      results,
+      portfolio: portfolioResults,
+      durationMs: Date.now() - startTime,
+    },
   });
 }
 
