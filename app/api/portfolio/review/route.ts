@@ -1,17 +1,17 @@
 /**
- * /api/portfolio/review — owner-only.
+ * /api/portfolio/review — Platinum feature (owner always included).
  *
  * GET  — the stored weekly review history (newest first).
  * POST — generate (or regenerate) this week's review on demand.
  */
 
 import { NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import { getPortfolioReviews } from '@/lib/db/portfolio-connection';
 import { generatePortfolioReview } from '@/lib/portfolio-review';
 
 export async function GET(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireOwner();
+  const { userId, error: authError } = await requireFeature('portfolio');
   if (authError) return authError;
 
   const reviews = await getPortfolioReviews(userId);
@@ -19,7 +19,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function POST(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireOwner();
+  const { userId, error: authError } = await requireFeature('portfolio');
   if (authError) return authError;
 
   try {

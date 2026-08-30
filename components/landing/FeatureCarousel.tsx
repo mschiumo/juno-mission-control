@@ -31,6 +31,7 @@ import {
   ArrowDownRight,
   Link2,
   RefreshCw,
+  PieChart,
 } from 'lucide-react';
 
 /* ── Mockups ─────────────────────────────────────────────────────────── */
@@ -432,6 +433,82 @@ function BrokerSyncMock() {
 
 /* ── Slides ──────────────────────────────────────────────────────────── */
 
+function PortfolioMock() {
+  const holdings = [
+    ['VOO', 'Vanguard S&P 500 ETF', '48.5%', '+$2,655', 48.5],
+    ['AAPL', 'Apple Inc', '27.9%', '+$2,455', 27.9],
+    ['SCHD', 'US Dividend Equity ETF', '10.9%', '+$441', 10.9],
+  ] as const;
+  return (
+    <div className={panel}>
+      <div className="flex items-center justify-between mb-3">
+        <span className={label}>Long-Term Portfolio</span>
+        <span className="flex items-center gap-1.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brokers/schwab.png" alt="Schwab" className="w-4 h-4 rounded" />
+          <span className="text-[9px] text-[#8b949e]">Individual · ****1234</span>
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        {(
+          [
+            ['Total value', '$50,748', 'text-white'],
+            ['This week', '+$312', 'text-[#3fb950]'],
+            ['Unrealized P&L', '+$6,046', 'text-[#3fb950]'],
+          ] as const
+        ).map(([k, v, c]) => (
+          <div key={k} className="bg-[#161b22] border border-[#30363d] rounded-lg px-2.5 py-2">
+            <p className="text-[9px] text-[#8b949e] uppercase tracking-wider">{k}</p>
+            <p className={`text-xs font-bold tabular-nums ${c}`}>{v}</p>
+          </div>
+        ))}
+      </div>
+
+      <svg viewBox="0 0 300 44" className="w-full mb-3" aria-hidden>
+        <defs>
+          <linearGradient id="pfSpark" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#F97316" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#F97316" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M0 36 L30 33 L60 35 L90 28 L120 30 L150 22 L180 24 L210 16 L240 18 L270 9 L300 12 L300 44 L0 44 Z"
+          fill="url(#pfSpark)"
+        />
+        <path
+          d="M0 36 L30 33 L60 35 L90 28 L120 30 L150 22 L180 24 L210 16 L240 18 L270 9 L300 12"
+          fill="none"
+          stroke="#F97316"
+          strokeWidth="1.5"
+        />
+      </svg>
+
+      <div className="space-y-1.5 mb-3">
+        {holdings.map(([sym, name, weight, pnl, pct]) => (
+          <div key={sym} className="flex items-center gap-2.5 bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2">
+            <span className="text-[11px] font-bold text-white w-10">{sym}</span>
+            <span className="hidden sm:block text-[10px] text-[#8b949e] truncate flex-1">{name}</span>
+            <div className="w-14 h-1 rounded-full bg-[#30363d] overflow-hidden shrink-0">
+              <div className="h-full rounded-full bg-[#F97316]/70" style={{ width: `${pct}%` }} />
+            </div>
+            <span className="text-[10px] text-[#8b949e] w-10 text-right tabular-nums">{weight}</span>
+            <span className="text-[10px] font-semibold text-[#3fb950] w-14 text-right tabular-nums">{pnl}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-start gap-2 bg-[#F97316]/10 border border-[#F97316]/25 rounded-lg px-3 py-2">
+        <Sparkles className="w-3 h-3 text-[#F97316] mt-0.5 shrink-0" />
+        <p className="text-[10px] text-[#e6edf3] leading-relaxed">
+          <span className="font-bold text-[#F97316]">Weekly review · </span>
+          VOO is 48% of the book while cash sits under 4% — new deposits are doing the diversifying.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 const SLIDES = [
   {
     slug: 'journal',
@@ -450,6 +527,15 @@ const SLIDES = [
     desc: 'Link your brokerage in about a minute and your trades, fees, and balances flow in automatically every trading day — no CSV exports, no manual entry, no fudged numbers. Works with Robinhood, Schwab, Fidelity, and more via SnapTrade; your login stays with your broker and is never stored here.',
     tags: ['One-click connect', 'Daily auto-sync', 'Trades, fees & balances', 'Credentials never stored'],
     mock: <BrokerSyncMock />,
+  },
+  {
+    slug: 'portfolio',
+    icon: PieChart,
+    kicker: 'Portfolio · Platinum',
+    title: 'One terminal. Short and long term.',
+    desc: 'Be a diversified trader: run your day trading next to your long-term portfolio. Connect the account you invest from and track positions, dividends, and deposits alongside your trading — with a weekly AI review that flags concentration, income, and anything drifting off plan.',
+    tags: ['Diversified — short & long term', 'Long-term portfolio sync', 'Dividends & deposits', 'Weekly AI review'],
+    mock: <PortfolioMock />,
   },
   {
     slug: 'agents',
@@ -560,7 +646,7 @@ export default function FeatureCarousel() {
                       <s.icon className="w-3.5 h-3.5 text-[#F97316]" />
                       <span className="text-xs font-semibold text-[#F97316]">{s.kicker}</span>
                     </div>
-                    {s.slug === 'agents' && PLATINUM_COMING_SOON && (
+                    {(s.slug === 'agents' || s.slug === 'portfolio') && PLATINUM_COMING_SOON && (
                       <span className="px-2.5 py-1.5 rounded-full bg-[#d29922]/15 border border-[#d29922]/30 text-[10px] font-bold text-[#d29922] uppercase tracking-wider">
                         Coming soon
                       </span>

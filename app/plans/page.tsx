@@ -43,9 +43,11 @@ const TIER_FEATURES_COPY: Record<Tier, { blurb: string; features: string[] }> = 
     ],
   },
   platinum: {
-    blurb: 'AI-scouted swing setups. You approve every order.',
+    blurb: 'The diversified trader — short and long term, in one terminal.',
     features: [
       'Everything in Gold',
+      'Long-term portfolio, synced — positions, dividends & deposits beside your trading',
+      'Weekly AI portfolio review — concentration, income & repositioning flags',
       'AI-identified swing-trade setups, with the reasoning attached',
       'You approve every order — review, adjust, or reject each proposal',
       'Full trade-lifecycle visibility — orders, fills, stops & progress in one terminal',

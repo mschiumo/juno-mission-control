@@ -23,6 +23,9 @@ import {
 import { getBrokerConnection } from '@/lib/db/broker-connections';
 import { isRecordActive } from '@/lib/entitlements';
 import { disconnectBrokerage, retryOrphanedDeregistrations } from '@/lib/brokerage-access';
+import { disconnectPortfolio } from '@/lib/portfolio-access';
+import { getAllPortfolioConnections } from '@/lib/db/portfolio-connection';
+import { getEntitlementsStrict } from '@/lib/db/entitlements';
 import { recordPlanEvent } from '@/lib/db/plan-events';
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -54,11 +57,37 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
   }
 
+  // Portfolio connections are Platinum-only and billed per SnapTrade user, so
+  // sweep every stored connection against the holder's CURRENT entitlements —
+  // this catches lapsed/downgraded plans and deleted accounts alike (a missing
+  // record resolves to free; the owner always resolves platinum).
+  let portfoliosDisconnected = 0;
+  for (const connection of await getAllPortfolioConnections()) {
+    try {
+      // Strict resolution: a Redis read failure throws into the catch below
+      // (skipped tonight, retried tomorrow) rather than resolving to free and
+      // irreversibly deregistering a still-paying user.
+      const entitlements = await getEntitlementsStrict(connection.userId);
+      if (entitlements.features.portfolio) continue;
+      const result = await disconnectPortfolio(connection.userId);
+      if (result.hadConnection) portfoliosDisconnected++;
+      if (result.orphaned) orphaned++;
+      await recordPlanEvent({
+        type: 'plan_expired',
+        userId: connection.userId,
+        detail: `Lapsed below Platinum; portfolio ${result.deregistered ? 'disconnected' : 'queued for retry'}`,
+      });
+    } catch (error) {
+      console.error(`Portfolio sweep failed for ${connection.userId}:`, error);
+    }
+  }
+
   const retries = await retryOrphanedDeregistrations();
   return NextResponse.json({
     success: true,
     lapsedChecked: lapsed.length,
     disconnected,
+    portfoliosDisconnected,
     orphaned,
     orphansRetried: retries.retried,
     orphansCleared: retries.cleared,

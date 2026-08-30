@@ -58,6 +58,22 @@ export async function getEntitlementRecord(userId: string): Promise<EntitlementR
 }
 
 /**
+ * Like getEntitlements, but a storage failure THROWS instead of failing open
+ * to free Silver. For destructive callers only (the nightly teardown sweep):
+ * "record read failed" must never look like "record absent" when the next
+ * step is an irreversible SnapTrade deregistration.
+ */
+export async function getEntitlementsStrict(userId: string): Promise<Entitlements> {
+  const owner = await getUserByEmail(OWNER_EMAIL);
+  if (owner?.id === userId) return entitlementsForTier('platinum');
+  const redis = await getRedisClient();
+  const raw = await redis.get(entitlementKey(userId));
+  const record =
+    raw && typeof raw === 'string' ? (JSON.parse(raw) as EntitlementRecord) : null;
+  return entitlementsFor(record);
+}
+
+/**
  * Resolve a user's capabilities. Pass the session email when you have it to
  * short-circuit the owner check without a Redis read.
  */

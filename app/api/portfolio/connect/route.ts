@@ -1,5 +1,5 @@
 /**
- * POST /api/portfolio/connect — owner-only.
+ * POST /api/portfolio/connect — Platinum feature (owner always included).
  *
  * Starts the long-term portfolio brokerage connection flow. Registers a
  * SEPARATE SnapTrade user (`<userId>-portfolio`) on first use so the portfolio
@@ -11,7 +11,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-session';
+import { requireFeature } from '@/lib/auth-session';
 import {
   isSnapTradeConfigured,
   registerUser,
@@ -27,7 +27,7 @@ import {
 const PORTFOLIO_RETURN_PATH = '/portfolio/connected';
 
 export async function POST(): Promise<NextResponse> {
-  const { userId, error: authError } = await requireOwner();
+  const { userId, error: authError } = await requireFeature('portfolio');
   if (authError) return authError;
 
   if (!isSnapTradeConfigured()) {

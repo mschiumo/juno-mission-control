@@ -21,6 +21,7 @@ import {
   listPlanUserIds,
 } from '@/lib/db/entitlements';
 import { disconnectBrokerage } from '@/lib/brokerage-access';
+import { disconnectPortfolio } from '@/lib/portfolio-access';
 import { tierAtLeast } from '@/lib/entitlements';
 import { recordPlanEvent } from '@/lib/db/plan-events';
 
@@ -84,6 +85,12 @@ export async function PATCH(request: Request): Promise<NextResponse> {
     teardown = await disconnectBrokerage(user.id);
     if (tier === null) await clearPlanIndex(user.id);
   }
+  // Losing Platinum means losing the long-term portfolio (its own billed
+  // SnapTrade user) — same rule, one tier up.
+  let portfolioTeardown = null;
+  if (tier === null || !tierAtLeast(tier, 'platinum')) {
+    portfolioTeardown = await disconnectPortfolio(user.id);
+  }
 
   await recordPlanEvent({
     type: tier === null ? 'admin_revoke' : 'admin_grant',
@@ -92,5 +99,5 @@ export async function PATCH(request: Request): Promise<NextResponse> {
     detail: tier === null ? 'Record cleared by owner' : `Granted ${tier}${body.expiresAt ? ` until ${body.expiresAt}` : ''}`,
   });
 
-  return NextResponse.json({ success: true, record, teardown });
+  return NextResponse.json({ success: true, record, teardown, portfolioTeardown });
 }

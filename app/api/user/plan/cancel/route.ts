@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import { requireUserId } from '@/lib/auth-session';
 import { clearEntitlement, clearPlanIndex } from '@/lib/db/entitlements';
 import { disconnectBrokerage } from '@/lib/brokerage-access';
+import { disconnectPortfolio } from '@/lib/portfolio-access';
 import { recordPlanEvent } from '@/lib/db/plan-events';
 import { getEntitlementRecord } from '@/lib/db/entitlements';
 import { auth } from '@/auth';
@@ -52,15 +53,18 @@ export async function POST(): Promise<NextResponse> {
     }
 
     const teardown = await disconnectBrokerage(userId);
+    const portfolioTeardown = await disconnectPortfolio(userId);
     await clearEntitlement(userId);
     await clearPlanIndex(userId);
     await recordPlanEvent({
       type: 'plan_cancelled',
       userId,
       email: session?.user?.email ?? undefined,
-      detail: `Was ${record?.tier ?? 'silver'} (${record?.source ?? 'none'}); brokerage ${teardown.hadConnection ? (teardown.deregistered ? 'disconnected' : 'queued for retry') : 'not connected'}`,
+      detail:
+        `Was ${record?.tier ?? 'silver'} (${record?.source ?? 'none'}); brokerage ${teardown.hadConnection ? (teardown.deregistered ? 'disconnected' : 'queued for retry') : 'not connected'}; ` +
+        `portfolio ${portfolioTeardown.hadConnection ? (portfolioTeardown.deregistered ? 'disconnected' : 'queued for retry') : 'not connected'}`,
     });
-    return NextResponse.json({ success: true, teardown });
+    return NextResponse.json({ success: true, teardown, portfolioTeardown });
   } catch (error) {
     console.error('Plan cancellation failed:', error);
     return NextResponse.json(

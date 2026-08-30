@@ -29,6 +29,8 @@ const ROWS: { label: string; silver: boolean; gold: boolean; platinum: boolean; 
   { label: 'AI coaching reports on your journal', silver: false, gold: true, platinum: true },
   { label: 'Self-tracking trading goals', silver: false, gold: true, platinum: true },
   { label: 'AI-identified swing setups — you approve every order', silver: false, gold: false, platinum: true, dim: true },
+  { label: 'Long-term portfolio sync — diversified, short & long term', silver: false, gold: false, platinum: true, dim: true },
+  { label: 'Weekly AI portfolio review', silver: false, gold: false, platinum: true, dim: true },
 ];
 
 /** Row indexes after which a group divider renders (universal | Gold | Platinum). */
