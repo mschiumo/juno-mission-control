@@ -457,9 +457,6 @@ export default function PortfolioView() {
     [snapshot]
   );
 
-  const recurringDeposits = (summary?.recurring ?? []).filter(f => f.type === 'CONTRIBUTION');
-  const recurringMonthly = recurringDeposits.reduce((s, f) => s + f.monthlyAmount, 0);
-
   /** Mark a transaction row that matches a detected recurring flow. */
   const isRecurring = useCallback(
     (a: Activity) =>
@@ -610,6 +607,10 @@ export default function PortfolioView() {
           <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
           Sync now
         </button>
+        <InfoTooltip
+          text="Syncing asks SnapTrade to pull fresh data from your brokerage, but SnapTrade isn't always up to date — values can take until overnight to reflect your account's real balance."
+          align="right"
+        />
         {confirmDisconnect ? (
           <span className="inline-flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
             Disconnect and clear portfolio data?
@@ -641,7 +642,7 @@ export default function PortfolioView() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
         <BigMetricCard
           icon={<Wallet className="w-4 h-4" style={{ color: 'var(--accent)' }} />}
           label="Total Value"
@@ -682,16 +683,6 @@ export default function PortfolioView() {
           label="Dividends 12m"
           value={summary.income ? usd(summary.income.dividends12m) : '—'}
           sub={summary.income ? `${usd(summary.income.dividends30d)} last 30d` : undefined}
-        />
-        <BigMetricCard
-          icon={<Repeat className="w-4 h-4" style={{ color: 'var(--accent-light)' }} />}
-          label="Recurring In"
-          value={recurringDeposits.length > 0 ? `${usd0(recurringMonthly)}/mo` : '—'}
-          sub={
-            recurringDeposits.length > 0
-              ? recurringDeposits.map(f => `${usd0(f.amount)} ${f.cadence}`).join(' · ')
-              : 'No recurring deposits detected'
-          }
         />
       </div>
 
