@@ -1,16 +1,21 @@
 /**
  * POST /api/portfolio/sync — Platinum feature (owner always included).
  *
- * Manual "Sync now" for the Portfolio tab. Note SnapTrade relays brokerage
- * data roughly once a day, so this re-reads SnapTrade's cache rather than
- * forcing a fresh brokerage pull (same limitation as the trading sync).
+ * Manual "Sync now" for the Portfolio tab. SnapTrade only relays brokerage
+ * data once a day on its own, so a plain sync re-reads a stale cache — this
+ * route instead triggers SnapTrade's billable force-refresh (bounded wait for
+ * it to land), then syncs. A per-user cooldown keeps repeated clicks from
+ * stacking refresh charges; inside the cooldown it falls back to a cache sync.
  */
 
 import { NextResponse } from 'next/server';
 import { requireFeature } from '@/lib/auth-session';
 import { isSnapTradeConfigured } from '@/lib/snaptrade';
 import { getPortfolioConnection } from '@/lib/db/portfolio-connection';
-import { syncPortfolio } from '@/lib/portfolio-sync';
+import { refreshAndSyncPortfolio, syncPortfolio } from '@/lib/portfolio-sync';
+
+/** Minimum spacing between billable SnapTrade force-refreshes per user. */
+const REFRESH_COOLDOWN_MS = 15 * 60 * 1000;
 
 export async function POST(): Promise<NextResponse> {
   const { userId, error: authError } = await requireFeature('portfolio');
@@ -31,8 +36,15 @@ export async function POST(): Promise<NextResponse> {
     );
   }
 
+  const lastRefresh = connection.lastRefreshedAt
+    ? Date.parse(connection.lastRefreshedAt)
+    : 0;
+  const cooledDown = Date.now() - lastRefresh >= REFRESH_COOLDOWN_MS;
+
   try {
-    const result = await syncPortfolio(connection);
+    const result = cooledDown
+      ? await refreshAndSyncPortfolio(connection, { pollTimeoutMs: 60_000 })
+      : { ...(await syncPortfolio(connection)), refreshed: false, holdingsUpdated: false };
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     console.error('Portfolio sync failed:', error);

@@ -58,6 +58,12 @@
     },
     "app/api/cron-jobs/weekly-habits-recap/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/cron-jobs/portfolio-sync/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/portfolio/sync/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
@@ -152,6 +158,10 @@
     {
       "path": "/api/cron-jobs/weekly-habits-recap",
       "schedule": "0 10 * * 1"
+    },
+    {
+      "path": "/api/cron-jobs/portfolio-sync",
+      "schedule": "30 10,22 * * *"
     }
   ]
 }

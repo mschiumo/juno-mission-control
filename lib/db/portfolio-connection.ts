@@ -39,6 +39,9 @@ export interface PortfolioConnection {
   connectedAt: string;
   /** ISO timestamp of the last successful sync, if any. */
   lastSyncedAt?: string;
+  /** ISO timestamp of the last billable SnapTrade force-refresh, if any —
+   *  the cooldown guard that keeps refresh charges bounded. */
+  lastRefreshedAt?: string;
 }
 
 /** One open position, normalized from SnapTrade's Position shape. */
@@ -170,6 +173,15 @@ export async function setPortfolioLastSyncedAt(
   const existing = await getPortfolioConnection(userId);
   if (!existing) return;
   await savePortfolioConnection({ ...existing, lastSyncedAt: isoTimestamp });
+}
+
+export async function setPortfolioLastRefreshedAt(
+  userId: string,
+  isoTimestamp: string
+): Promise<void> {
+  const existing = await getPortfolioConnection(userId);
+  if (!existing) return;
+  await savePortfolioConnection({ ...existing, lastRefreshedAt: isoTimestamp });
 }
 
 /** Enumerate every portfolio connection (for the cron sync). */
