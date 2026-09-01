@@ -18,6 +18,7 @@ import {
   listAccountPositions,
   getAccountBalances,
   getAllAccountActivities,
+  refreshConnection,
 } from '@/lib/snaptrade';
 import {
   buildTradesFromActivities,
@@ -32,6 +33,7 @@ import {
   savePortfolioActivities,
   setPortfolioAccounts,
   setPortfolioLastSyncedAt,
+  setPortfolioLastRefreshedAt,
   type PortfolioConnection,
   type PortfolioSnapshot,
   type PortfolioPosition,
@@ -46,6 +48,9 @@ interface SnapTradeAccountRaw {
   number: string;
   institution_name: string;
   balance?: { total?: { amount?: number | null } | null };
+  sync_status?: {
+    holdings?: { last_successful_sync?: string | null } | null;
+  } | null;
 }
 
 export interface PortfolioSyncResult {
@@ -212,4 +217,91 @@ export async function syncPortfolio(
     activities: allActivities.length,
     totalValue: snapshot.totalValue,
   };
+}
+
+export interface PortfolioRefreshSyncResult extends PortfolioSyncResult {
+  /** True when the billable SnapTrade refresh was triggered on any connection. */
+  refreshed: boolean;
+  /** True when SnapTrade confirmed fresh holdings before the pull (vs syncing
+   *  whatever was cached because the refresh hadn't landed by the deadline). */
+  holdingsUpdated: boolean;
+}
+
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+/**
+ * Force-refresh then sync: asks SnapTrade to pull fresh holdings straight from
+ * the brokerage — the plain sync only re-reads SnapTrade's once-a-day cache —
+ * waits (bounded) for the async refresh to land, then runs the normal sync.
+ *
+ * SnapTrade bills each refresh call, so callers gate this behind a cooldown
+ * (manual sync) or a low-frequency cron. Falls back to a plain cache sync when
+ * the refresh can't be triggered.
+ */
+export async function refreshAndSyncPortfolio(
+  connection: PortfolioConnection,
+  opts: { pollTimeoutMs?: number; pollIntervalMs?: number } = {}
+): Promise<PortfolioRefreshSyncResult> {
+  const pollTimeoutMs = opts.pollTimeoutMs ?? 60_000;
+  const pollIntervalMs = opts.pollIntervalMs ?? 10_000;
+  const auth = {
+    snaptradeUserId: connection.snaptradeUserId,
+    userSecret: connection.userSecret,
+  };
+
+  // Baseline holdings-sync stamps so we can tell when the refresh lands.
+  const baseline = new Map<string, string | null>();
+  try {
+    const raw = (await listAccounts(auth)) as SnapTradeAccountRaw[];
+    for (const a of raw ?? []) {
+      baseline.set(a.id, a.sync_status?.holdings?.last_successful_sync ?? null);
+    }
+  } catch (error) {
+    console.error('[PortfolioSync] baseline listAccounts failed:', error);
+  }
+
+  const authorizationIds = [
+    ...new Set(
+      connection.accounts
+        .map(a => a.authorizationId)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+  let refreshed = false;
+  for (const authorizationId of authorizationIds) {
+    try {
+      await refreshConnection({ ...auth, authorizationId });
+      refreshed = true;
+    } catch (error) {
+      // Refresh can be rejected (e.g. disabled on real-time plans); the cache
+      // sync below still runs.
+      console.error(
+        `[PortfolioSync] refresh failed for authorization ${authorizationId}:`,
+        error
+      );
+    }
+  }
+
+  let holdingsUpdated = false;
+  if (refreshed && baseline.size > 0) {
+    const deadline = Date.now() + pollTimeoutMs;
+    while (Date.now() < deadline && !holdingsUpdated) {
+      await sleep(pollIntervalMs);
+      try {
+        const raw = (await listAccounts(auth)) as SnapTradeAccountRaw[];
+        holdingsUpdated = (raw ?? []).some(a => {
+          const current = a.sync_status?.holdings?.last_successful_sync ?? null;
+          return current != null && current !== baseline.get(a.id);
+        });
+      } catch {
+        // Transient — keep polling until the deadline.
+      }
+    }
+  }
+
+  const result = await syncPortfolio(connection);
+  if (refreshed) {
+    await setPortfolioLastRefreshedAt(connection.userId, new Date().toISOString());
+  }
+  return { ...result, refreshed, holdingsUpdated };
 }

@@ -147,6 +147,26 @@ export async function listConnections(params: {
 }
 
 /**
+ * Trigger SnapTrade's manual holdings refresh for one connection. The refresh
+ * is queued asynchronously on SnapTrade's side — poll the accounts'
+ * sync_status.holdings.last_successful_sync to see it land. NOTE: SnapTrade
+ * bills an extra charge per call to this endpoint, so callers must rate-limit.
+ */
+export async function refreshConnection(params: {
+  snaptradeUserId: string;
+  userSecret: string;
+  authorizationId: string;
+}) {
+  const snaptrade = getSnapTradeClient();
+  const res = await snaptrade.connections.refreshBrokerageAuthorization({
+    userId: params.snaptradeUserId,
+    userSecret: params.userSecret,
+    authorizationId: params.authorizationId,
+  });
+  return res.data;
+}
+
+/**
  * Fetch raw activities (trade executions, dividends, transfers, …) for one
  * account. Phase 2's transform layer turns the BUY/SELL executions into the
  * app's round-trip Trade objects.
