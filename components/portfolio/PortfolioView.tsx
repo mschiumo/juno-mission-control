@@ -607,9 +607,11 @@ export default function PortfolioView() {
           <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
           Sync now
         </button>
+        {/* Opens downward — upward it slides under the sticky top nav. */}
         <InfoTooltip
           text="Syncing asks SnapTrade to pull fresh data from your brokerage, but SnapTrade isn't always up to date — values can take until overnight to reflect your account's real balance."
           align="right"
+          side="bottom"
         />
         {confirmDisconnect ? (
           <span className="inline-flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
