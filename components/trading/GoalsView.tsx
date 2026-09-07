@@ -386,6 +386,8 @@ export default function GoalsView({ refreshKey }: { refreshKey?: number }) {
   );
 
   const active = goals.filter((x) => x.goal.status !== 'archived');
+  const inProgress = active.filter((x) => x.progress.outcome !== 'missed');
+  const missed = active.filter((x) => x.progress.outcome === 'missed');
   const archived = goals.filter((x) => x.goal.status === 'archived');
 
   return (
@@ -416,11 +418,43 @@ export default function GoalsView({ refreshKey }: { refreshKey?: number }) {
       ) : active.length === 0 ? (
         <EmptyState onCreate={openCreate} />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {active.map((gwp) => (
-            <GoalCard key={gwp.goal.id} gwp={gwp} onEdit={openEdit} onArchive={handleArchive} onDelete={handleDelete} />
-          ))}
-        </div>
+        <>
+          {inProgress.length > 0 && (
+            <div>
+              {missed.length > 0 && (
+                <h3
+                  className="text-xs font-semibold uppercase tracking-wider mb-3"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  In progress
+                </h3>
+              )}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {inProgress.map((gwp) => (
+                  <GoalCard key={gwp.goal.id} gwp={gwp} onEdit={openEdit} onArchive={handleArchive} onDelete={handleDelete} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {missed.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#FF3D57' }}>
+                  Missed
+                </h3>
+                <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                  {missed.length} goal{missed.length === 1 ? '' : 's'} whose window closed before the target was met
+                </span>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {missed.map((gwp) => (
+                  <GoalCard key={gwp.goal.id} gwp={gwp} onEdit={openEdit} onArchive={handleArchive} onDelete={handleDelete} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {archived.length > 0 && (
