@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
+import { requireOwner } from '@/lib/auth-session';
 
 // Lazy Redis client initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
@@ -58,18 +59,25 @@ interface HabitData {
  * Wipes all habit history but PRESERVES custom habits
  */
 export async function POST() {
+  // Owner-only: this wipes habit history and evening check-ins. Gating on the
+  // session owner (not just any logged-in user) prevents a registered non-owner
+  // from destroying data, and scopes the destructive globs below to the caller.
+  const { userId, error: authError } = await requireOwner();
+  if (authError) return authError;
+
   try {
     const redis = await getRedisClient();
-    
+
     if (!redis) {
       return NextResponse.json(
         { success: false, error: 'Redis not available' },
         { status: 503 }
       );
     }
-    
-    // Collect ALL unique habits from historical data
-    const habitKeys = await redis.keys('habits_data:*');
+
+    // Collect this user's habits from historical data. Scope the glob to the
+    // caller's namespace so we never touch another user's `habits_data:{id}:*`.
+    const habitKeys = await redis.keys(`habits_data:${userId}:*`);
     const allHabitsMap = new Map<string, HabitData>();
     
     for (const key of habitKeys) {
@@ -103,13 +111,14 @@ export async function POST() {
       await redis.del(habitKeys);
     }
     
-    // Also delete evening check-in data (both formats)
-    const checkinKeys = await redis.keys('evening_checkin:*');
+    // Also delete this user's evening check-in data (current per-user key plus
+    // any legacy per-user variants), scoped to the caller's namespace.
+    const checkinKeys = await redis.keys(`evening_checkin*:${userId}`);
     if (checkinKeys.length > 0) {
       await redis.del(checkinKeys);
     }
-    await redis.del('evening_checkins');
-    
+    await redis.del(`evening_checkins:${userId}`);
+
     // Create fresh habits for today - PRESERVE custom ones, reset history only
     const today = getToday();
     const freshHabits = allHabits.map((h, index) => ({
@@ -119,8 +128,8 @@ export async function POST() {
       history: [false, false, false, false, false, false, false],
       order: index // Reorder to fill any gaps
     }));
-    
-    await redis.set(`habits_data:${today}`, JSON.stringify(freshHabits));
+
+    await redis.set(`habits_data:${userId}:${today}`, JSON.stringify(freshHabits));
     
     const customHabitsCount = freshHabits.length - DEFAULT_HABIT_IDS.size;
     

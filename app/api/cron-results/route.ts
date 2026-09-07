@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
-import { requireUserId, requireCronSecret } from '@/lib/auth-session';
+import { requireOwner, requireCronSecret } from '@/lib/auth-session';
 
 interface CronResult {
   id: string;
@@ -40,7 +40,8 @@ async function getRedisClient() {
 }
 
 export async function GET(request: Request) {
-  const authResult = await requireUserId();
+  // Owner-only: reads the single global `cron_results` key (owner ops output).
+  const authResult = await requireOwner();
   if (authResult.error) return authResult.error;
 
   try {

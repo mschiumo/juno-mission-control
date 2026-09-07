@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
+import { requireOwner } from '@/lib/auth-session';
 
 const STORAGE_KEY_PREFIX = 'habits_data';
 
@@ -33,6 +34,10 @@ const DEFAULT_HABITS = [
 ];
 
 export async function GET(request: Request) {
+  // Owner-only: legacy seeder that writes global (un-namespaced) habit data.
+  const { error: authError } = await requireOwner();
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || '2026-02-20';

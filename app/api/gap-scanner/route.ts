@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { refreshStockUniverse } from '@/lib/stock-universe';
 import { runGapScan, getCachedResults, ScanResult } from '@/lib/gap-scanner-core';
+import { requireOwner } from '@/lib/auth-session';
+import { getClientIp, enforceRateLimit } from '@/lib/rate-limit';
 
 // Allow up to 300s for full stock universe scan (App Router maxDuration)
 export const maxDuration = 300;
@@ -13,6 +15,17 @@ export async function GET(request: Request) {
   const forceRefresh = searchParams.get('refresh') === 'true';
   const useCache = searchParams.get('cache') !== 'false';
   const minGapPercent = parseFloat(searchParams.get('minGap') || '5');
+
+  // Cheap cached reads are unlimited; only throttle the cache-bypassing paths
+  // (refresh / cache=false / dryRun) that trigger a full per-symbol provider
+  // scan on a 300s function — the denial-of-wallet surface.
+  if (forceRefresh || !useCache || dryRun) {
+    const limited = await enforceRateLimit(
+      { key: `gap-scan:${getClientIp(request)}`, limit: 5, windowSec: 300 },
+      'Scanner is refreshing too frequently. Please wait a few minutes.',
+    );
+    if (limited) return limited;
+  }
 
   try {
     if (forceRefresh) {
@@ -45,6 +58,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  // Owner-only: refresh-universe rebuilds the shared stock universe via external
+  // market-data API calls. Left open to any logged-in user, it was a
+  // denial-of-wallet vector (loop it to burn provider quota).
+  const { error: authError } = await requireOwner();
+  if (authError) return authError;
+
   const body = await request.json();
   if (body.action === 'refresh-universe') {
     const result = await refreshStockUniverse();

@@ -12,10 +12,19 @@
 import { NextResponse } from 'next/server';
 import { requireFeature } from '@/lib/auth-session';
 import { runIntradayScan } from '@/lib/intraday-movers';
+import { getClientIp, enforceRateLimit } from '@/lib/rate-limit';
 
 export async function GET(request: Request) {
-  const { error: entitlementError } = await requireFeature('marketFull');
+  const { userId, error: entitlementError } = await requireFeature('marketFull');
   if (entitlementError) return entitlementError;
+
+  // Every call runs an uncached Polygon snapshot + per-survivor bar scan on a
+  // 120s function, so throttle it per user (falls back to IP) to bound cost.
+  const limited = await enforceRateLimit(
+    { key: `intraday-movers:${userId ?? getClientIp(request)}`, limit: 12, windowSec: 300 },
+    'Scanner requested too frequently. Please wait a few minutes.',
+  );
+  if (limited) return limited;
 
   const startTime = Date.now();
   const { searchParams } = new URL(request.url);

@@ -7,6 +7,7 @@
 
 import { NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
+import { requireOwner } from '@/lib/auth-session';
 
 interface HabitRecord {
   date: string;
@@ -20,6 +21,11 @@ interface HabitRecord {
 }
 
 export async function POST(request: Request) {
+  // Owner-only: writes global (un-namespaced) habit records. Previously had no
+  // auth at all — any caller could write and pollute shared state.
+  const { error: authError } = await requireOwner();
+  if (authError) return authError;
+
   try {
     const body = await request.json().catch(() => ({}));
     const { date, habits, summary } = body;
@@ -74,6 +80,9 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const { error: authError } = await requireOwner();
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');

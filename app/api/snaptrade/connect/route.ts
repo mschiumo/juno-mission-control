@@ -109,18 +109,15 @@ export async function POST(): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, url });
   } catch (error) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const e = error as any;
-    const detail = e instanceof Error ? e.message : String(e);
-    // Dump all top-level keys so we can find where the SDK hides the response body.
-    const errorKeys = e != null ? Object.getOwnPropertyNames(e) : [];
-    const errorDump: Record<string, unknown> = {};
-    for (const k of errorKeys) {
-      try { errorDump[k] = k === 'message' ? undefined : e[k]; } catch { /* skip */ }
-    }
+    // Do NOT serialize the raw error into the response: the SnapTrade SDK is
+    // axios-based, so the error carries `config` (request params/headers with the
+    // user's userSecret and the consumer-key signature) and `response`. Dumping
+    // those to the client leaks brokerage credentials into browser devtools and
+    // any frontend error tracker. Log server-side; return only a safe message.
+    const detail = error instanceof Error ? error.message : 'Unknown error';
     console.error('SnapTrade connect error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to start brokerage connection', detail, errorDump },
+      { success: false, error: 'Failed to start brokerage connection', detail },
       { status: 500 }
     );
   }

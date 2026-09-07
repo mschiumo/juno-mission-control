@@ -166,6 +166,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, report: JSON.parse(data) });
     }
 
+    // Cached-report guard: serve the saved current-period report unless the
+    // caller explicitly forces a regenerate, so a looped POST can't call Claude
+    // on every request. The UI's Regenerate button opts in via `force`.
+    const force = body.force === true;
+    if (!force) {
+      const redis = await getRedisClient();
+      const cached = await redis.get(redisKey(userId, period, getPeriodKey(period)));
+      if (cached) {
+        return NextResponse.json({ success: true, report: JSON.parse(cached), cached: true });
+      }
+    }
+
     const { start, end } = getDateRange(period);
     const redis = await getRedisClient();
 
