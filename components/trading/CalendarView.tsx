@@ -189,10 +189,11 @@ export default function CalendarView() {
   const monthStats = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    const monthDays = dailyStats.filter(d => {
-      const date = new Date(d.date);
-      return date.getFullYear() === year && date.getMonth() === month && d.trades > 0;
-    });
+    // Match on the "YYYY-MM-" prefix of the date-only string. new Date("YYYY-MM-DD")
+    // parses as UTC midnight, which is still the previous day for viewers west of
+    // UTC — so the 1st of every month fell out of the monthly totals in US timezones.
+    const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}-`;
+    const monthDays = dailyStats.filter(d => d.date.startsWith(monthPrefix) && d.trades > 0);
     
     const totalPnl = monthDays.reduce((sum, d) => sum + d.pnl, 0);
     const totalTrades = monthDays.reduce((sum, d) => sum + d.trades, 0);
