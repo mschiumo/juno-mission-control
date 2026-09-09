@@ -41,6 +41,14 @@ const PERIOD_OPTIONS: { value: InsightsPeriod; label: string }[] = [
   { value: 'month', label: 'This Month' },
 ];
 
+// Fallbacks for when the API gives us nothing usable to show. The server maps
+// provider failures to plain-English text (lib/ai-error-message.ts); these
+// cover the cases where the request never got an answer at all.
+const GENERIC_ERROR =
+  'Something went wrong while generating your report. Please try again in a few minutes.';
+const CONNECTION_ERROR =
+  "We couldn't reach the server. Check your connection and try again.";
+
 function parseAnalysis(raw: string): StructuredAnalysis | null {
   try {
     const match = raw.match(/\{[\s\S]*\}/);
@@ -371,7 +379,7 @@ export default function JournalInsightsView() {
       if (data.rateLimit) setRateLimit(data.rateLimit);
 
       if (!res.ok || !data.success) {
-        setError(data.error || 'Failed to generate insights');
+        setError(data.error || GENERIC_ERROR);
         return;
       }
 
@@ -385,7 +393,7 @@ export default function JournalInsightsView() {
       // Refresh archive list
       fetchSavedReport(period);
     } catch {
-      setError('Failed to connect to the server');
+      setError(CONNECTION_ERROR);
     } finally {
       setLoading(false);
     }
@@ -408,10 +416,10 @@ export default function JournalInsightsView() {
         setModalReport(data.report);
         setModalOpen(true);
       } else {
-        setError('Could not load archived report');
+        setError("We couldn't load that saved report. Please try again.");
       }
     } catch {
-      setError('Failed to connect to the server');
+      setError(CONNECTION_ERROR);
     } finally {
       setLoadingArchive(false);
     }
@@ -539,7 +547,7 @@ export default function JournalInsightsView() {
             <div className="flex items-start gap-3 p-4 bg-[#f85149]/10 border border-[#f85149]/20 rounded-lg">
               <AlertCircle className="w-5 h-5 text-[#f85149] shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-[#f85149]">Analysis failed</p>
+                <p className="text-sm font-medium text-[#f85149]">Couldn&apos;t generate report</p>
                 <p className="text-xs text-[#8b949e] mt-1">{error}</p>
               </div>
             </div>
