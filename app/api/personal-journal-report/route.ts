@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
 import { AI_NOT_CONFIGURED_MESSAGE, friendlyAiErrorMessage } from '@/lib/ai-error-message';
+import { reportAiFailure } from '@/lib/ai-failure-alert';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   consumeReportGeneration,
@@ -152,6 +153,10 @@ export async function POST(request: NextRequest) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
+    await reportAiFailure({
+      feature: 'personal-journal-report',
+      error: new Error('ANTHROPIC_API_KEY is not configured'),
+    });
     return NextResponse.json(
       { success: false, error: AI_NOT_CONFIGURED_MESSAGE },
       { status: 500 },
@@ -301,7 +306,7 @@ ${context}`,
   } catch (error) {
     // Don't spend the user's daily allowance on a report they never received.
     if (consumed) await refundReportGeneration(userId, 'personal-journal-report');
-    console.error('Error generating personal journal report:', error);
+    await reportAiFailure({ feature: 'personal-journal-report', error });
     return NextResponse.json(
       {
         success: false,

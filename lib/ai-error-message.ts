@@ -1,5 +1,6 @@
 /**
- * Plain-English messages for AI report failures.
+ * Plain-English messages for AI report failures, and the classification the
+ * owner alert (lib/ai-failure-alert.ts) reports on.
  *
  * The report endpoints used to hand the raw Anthropic SDK error to the UI, so
  * a billing problem on our own account surfaced to the user as
@@ -8,6 +9,22 @@
  * logs — the user gets a sentence that says whether to retry, wait, or do
  * nothing.
  */
+
+/**
+ * What went wrong, at the granularity worth acting on. The user-facing message
+ * collapses several of these; the owner alert keeps them apart, because
+ * "we're out of credits" and "Anthropic is having a bad minute" need very
+ * different responses.
+ */
+export type AiErrorKind =
+  | 'credits' // out of credits / billing / quota
+  | 'auth' // bad or revoked API key
+  | 'not_configured' // ANTHROPIC_API_KEY missing on the server
+  | 'rate_limit' // 429 / 529 / overloaded
+  | 'too_long' // prompt exceeded the context window
+  | 'network' // never reached Anthropic
+  | 'server' // 5xx from Anthropic
+  | 'unknown';
 
 /** Our problem (billing, bad key, provider outage) — retrying now won't help. */
 const UNAVAILABLE =
@@ -42,42 +59,57 @@ function textOf(error: unknown): string {
 }
 
 /**
- * Map an Anthropic API or network failure onto a message that is safe and
- * useful to show a user. Never returns the provider's own wording.
+ * Bucket an Anthropic API or network failure. Billing and auth problems come
+ * back as a 400 or 401, so the text is matched before the status buckets.
  */
-export function friendlyAiErrorMessage(error: unknown): string {
+export function classifyAiError(error: unknown): AiErrorKind {
   const status = statusOf(error);
   const text = textOf(error).toLowerCase();
 
-  // Billing / auth problems come back as a 400 or 401, so match on the text
-  // before falling through to the status buckets below.
+  if (/anthropic_api_key is not configured|anthropic_api_key unset/.test(text)) {
+    return 'not_configured';
+  }
+  if (/credit balance|billing|quota|payment/.test(text)) return 'credits';
   if (
-    /credit balance|billing|quota|payment|authentication_error|permission_error|invalid x-api-key|invalid api key/.test(
-      text,
-    ) ||
+    /authentication_error|permission_error|invalid x-api-key|invalid api key/.test(text) ||
     status === 401 ||
     status === 403
   ) {
-    return UNAVAILABLE;
+    return 'auth';
   }
-
   if (status === 429 || status === 529 || /rate_limit|overloaded|too many requests/.test(text)) {
-    return BUSY;
+    return 'rate_limit';
   }
-
   if (/prompt is too long|context.*too long|too many tokens|max_tokens/.test(text)) {
-    return TOO_LONG;
+    return 'too_long';
   }
-
   if (
     /fetch failed|econnreset|econnrefused|etimedout|enotfound|socket hang up|network|timed? ?out|aborted/.test(
       text,
     )
   ) {
-    return NETWORK;
+    return 'network';
   }
+  if (status !== null && status >= 500) return 'server';
 
-  if (status !== null && status >= 500) return UNAVAILABLE;
+  return 'unknown';
+}
 
-  return GENERIC;
+const MESSAGE_BY_KIND: Record<AiErrorKind, string> = {
+  credits: UNAVAILABLE,
+  auth: UNAVAILABLE,
+  not_configured: UNAVAILABLE,
+  server: UNAVAILABLE,
+  rate_limit: BUSY,
+  too_long: TOO_LONG,
+  network: NETWORK,
+  unknown: GENERIC,
+};
+
+/**
+ * Map an Anthropic API or network failure onto a message that is safe and
+ * useful to show a user. Never returns the provider's own wording.
+ */
+export function friendlyAiErrorMessage(error: unknown): string {
+  return MESSAGE_BY_KIND[classifyAiError(error)];
 }

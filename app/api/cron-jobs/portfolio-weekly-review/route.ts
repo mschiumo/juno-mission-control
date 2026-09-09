@@ -15,6 +15,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { reportAiFailure } from '@/lib/ai-failure-alert';
 import { isSnapTradeConfigured } from '@/lib/snaptrade';
 import { getAllPortfolioConnections } from '@/lib/db/portfolio-connection';
 import { getEntitlements } from '@/lib/db/entitlements';
@@ -78,7 +79,7 @@ export async function POST() {
           results.push({ userId: connection.userId, skipped: 'no positions' });
         }
       } catch (error) {
-        console.error(`[PortfolioWeeklyReview] failed for ${connection.userId}:`, error);
+        await reportAiFailure({ feature: 'portfolio-weekly-review', error });
         failed += 1;
         results.push({
           userId: connection.userId,
@@ -114,7 +115,7 @@ export async function POST() {
       data: { portfolios: connections.length, generated, failed, results, durationMs: Date.now() - startTime },
     });
   } catch (error) {
-    console.error('[PortfolioWeeklyReview] failed:', error);
+    await reportAiFailure({ feature: 'portfolio-weekly-review', error });
     await postToCronResults(
       'portfolio-weekly-review',
       `Failed: ${error instanceof Error ? error.message : String(error)}`,
