@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireFeature } from '@/lib/auth-session';
+import { AI_NOT_CONFIGURED_MESSAGE, friendlyAiErrorMessage } from '@/lib/ai-error-message';
 import {
   consumeReportGeneration,
   getReportGenerationStatus,
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
-      { success: false, error: 'ANTHROPIC_API_KEY is not configured' },
+      { success: false, error: AI_NOT_CONFIGURED_MESSAGE },
       { status: 500 },
     );
   }
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to generate insights',
+        error: friendlyAiErrorMessage(error),
       },
       { status: 500 },
     );

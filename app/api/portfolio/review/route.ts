@@ -7,6 +7,7 @@
 
 import { NextResponse } from 'next/server';
 import { requireFeature } from '@/lib/auth-session';
+import { friendlyAiErrorMessage } from '@/lib/ai-error-message';
 import { getPortfolioReviews } from '@/lib/db/portfolio-connection';
 import { generatePortfolioReview } from '@/lib/portfolio-review';
 import {
@@ -58,9 +59,8 @@ export async function POST(): Promise<NextResponse> {
     // user's daily allowance on a review they never received.
     if (consumed) await refundReportGeneration(userId, 'portfolio-review');
     console.error('Portfolio review failed:', error);
-    const detail = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: 'Review generation failed.', detail },
+      { success: false, error: friendlyAiErrorMessage(error) },
       { status: 500 }
     );
   }

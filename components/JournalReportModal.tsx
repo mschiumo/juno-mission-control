@@ -123,7 +123,10 @@ export default function JournalReportModal({ onClose }: { onClose: () => void })
       const data = await res.json();
       if (data.rateLimit) setRateLimit(data.rateLimit);
       if (!res.ok || !data.success) {
-        setError(data.error || 'Failed to generate report');
+        setError(
+          data.error ||
+            'Something went wrong while generating your report. Please try again in a few minutes.',
+        );
         return;
       }
       if (data.report) {
@@ -133,7 +136,7 @@ export default function JournalReportModal({ onClose }: { onClose: () => void })
       }
       fetchSavedReport(period);
     } catch {
-      setError('Failed to connect to the server');
+      setError("We couldn't reach the server. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -153,10 +156,10 @@ export default function JournalReportModal({ onClose }: { onClose: () => void })
       if (data.success && data.report) {
         setReport(data.report);
       } else {
-        setError('Could not load archived report');
+        setError("We couldn't load that saved report. Please try again.");
       }
     } catch {
-      setError('Failed to connect to the server');
+      setError("We couldn't reach the server. Check your connection and try again.");
     } finally {
       setLoadingArchive(false);
     }

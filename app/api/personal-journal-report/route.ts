@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
+import { AI_NOT_CONFIGURED_MESSAGE, friendlyAiErrorMessage } from '@/lib/ai-error-message';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   consumeReportGeneration,
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { success: false, error: 'ANTHROPIC_API_KEY is not configured' },
+      { success: false, error: AI_NOT_CONFIGURED_MESSAGE },
       { status: 500 },
     );
   }
@@ -304,7 +305,7 @@ ${context}`,
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to generate report',
+        error: friendlyAiErrorMessage(error),
       },
       { status: 500 },
     );
