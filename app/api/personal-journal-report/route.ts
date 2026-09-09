@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
 import Anthropic from '@anthropic-ai/sdk';
-import { consumeReportGeneration, rateLimitMessage } from '@/lib/report-rate-limit';
+import {
+  consumeReportGeneration,
+  getReportGenerationStatus,
+  rateLimitMessage,
+  refundReportGeneration,
+} from '@/lib/report-rate-limit';
 
 // AI report over the personal (mindset/goals) journal. Mirrors the trading
 // `journal-insights` route but reads only personal-journal entries (no trades)
@@ -129,10 +134,13 @@ export async function GET(request: NextRequest) {
     (r) => r.period === period && r.periodKey !== currentPeriodKey,
   );
 
+  const rateLimit = await getReportGenerationStatus(userId, 'personal-journal-report');
+
   return NextResponse.json({
     success: true,
     report: currentReport,
     archived,
+    rateLimit,
   });
 }
 
@@ -149,6 +157,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let consumed = false;
   try {
     const body = await request.json();
     const period: string = body.period || 'week';
@@ -206,10 +215,11 @@ export async function POST(request: NextRequest) {
     const rate = await consumeReportGeneration(userId, 'personal-journal-report');
     if (!rate.allowed) {
       return NextResponse.json(
-        { success: false, error: rateLimitMessage(rate.limit) },
+        { success: false, error: rateLimitMessage(rate.limit), rateLimit: rate },
         { status: 429 },
       );
     }
+    consumed = true;
 
     const client = new Anthropic({ apiKey });
 
@@ -285,8 +295,11 @@ ${context}`,
     return NextResponse.json({
       success: true,
       report,
+      rateLimit: rate,
     });
   } catch (error) {
+    // Don't spend the user's daily allowance on a report they never received.
+    if (consumed) await refundReportGeneration(userId, 'personal-journal-report');
     console.error('Error generating personal journal report:', error);
     return NextResponse.json(
       {

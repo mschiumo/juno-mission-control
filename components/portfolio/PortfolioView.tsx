@@ -22,6 +22,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts';
+import { reportLimitTooltip, type ReportRateLimit } from '@/lib/report-limit-ui';
 import {
   PieChart,
   RefreshCw,
@@ -285,6 +286,9 @@ export default function PortfolioView() {
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [runningReview, setRunningReview] = useState(false);
+  const [rateLimit, setRateLimit] = useState<ReportRateLimit | null>(null);
+  // Unknown limit means allow — the POST still enforces the real cap.
+  const reviewLimitReached = rateLimit ? !rateLimit.allowed : false;
   const [modalReview, setModalReview] = useState<Review | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const archiveRef = useRef<HTMLDivElement | null>(null);
@@ -336,7 +340,10 @@ export default function PortfolioView() {
     try {
       const res = await fetch('/api/portfolio/review');
       const json = await res.json();
-      if (json.success) setReviews(json.data.reviews);
+      if (json.success) {
+        setReviews(json.data.reviews);
+        if (json.data.rateLimit) setRateLimit(json.data.rateLimit);
+      }
     } catch {
       /* review card shows empty state */
     }
@@ -404,6 +411,8 @@ export default function PortfolioView() {
     try {
       const res = await fetch('/api/portfolio/review', { method: 'POST' });
       const json = await res.json();
+      if (json.rateLimit) setRateLimit(json.rateLimit);
+      if (json.data?.rateLimit) setRateLimit(json.data.rateLimit);
       if (json.success && json.data?.review) {
         // Mirror Journal Insights: a fresh report opens straight into the modal.
         setModalReview(json.data.review);
@@ -823,15 +832,25 @@ export default function PortfolioView() {
               )}
             </div>
           )}
-          <button
-            onClick={handleRunReview}
-            disabled={runningReview}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
-            style={{ background: 'var(--accent-dim)', color: 'var(--accent-light)' }}
-          >
-            {runningReview ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-            {runningReview ? 'Analyzing…' : latestReview ? 'Run again' : 'Run review'}
-          </button>
+          {/* The span carries the tooltip, since a disabled button doesn't
+              fire one in most browsers. */}
+          <span title={reportLimitTooltip(rateLimit, 'review')} className="inline-flex">
+            <button
+              onClick={handleRunReview}
+              disabled={runningReview || reviewLimitReached}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'var(--accent-dim)', color: 'var(--accent-light)' }}
+            >
+              {runningReview ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+              {runningReview
+                ? 'Analyzing…'
+                : reviewLimitReached
+                  ? 'Daily limit reached'
+                  : latestReview
+                    ? 'Run again'
+                    : 'Run review'}
+            </button>
+          </span>
         </div>
         {runningReview ? (
           <div className="p-8 flex flex-col items-center gap-2 text-center">
