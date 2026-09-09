@@ -1,5 +1,5 @@
 /**
- * GET /api/admin/email-preview?template=welcome|checkin|trial|digest[&send=1]
+ * GET /api/admin/email-preview?template=welcome|checkin|trial|digest|ai-failure[&send=1]
  *
  * Owner-only: renders any lifecycle/digest email template to HTML with
  * sample data, so copy and layout can be checked in a browser without
@@ -17,6 +17,8 @@ import { WelcomeEmail } from '@/lib/emails/WelcomeEmail';
 import { CheckinEmail } from '@/lib/emails/CheckinEmail';
 import { TrialEndingEmail } from '@/lib/emails/TrialEndingEmail';
 import { OwnerMetricsEmail } from '@/lib/emails/OwnerMetricsEmail';
+import { AiFailureAlertEmail } from '@/lib/emails/AiFailureAlertEmail';
+import { AI_FEATURE_LABELS, formatEt } from '@/lib/ai-failure-alert';
 import type { AccountMetrics } from '@/lib/admin-metrics';
 
 const SAMPLE_METRICS: AccountMetrics = {
@@ -45,6 +47,23 @@ const SAMPLE_METRICS: AccountMetrics = {
   ],
 };
 
+const SAMPLE_AI_FAILURE = {
+  headline: 'Anthropic credits are exhausted',
+  severe: true,
+  hint: 'Add API credits in the Anthropic Console (Settings \u2192 Billing) for the organization that owns the app\u2019s API key. Console credits are separate from a claude.ai subscription \u2014 a claude.ai purchase does not fund the API.',
+  feature: AI_FEATURE_LABELS['journal-insights'],
+  affected: [
+    AI_FEATURE_LABELS['journal-insights'],
+    AI_FEATURE_LABELS['personal-journal-report'],
+    AI_FEATURE_LABELS['market-briefing'],
+  ],
+  failureCount: 4,
+  error:
+    '400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."}}',
+  generatedAt: formatEt(new Date()),
+  throttleNote: 'Further failures of this kind are folded into one email every 360 minutes.',
+};
+
 export async function GET(request: NextRequest): Promise<NextResponse | Response> {
   const { error: ownerError } = await requireOwner();
   if (ownerError) return ownerError;
@@ -66,9 +85,15 @@ export async function GET(request: NextRequest): Promise<NextResponse | Response
     case 'digest':
       element = <OwnerMetricsEmail metrics={SAMPLE_METRICS} />;
       break;
+    case 'ai-failure':
+      element = <AiFailureAlertEmail {...SAMPLE_AI_FAILURE} />;
+      break;
     default:
       return NextResponse.json(
-        { success: false, error: "template must be 'welcome', 'checkin', 'trial', or 'digest'" },
+        {
+          success: false,
+          error: "template must be 'welcome', 'checkin', 'trial', 'digest', or 'ai-failure'",
+        },
         { status: 400 },
       );
   }
@@ -79,6 +104,7 @@ export async function GET(request: NextRequest): Promise<NextResponse | Response
       checkin: '[TEST] How is ConfluenceTrading working for you?',
       trial: '[TEST] Your free Gold week ends tomorrow',
       digest: '[TEST] ConfluenceTrading metrics digest',
+      'ai-failure': '[TEST] Anthropic credits are exhausted',
     };
     const result = await sendEmail({
       to: OWNER_EMAIL,

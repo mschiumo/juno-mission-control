@@ -15,6 +15,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { reportAiFailure } from '@/lib/ai-failure-alert';
 import { OWNER_EMAIL } from '@/lib/owner';
 import { getUserByEmail } from '@/lib/db/users';
 import { sendEmail } from '@/lib/email';
@@ -66,7 +67,7 @@ export async function POST() {
     try {
       ({ analysis, raw: rawAnalysis } = await analyzeHabitWeek(week, entries));
     } catch (err) {
-      console.error('[WeeklyHabitsRecap] analysis failed:', err);
+      await reportAiFailure({ feature: 'weekly-habits-recap', error: err });
     }
 
     const emailResult = await sendEmail({

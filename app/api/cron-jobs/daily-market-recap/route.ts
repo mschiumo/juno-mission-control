@@ -19,6 +19,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { reportAiFailure } from '@/lib/ai-failure-alert';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   postToCronResults,
@@ -524,7 +525,7 @@ Rules:
   } catch (err) {
     // An Anthropic API failure (billing, outage, rate limit) must not kill the
     // recap — fall back to raw data so the report still ships.
-    console.error('[DailyRecap] Anthropic API error, using fallback summary:', err);
+    await reportAiFailure({ feature: 'daily-market-recap', error: err });
     return fallbackSummary(news, econ, earnings, 'AI recap unavailable this evening — the sections below show the raw closing data, headlines, and events.');
   }
 

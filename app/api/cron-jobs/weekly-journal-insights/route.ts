@@ -27,6 +27,7 @@ import {
 } from '@/lib/journal-insights';
 import { sendEmail } from '@/lib/email';
 import { postToCronResults, logToActivityLog } from '@/lib/cron-helpers';
+import { reportAiFailure } from '@/lib/ai-failure-alert';
 import {
   WeeklyJournalInsightsEmail,
   type WeeklyStats,
@@ -230,6 +231,7 @@ export async function POST() {
     });
   } catch (error) {
     console.error('[WeeklyJournalInsights] failed:', error);
+    await reportAiFailure({ feature: 'weekly-journal-insights', error });
     await postToCronResults(
       'weekly-journal-insights',
       `Failed: ${error instanceof Error ? error.message : String(error)}`,

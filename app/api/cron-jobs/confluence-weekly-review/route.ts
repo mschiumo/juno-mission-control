@@ -11,6 +11,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { reportAiFailure } from '@/lib/ai-failure-alert';
 import { getUserByEmail } from '@/lib/db/users';
 import { OWNER_EMAIL } from '@/lib/owner';
 import { postToCronResults } from '@/lib/cron-helpers';
@@ -41,7 +42,7 @@ export async function GET() {
       await postToCronResults('confluence-weekly-review', `Weekly review skipped: ${e.message}`, 'error');
       return NextResponse.json({ success: false, skipped: true, error: e.message });
     }
-    console.error('ConfluenceTrading weekly review cron failed:', e);
+    await reportAiFailure({ feature: 'confluence-weekly-review', error: e });
     return NextResponse.json({ success: false, error: 'Weekly review cron failed' }, { status: 500 });
   }
 }
