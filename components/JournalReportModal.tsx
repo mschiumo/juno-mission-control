@@ -6,6 +6,7 @@ import {
   Sparkles, Loader2, AlertCircle, X, TrendingUp, TrendingDown, Brain,
   Lightbulb, FileText, Archive, ChevronDown, BookOpen,
 } from 'lucide-react';
+import { reportLimitTooltip, type ReportRateLimit } from '@/lib/report-limit-ui';
 
 type ReportPeriod = 'week' | 'month';
 
@@ -62,6 +63,7 @@ export default function JournalReportModal({ onClose }: { onClose: () => void })
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [rateLimit, setRateLimit] = useState<ReportRateLimit | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape
@@ -91,6 +93,7 @@ export default function JournalReportModal({ onClose }: { onClose: () => void })
       if (data.success) {
         setReport(data.report || null);
         setArchived(data.archived || []);
+        if (data.rateLimit) setRateLimit(data.rateLimit);
       }
     } catch {
       // Silent fail on initial load
@@ -118,6 +121,7 @@ export default function JournalReportModal({ onClose }: { onClose: () => void })
         body: JSON.stringify({ period }),
       });
       const data = await res.json();
+      if (data.rateLimit) setRateLimit(data.rateLimit);
       if (!res.ok || !data.success) {
         setError(data.error || 'Failed to generate report');
         return;
@@ -160,6 +164,8 @@ export default function JournalReportModal({ onClose }: { onClose: () => void })
 
   const structured = report ? parseAnalysis(report.analysis) : null;
   const busy = loading || loadingArchive;
+  // Unknown limit means allow — the POST still enforces the real cap.
+  const limitReached = rateLimit ? !rateLimit.allowed : false;
 
   if (typeof document === 'undefined') return null;
 
@@ -228,15 +234,18 @@ export default function JournalReportModal({ onClose }: { onClose: () => void })
               </div>
             )}
 
-            {/* Generate button */}
-            <button
-              onClick={generateReport}
-              disabled={busy}
-              className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea6c08] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {loading ? 'Analyzing...' : report ? 'Regenerate' : 'Generate'}
-            </button>
+            {/* Generate button — the span carries the tooltip, since a
+                disabled button doesn't fire one in most browsers. */}
+            <span title={reportLimitTooltip(rateLimit)} className="inline-flex">
+              <button
+                onClick={generateReport}
+                disabled={busy || limitReached}
+                className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea6c08] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {loading ? 'Analyzing...' : limitReached ? 'Daily limit reached' : report ? 'Regenerate' : 'Generate'}
+              </button>
+            </span>
 
             <button
               onClick={onClose}

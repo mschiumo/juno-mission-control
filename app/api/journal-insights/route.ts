@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireFeature } from '@/lib/auth-session';
 import {
+  consumeReportGeneration,
+  getReportGenerationStatus,
+  rateLimitMessage,
+  refundReportGeneration,
+} from '@/lib/report-rate-limit';
+import {
   generateJournalInsightsReport,
   getPeriodKey,
   redisKey,
@@ -34,10 +40,13 @@ export async function GET(request: NextRequest) {
     (r) => r.period === period && r.periodKey !== currentPeriodKey,
   );
 
+  const rateLimit = await getReportGenerationStatus(userId, 'journal-insights');
+
   return NextResponse.json({
     success: true,
     report: currentReport,
     archived,
+    rateLimit,
   });
 }
 
@@ -53,6 +62,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let consumed = false;
   try {
     const body = await request.json();
     const period: 'week' | 'month' = body.period === 'month' ? 'month' : 'week';
@@ -70,9 +80,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, report: JSON.parse(data) });
     }
 
+    const rate = await consumeReportGeneration(userId, 'journal-insights');
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { success: false, error: rateLimitMessage(rate.limit), rateLimit: rate },
+        { status: 429 },
+      );
+    }
+    consumed = true;
+
     const generated = await generateJournalInsightsReport(userId, period);
 
     if (!generated) {
+      // Nothing to analyze — Claude was never called, so give the slot back.
+      consumed = false;
+      await refundReportGeneration(userId, 'journal-insights');
       return NextResponse.json({
         success: true,
         report: null,
@@ -83,8 +105,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       report: generated.report,
+      rateLimit: rate,
     });
   } catch (error) {
+    // Don't spend the user's daily allowance on a report they never received.
+    if (consumed) await refundReportGeneration(userId, 'journal-insights');
     console.error('Error generating journal insights:', error);
     return NextResponse.json(
       {

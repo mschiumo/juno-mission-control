@@ -6,6 +6,7 @@ import {
   Archive, ChevronDown, X, TrendingUp, TrendingDown, Brain, Lightbulb,
   ClipboardList, Download,
 } from 'lucide-react';
+import { reportLimitTooltip, type ReportRateLimit } from '@/lib/report-limit-ui';
 
 type InsightsPeriod = 'week' | 'month';
 
@@ -314,7 +315,10 @@ export default function JournalInsightsView() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalReport, setModalReport] = useState<SavedReport | null>(null);
+  const [rateLimit, setRateLimit] = useState<ReportRateLimit | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // Unknown limit means allow — the POST still enforces the real cap.
+  const limitReached = rateLimit ? !rateLimit.allowed : false;
 
   // Close archive dropdown on outside click
   useEffect(() => {
@@ -334,6 +338,7 @@ export default function JournalInsightsView() {
       if (data.success) {
         setReport(data.report || null);
         setArchived(data.archived || []);
+        if (data.rateLimit) setRateLimit(data.rateLimit);
       }
     } catch {
       // Silent fail on initial load
@@ -363,6 +368,7 @@ export default function JournalInsightsView() {
       });
 
       const data = await res.json();
+      if (data.rateLimit) setRateLimit(data.rateLimit);
 
       if (!res.ok || !data.success) {
         setError(data.error || 'Failed to generate insights');
@@ -479,19 +485,28 @@ export default function JournalInsightsView() {
                 </div>
               )}
 
-              {/* Generate button */}
-              <button
-                onClick={generateReport}
-                disabled={loading || loadingArchive}
-                className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea6c08] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
-                {loading ? 'Analyzing...' : report ? 'Regenerate' : 'Generate Report'}
-              </button>
+              {/* Generate button — the span carries the tooltip, since a
+                  disabled button doesn't fire one in most browsers. */}
+              <span title={reportLimitTooltip(rateLimit)} className="inline-flex">
+                <button
+                  onClick={generateReport}
+                  disabled={loading || loadingArchive || limitReached}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#ea6c08] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  {loading
+                    ? 'Analyzing...'
+                    : limitReached
+                      ? 'Daily limit reached'
+                      : report
+                        ? 'Regenerate'
+                        : 'Generate Report'}
+                </button>
+              </span>
             </div>
           </div>
         </div>
