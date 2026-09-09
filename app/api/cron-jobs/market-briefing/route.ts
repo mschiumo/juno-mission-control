@@ -455,7 +455,9 @@ async function generateAIBriefing(
     timeZone: 'America/New_York',
   });
 
-  const message = await client.messages.create({
+  let message: Anthropic.Message;
+  try {
+    message = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 2500,
     messages: [
@@ -497,7 +499,19 @@ Rules:
 - Return ONLY valid JSON, no markdown, no preamble.`,
       },
     ],
-  });
+    });
+  } catch (err) {
+    // An Anthropic API failure (billing, outage, rate limit) must not kill the
+    // briefing — fall back to raw data so the report still ships.
+    console.error('[MarketBriefing] Anthropic API error, using fallback summary:', err);
+    return {
+      marketOverview: 'AI summary unavailable this morning — the sections below show the raw market data, headlines, and events.',
+      bigMovers: [],
+      newsHighlights: news.slice(0, 5).map((n) => ({ headline: n.headline, url: n.url })),
+      upcomingEvents: [...calendarEvents.slice(0, 3), ...earningsEvents.slice(0, 2)],
+      sentiment: 'neutral',
+    };
+  }
 
   const rawText = message.content[0].type === 'text' ? message.content[0].text : '';
 
