@@ -13,7 +13,7 @@ import { WatchlistItem } from '@/types/watchlist';
 /**
  * Tickers seeded into Daily Favorites. Edit this one line to change the set.
  */
-export const SEED_TICKERS: string[] = ['SPY', 'FAC', 'NOW', 'QQQ', 'SPCX', 'BMNR', 'POET', 'QTEX', 'QBTS', 'TZA', 'NVD', 'EROC', 'SIDU'];
+export const SEED_TICKERS: string[] = ['SPY', 'QQQ'];
 
 // The account these favorites are seeded into. Resolved to a user id at runtime.
 export const SEED_ACCOUNT_EMAIL = 'mschiumo18@gmail.com';
