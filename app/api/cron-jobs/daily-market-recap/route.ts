@@ -478,7 +478,9 @@ async function generateAIRecap(
     timeZone: 'America/New_York',
   });
 
-  const message = await client.messages.create({
+  let message: Anthropic.Message;
+  try {
+    message = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 2500,
     messages: [
@@ -518,7 +520,13 @@ Rules:
 - Return ONLY valid JSON, no markdown, no preamble.`,
       },
     ],
-  });
+    });
+  } catch (err) {
+    // An Anthropic API failure (billing, outage, rate limit) must not kill the
+    // recap — fall back to raw data so the report still ships.
+    console.error('[DailyRecap] Anthropic API error, using fallback summary:', err);
+    return fallbackSummary(news, econ, earnings, 'AI recap unavailable this evening — the sections below show the raw closing data, headlines, and events.');
+  }
 
   const rawText = message.content[0].type === 'text' ? message.content[0].text : '';
 
