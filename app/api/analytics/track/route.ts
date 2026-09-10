@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { isOwnerEmail } from '@/lib/owner';
 import {
   recordUsageEvents,
   sanitizeField,
@@ -12,7 +13,8 @@ import {
  * logged-out landing-page visits must count too. Anonymous visitors send a
  * self-generated id; authenticated visitors are keyed by their user id, which
  * is taken from the session — never from the payload — so a visitor can't
- * impersonate another user's activity.
+ * impersonate another user's activity. The owner's own traffic is flagged here
+ * so it lands in the separate counters the dashboard hides by default.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   let body: { visitor?: unknown; events?: unknown };
@@ -52,7 +54,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       ? body.visitor
       : 'unknown';
   const visitor = session?.user?.id ? `u:${session.user.id}` : `a:${anonId}`;
+  // Owner traffic is still recorded, just in its own key space, so the
+  // dashboard can show visitor numbers that aren't inflated by the owner's
+  // own testing. Decided from the session, never from the payload.
+  const isOwner = isOwnerEmail(session?.user?.email);
 
-  await recordUsageEvents(visitor, events);
+  await recordUsageEvents(visitor, events, isOwner);
   return NextResponse.json({ success: true });
 }

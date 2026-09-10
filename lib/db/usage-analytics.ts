@@ -14,12 +14,20 @@
  *   analytics:visitors:{date} set   visitor ids ("u:{userId}" or "a:{anonId}")
  *   analytics:events          list  recent raw events, newest first, capped
  *
+ * The owner's own browsing is bucketed into parallel ":owner"-suffixed daily
+ * keys so the dashboard can show real-visitor numbers without the owner's
+ * constant testing drowning them out (see getUsageSummary's includeOwner).
+ * The raw event feed stays in one list and is filtered on read by visitor id,
+ * which means the feed excludes the owner retroactively while the aggregate
+ * counters can only do so from the day the split shipped.
+ *
  * Recording is strictly best-effort — an analytics write must never break a
  * user-facing flow. Days are bucketed in UTC, matching report-rate-limit.ts.
  */
 
 import { getRedisClient } from '@/lib/redis';
-import { getUserById } from '@/lib/db/users';
+import { getUserById, getUserByEmail } from '@/lib/db/users';
+import { OWNER_EMAIL } from '@/lib/owner';
 
 export type UsageEventType = 'pageview' | 'click';
 
@@ -49,6 +57,8 @@ export interface UsageDay {
 
 export interface UsageSummary {
   generatedAt: string;
+  /** False when the owner's own views, clicks and visits were left out. */
+  includesOwner: boolean;
   days: UsageDay[];
   /** Unique visitors across the whole window (set union, not a sum of days). */
   rangeVisitors: number;
@@ -66,8 +76,24 @@ const MAX_EVENTS = 500;
 export const MAX_EVENTS_PER_BATCH = 25;
 const MAX_FIELD_LENGTH = 80;
 
+/** Owner traffic lives in a parallel key space so it can be excluded on read. */
+const OWNER_SUFFIX = ':owner';
+/** Scratch key for set unions; written and deleted within a single read. */
+const RANGE_TMP_KEY = 'analytics:visitors:range-tmp';
+/** How deep to scan the shared event list when filtering the owner out. */
+const FEED_SCAN_DEPTH = 300;
+
 function utcDay(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function dayKeys(date: string, owner: boolean) {
+  const suffix = owner ? OWNER_SUFFIX : '';
+  return {
+    pv: `analytics:pv:${date}${suffix}`,
+    clicks: `analytics:clicks:${date}${suffix}`,
+    visitors: `analytics:visitors:${date}${suffix}`,
+  };
 }
 
 /** Strip the "|" hash-field separator and clamp length. Returns null if empty. */
@@ -77,13 +103,19 @@ export function sanitizeField(value: unknown): string | null {
   return clean.length > 0 ? clean : null;
 }
 
-export async function recordUsageEvents(visitor: string, events: UsageEventInput[]): Promise<void> {
+/**
+ * @param isOwner  Traffic from the owner's own account, routed to the parallel
+ *                 ":owner" counters so the dashboard can hide it.
+ */
+export async function recordUsageEvents(
+  visitor: string,
+  events: UsageEventInput[],
+  isOwner = false,
+): Promise<void> {
   try {
     const redis = await getRedisClient();
     const day = utcDay();
-    const pvKey = `analytics:pv:${day}`;
-    const clicksKey = `analytics:clicks:${day}`;
-    const visitorsKey = `analytics:visitors:${day}`;
+    const { pv: pvKey, clicks: clicksKey, visitors: visitorsKey } = dayKeys(day, isOwner);
     const at = new Date().toISOString();
 
     const multi = redis.multi();
@@ -117,9 +149,28 @@ export async function recordUsageEvents(visitor: string, events: UsageEventInput
   }
 }
 
-export async function getUsageSummary(dayCount = 14): Promise<UsageSummary> {
+/**
+ * The owner's visitor id ("u:{userId}"), or null if the account can't be
+ * resolved — in which case the feed simply isn't filtered rather than blanked.
+ */
+async function getOwnerVisitorId(): Promise<string | null> {
+  try {
+    const owner = await getUserByEmail(OWNER_EMAIL);
+    return owner ? `u:${owner.id}` : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @param dayCount      Window length in days, clamped to the retention window.
+ * @param includeOwner  When false (the default) the owner's own traffic is left
+ *                      out, so the numbers describe real visitors only.
+ */
+export async function getUsageSummary(dayCount = 14, includeOwner = false): Promise<UsageSummary> {
   const redis = await getRedisClient();
   const clamped = Math.min(Math.max(dayCount, 1), RETENTION_DAYS);
+  const ownerVisitorId = await getOwnerVisitorId();
 
   const dates: string[] = [];
   const now = Date.now();
@@ -132,31 +183,48 @@ export async function getUsageSummary(dayCount = 14): Promise<UsageSummary> {
   const days: UsageDay[] = [];
   let rangeViews = 0;
 
+  // Each day is the public key space plus, when the owner is included, their
+  // parallel one. Sets are unioned rather than summed so a visitor present in
+  // both spaces (impossible today, but cheap to be right about) counts once.
+  const visitorKeysFor = (date: string) =>
+    includeOwner
+      ? [dayKeys(date, false).visitors, dayKeys(date, true).visitors]
+      : [dayKeys(date, false).visitors];
+
   for (const date of dates) {
-    const [pv, clicks, visitors] = await Promise.all([
-      redis.hGetAll(`analytics:pv:${date}`),
-      redis.hGetAll(`analytics:clicks:${date}`),
-      redis.sCard(`analytics:visitors:${date}`),
+    const spaces = includeOwner ? [false, true] : [false];
+    const [pvParts, clickParts, visitors] = await Promise.all([
+      Promise.all(spaces.map((owner) => redis.hGetAll(dayKeys(date, owner).pv))),
+      Promise.all(spaces.map((owner) => redis.hGetAll(dayKeys(date, owner).clicks))),
+      // Per-day sets hold a handful of ids, so a plain SUNION is cheaper than
+      // a store + delete and avoids sharing the scratch key across requests.
+      includeOwner
+        ? redis.sUnion(visitorKeysFor(date)).then((members) => members.length)
+        : redis.sCard(dayKeys(date, false).visitors),
     ]);
 
     let views = 0;
-    for (const [page, count] of Object.entries(pv)) {
-      const n = parseInt(count, 10) || 0;
-      views += n;
-      pageTotals.set(page, (pageTotals.get(page) ?? 0) + n);
+    for (const pv of pvParts) {
+      for (const [page, count] of Object.entries(pv)) {
+        const n = parseInt(count, 10) || 0;
+        views += n;
+        pageTotals.set(page, (pageTotals.get(page) ?? 0) + n);
+      }
     }
-    for (const [field, count] of Object.entries(clicks)) {
-      clickTotals.set(field, (clickTotals.get(field) ?? 0) + (parseInt(count, 10) || 0));
+    for (const clicks of clickParts) {
+      for (const [field, count] of Object.entries(clicks)) {
+        clickTotals.set(field, (clickTotals.get(field) ?? 0) + (parseInt(count, 10) || 0));
+      }
     }
     rangeViews += views;
     days.push({ date, views, visitors });
   }
 
   const rangeVisitors = await redis.sUnionStore(
-    'analytics:visitors:range-tmp',
-    dates.map((d) => `analytics:visitors:${d}`),
+    RANGE_TMP_KEY,
+    dates.flatMap(visitorKeysFor),
   );
-  await redis.del('analytics:visitors:range-tmp');
+  await redis.del(RANGE_TMP_KEY);
 
   const topPages = [...pageTotals.entries()]
     .map(([page, views]) => ({ page, views }))
@@ -175,7 +243,11 @@ export async function getUsageSummary(dayCount = 14): Promise<UsageSummary> {
     .sort((a, b) => b.clicks - a.clicks)
     .slice(0, 12);
 
-  const rawEvents: string[] = await redis.lRange(EVENTS_KEY, 0, 49);
+  // The feed is one shared list, so excluding the owner means over-reading and
+  // filtering — otherwise a busy owner session would push everyone else out of
+  // the first page. Filtering by visitor id also works on events recorded
+  // before the owner key space existed.
+  const rawEvents: string[] = await redis.lRange(EVENTS_KEY, 0, includeOwner ? 49 : FEED_SCAN_DEPTH - 1);
   const parsedEvents = rawEvents
     .map((r) => {
       try {
@@ -184,7 +256,9 @@ export async function getUsageSummary(dayCount = 14): Promise<UsageSummary> {
         return null;
       }
     })
-    .filter((e): e is UsageEvent => !!e);
+    .filter((e): e is UsageEvent => !!e)
+    .filter((e) => includeOwner || !ownerVisitorId || e.visitor !== ownerVisitorId)
+    .slice(0, 50);
 
   // Resolve "u:{userId}" visitors to emails for the feed — one lookup per
   // distinct visitor, so at most a handful of Redis GETs.
@@ -205,6 +279,7 @@ export async function getUsageSummary(dayCount = 14): Promise<UsageSummary> {
 
   return {
     generatedAt: new Date().toISOString(),
+    includesOwner: includeOwner,
     days,
     rangeVisitors,
     rangeViews,
