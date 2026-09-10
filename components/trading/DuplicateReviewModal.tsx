@@ -22,6 +22,7 @@ import {
   CheckSquare,
   Square
 } from 'lucide-react';
+import { hasTradeTime } from '@/lib/trading/trade-time';
 import type { Trade, PotentialDuplicate } from '@/types/trading';
 import { TradeSide } from '@/types/trading';
 
@@ -171,7 +172,10 @@ export default function DuplicateReviewModal({
     });
   };
 
+  // Null when the source only knew the date (e.g. a broker feed with day
+  // granularity) — the row then shows the date on its own.
   const formatTime = (dateStr: string) => {
+    if (!hasTradeTime(dateStr)) return null;
     return new Date(dateStr).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -435,7 +439,8 @@ export default function DuplicateReviewModal({
                 {/* Date & Time */}
                 <div className="flex items-center gap-2 text-sm text-[#8b949e]">
                   <Calendar className="w-4 h-4" />
-                  {formatDate(currentDuplicate.dashboardTrade.entryDate)} at {formatTime(currentDuplicate.dashboardTrade.entryDate)}
+                  {formatDate(currentDuplicate.dashboardTrade.entryDate)}
+                  {formatTime(currentDuplicate.dashboardTrade.entryDate) && ` at ${formatTime(currentDuplicate.dashboardTrade.entryDate)}`}
                 </div>
 
                 {/* Trade Details */}
@@ -515,7 +520,8 @@ export default function DuplicateReviewModal({
                 {/* Date & Time */}
                 <div className="flex items-center gap-2 text-sm text-[#8b949e]">
                   <Calendar className="w-4 h-4" />
-                  {formatDate(currentDuplicate.csvTrade.entryDate)} at {formatTime(currentDuplicate.csvTrade.entryDate)}
+                  {formatDate(currentDuplicate.csvTrade.entryDate)}
+                  {formatTime(currentDuplicate.csvTrade.entryDate) && ` at ${formatTime(currentDuplicate.csvTrade.entryDate)}`}
                 </div>
 
                 {/* Trade Details */}
