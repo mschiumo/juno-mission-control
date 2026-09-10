@@ -1,7 +1,7 @@
 'use client';
 
-import { DocSection, P, Em, Bullets, Steps, Step, Tip, Note, UI, FeatureLink, DocLink, Figure, RefTable, Kbd } from './DocsPrimitives';
-import { PositionCalculatorFigure, WatchlistFlowFigure, GapScannerFigure, ProjectionFigure } from './DocsFigures';
+import { DocSection, P, Em, Bullets, Steps, Step, Tip, Note, UI, TierBadge, FeatureLink, DocLink, Figure, RefTable, Kbd } from './DocsPrimitives';
+import { PositionCalculatorFigure, WatchlistFlowFigure, GapScannerFigure, ProjectionFigure, IntradayAlertsFigure } from './DocsFigures';
 
 // ---------------------------------------------------------------------------
 // Trade Management
@@ -47,6 +47,9 @@ export function TradeManagementArticle() {
               Search, sort by ticker or pre-market change, <Em>copy the list to your clipboard</Em>, or{' '}
               <Em>export it to CSV</Em> from the panel header.
             </>,
+            <>
+              The <Em>bell</Em> in the panel header is <Em>Intraday Alerts</Em> — see the section below.
+            </>,
           ]}
         />
       </DocSection>
@@ -69,7 +72,9 @@ export function TradeManagementArticle() {
           </Step>
           <Step title="Read the outputs">
             <Em>Stop Size</Em> (entry − stop), <Em>Shares</Em> (risk ÷ stop size), <Em>R:R</Em>, <Em>Profit</Em> at
-            target, and total <Em>Position</Em> size. Hover any tile to see the arithmetic behind it.
+            target, and total <Em>Position</Em> size. The target also carries the <Em>percentage move from entry</Em>{' '}
+            in a pill beside the price — a fast sanity check that you aren&apos;t asking a slow name for an 18% day.
+            Hover any tile to see the arithmetic behind it.
           </Step>
         </Steps>
         <Tip>
@@ -78,9 +83,54 @@ export function TradeManagementArticle() {
         </Tip>
       </DocSection>
 
+      <DocSection title="Intraday Alerts">
+        <Figure caption="The Intraday Alerts modal: the strongest movers of the last scan, ranked, each one addable to Daily Favorites.">
+          <IntradayAlertsFigure />
+        </Figure>
+        <P>
+          The gap scanner tells you what moved before the open. Intraday Alerts is the same idea <Em>during</Em> the
+          session: a market-wide scan runs every 30 minutes through the trading day and surfaces the names moving with
+          real conviction. The bell in the Daily Favorites header glows — and chimes once — when a scan turns up
+          tickers you haven&apos;t seen yet.
+        </P>
+        <Bullets
+          items={[
+            <>
+              <Em>What qualifies</Em> — a name has to clear hard floors on today&apos;s session volume (1.5M shares),
+              market cap ($50M), price, day range, and bid-ask spread before it&apos;s even considered. Survivors are
+              then ranked, and only the top ten are shown.
+            </>,
+            <>
+              <Em>How they&apos;re ranked</Em> — the <Em>Score</Em> column blends the size of the move (50%), relative
+              volume against the 90-day average (30%), and spread tightness (20%). Relative volume is deliberately
+              weighted over raw share count: conviction, not just activity.
+            </>,
+            <>
+              <Em>The columns</Em> — <UI>TF</UI> is the lookback window the move was measured over, then{' '}
+              <UI>Move</UI>, <UI>Price</UI>, <UI>Spread</UI>, <UI>Volume</UI>, <UI>RVOL</UI>, and <UI>Score</UI>.
+            </>,
+            <>
+              <Em>Add to Daily Favorites</Em> right from the row — same one-click pipeline as starring a gap-scanner
+              result.
+            </>,
+            <>
+              <Em>Mute</Em> the chime with the speaker icon in the modal header. The visual glow stays either way.
+            </>,
+          ]}
+        />
+        <Note>
+          A ticker you&apos;ve already looked at won&apos;t alert you again for the rest of that trading day — opening
+          the modal marks everything in it as viewed, so later scans only surface genuinely new names. That&apos;s why
+          the modal can read &ldquo;all caught up&rdquo; while the scan itself found plenty.
+        </Note>
+      </DocSection>
+
       <DocSection title="The Watchlist: Potential → Active → Closed">
         <P>
-          The right-hand column holds three collapsible sections. Collapse states are remembered between visits.
+          The right-hand column holds three collapsible sections. Collapse states are remembered between visits, and
+          each section carries <Em>its own</Em> ticker search — scoped to that section rather than filtering the whole
+          column, so searching Active Trades never hides a potential setup you were comparing it against. Rows can be
+          dragged to reorder; on a touch screen, press and hold a row for a moment first to pick it up.
         </P>
         <RefTable
           rows={[
@@ -128,9 +178,13 @@ export function TradeManagementArticle() {
 export function MarketArticle() {
   return (
     <div className="space-y-8">
+      <div className="flex items-center gap-2">
+        <TierBadge tier="gold" />
+      </div>
       <P>
         The Market tab is your pre-market and intraday context: what’s moving, what’s on the calendar, and an
-        AI-written morning briefing. Market News is its sibling tab for headline flow.
+        AI-written morning briefing. Market News is its sibling tab for headline flow and is available on every plan,
+        including free Silver.
       </P>
       <div className="flex gap-2 flex-wrap">
         <FeatureLink subtab="market">Open Market</FeatureLink>
@@ -143,6 +197,9 @@ export function MarketArticle() {
           chips. Next to it, the bell opens the <Em>Market Briefing</Em>: an AI-generated morning read on futures,
           catalysts, and the day’s setup, written fresh every weekday morning. A dot on the bell means there’s a
           briefing you haven’t read.
+        </P>
+        <P>
+          The briefing opens with the day&apos;s motivational quote, then the read itself.
         </P>
         <Tip>
           Want it in your inbox instead? Turn on the Market Briefing email in your profile (avatar → Email
@@ -184,6 +241,38 @@ export function MarketArticle() {
           A filtered headline screener. Use the category chips — <UI>High Priority</UI>, <UI>Fed</UI>, <UI>Macro</UI>,{' '}
           <UI>M&amp;A</UI>, <UI>Earnings</UI>, <UI>AI</UI>, <UI>Crypto</UI> — to narrow the feed. Every headline carries
           a sentiment badge (<Em>Bullish</Em> / <Em>Bearish</Em> / <Em>Neutral</Em>) and links to the source.
+        </P>
+      </DocSection>
+
+      <DocSection title="The two daily emails">
+        <P>
+          Both are opt-in per account and toggled independently from your profile (avatar → <Em>Email
+          Notifications</Em>). They&apos;re part of Gold and up.
+        </P>
+        <RefTable
+          headers={['Email', 'When it lands']}
+          rows={[
+            [
+              'Morning Market Briefing',
+              <>Weekday mornings at <Em>8 AM ET</Em>, before the open — the same AI briefing the bell opens in-app, delivered to your inbox.</>,
+            ],
+            [
+              'Daily Market Recap',
+              <>Weekdays at <Em>5 PM ET</Em>, after the close — an AI wrap-up of the session: the day&apos;s movers, the macro that mattered, and earnings.</>,
+            ],
+          ]}
+        />
+        <Note>
+          Turning a toggle off stops that email only; nothing else about your account changes, and the in-app briefing
+          stays available either way.
+        </Note>
+      </DocSection>
+
+      <DocSection title="Alerts during the session">
+        <P>
+          The gap scanner covers the pre-market picture. For movers <Em>during</Em> the session, the alert bell on
+          Daily Favorites runs a market-wide scan every 30 minutes and surfaces the strongest names — see{' '}
+          <DocLink doc="trade-management">Intraday Alerts</DocLink>.
         </P>
       </DocSection>
 

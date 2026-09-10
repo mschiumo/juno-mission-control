@@ -21,12 +21,16 @@ import {
   ChevronLeft,
   GraduationCap,
   Link2,
+  Crown,
+  PieChart,
   LucideIcon,
 } from 'lucide-react';
 import { GettingStartedArticle, JournalArticle, ImportingArticle, BrokerageSyncArticle } from './ArticlesCore';
 import { TradeManagementArticle, MarketArticle, ProjectionArticle } from './ArticlesTools';
 import { PerformanceArticle, GoalsArticle } from './ArticlesAnalytics';
 import { AgentsArticle, ReviewArticle, FaqArticle } from './ArticlesAgents';
+import { PlansArticle } from './ArticlesAccount';
+import { PortfolioArticle } from './ArticlesPortfolio';
 
 /**
  * The Docs sub-tab: a complete user manual for the Trading platform. Articles
@@ -41,6 +45,8 @@ interface DocArticle {
   icon: LucideIcon;
   keywords: string;
   ownerOnly?: boolean;
+  /** Plan a feature belongs to — rendered as a badge in the sidebar. */
+  tier?: 'gold' | 'platinum';
   Component: ComponentType;
 }
 
@@ -60,6 +66,14 @@ const GROUPS: DocGroup[] = [
         icon: Rocket,
         keywords: 'welcome overview quick start tour navigation deep links profile intro begin new user onboarding',
         Component: GettingStartedArticle,
+      },
+      {
+        id: 'plans',
+        title: 'Plans & Your Account',
+        blurb: 'Silver, Gold, and Platinum — what each includes, trials, billing, and your profile settings.',
+        icon: Crown,
+        keywords: 'plan plans pricing tier silver gold platinum free trial referral code upgrade downgrade cancel subscription billing checkout profile account email notifications verify password delete account limits',
+        Component: PlansArticle,
       },
     ],
   },
@@ -88,6 +102,7 @@ const GROUPS: DocGroup[] = [
         blurb: 'What SnapTrade is, how the connection works, and how synced trades differ from imports.',
         icon: Link2,
         keywords: 'snaptrade brokerage connect broker sync live data robinhood schwab fidelity webull etrade tastytrade interactive brokers read only connection portal authorization refresh disconnect provenance security oauth',
+        tier: 'gold',
         Component: BrokerageSyncArticle,
       },
       {
@@ -95,7 +110,7 @@ const GROUPS: DocGroup[] = [
         title: 'Trade Management',
         blurb: 'Daily favorites, the position calculator, and the watchlist workflow.',
         icon: Settings,
-        keywords: 'trade management watchlist daily favorites position calculator size risk stop target active potential closed trading mode fullscreen',
+        keywords: 'trade management watchlist daily favorites position calculator size risk stop target active potential closed trading mode fullscreen intraday alerts bell chime rvol relative volume score movers reorder drag search',
         Component: TradeManagementArticle,
       },
     ],
@@ -108,7 +123,8 @@ const GROUPS: DocGroup[] = [
         title: 'Market Tools',
         blurb: 'The morning briefing, market events, the gap scanner, and the news screener.',
         icon: TrendingUp,
-        keywords: 'market briefing events fomc earnings gap scanner premarket news sentiment screener rules',
+        keywords: 'market briefing events fomc earnings gap scanner premarket news sentiment screener rules intraday alerts bell recap email',
+        tier: 'gold',
         Component: MarketArticle,
       },
     ],
@@ -130,6 +146,7 @@ const GROUPS: DocGroup[] = [
         blurb: 'Auto-tracked targets, guardrails, pacing, and the eleven goal metrics.',
         icon: Target,
         keywords: 'goals targets guardrails pace metrics net profit green days max daily loss plan adherence journaling consistency archive',
+        tier: 'gold',
         Component: GoalsArticle,
       },
       {
@@ -143,6 +160,20 @@ const GROUPS: DocGroup[] = [
     ],
   },
   {
+    label: 'Portfolio',
+    articles: [
+      {
+        id: 'portfolio',
+        title: 'Portfolio (Long-Term)',
+        blurb: 'The buy-and-hold account: holdings, dividends, transactions, and the weekly AI review.',
+        icon: PieChart,
+        keywords: 'portfolio long term buy and hold holdings positions dividends deposits withdrawals interest transactions recurring cost basis unrealized cash weekly review platinum second brokerage connection',
+        tier: 'platinum',
+        Component: PortfolioArticle,
+      },
+    ],
+  },
+  {
     label: 'Agentic Trading',
     articles: [
       {
@@ -150,8 +181,8 @@ const GROUPS: DocGroup[] = [
         title: 'Agents',
         blurb: 'The agentic terminal: proposals, orders, strategy, and the safety model.',
         icon: Sparkles,
-        keywords: 'agents agentic terminal proposals approve reject orders kill switch arm paper live exposure caps strategy audit confluence',
-        ownerOnly: true,
+        keywords: 'agents agentic terminal proposals approve reject orders kill switch arm paper live exposure caps strategy audit confluence onboarding walkthrough platinum swing',
+        tier: 'platinum',
         Component: AgentsArticle,
       },
       {
@@ -173,7 +204,7 @@ const GROUPS: DocGroup[] = [
         title: 'FAQ & Troubleshooting',
         blurb: 'Quick answers: imports, options, NLV differences, privacy, and more.',
         icon: LifeBuoy,
-        keywords: 'faq help troubleshooting questions excel options nlv mismatch blank journal owner mobile export data privacy',
+        keywords: 'faq help troubleshooting questions excel options nlv mismatch blank journal owner mobile export data privacy plan missing tab limit alerts orange pending sync',
         Component: FaqArticle,
       },
     ],
@@ -185,9 +216,10 @@ export default function DocsView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Owner-only articles document owner-only features (agentic trading).
-  // Non-owners can't read — or deep-link to — guides for things they can't
-  // reach.
+  // A couple of articles document owner-operated internals. Non-owners can't
+  // read — or deep-link to — guides for things they can't reach. Plan-gated
+  // articles are different: they stay readable on every tier and carry a tier
+  // badge, so a Silver user can see what an upgrade actually buys.
   const { data: session } = useSession();
   const isOwner = isOwnerEmail(session?.user?.email);
 
@@ -388,14 +420,24 @@ function SidebarItem({ article, active, onSelect }: { article: DocArticle; activ
     >
       <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: active ? 'var(--accent)' : 'var(--text-tertiary)' }} />
       <span className="text-[13px] font-medium truncate">{article.title}</span>
-      {article.ownerOnly && (
+      {article.ownerOnly ? (
         <span
           className="ml-auto shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
           style={{ background: 'var(--warning-dim)', color: 'var(--warning)' }}
         >
           Owner
         </span>
-      )}
+      ) : article.tier ? (
+        <span
+          className="ml-auto shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+          style={{
+            background: article.tier === 'gold' ? 'var(--warning-dim)' : 'var(--accent-dim)',
+            color: article.tier === 'gold' ? 'var(--warning)' : 'var(--accent-light)',
+          }}
+        >
+          {article.tier === 'gold' ? 'Gold' : 'Platinum'}
+        </span>
+      ) : null}
     </button>
   );
 }
