@@ -4,8 +4,9 @@
  * Accounts — owner-only metrics dashboard (top-level tab).
  *
  * Reads GET /api/admin/metrics: totals, tier/source breakdowns, brokerage
- * connections, expiring access, and the plan-events feed. The daily digest
- * email renders the same computation, so the two always agree.
+ * connections and expiring access. The daily digest email renders the same
+ * computation, so the two always agree. Plan-lifecycle events are shown in
+ * the merged Recent activity feed further down the tab (RecentActivityFeed).
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -18,23 +19,8 @@ import {
   Sparkles,
   Gift,
   AlertTriangle,
-  Activity,
 } from 'lucide-react';
 import type { AccountMetrics } from '@/lib/admin-metrics';
-
-const EVENT_META: Record<string, { label: string; color: string }> = {
-  signup: { label: 'New signup', color: 'var(--success, #3fb950)' },
-  trial_started: { label: 'Trial started', color: 'var(--accent)' },
-  referral_redeemed: { label: 'Referral redeemed', color: 'var(--accent)' },
-  plan_cancelled: { label: 'Plan cancelled', color: '#f85149' },
-  account_deleted: { label: 'Account deleted', color: '#f85149' },
-  plan_expired: { label: 'Plan expired', color: '#d29922' },
-  admin_grant: { label: 'Admin grant', color: '#58a6ff' },
-  admin_revoke: { label: 'Admin revoke', color: '#d29922' },
-  subscription_started: { label: 'Subscription started', color: 'var(--success, #3fb950)' },
-  subscription_ended: { label: 'Subscription ended', color: '#f85149' },
-  payment_failed: { label: 'Payment failed', color: '#d29922' },
-};
 
 function StatCard({
   icon: Icon,
@@ -234,54 +220,6 @@ export default function AccountMetricsView() {
             ))
           )}
         </div>
-      </div>
-
-      {/* Events feed */}
-      <div
-        className="rounded-xl p-5"
-        style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
-      >
-        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-          <Activity className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-          Recent activity
-          <span className="text-[11px] font-normal" style={{ color: 'var(--text-tertiary)' }}>
-            ({m.last24h.length} in the last 24h)
-          </span>
-        </h3>
-        {m.recentEvents.length === 0 ? (
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            No plan activity recorded yet — events appear here as users sign up, start trials, cancel, or delete.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {m.recentEvents.map((e, i) => {
-              const meta = EVENT_META[e.type] ?? { label: e.type, color: 'var(--text-secondary)' };
-              return (
-                <div
-                  key={`${e.at}-${i}`}
-                  className="flex items-start gap-3 py-1.5"
-                  style={{ borderBottom: i < m.recentEvents.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
-                >
-                  <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: meta.color }} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs" style={{ color: 'var(--text-primary)' }}>
-                      <strong>{meta.label}</strong>
-                      {e.email && <span style={{ color: 'var(--text-secondary)' }}> — {e.email}</span>}
-                    </p>
-                    {e.detail && (
-                      <p className="text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>
-                        {e.detail}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-[11px] shrink-0" style={{ color: 'var(--text-tertiary)' }}>
-                    {new Date(e.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );

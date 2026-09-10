@@ -6,6 +6,8 @@
  *
  * Reads GET /api/admin/analytics: daily views/visitors, top pages, top
  * clicks, and a recent-events feed, all captured by the global UsageTracker.
+ * The same response carries recent plan-lifecycle events, which are merged
+ * with the usage feed into the single Recent activity card at the bottom.
  *
  * The owner's own browsing is excluded by default — otherwise the numbers
  * mostly measure the owner testing the app. "Include mine" turns it back on;
@@ -13,11 +15,33 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, BarChart3, Eye, MousePointerClick, RefreshCw, User, Users } from 'lucide-react';
+import { BarChart3, Eye, MousePointerClick, RefreshCw, User, Users } from 'lucide-react';
 import type { UsageSummary } from '@/lib/db/usage-analytics';
+import type { PlanEvent } from '@/lib/db/plan-events';
+import RecentActivityFeed from '@/components/admin/RecentActivityFeed';
 
 const WINDOWS = [7, 14, 30] as const;
 const INCLUDE_OWNER_KEY = 'ct-usage-include-owner';
+
+/**
+ * Days are UTC buckets stored as "YYYY-MM-DD", so they must be formatted in
+ * UTC too — parsing as local time would shift the label a day for viewers
+ * west of Greenwich.
+ */
+function formatUtcDay(date: string): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/** X-axis tick spacing, anchored on the last (today's) bar so it is always labelled. */
+function tickStepFor(dayCount: number): number {
+  if (dayCount <= 7) return 1;
+  if (dayCount <= 14) return 2;
+  return 5;
+}
 
 function StatCard({
   icon: Icon,
@@ -107,6 +131,8 @@ function RankedList({
 
 export default function UsageAnalyticsView() {
   const [summary, setSummary] = useState<UsageSummary | null>(null);
+  const [planEvents, setPlanEvents] = useState<PlanEvent[]>([]);
+  const [planLast24h, setPlanLast24h] = useState(0);
   const [days, setDays] = useState<number>(14);
   const [includeOwner, setIncludeOwner] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -130,8 +156,13 @@ export default function UsageAnalyticsView() {
         `/api/admin/analytics?days=${windowDays}${withOwner ? '&includeOwner=1' : ''}`,
       );
       const json = await res.json();
-      if (json.success) setSummary(json.summary);
-      else setError(json.error || 'Failed to load analytics');
+      if (json.success) {
+        setSummary(json.summary);
+        setPlanEvents(Array.isArray(json.planEvents) ? json.planEvents : []);
+        setPlanLast24h(typeof json.planEventsLast24h === 'number' ? json.planEventsLast24h : 0);
+      } else {
+        setError(json.error || 'Failed to load analytics');
+      }
     } catch {
       setError('Failed to load analytics');
     } finally {
@@ -183,13 +214,15 @@ export default function UsageAnalyticsView() {
   }
 
   const s = summary;
-  const today = s.days[s.days.length - 1];
+  const lastIdx = s.days.length - 1;
+  const today = s.days[lastIdx];
   const maxViews = Math.max(...s.days.map((d) => d.views), 1);
+  const tickStep = tickStepFor(s.days.length);
 
   return (
     <div className="space-y-6 animate-fade-up">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             Usage
@@ -202,7 +235,7 @@ export default function UsageAnalyticsView() {
         <div className="flex items-center gap-2">
           <button
             onClick={toggleIncludeOwner}
-            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap"
             style={{
               background: includeOwner ? 'var(--accent-dim)' : 'var(--surface-1)',
               border: '1px solid var(--border-default)',
@@ -265,27 +298,72 @@ export default function UsageAnalyticsView() {
         <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
           Daily views
         </h3>
-        <div className="flex items-end gap-1" style={{ height: 96 }}>
-          {s.days.map((d) => (
-            <div
-              key={d.date}
-              className="flex-1 rounded-t"
-              title={`${d.date}: ${d.views} views · ${d.visitors} visitors`}
-              style={{
-                background: d.views > 0 ? 'var(--accent)' : 'var(--surface-2)',
-                height: `${Math.max((d.views / maxViews) * 100, 3)}%`,
-                opacity: d.views > 0 ? 0.9 : 1,
-              }}
-            />
-          ))}
-        </div>
-        <div className="flex justify-between mt-1.5">
-          <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-            {s.days[0]?.date}
-          </span>
-          <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-            {today?.date}
-          </span>
+        {/*
+          Each column: value label · bar · date tick. Bars scale inside their
+          own fixed-height track so labels never eat into the tallest bar.
+          Ticks are spaced by window (every day / 2nd / 5th) counting back
+          from today; on narrow screens only the two edge dates survive, and
+          value labels drop out once there are too many bars to read them.
+          Visibility (not display) toggles keep every column the same height
+          so the bars share one baseline.
+        */}
+        <div className="flex items-end gap-1">
+          {s.days.map((d, i) => {
+            const label = formatUtcDay(d.date);
+            const isTick = (lastIdx - i) % tickStep === 0;
+            const isEdge = i === 0 || i === lastIdx;
+            const tickVisibility = isTick
+              ? isEdge
+                ? 'visible'
+                : 'invisible sm:visible'
+              : isEdge
+                ? 'visible sm:invisible'
+                : 'invisible';
+            // Edge ticks hug their side on narrow screens so they don't clip.
+            const tickAlign = i === 0 ? 'self-start sm:self-center' : i === lastIdx ? 'self-end sm:self-center' : '';
+            const valueVisibility = s.days.length > 14 ? 'invisible sm:visible' : 'visible';
+            return (
+              <div
+                key={d.date}
+                className="group relative flex-1 min-w-0 flex flex-col items-center"
+                aria-label={`${label}: ${d.views} views, ${d.visitors} visitors`}
+              >
+                <div
+                  className="pointer-events-none absolute bottom-full mb-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md px-2 py-1 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  style={{
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border-default)',
+                    color: 'var(--text-primary)',
+                  }}
+                  role="tooltip"
+                >
+                  {label} · {d.views} view{d.views === 1 ? '' : 's'} · {d.visitors} visitor{d.visitors === 1 ? '' : 's'}
+                </div>
+                <span
+                  className={`h-4 text-[10px] font-semibold leading-4 tabular-nums ${valueVisibility}`}
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  {d.views > 0 ? d.views : ''}
+                </span>
+                <div className="w-full flex items-end" style={{ height: 96 }}>
+                  <div
+                    className="w-full rounded-t"
+                    style={{
+                      background: d.views > 0 ? 'var(--accent)' : 'var(--surface-2)',
+                      height: `${Math.max((d.views / maxViews) * 100, 3)}%`,
+                      opacity: d.views > 0 ? 0.9 : 1,
+                    }}
+                  />
+                </div>
+                <span
+                  className={`h-4 mt-1 text-[10px] leading-4 whitespace-nowrap ${tickVisibility} ${tickAlign}`}
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  {label}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -310,54 +388,13 @@ export default function UsageAnalyticsView() {
         />
       </div>
 
-      {/* Recent activity feed */}
-      <div
-        className="rounded-xl p-5"
-        style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
-      >
-        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-          <Activity className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-          Recent activity
-        </h3>
-        {s.recentEvents.length === 0 ? (
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            {includeOwner
-              ? 'No activity recorded yet — events appear here as visitors browse and click.'
-              : 'No activity from anyone but you yet — your own events are hidden.'}
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {s.recentEvents.slice(0, 25).map((e, i) => (
-              <div
-                key={`${e.at}-${i}`}
-                className="flex items-start gap-3 py-1.5"
-                style={{ borderBottom: i < Math.min(s.recentEvents.length, 25) - 1 ? '1px solid var(--border-subtle)' : 'none' }}
-              >
-                {e.type === 'pageview' ? (
-                  <Eye className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: 'var(--accent)' }} />
-                ) : (
-                  <MousePointerClick className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: '#58a6ff' }} />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>
-                    {e.type === 'pageview' ? (
-                      <>Viewed <strong>{e.page}</strong></>
-                    ) : (
-                      <>Clicked <strong>{e.label}</strong> <span style={{ color: 'var(--text-secondary)' }}>on {e.page}</span></>
-                    )}
-                  </p>
-                  <p className="text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>
-                    {e.visitorLabel}
-                  </p>
-                </div>
-                <span className="text-[11px] shrink-0" style={{ color: 'var(--text-tertiary)' }}>
-                  {new Date(e.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Merged plan + usage activity feed */}
+      <RecentActivityFeed
+        planEvents={planEvents}
+        planLast24h={planLast24h}
+        usageEvents={s.recentEvents}
+        ownerHidden={!includeOwner}
+      />
     </div>
   );
 }
