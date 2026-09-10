@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useSyncExternalStore, createContext, useContext } from 'react';
 import {
   Target,
   Plus,
@@ -14,9 +14,12 @@ import {
   Trophy,
   ChevronDown,
   ChevronUp,
+  GripVertical,
+  Lock,
   Shield,
 } from 'lucide-react';
 import CreateGoalModal from './CreateGoalModal';
+import { moveWithinSection } from '@/lib/trading/goal-order';
 import {
   GOAL_METRICS,
   GOAL_CATEGORY_LABELS,
@@ -84,6 +87,65 @@ function outcomeDisplay(outcome: GoalOutcome, direction: GoalDirection): { label
     default:
       return { label: 'No data yet', ...gray };
   }
+}
+
+/* ----------------------------- drag to reorder ----------------------------- */
+
+/**
+ * Reordering is desktop-only: it needs a real pointer and the two-column
+ * layout. Touch devices keep the plain list (the browser would otherwise
+ * fight native scrolling for the gesture).
+ */
+const DESKTOP_DRAG_MQ = '(min-width: 1024px) and (hover: hover) and (pointer: fine)';
+function subscribeDesktopDrag(onChange: () => void) {
+  const mq = window.matchMedia(DESKTOP_DRAG_MQ);
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+}
+function useDesktopDrag(): boolean {
+  return useSyncExternalStore(
+    subscribeDesktopDrag,
+    () => window.matchMedia(DESKTOP_DRAG_MQ).matches,
+    () => false,
+  );
+}
+
+/** Which section a grid belongs to. A drag can only be dropped in the section it started in. */
+type SectionKey = 'active' | 'achieved' | 'missed' | 'archived';
+type ActiveDrag = { id: string; section: SectionKey };
+
+type DragCtx = {
+  canDrag: boolean;
+  drag: ActiveDrag | null;
+  start: (d: ActiveDrag) => void;
+  end: () => void;
+  /** Drop the dragged goal into `toId`'s slot. `sectionItems` is the section's current list. */
+  drop: (sectionItems: GoalWithProgress[], fromId: string, toId: string) => void;
+};
+const DragContext = createContext<DragCtx>({
+  canDrag: false,
+  drag: null,
+  start: () => {},
+  end: () => {},
+  drop: () => {},
+});
+
+/** True while a drag from a *different* section is in flight — this section can't accept it. */
+function useSectionLocked(section: SectionKey): boolean {
+  const { drag } = useContext(DragContext);
+  return drag !== null && drag.section !== section;
+}
+
+function LockedHint() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded"
+      style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}
+    >
+      <Lock className="w-3 h-3" />
+      Reorder within a section only
+    </span>
+  );
 }
 
 /* ----------------------------- subcomponents ----------------------------- */
@@ -199,12 +261,17 @@ type GoalHandlers = {
 
 function GoalCard({
   gwp,
+  section,
+  sectionItems,
   dimmed = false,
   onEdit,
   onArchive,
   onDelete,
 }: GoalHandlers & {
   gwp: GoalWithProgress;
+  section: SectionKey;
+  /** The section's full list, in display order — the drop target set for a drag from this card. */
+  sectionItems: GoalWithProgress[];
   /** Closed-window goal shown below the active grid — visually recede without hiding detail. */
   dimmed?: boolean;
 }) {
@@ -215,18 +282,76 @@ function GoalCard({
   const archived = goal.status === 'archived';
   const barColor = progress.outcome === 'no_data' ? 'rgba(255,255,255,0.15)' : disp.color;
 
+  const { canDrag, drag, start, end, drop } = useContext(DragContext);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [over, setOver] = useState(false);
+  // Nothing to reorder in a one-card section, so don't show a handle there.
+  const draggable = canDrag && sectionItems.length > 1;
+  const isDragging = drag?.id === goal.id;
+  // Only a drag that started in this same section may land here.
+  const acceptsDrop = drag !== null && drag.section === section && !isDragging;
+
+  const onDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', goal.id);
+    const el = cardRef.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      e.dataTransfer.setDragImage(el, e.clientX - r.left, e.clientY - r.top);
+    }
+    start({ id: goal.id, section });
+  };
+  const onDragOver = (e: React.DragEvent) => {
+    // Not calling preventDefault leaves the browser's default: drop refused,
+    // "not-allowed" cursor — exactly the cue we want for a foreign section.
+    if (!acceptsDrop && !isDragging) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (acceptsDrop && !over) setOver(true);
+  };
+  const onDragLeave = (e: React.DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+    setOver(false);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    if (!acceptsDrop) return;
+    e.preventDefault();
+    setOver(false);
+    drop(sectionItems, drag.id, goal.id);
+    end();
+  };
+
   return (
     <div
-      className="rounded-xl p-4 sm:p-5"
+      ref={cardRef}
+      className="group rounded-xl p-4 sm:p-5 transition-[opacity,box-shadow]"
       style={{
         background: 'var(--surface-1)',
         border: '1px solid var(--border-default)',
-        opacity: archived ? 0.6 : dimmed ? 0.8 : 1,
+        opacity: isDragging ? 0.35 : archived ? 0.6 : dimmed ? 0.8 : 1,
+        boxShadow: over ? '0 0 0 2px var(--accent)' : undefined,
       }}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
     >
       {/* top row */}
       <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="min-w-0">
+        {draggable && (
+          <span
+            role="button"
+            aria-label="Drag to reorder within this section"
+            title="Drag to reorder within this section"
+            draggable
+            onDragStart={onDragStart}
+            onDragEnd={end}
+            className="shrink-0 -ml-2 mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded cursor-grab active:cursor-grabbing opacity-35 group-hover:opacity-80 hover:opacity-100! transition-opacity"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            <GripVertical className="w-3.5 h-3.5" />
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
               {goal.title}
@@ -345,11 +470,20 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   );
 }
 
-function GoalGrid({ items, dimmed, ...handlers }: GoalHandlers & { items: GoalWithProgress[]; dimmed?: boolean }) {
+function GoalGrid({
+  items,
+  section,
+  dimmed,
+  ...handlers
+}: GoalHandlers & { items: GoalWithProgress[]; section: SectionKey; dimmed?: boolean }) {
+  const locked = useSectionLocked(section);
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div
+      className="grid grid-cols-1 lg:grid-cols-2 gap-4 transition-opacity"
+      style={{ opacity: locked ? 0.4 : 1 }}
+    >
       {items.map((gwp) => (
-        <GoalCard key={gwp.goal.id} gwp={gwp} dimmed={dimmed} {...handlers} />
+        <GoalCard key={gwp.goal.id} gwp={gwp} section={section} sectionItems={items} dimmed={dimmed} {...handlers} />
       ))}
     </div>
   );
@@ -362,6 +496,7 @@ function SectionHeader({
   blurb,
   color,
   action,
+  locked = false,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -369,6 +504,8 @@ function SectionHeader({
   blurb?: string;
   color: string;
   action?: React.ReactNode;
+  /** A drag from another section is in flight — say why this one won't take it. */
+  locked?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 mb-3">
@@ -383,10 +520,14 @@ function SectionHeader({
         >
           {count}
         </span>
-        {blurb && (
-          <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-            {blurb}
-          </span>
+        {locked ? (
+          <LockedHint />
+        ) : (
+          blurb && (
+            <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+              {blurb}
+            </span>
+          )
         )}
       </div>
       {action}
@@ -404,6 +545,7 @@ function ClosedSection({
   title,
   blurb,
   color,
+  section,
   items,
   dimmed,
   open,
@@ -414,11 +556,13 @@ function ClosedSection({
   title: string;
   blurb: string;
   color: string;
+  section: SectionKey;
   items: GoalWithProgress[];
   dimmed?: boolean;
   open: boolean;
   onToggle: () => void;
 }) {
+  const locked = useSectionLocked(section);
   return (
     <div className="pt-5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
       <SectionHeader
@@ -427,6 +571,7 @@ function ClosedSection({
         count={items.length}
         blurb={blurb}
         color={color}
+        locked={locked}
         action={
           <button
             onClick={onToggle}
@@ -439,7 +584,7 @@ function ClosedSection({
           </button>
         }
       />
-      {open && <GoalGrid items={items} dimmed={dimmed} {...handlers} />}
+      {open && <GoalGrid items={items} section={section} dimmed={dimmed} {...handlers} />}
     </div>
   );
 }
@@ -480,6 +625,8 @@ export default function GoalsView({ refreshKey }: { refreshKey?: number }) {
   const [showArchived, setShowArchived] = useState(false);
   const [showAchieved, setShowAchieved] = useState(true);
   const [showMissed, setShowMissed] = useState(true);
+  const canDrag = useDesktopDrag();
+  const [drag, setDrag] = useState<ActiveDrag | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -526,6 +673,37 @@ export default function GoalsView({ refreshKey }: { refreshKey?: number }) {
     [load],
   );
 
+  const startDrag = useCallback((d: ActiveDrag) => setDrag(d), []);
+  const endDrag = useCallback(() => setDrag(null), []);
+  const dropGoal = useCallback(
+    (sectionItems: GoalWithProgress[], fromId: string, toId: string) => {
+      const next = moveWithinSection(
+        goals.map((g) => g.goal.id),
+        sectionItems.map((g) => g.goal.id),
+        fromId,
+        toId,
+      );
+      if (!next) return;
+      const byId = new Map(goals.map((g) => [g.goal.id, g]));
+      // Optimistic: reorder locally now, persist in the background, resync on failure.
+      setGoals(next.flatMap((id) => byId.get(id) ?? []));
+      fetch('/api/trading-goals/reorder', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: next }),
+      })
+        .then((r) => {
+          if (!r.ok) load();
+        })
+        .catch(() => load());
+    },
+    [goals, load],
+  );
+  const dragCtx = useMemo<DragCtx>(
+    () => ({ canDrag, drag, start: startDrag, end: endDrag, drop: dropGoal }),
+    [canDrag, drag, startDrag, endDrag, dropGoal],
+  );
+
   const unarchived = goals.filter((x) => x.goal.status !== 'archived');
   // 'achieved' / 'missed' are only assigned once the window has ended, so
   // everything else is a goal the trader can still move.
@@ -535,91 +713,97 @@ export default function GoalsView({ refreshKey }: { refreshKey?: number }) {
   const archived = goals.filter((x) => x.goal.status === 'archived');
   const hasClosed = achieved.length > 0 || missed.length > 0;
   const handlers = { onEdit: openEdit, onArchive: handleArchive, onDelete: handleDelete };
+  const activeLocked = drag !== null && drag.section !== 'active';
 
   return (
-    <div className="space-y-5">
-      {/* header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-            Goals
-          </h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-            Profit targets, guardrails, and consistency — updated automatically from your trade history.
-          </p>
-        </div>
-        <button
-          onClick={openCreate}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors"
-          style={{ background: 'var(--accent)', color: 'white' }}
-        >
-          <Plus className="w-3.5 h-3.5" /> New Goal
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
-        </div>
-      ) : unarchived.length === 0 ? (
-        <EmptyState onCreate={openCreate} />
-      ) : (
-        <div>
-          {hasClosed && (
-            <SectionHeader
-              icon={<Target className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />}
-              title="Active"
-              count={active.length}
-              color="var(--text-primary)"
-            />
-          )}
-          {active.length === 0 ? <NoActiveGoals onCreate={openCreate} /> : <GoalGrid items={active} {...handlers} />}
-        </div>
-      )}
-
-      {!loading && achieved.length > 0 && (
-        <ClosedSection
-          icon={<Trophy className="w-3.5 h-3.5" />}
-          title="Achieved"
-          blurb="Window closed with the target met"
-          color="#00C896"
-          items={achieved}
-          open={showAchieved}
-          onToggle={() => setShowAchieved((s) => !s)}
-          {...handlers}
-        />
-      )}
-
-      {!loading && missed.length > 0 && (
-        <ClosedSection
-          icon={<XCircle className="w-3.5 h-3.5" />}
-          title="Missed"
-          blurb="Window closed before the target was met"
-          color="#FF3D57"
-          items={missed}
-          dimmed
-          open={showMissed}
-          onToggle={() => setShowMissed((s) => !s)}
-          {...handlers}
-        />
-      )}
-
-      {archived.length > 0 && (
-        <div>
+    <DragContext.Provider value={dragCtx}>
+      <div className="space-y-5">
+        {/* header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+              Goals
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+              Profit targets, guardrails, and consistency — updated automatically from your trade history.
+            </p>
+          </div>
           <button
-            onClick={() => setShowArchived((s) => !s)}
-            className="text-xs font-medium mb-3 transition-colors"
-            style={{ color: 'var(--text-secondary)' }}
+            onClick={openCreate}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors"
+            style={{ background: 'var(--accent)', color: 'white' }}
           >
-            {showArchived ? 'Hide' : 'Show'} archived ({archived.length})
+            <Plus className="w-3.5 h-3.5" /> New Goal
           </button>
-          {showArchived && (
-            <GoalGrid items={archived} {...handlers} />
-          )}
         </div>
-      )}
 
-      <CreateGoalModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSaved={() => load()} editingGoal={editing} />
-    </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
+          </div>
+        ) : unarchived.length === 0 ? (
+          <EmptyState onCreate={openCreate} />
+        ) : (
+          <div>
+            {hasClosed && (
+              <SectionHeader
+                icon={<Target className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />}
+                title="Active"
+                count={active.length}
+                color="var(--text-primary)"
+                locked={activeLocked}
+              />
+            )}
+            {active.length === 0 ? <NoActiveGoals onCreate={openCreate} /> : <GoalGrid items={active} section="active" {...handlers} />}
+          </div>
+        )}
+
+        {!loading && achieved.length > 0 && (
+          <ClosedSection
+            icon={<Trophy className="w-3.5 h-3.5" />}
+            title="Achieved"
+            blurb="Window closed with the target met"
+            color="#00C896"
+            section="achieved"
+            items={achieved}
+            open={showAchieved}
+            onToggle={() => setShowAchieved((s) => !s)}
+            {...handlers}
+          />
+        )}
+
+        {!loading && missed.length > 0 && (
+          <ClosedSection
+            icon={<XCircle className="w-3.5 h-3.5" />}
+            title="Missed"
+            blurb="Window closed before the target was met"
+            color="#FF3D57"
+            section="missed"
+            items={missed}
+            dimmed
+            open={showMissed}
+            onToggle={() => setShowMissed((s) => !s)}
+            {...handlers}
+          />
+        )}
+
+        {archived.length > 0 && (
+          <div>
+            <button
+              onClick={() => setShowArchived((s) => !s)}
+              className="text-xs font-medium mb-3 transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              {showArchived ? 'Hide' : 'Show'} archived ({archived.length})
+            </button>
+            {showArchived && (
+              <GoalGrid items={archived} section="archived" {...handlers} />
+            )}
+          </div>
+        )}
+
+        <CreateGoalModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSaved={() => load()} editingGoal={editing} />
+      </div>
+    </DragContext.Provider>
   );
 }

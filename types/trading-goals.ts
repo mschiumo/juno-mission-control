@@ -65,6 +65,11 @@ export interface TradingGoal {
   guardrails?: GoalGuardrail[];
   note?: string;
   status: GoalStatus;
+  /**
+   * Display position set by drag-and-drop (see lib/trading/goal-order.ts).
+   * Absent until the trader first arranges their goals.
+   */
+  sortOrder?: number;
   createdAt: string;
   updatedAt: string;
   archivedAt?: string;
