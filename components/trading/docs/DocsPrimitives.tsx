@@ -2,7 +2,7 @@
 
 import { ReactNode, Children } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Lightbulb, Info, AlertTriangle, Lock } from 'lucide-react';
+import { ArrowUpRight, Lightbulb, Info, AlertTriangle, Lock, Crown } from 'lucide-react';
 
 /**
  * Shared building blocks for the Docs sub-tab. Everything here is presentational:
@@ -192,11 +192,49 @@ export function OwnerBadge() {
 }
 
 /**
+ * Badge marking which plan a feature belongs to. Docs are readable on every
+ * tier, so an article about a Gold or Platinum feature says so up front rather
+ * than describing a tab the reader can't see.
+ */
+export function TierBadge({ tier }: { tier: 'gold' | 'platinum' }) {
+  const label = tier === 'gold' ? 'Gold' : 'Platinum';
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
+      style={{
+        background: tier === 'gold' ? 'var(--warning-dim)' : 'var(--accent-dim)',
+        color: tier === 'gold' ? 'var(--warning)' : 'var(--accent-light)',
+      }}
+    >
+      <Crown className="w-3 h-3" />
+      {label}
+    </span>
+  );
+}
+
+/**
  * Deep link into a Trading sub-tab. `subtab` matches the ?subtab= value;
  * omit it for the Journal tab (which is the default view).
  */
 export function FeatureLink({ subtab, children }: { subtab?: string; children: ReactNode }) {
   const href = subtab ? `/?tab=trading&subtab=${subtab}` : '/?tab=trading';
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:brightness-110"
+      style={{ background: 'var(--accent-dim)', border: '1px solid var(--border-default)', color: 'var(--accent-light)' }}
+    >
+      {children}
+      <ArrowUpRight className="w-3.5 h-3.5" />
+    </Link>
+  );
+}
+
+/**
+ * Deep link to a page outside the Trading tab — the Portfolio tab, the plans
+ * page, your profile. Same affordance as <FeatureLink>, arbitrary href.
+ */
+export function PageLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link
       href={href}

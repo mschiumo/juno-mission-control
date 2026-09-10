@@ -1,6 +1,6 @@
 'use client';
 
-import { DocSection, P, Em, Bullets, Steps, Step, Tip, Note, Warn, UI, OwnerBadge, FeatureLink, DocLink, Figure, RefTable } from './DocsPrimitives';
+import { DocSection, P, Em, Bullets, Steps, Step, Tip, Note, Warn, UI, TierBadge, FeatureLink, PageLink, DocLink, Figure, RefTable } from './DocsPrimitives';
 import { SubTabBarFigure, CalendarWeekFigure, JournalModalFigure, TradesTableFigure, ImportDropzoneFigure } from './DocsFigures';
 
 // ---------------------------------------------------------------------------
@@ -12,9 +12,10 @@ export function GettingStartedArticle() {
     <div className="space-y-8">
       <P>
         Welcome to <Em>ConfluenceTrading</Em> — your trading command center. Everything lives in one place: a
-        calendar-first journal, live market tools, trade planning and position sizing, auto-tracked goals, and a full
-        performance suite. This guide walks the whole platform, feature by feature, with step-by-step tutorials. New
-        here? Read this page, then follow the Quick Start at the bottom.
+        calendar-first journal, live market tools, trade planning and position sizing, auto-tracked goals, a full
+        performance suite, and — higher up the plans — a long-term portfolio and an AI trading agent. This guide walks
+        the whole platform, feature by feature, with step-by-step tutorials. New here? Read this page, then follow the
+        Quick Start at the bottom.
       </P>
 
       <DocSection title="The Trading tab at a glance">
@@ -55,12 +56,37 @@ export function GettingStartedArticle() {
             [
               <span key="a" className="inline-flex items-center gap-2 flex-wrap">
                 <FeatureLink subtab="agents">Agents</FeatureLink>
-                <OwnerBadge />
+                <TierBadge tier="platinum" />
               </span>,
-              <>The agentic swing-trading terminal — the agent proposes, you approve, the service executes. Includes the Performance Review module. See <DocLink doc="agents">Agents</DocLink>.</>,
+              <>Agentic swing trading — the agent identifies setups, you approve every order, the service executes. See <DocLink doc="agents">Agents</DocLink>.</>,
             ],
           ]}
         />
+      </DocSection>
+
+      <DocSection title="Beyond Trading: the Portfolio tab">
+        <P>
+          Trading isn&apos;t the only top-level tab. <Em>Portfolio</Em> tracks a separate, long-term brokerage account
+          — holdings, dividends, deposits, and a weekly AI review — and never mixes with your trading numbers. It sits
+          next to Trading in the header on the Platinum plan. See <DocLink doc="portfolio">Portfolio (Long-Term)</DocLink>.
+        </P>
+      </DocSection>
+
+      <DocSection title="What your plan includes">
+        <P>
+          Sections outside your plan aren&apos;t rendered at all — there&apos;s nothing locked or teased in the tab
+          bar. Free <Em>Silver</Em> covers the journal, imports, Trade Management, Performance, Profit Projection,
+          Market News, and these docs. <Em>Gold</Em> adds brokerage sync, the full Market tab, AI insights, and Goals.{' '}
+          <Em>Platinum</Em> adds Portfolio and Agents. Articles here are readable on every plan and carry a badge when
+          they describe a paid feature.
+        </P>
+        <div className="flex gap-2 flex-wrap">
+          <PageLink href="/plans">See plans &amp; pricing</PageLink>
+        </div>
+        <P>
+          Everyone gets one free week of Gold to try the paid side. Full details:{' '}
+          <DocLink doc="plans">Plans &amp; Your Account</DocLink>.
+        </P>
       </DocSection>
 
       <DocSection title="Navigation and deep links">
@@ -75,11 +101,12 @@ export function GettingStartedArticle() {
 
       <DocSection title="The guided tour">
         <P>
-          The first time you open the Trading tab, a 10-step interactive tour spotlights the essentials: importing from
-          thinkorswim, the position calculator, the daily market briefing, the gap scanner, the equity
-          curve, AI journal insights, and profit projection. You can re-run it anytime — click the orange{' '}
-          <UI>?</UI> button at the far right of the sub-tab bar (on mobile, open the section dropdown and tap{' '}
-          <UI>Tutorial — Take the Tour</UI>).
+          The first time you open the Trading tab, a short interactive tour spotlights the essentials: connecting a
+          brokerage or importing by hand, the P&amp;L calendar, the position calculator, the daily market briefing, the
+          gap scanner, goals, the equity curve, AI journal insights, and profit projection. The tour only walks the
+          sections your plan includes, and it re-offers itself with the new steps after an upgrade. Re-run it anytime —
+          click the orange <UI>?</UI> button at the far right of the sub-tab bar (on mobile, open the section dropdown
+          and tap <UI>Tutorial — Take the Tour</UI>).
         </P>
         <Tip>
           The tour is the fastest way to learn the layout; these docs are the reference for everything the tour
@@ -89,20 +116,24 @@ export function GettingStartedArticle() {
 
       <DocSection title="Your profile and preferences">
         <P>
-          Click your avatar in the header to open your profile. There you can edit your name and email, and toggle{' '}
-          <Em>Email Notifications</Em> for the daily Market Briefing. Your equity-curve starting balance is set from the{' '}
-          <DocLink doc="performance">Performance</DocLink> tab and stored with your preferences.
+          Click your avatar in the header to open your profile: your name and email, your current plan (with the
+          controls to upgrade or cancel), and <Em>Email Notifications</Em> — separate toggles for the morning Market
+          Briefing and the 5 PM Daily Market Recap. Your equity-curve starting balance isn&apos;t there; it&apos;s set
+          from the <DocLink doc="performance">Performance</DocLink> tab. Full walkthrough:{' '}
+          <DocLink doc="plans">Plans &amp; Your Account</DocLink>.
         </P>
       </DocSection>
 
       <DocSection title="Quick Start — your first week">
         <Steps>
           <Step title="Take the tour">
-            Click the <UI>?</UI> button on the Trading tab and walk the 10 steps. Two minutes, well spent.
+            Click the <UI>?</UI> button on the Trading tab and walk the steps for your plan. Two minutes, well spent.
           </Step>
-          <Step title="Import your trading history">
-            Export an Account Statement from thinkorswim and drop it into the <UI>Import</UI> modal on the Journal tab.
-            Trades, daily balances, and broker fees all flow in from one file. Full guide:{' '}
+          <Step title="Get your trading history in">
+            Two ways. On Gold and up, link your broker once and trades sync on their own —{' '}
+            <DocLink doc="brokerage-sync">Brokerage Sync</DocLink>. On any plan, export an Account Statement from
+            thinkorswim or Schwab and drop it into the <UI>Import</UI> modal on the Journal tab; trades, daily
+            balances, and broker fees all flow in from one file —{' '}
             <DocLink doc="importing">Importing Trades &amp; Broker Data</DocLink>.
           </Step>
           <Step title="Set your starting balance">
@@ -160,6 +191,12 @@ export function JournalArticle() {
             <>
               The <Em>book icon</Em> appears on every day. Blue with a checkmark means a journal entry is saved; a
               dashed outline means the day hasn’t been journaled yet. Click it to view, write, or edit the entry.
+            </>,
+            <>
+              An <Em>orange chart icon</Em> means the broker hasn&apos;t finished syncing that day yet. It shows no
+              P&amp;L and doesn&apos;t open — hover or tap it and a tooltip explains why. It turns into a normal
+              green/red icon once the day&apos;s data is complete. See{' '}
+              <DocLink doc="brokerage-sync">Brokerage Sync</DocLink>.
             </>,
             <>
               <Em>Today</Em> is outlined in orange. Use the <UI>‹</UI> and <UI>›</UI> arrows next to the month name to
@@ -278,7 +315,8 @@ export function ImportingArticle() {
       <P>
         Your broker data gets into ConfluenceTrading through <Em>statement imports</Em> — you export a CSV from your
         broker and drop it into the app. One thinkorswim Account Statement carries everything: executed trades, daily
-        account balances for the equity curve, and broker fees. Re-importing is always safe.
+        account balances for the equity curve, and broker fees. Re-importing is always safe. Imports work on every
+        plan, including free Silver, and are the whole workflow if you&apos;d rather not link an account at all.
       </P>
       <div>
         <FeatureLink>Open the Journal to import</FeatureLink>
@@ -383,6 +421,9 @@ export function ImportingArticle() {
 export function BrokerageSyncArticle() {
   return (
     <div className="space-y-8">
+      <div className="flex items-center gap-2">
+        <TierBadge tier="gold" />
+      </div>
       <P>
         Instead of exporting a statement every day, you can link your brokerage once and let trades flow in on their own.
         That link runs through <Em>SnapTrade</Em>, and this page explains what that is, what it can and can&apos;t do,
@@ -438,7 +479,7 @@ export function BrokerageSyncArticle() {
         </Steps>
         <Tip>
           An empty first sync is normal and not a failure. Brokers backfill trade history asynchronously after a new
-          link, so the trades often arrive minutes later. Press <UI>Refresh data</UI> then, or let the overnight sync
+          link, so the trades often arrive minutes later. Press <UI>Refresh data</UI> then, or let the scheduled sync
           pick them up.
         </Tip>
       </DocSection>
@@ -469,8 +510,8 @@ export function BrokerageSyncArticle() {
               <Em>On demand</Em> — <UI>Refresh data</UI> on the brokerage strip pulls immediately.
             </>,
             <>
-              <Em>Overnight</Em> — an automatic sync runs once a day, so the calendar stays current without you
-              touching it.
+              <Em>On a schedule</Em> — an automatic sync runs every six hours, around the clock, so the calendar stays
+              current without you touching it.
             </>,
           ]}
         />
@@ -497,6 +538,29 @@ export function BrokerageSyncArticle() {
           account scopes, and blending them would draw jumps that were never real P&amp;L. See{' '}
           <DocLink doc="performance">Performance &amp; Analytics</DocLink>.
         </Note>
+      </DocSection>
+
+      <DocSection title="Days still syncing">
+        <P>
+          Brokers publish a trading day&apos;s data on their own schedule, and a day that&apos;s only half-reported
+          would show a P&amp;L number that isn&apos;t real. So the calendar marks any day past the last complete
+          trading day with an <Em>orange, inert chart icon</Em>: the trade count is shown, the P&amp;L is not, and the
+          icon doesn&apos;t open. Hover or tap it for the explanation.
+        </P>
+        <Note>
+          The cutoff comes from the broker&apos;s own sync status at the moment of the last pull, not from a guess
+          about the clock. Once the broker reports the day complete, the next sync turns it into a normal green or red
+          day with its real P&amp;L.
+        </Note>
+      </DocSection>
+
+      <DocSection title="If the connection breaks">
+        <P>
+          Broker authorizations expire, and some brokers require periodic re-authentication. When a sync starts
+          failing, the brokerage strip says so rather than quietly serving stale data — reconnect from{' '}
+          <UI>Manage</UI> on the strip. Because a failed connection means no new trades, the freshness line on the
+          strip is worth a glance on any day the calendar looks emptier than you expect.
+        </P>
       </DocSection>
 
       <DocSection title="Disconnecting">

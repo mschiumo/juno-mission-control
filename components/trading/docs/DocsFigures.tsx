@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, BarChart3, TrendingUp, Newspaper, Settings, Target, Calculator, Sparkles, GraduationCap, Star, Upload, Check, Pencil, Trash2, ArrowRight } from 'lucide-react';
+import { BookOpen, BarChart3, TrendingUp, Newspaper, Settings, Target, Calculator, Sparkles, GraduationCap, Star, Upload, Check, Pencil, Trash2, ArrowRight, Crown, Bell } from 'lucide-react';
 
 /**
  * Illustrative mockups for the Docs sub-tab. These are hand-built miniatures of
@@ -680,6 +680,149 @@ export function ScorecardFigure() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Plans
+// ---------------------------------------------------------------------------
+
+export function PlanTiersFigure() {
+  const tiers = [
+    { name: 'Silver', price: 'Free', blurb: 'Journal, imports, analytics', highlight: false },
+    { name: 'Gold', price: '$29/mo', blurb: 'Broker sync, AI, Market, Goals', highlight: true },
+    { name: 'Platinum', price: '$59/mo', blurb: 'Portfolio + Agents', highlight: false },
+  ];
+  return (
+    <div className="grid grid-cols-3 gap-2 min-w-[420px]">
+      {tiers.map((t) => (
+        <div
+          key={t.name}
+          className="rounded-xl p-3 space-y-1"
+          style={{
+            background: 'var(--surface-1)',
+            border: t.highlight ? '1px solid var(--accent)' : '1px solid var(--border-default)',
+          }}
+        >
+          <div className="flex items-center gap-1.5">
+            <Crown className="w-3 h-3" style={{ color: t.highlight ? 'var(--accent)' : 'var(--text-tertiary)' }} />
+            <span className="text-[11px] font-bold" style={{ color: 'var(--text-primary)' }}>
+              {t.name}
+            </span>
+          </div>
+          <div className="num text-sm font-bold" style={{ color: t.highlight ? 'var(--accent)' : 'var(--text-primary)' }}>
+            {t.price}
+          </div>
+          <div className="text-[10px] leading-snug" style={{ color: 'var(--text-tertiary)' }}>
+            {t.blurb}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Intraday alerts
+// ---------------------------------------------------------------------------
+
+export function IntradayAlertsFigure() {
+  const rows = [
+    { sym: 'AMD', tf: '1H', move: 4.8, price: '168.20', vol: '18.4M', rvol: '3.1', score: 92 },
+    { sym: 'SOFI', tf: '2H', move: 3.2, price: '9.14', vol: '24.0M', rvol: '2.4', score: 81 },
+    { sym: 'RIVN', tf: '1H', move: -3.9, price: '13.02', vol: '9.8M', rvol: '1.9', score: 74 },
+  ];
+  return (
+    <div className="space-y-2 min-w-[520px]">
+      <div className="flex items-center gap-2">
+        <span
+          className="w-6 h-6 rounded-lg flex items-center justify-center"
+          style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}
+        >
+          <Bell className="w-3 h-3" />
+        </span>
+        <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+          Intraday Alerts
+        </span>
+        <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+          3 new · 11:30 AM ET
+        </span>
+      </div>
+      <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
+        <div
+          className="grid grid-cols-[60px_36px_1fr_1fr_1fr_1fr_50px] gap-2 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wide"
+          style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}
+        >
+          <span>Ticker</span>
+          <span>TF</span>
+          <span className="text-right">Move</span>
+          <span className="text-right">Price</span>
+          <span className="text-right">Volume</span>
+          <span className="text-right">RVOL</span>
+          <span className="text-right">Score</span>
+        </div>
+        {rows.map((r) => (
+          <div
+            key={r.sym}
+            className="grid grid-cols-[60px_36px_1fr_1fr_1fr_1fr_50px] gap-2 px-3 py-2 text-[10px] items-center"
+            style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
+          >
+            <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
+              {r.sym}
+            </span>
+            <span style={{ color: 'var(--text-tertiary)' }}>{r.tf}</span>
+            <span
+              className="num text-right font-semibold"
+              style={{ color: r.move > 0 ? 'var(--positive)' : 'var(--negative)' }}
+            >
+              {r.move > 0 ? '+' : ''}
+              {r.move.toFixed(1)}%
+            </span>
+            <span className="num text-right">${r.price}</span>
+            <span className="num text-right">{r.vol}</span>
+            <span className="num text-right">{r.rvol}×</span>
+            <span className="num text-right font-semibold" style={{ color: 'var(--accent)' }}>
+              {r.score}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio
+// ---------------------------------------------------------------------------
+
+export function PortfolioStatsFigure() {
+  const cards = [
+    { label: 'Total Value', value: '$184,206', sub: '14 positions', color: 'var(--text-primary)' },
+    { label: 'Past Week', value: '+$2,140', sub: '+1.2%', color: 'var(--positive)' },
+    { label: 'Unrealized P&L', value: '+$31,880', sub: '+20.9%', color: 'var(--positive)' },
+    { label: 'Cash', value: '$6,410', sub: '3.5% of book', color: 'var(--text-primary)' },
+    { label: 'Dividends 12m', value: '$2,388', sub: 'trailing year', color: 'var(--info)' },
+  ];
+  return (
+    <div className="grid grid-cols-5 gap-2 min-w-[620px]">
+      {cards.map((c) => (
+        <div
+          key={c.label}
+          className="rounded-xl p-3 space-y-1"
+          style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
+        >
+          <div className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+            {c.label}
+          </div>
+          <div className="num text-sm font-bold" style={{ color: c.color }}>
+            {c.value}
+          </div>
+          <div className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>
+            {c.sub}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

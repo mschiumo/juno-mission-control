@@ -1,6 +1,6 @@
 'use client';
 
-import { DocSection, P, Em, Bullets, Steps, Step, Tip, Note, UI, FeatureLink, DocLink, Figure, RefTable } from './DocsPrimitives';
+import { DocSection, P, Em, Bullets, Steps, Step, Tip, Note, UI, TierBadge, FeatureLink, DocLink, Figure, RefTable } from './DocsPrimitives';
 import { EquityCurveFigure, MetricCardsFigure, GoalCardFigure } from './DocsFigures';
 
 // ---------------------------------------------------------------------------
@@ -32,8 +32,10 @@ export function PerformanceArticle() {
         </Figure>
         <P>
           The big number is your <Em>Net Liquidating Value</Em> (NLV) — account value if everything were closed right
-          now. When you’ve imported thinkorswim Account Statements, the curve uses your broker’s actual end-of-day
-          balances; otherwise it derives from your starting balance plus cumulative P&amp;L.
+          now. The curve is always drawn from a single source: a linked brokerage&apos;s daily balances if one is
+          connected, otherwise the end-of-day balances in your imported statements, and failing both, your starting
+          balance plus cumulative P&amp;L. The two broker sources are never blended — see{' '}
+          <DocLink doc="brokerage-sync">Brokerage Sync</DocLink>.
         </P>
         <Steps>
           <Step title="Set your starting balance">
@@ -82,6 +84,9 @@ export function PerformanceArticle() {
       </DocSection>
 
       <DocSection title="AI Journal Insights">
+        <div className="flex items-center gap-2">
+          <TierBadge tier="gold" />
+        </div>
         <P>
           Journal Insights reads your <DocLink doc="journal">daily journal entries</DocLink> together with your trading
           results and writes a coaching report: a <Em>Key Takeaway</Em>, your <Em>Strengths</Em>,{' '}
@@ -92,13 +97,20 @@ export function PerformanceArticle() {
             Toggle <UI>This Week</UI> or <UI>This Month</UI>.
           </Step>
           <Step title="Generate">
-            Click <UI>Generate Report</UI>. When it finishes, click the report tile to open the full write-up.
+            Click <UI>Generate Report</UI>. When it finishes, click the report tile to open the full write-up. Hover
+            the button first and it tells you how many generations you have left today.
           </Step>
           <Step title="Keep or export">
             Reports are archived — revisit them from the <UI>Past Reports</UI> dropdown, regenerate anytime, or{' '}
             <UI>Download PDF</UI> for a copy outside the app.
           </Step>
         </Steps>
+        <Note>
+          Journal Insights is capped at <Em>two generations per day per account</Em> — AI inference is the one thing
+          here with a real per-call cost. Hitting the cap never touches reports you already have: every past report
+          stays readable and downloadable, and the counter resets the next day. See{' '}
+          <DocLink doc="plans">Plans &amp; Your Account</DocLink>.
+        </Note>
         <Tip>
           The more consistently you journal, the sharper the insights get — three required prompts a day is all it
           takes.
@@ -115,6 +127,9 @@ export function PerformanceArticle() {
 export function GoalsArticle() {
   return (
     <div className="space-y-8">
+      <div className="flex items-center gap-2">
+        <TierBadge tier="gold" />
+      </div>
       <P>
         Trading Goals are <Em>self-tracking</Em>: you define a target like “earn $1,050 by July 31” or a guardrail like
         “never lose more than $300 in a day,” and the app measures it continuously from your actual trade history. No
