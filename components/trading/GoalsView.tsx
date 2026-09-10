@@ -109,37 +109,55 @@ function PaceStats({ progress }: { progress: GoalProgress }) {
     );
   }
   if (left <= 0) return <span>Window closed.</span>;
+  // Per-day figures render as value + "/day" with a soft break between them,
+  // so a wide figure ("$26,896/day") can wrap onto two lines in a narrow cell
+  // instead of spilling past the card edge on phones.
   const cells = [
     {
       label: 'Pace needed',
-      value: `${fmtValue(progress.unit, progress.requiredPerDay ?? 0)}/day`,
+      value: fmtValue(progress.unit, progress.requiredPerDay ?? 0),
+      perDay: true,
       highlight: true,
     },
     {
       label: 'Your pace',
-      value: progress.actualPerDay !== undefined ? `${fmtValue(progress.unit, progress.actualPerDay)}/day` : '—',
+      value: progress.actualPerDay !== undefined ? fmtValue(progress.unit, progress.actualPerDay) : '—',
+      perDay: progress.actualPerDay !== undefined,
       highlight: false,
     },
     {
       label: 'Projected',
       value: progress.projectedFinal !== undefined ? fmtValue(progress.unit, progress.projectedFinal) : '—',
+      perDay: false,
       highlight: false,
     },
   ];
   return (
     <div>
+      {/* Cells are ~76px wide on a 375px phone: min-w-0 lets them shrink below
+          their content, and the smaller font + break-words keep the value inside
+          the cell instead of pushing the page wider than the viewport. */}
       <div className="grid grid-cols-3 gap-2">
         {cells.map((c) => (
           <div
             key={c.label}
-            className="rounded-lg px-2.5 py-1.5"
+            className="min-w-0 rounded-lg px-2 py-1.5 sm:px-2.5"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
           >
             <div className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-secondary)' }}>
               {c.label}
             </div>
-            <div className="text-sm font-bold num" style={{ color: c.highlight ? 'var(--accent-light)' : 'var(--text-primary)' }}>
+            <div
+              className="text-xs sm:text-sm font-bold num break-words"
+              style={{ color: c.highlight ? 'var(--accent-light)' : 'var(--text-primary)' }}
+            >
               {c.value}
+              {c.perDay && (
+                <>
+                  <wbr />
+                  /day
+                </>
+              )}
             </div>
           </div>
         ))}
@@ -217,7 +235,7 @@ function GoalCard({
 
   return (
     <div
-      className="rounded-xl p-4 sm:p-5"
+      className="min-w-0 rounded-xl p-4 sm:p-5"
       style={{
         background: 'var(--surface-1)',
         border: '1px solid var(--border-default)',
