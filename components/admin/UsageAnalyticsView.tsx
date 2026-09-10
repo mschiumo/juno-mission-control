@@ -6,13 +6,18 @@
  *
  * Reads GET /api/admin/analytics: daily views/visitors, top pages, top
  * clicks, and a recent-events feed, all captured by the global UsageTracker.
+ *
+ * The owner's own browsing is excluded by default — otherwise the numbers
+ * mostly measure the owner testing the app. "Include mine" turns it back on;
+ * the choice is remembered per browser.
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, BarChart3, Eye, MousePointerClick, RefreshCw, Users } from 'lucide-react';
+import { Activity, BarChart3, Eye, MousePointerClick, RefreshCw, User, Users } from 'lucide-react';
 import type { UsageSummary } from '@/lib/db/usage-analytics';
 
 const WINDOWS = [7, 14, 30] as const;
+const INCLUDE_OWNER_KEY = 'ct-usage-include-owner';
 
 function StatCard({
   icon: Icon,
@@ -103,14 +108,27 @@ function RankedList({
 export default function UsageAnalyticsView() {
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [days, setDays] = useState<number>(14);
+  const [includeOwner, setIncludeOwner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (windowDays: number) => {
+  // Restore the remembered choice before the first fetch settles; reading in an
+  // effect (not in useState) keeps the server and client markup identical.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(INCLUDE_OWNER_KEY) === '1') setIncludeOwner(true);
+    } catch {
+      // Private browsing / blocked storage — the default is fine.
+    }
+  }, []);
+
+  const load = useCallback(async (windowDays: number, withOwner: boolean) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/analytics?days=${windowDays}`);
+      const res = await fetch(
+        `/api/admin/analytics?days=${windowDays}${withOwner ? '&includeOwner=1' : ''}`,
+      );
       const json = await res.json();
       if (json.success) setSummary(json.summary);
       else setError(json.error || 'Failed to load analytics');
@@ -122,8 +140,18 @@ export default function UsageAnalyticsView() {
   }, []);
 
   useEffect(() => {
-    load(days);
-  }, [load, days]);
+    load(days, includeOwner);
+  }, [load, days, includeOwner]);
+
+  const toggleIncludeOwner = () => {
+    const next = !includeOwner;
+    setIncludeOwner(next);
+    try {
+      localStorage.setItem(INCLUDE_OWNER_KEY, next ? '1' : '0');
+    } catch {
+      // Preference is a convenience; losing it is harmless.
+    }
+  };
 
   if (loading && !summary) {
     return (
@@ -144,7 +172,7 @@ export default function UsageAnalyticsView() {
           {error ?? 'No analytics available.'}
         </p>
         <button
-          onClick={() => load(days)}
+          onClick={() => load(days, includeOwner)}
           className="text-sm font-semibold px-4 py-2 rounded-lg"
           style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}
         >
@@ -167,10 +195,29 @@ export default function UsageAnalyticsView() {
             Usage
           </h2>
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            Page visits and clicks · UTC days · your own visits included
+            Page visits and clicks · UTC days ·{' '}
+            {includeOwner ? 'your own activity included' : 'your own activity hidden'}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={toggleIncludeOwner}
+            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+            style={{
+              background: includeOwner ? 'var(--accent-dim)' : 'var(--surface-1)',
+              border: '1px solid var(--border-default)',
+              color: includeOwner ? 'var(--accent)' : 'var(--text-secondary)',
+            }}
+            aria-pressed={includeOwner}
+            title={
+              includeOwner
+                ? 'Currently counting your own visits — click to hide them'
+                : 'Your own visits are hidden — click to include them'
+            }
+          >
+            <User className="w-3.5 h-3.5" />
+            Include mine
+          </button>
           {WINDOWS.map((w) => (
             <button
               key={w}
@@ -186,7 +233,7 @@ export default function UsageAnalyticsView() {
             </button>
           ))}
           <button
-            onClick={() => load(days)}
+            onClick={() => load(days, includeOwner)}
             disabled={loading}
             className="p-2 rounded-lg transition-colors disabled:opacity-50"
             style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
@@ -274,7 +321,9 @@ export default function UsageAnalyticsView() {
         </h3>
         {s.recentEvents.length === 0 ? (
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            No activity recorded yet — events appear here as visitors browse and click.
+            {includeOwner
+              ? 'No activity recorded yet — events appear here as visitors browse and click.'
+              : 'No activity from anyone but you yet — your own events are hidden.'}
           </p>
         ) : (
           <div className="space-y-2">
