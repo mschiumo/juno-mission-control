@@ -10,6 +10,7 @@ import { requireFeature } from '@/lib/auth-session';
 import { getAllTrades } from '@/lib/db/trades-v2';
 import { getAllGoals, saveGoal, getJournaledDates } from '@/lib/db/trading-goals';
 import { computeGoalProgress } from '@/lib/trading/goal-progress';
+import { compareGoalOrder } from '@/lib/trading/goal-order';
 import {
   GOAL_METRICS,
   type TradingGoal,
@@ -68,7 +69,7 @@ export async function GET(): Promise<NextResponse> {
 
     const result: GoalWithProgress[] = goals
       .slice()
-      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .sort(compareGoalOrder)
       .map((goal) => ({ goal, progress: computeGoalProgress(goal, trades, { journaledDates }) }));
 
     return NextResponse.json({ success: true, goals: result });

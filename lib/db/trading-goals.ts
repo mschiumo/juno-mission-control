@@ -58,6 +58,25 @@ export async function updateGoal(
   return existing[index];
 }
 
+/**
+ * Persist a drag-and-drop arrangement: each goal's `sortOrder` becomes its
+ * position in `ids` (counted among this user's own goals — unknown ids are
+ * dropped first). Goals not mentioned keep whatever they had. Not an edit, so
+ * `updatedAt` is left alone.
+ */
+export async function reorderGoals(userId: string, ids: string[]): Promise<TradingGoal[]> {
+  const redis = await getRedisClient();
+  const existing = await getAllGoals(userId);
+  const own = new Set(existing.map((g) => g.id));
+  const position = new Map(ids.filter((id) => own.has(id)).map((id, i) => [id, i]));
+  const updated = existing.map((g) => {
+    const p = position.get(g.id);
+    return p === undefined ? g : { ...g, sortOrder: p };
+  });
+  await redis.set(goalsKey(userId), JSON.stringify({ goals: updated }));
+  return updated;
+}
+
 export async function deleteGoal(id: string, userId: string): Promise<boolean> {
   const redis = await getRedisClient();
   const existing = await getAllGoals(userId);
