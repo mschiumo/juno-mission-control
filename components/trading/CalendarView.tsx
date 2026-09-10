@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Upload, TrendingUp, TrendingDown, Info, RefreshCw, ChevronDown, ArrowUpDown, Filter, Download, Trash2, X, CheckSquare, Square, Edit3, FileText } from 'lucide-react';
+import { tradeTimeLabel } from '@/lib/trading/trade-time';
 
 interface DayData {
   date: string;
@@ -324,7 +325,9 @@ export default function CalendarView() {
   const exportToCSV = () => {
     const headers = ['Date', 'Symbol', 'Side', 'Shares', 'Entry Price', 'Exit Price', 'PnL', 'Status'];
     const rows = sortedTrades.map(t => [
-      t.entryDate,
+      // Drop a padded time so the export doesn't assert an execution time the
+      // broker never reported.
+      tradeTimeLabel(t.entryDate) ? t.entryDate : t.entryDate?.split('T')[0],
       t.symbol,
       t.side,
       t.shares,
@@ -837,7 +840,9 @@ export default function CalendarView() {
                         </td>
                         <td className="py-3 px-4 text-white">
                           <div className="text-xs text-[#8b949e]">{trade.entryDate?.split('T')[0]}</div>
-                          <div>{trade.entryDate?.split('T')[1]?.substring(0, 5)}</div>
+                          {/* Broker feeds that report day granularity only carry no
+                              execution time — show nothing rather than a placeholder. */}
+                          {tradeTimeLabel(trade.entryDate) && <div>{tradeTimeLabel(trade.entryDate)}</div>}
                         </td>
                         <td className="py-3 px-4 font-medium text-white">{trade.symbol}</td>
                         <td className="py-3 px-4">
@@ -1460,10 +1465,12 @@ function DayDetailModal({ date, data, trades, onClose }: { date: string; data: D
                           <span className="text-[#8b949e]">Shares: </span>
                           <span className="text-white">{symbolTrades[0]?.shares}</span>
                         </div>
-                        <div>
-                          <span className="text-[#8b949e]">Time: </span>
-                          <span className="text-white">{symbolTrades[0]?.entryDate?.split('T')[1]?.substring(0, 5)}</span>
-                        </div>
+                        {tradeTimeLabel(symbolTrades[0]?.entryDate) && (
+                          <div>
+                            <span className="text-[#8b949e]">Time: </span>
+                            <span className="text-white">{tradeTimeLabel(symbolTrades[0]?.entryDate)}</span>
+                          </div>
+                        )}
                       </div>
                       <div className="mt-2 pt-2 border-t border-[#21262d]">
                         <span className="text-xs text-[#8b949e]">

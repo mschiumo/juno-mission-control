@@ -31,6 +31,7 @@ import BrokerageSyncBar from './BrokerageSyncBar';
 import { getTodayInEST } from '@/lib/date-utils';
 import { tradingJournalTrades } from '@/lib/account-classification';
 import type { AccountSettingsMap } from '@/lib/db/account-settings';
+import { tradeTimeLabel } from '@/lib/trading/trade-time';
 
 // ============================================================================
 // Types
@@ -442,7 +443,9 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
   const exportToCSV = () => {
     const headers = ['Date', 'Symbol', 'Side', 'Shares', 'Entry Price', 'Exit Price', 'PnL', 'Status'];
     const rows = sortedTrades.map(t => [
-      t.entryDate,
+      // Drop a padded time so the export doesn't assert an execution time the
+      // broker never reported.
+      tradeTimeLabel(t.entryDate) ? t.entryDate : t.entryDate?.split('T')[0],
       t.symbol,
       t.side,
       t.shares,
@@ -1062,7 +1065,9 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                     >
                       <td className="py-3 px-4 text-white">
                         <div className="text-xs text-[#8b949e]">{trade.entryDate?.split('T')[0]}</div>
-                        <div>{trade.entryDate?.split('T')[1]?.substring(0, 5)}</div>
+                        {/* Broker feeds that report day granularity only carry no
+                            execution time — show nothing rather than a placeholder. */}
+                        {tradeTimeLabel(trade.entryDate) && <div>{tradeTimeLabel(trade.entryDate)}</div>}
                       </td>
                       <td className="py-3 px-4 font-medium text-white">{trade.symbol}</td>
                       <td className={`py-3 px-4 text-right ${trade.netPnL && trade.netPnL >= 0 ? 'text-[#3fb950]' : trade.netPnL && trade.netPnL < 0 ? 'text-[#f85149]' : 'text-[#8b949e]'}`}>
