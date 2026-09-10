@@ -7,7 +7,6 @@ import {
   CheckCircle2, AlertTriangle, Zap, Trophy, Pencil, Plus, Trash2, Flame,
 } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
-import WeeklyScoreboard from '@/components/WeeklyScoreboard';
 import {
   type ActivitySummary, RUN_SPORTS, WALK_SPORTS,
   fmtMiles, fmtDuration, fmtPace, paceSecPerMile, speedMph, metersToMiles,
@@ -294,9 +293,6 @@ export default function FitnessCard() {
   const [workoutBusy, setWorkoutBusy] = useState(false);
   const [editingSplit, setEditingSplit] = useState(false);
 
-  // Card tab: fitness panels vs weekly scoreboard
-  const [tab, setTab] = useState<'fitness' | 'scoreboard'>('fitness');
-
   // Distance panel period + activity-type toggles
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('week');
   const [actType, setActType] = useState<'all' | 'run' | 'walk'>('all');
@@ -455,23 +451,11 @@ export default function FitnessCard() {
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-[#30363d] bg-gradient-to-r from-[#F97316]/10 to-transparent">
         <div className="flex items-center gap-2 min-w-0">
           <Dumbbell className="w-4 h-4 text-[#F97316] flex-shrink-0" />
-          <div className="flex items-center gap-0.5 bg-[#0d1117]/60 border border-white/5 rounded-lg p-0.5">
-            {([['fitness', 'Fitness'], ['scoreboard', 'Scoreboard']] as const).map(([id, label]) => (
-              <button
-                key={id}
-                onClick={() => setTab(id)}
-                className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-colors ${
-                  tab === id ? 'bg-[#F97316]/20 text-[#F97316]' : 'text-[#8b949e] hover:text-white'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <h2 className="text-sm font-semibold text-white">Fitness</h2>
         </div>
 
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {tab === 'fitness' && !stravaLoading && (connected ? (
+          {!stravaLoading && (connected ? (
             <div className="flex items-center gap-1">
               <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#0d1117] border border-[#30363d]">
                 <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="#FC4C02" aria-hidden>
@@ -511,7 +495,7 @@ export default function FitnessCard() {
         </div>
       </div>
 
-      {tab === 'fitness' && banner && (
+      {banner && (
         <div
           className={`flex items-start gap-2 px-4 py-2 text-xs border-b border-[#30363d] ${
             banner.kind === 'success' ? 'bg-[#22c55e]/10 text-[#22c55e]' : 'bg-[#ef4444]/10 text-[#ef4444]'
@@ -525,9 +509,6 @@ export default function FitnessCard() {
         </div>
       )}
 
-      {tab === 'scoreboard' ? (
-        <WeeklyScoreboard />
-      ) : (
       <div className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Workout split */}
@@ -837,7 +818,6 @@ export default function FitnessCard() {
           </div>
         </div>
       </div>
-      )}
 
       {editingSplit && workout && (
         <EditSplitModal
