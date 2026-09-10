@@ -10,6 +10,10 @@ import {
   Archive,
   ArchiveRestore,
   CheckCircle2,
+  XCircle,
+  Trophy,
+  ChevronDown,
+  ChevronUp,
   Shield,
 } from 'lucide-react';
 import CreateGoalModal from './CreateGoalModal';
@@ -187,16 +191,22 @@ function sampleLabel(metric: string, n: number): string {
   return `${n} trade${n === 1 ? '' : 's'}`;
 }
 
-function GoalCard({
-  gwp,
-  onEdit,
-  onArchive,
-  onDelete,
-}: {
-  gwp: GoalWithProgress;
+type GoalHandlers = {
   onEdit: (g: TradingGoal) => void;
   onArchive: (g: TradingGoal) => void;
   onDelete: (g: TradingGoal) => void;
+};
+
+function GoalCard({
+  gwp,
+  dimmed = false,
+  onEdit,
+  onArchive,
+  onDelete,
+}: GoalHandlers & {
+  gwp: GoalWithProgress;
+  /** Closed-window goal shown below the active grid — visually recede without hiding detail. */
+  dimmed?: boolean;
 }) {
   const { goal, progress } = gwp;
   const meta = GOAL_METRICS[goal.metric];
@@ -208,7 +218,11 @@ function GoalCard({
   return (
     <div
       className="rounded-xl p-4 sm:p-5"
-      style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', opacity: archived ? 0.6 : 1 }}
+      style={{
+        background: 'var(--surface-1)',
+        border: '1px solid var(--border-default)',
+        opacity: archived ? 0.6 : dimmed ? 0.8 : 1,
+      }}
     >
       {/* top row */}
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -331,6 +345,131 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   );
 }
 
+function GoalGrid({ items, dimmed, ...handlers }: GoalHandlers & { items: GoalWithProgress[]; dimmed?: boolean }) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {items.map((gwp) => (
+        <GoalCard key={gwp.goal.id} gwp={gwp} dimmed={dimmed} {...handlers} />
+      ))}
+    </div>
+  );
+}
+
+function SectionHeader({
+  icon,
+  title,
+  count,
+  blurb,
+  color,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  count: number;
+  blurb?: string;
+  color: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 mb-3">
+      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color }}>
+          {icon}
+          {title}
+        </span>
+        <span
+          className="text-[11px] font-semibold num px-1.5 py-0.5 rounded"
+          style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}
+        >
+          {count}
+        </span>
+        {blurb && (
+          <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+            {blurb}
+          </span>
+        )}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+/**
+ * Goals whose window has ended (achieved or missed). Rendered below the active
+ * grid, separated by a rule, and collapsible so a long history of closed goals
+ * never crowds what the trader is working toward right now.
+ */
+function ClosedSection({
+  icon,
+  title,
+  blurb,
+  color,
+  items,
+  dimmed,
+  open,
+  onToggle,
+  ...handlers
+}: GoalHandlers & {
+  icon: React.ReactNode;
+  title: string;
+  blurb: string;
+  color: string;
+  items: GoalWithProgress[];
+  dimmed?: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="pt-5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+      <SectionHeader
+        icon={icon}
+        title={title}
+        count={items.length}
+        blurb={blurb}
+        color={color}
+        action={
+          <button
+            onClick={onToggle}
+            className="inline-flex items-center gap-1 text-xs font-medium shrink-0 transition-colors"
+            style={{ color: 'var(--text-secondary)' }}
+            aria-expanded={open}
+          >
+            {open ? 'Hide' : 'Show'}
+            {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+        }
+      />
+      {open && <GoalGrid items={items} dimmed={dimmed} {...handlers} />}
+    </div>
+  );
+}
+
+/** Shown in place of the active grid when every goal's window has closed. */
+function NoActiveGoals({ onCreate }: { onCreate: () => void }) {
+  return (
+    <div
+      className="rounded-xl px-5 py-6 flex flex-col sm:flex-row items-center justify-between gap-3"
+      style={{ background: 'var(--surface-1)', border: '1px dashed var(--border-default)' }}
+    >
+      <div className="text-center sm:text-left">
+        <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          No active goals
+        </div>
+        <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+          Every goal’s window has closed. Set a new target to keep your run-rate in view.
+        </div>
+      </div>
+      <button
+        onClick={onCreate}
+        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold shrink-0"
+        style={{ background: 'var(--accent)', color: 'white' }}
+      >
+        <Plus className="w-3.5 h-3.5" /> New Goal
+      </button>
+    </div>
+  );
+}
+
 /* ----------------------------- main view ----------------------------- */
 
 export default function GoalsView({ refreshKey }: { refreshKey?: number }) {
@@ -339,6 +478,8 @@ export default function GoalsView({ refreshKey }: { refreshKey?: number }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<TradingGoal | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [showAchieved, setShowAchieved] = useState(true);
+  const [showMissed, setShowMissed] = useState(true);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -385,10 +526,15 @@ export default function GoalsView({ refreshKey }: { refreshKey?: number }) {
     [load],
   );
 
-  const active = goals.filter((x) => x.goal.status !== 'archived');
-  const inProgress = active.filter((x) => x.progress.outcome !== 'missed');
-  const missed = active.filter((x) => x.progress.outcome === 'missed');
+  const unarchived = goals.filter((x) => x.goal.status !== 'archived');
+  // 'achieved' / 'missed' are only assigned once the window has ended, so
+  // everything else is a goal the trader can still move.
+  const active = unarchived.filter((x) => x.progress.outcome !== 'achieved' && x.progress.outcome !== 'missed');
+  const achieved = unarchived.filter((x) => x.progress.outcome === 'achieved');
+  const missed = unarchived.filter((x) => x.progress.outcome === 'missed');
   const archived = goals.filter((x) => x.goal.status === 'archived');
+  const hasClosed = achieved.length > 0 || missed.length > 0;
+  const handlers = { onEdit: openEdit, onArchive: handleArchive, onDelete: handleDelete };
 
   return (
     <div className="space-y-5">
@@ -415,46 +561,47 @@ export default function GoalsView({ refreshKey }: { refreshKey?: number }) {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
         </div>
-      ) : active.length === 0 ? (
+      ) : unarchived.length === 0 ? (
         <EmptyState onCreate={openCreate} />
       ) : (
-        <>
-          {inProgress.length > 0 && (
-            <div>
-              {missed.length > 0 && (
-                <h3
-                  className="text-xs font-semibold uppercase tracking-wider mb-3"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  In progress
-                </h3>
-              )}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {inProgress.map((gwp) => (
-                  <GoalCard key={gwp.goal.id} gwp={gwp} onEdit={openEdit} onArchive={handleArchive} onDelete={handleDelete} />
-                ))}
-              </div>
-            </div>
+        <div>
+          {hasClosed && (
+            <SectionHeader
+              icon={<Target className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />}
+              title="Active"
+              count={active.length}
+              color="var(--text-primary)"
+            />
           )}
+          {active.length === 0 ? <NoActiveGoals onCreate={openCreate} /> : <GoalGrid items={active} {...handlers} />}
+        </div>
+      )}
 
-          {missed.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#FF3D57' }}>
-                  Missed
-                </h3>
-                <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                  {missed.length} goal{missed.length === 1 ? '' : 's'} whose window closed before the target was met
-                </span>
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {missed.map((gwp) => (
-                  <GoalCard key={gwp.goal.id} gwp={gwp} onEdit={openEdit} onArchive={handleArchive} onDelete={handleDelete} />
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+      {!loading && achieved.length > 0 && (
+        <ClosedSection
+          icon={<Trophy className="w-3.5 h-3.5" />}
+          title="Achieved"
+          blurb="Window closed with the target met"
+          color="#00C896"
+          items={achieved}
+          open={showAchieved}
+          onToggle={() => setShowAchieved((s) => !s)}
+          {...handlers}
+        />
+      )}
+
+      {!loading && missed.length > 0 && (
+        <ClosedSection
+          icon={<XCircle className="w-3.5 h-3.5" />}
+          title="Missed"
+          blurb="Window closed before the target was met"
+          color="#FF3D57"
+          items={missed}
+          dimmed
+          open={showMissed}
+          onToggle={() => setShowMissed((s) => !s)}
+          {...handlers}
+        />
       )}
 
       {archived.length > 0 && (
@@ -467,11 +614,7 @@ export default function GoalsView({ refreshKey }: { refreshKey?: number }) {
             {showArchived ? 'Hide' : 'Show'} archived ({archived.length})
           </button>
           {showArchived && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {archived.map((gwp) => (
-                <GoalCard key={gwp.goal.id} gwp={gwp} onEdit={openEdit} onArchive={handleArchive} onDelete={handleDelete} />
-              ))}
-            </div>
+            <GoalGrid items={archived} {...handlers} />
           )}
         </div>
       )}
