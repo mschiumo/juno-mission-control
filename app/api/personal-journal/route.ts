@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireUserId } from '@/lib/auth-session';
+import { getTodayInEST } from '@/lib/date-utils';
+import { clearJournalHabitForEntry, syncJournalHabitForEntry } from '@/lib/habit-sync';
 import type { GoalReview } from '@/lib/journal-prompts';
 
 // Personal (mindset/goals) daily journal — kept in its own namespace, fully
@@ -68,10 +70,21 @@ export async function POST(request: NextRequest) {
       updatedAt: entry.updatedAt
     });
 
+    // The Daily Journal doubles as the "Journal" habit — credit (or, for an
+    // entry blanked out, revert) that date's habit, backdated entries included.
+    // Best-effort: never fails the journal save.
+    let habitSync: 'completed' | 'uncompleted' | 'unchanged' = 'unchanged';
+    try {
+      habitSync = await syncJournalHabitForEntry(userId, date, entry.prompts, getTodayInEST());
+    } catch (err) {
+      console.error('Journal habit sync failed:', err);
+    }
+
     return NextResponse.json({
       success: true,
       message: existing.createdAt ? 'Journal entry updated' : 'Journal entry created',
-      entry
+      entry,
+      habitSync
     });
 
   } catch (error) {
@@ -178,6 +191,13 @@ export async function DELETE(request: NextRequest) {
 
     const redis = await getRedisClient();
     await redis.del(personalJournalKey(userId, date));
+
+    // No entry → the Journal habit is no longer earned for that date.
+    try {
+      await clearJournalHabitForEntry(userId, date);
+    } catch (err) {
+      console.error('Journal habit revert failed:', err);
+    }
 
     return NextResponse.json({
       success: true,
