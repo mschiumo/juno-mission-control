@@ -522,7 +522,7 @@ export default function PlansPage() {
             </div>
             {referralError && <p className="mt-2 text-xs text-[#f85149]">{referralError}</p>}
             <p className="mt-2 text-[11px] text-[#8b949e]">
-              Referral codes unlock a free month of Gold. One redemption per account.
+              Referral codes unlock a free window of Gold. One redemption per account.
             </p>
           </div>
         )}

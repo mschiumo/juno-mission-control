@@ -143,7 +143,7 @@ export default function ComparePlans() {
         style={{ maxWidth: 660, marginTop: 52, lineHeight: 1.65 }}
       >
         Silver is free forever. Every new account can also try Gold free for 7 days — no credit
-        card required. Have a referral code? Redeem it on the Plans page for a free month of Gold.
+        card required. Have a referral code? Redeem it on the Plans page for a free window of Gold.
       </p>
     </div>
   );
