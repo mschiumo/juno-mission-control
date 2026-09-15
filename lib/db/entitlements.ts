@@ -23,6 +23,8 @@ import {
   isRecordActive,
   tierAtLeast,
   referralGrantFor,
+  referralExpiryFor,
+  describeGrantWindow,
   TRIAL_TIER,
   TRIAL_DAYS,
 } from '@/lib/entitlements';
@@ -176,12 +178,17 @@ export async function hasRedeemedReferral(userId: string): Promise<boolean> {
 
 /**
  * Redeem a referral code (one per user). The grant replaces the stored record
- * only when it's an upgrade — an active subscriber at the granted tier or
- * higher is told the code has nothing to add.
+ * when it's an upgrade, and stacks onto an active trial/referral window at the
+ * same tier (see referralExpiryFor). A paid or admin-granted subscriber at the
+ * granted tier or higher is told the code has nothing to add.
+ *
+ * Pass the session email when available so the Accounts activity feed can
+ * show who redeemed the code without a user lookup.
  */
 export async function redeemReferralCode(
   userId: string,
   code: string,
+  email?: string | null,
 ): Promise<{ ok: true; record: EntitlementRecord } | { ok: false; reason: string }> {
   const grant = referralGrantFor(code);
   if (!grant) return { ok: false, reason: 'That referral code is not valid.' };
@@ -191,21 +198,23 @@ export async function redeemReferralCode(
   }
   const redis = await getRedisClient();
   const existing = await getEntitlementRecord(userId);
-  if (isRecordActive(existing) && tierAtLeast(existing!.tier, grant.tier)) {
+  const expiresAt = referralExpiryFor(existing, grant);
+  if (!expiresAt) {
     return { ok: false, reason: 'Your current plan already includes everything this code grants.' };
   }
-  const expiresAt = new Date(Date.now() + grant.days * 24 * 60 * 60 * 1000).toISOString();
+  const trimmed = code.trim();
   const record = await setEntitlement(userId, {
     tier: grant.tier,
     source: 'referral',
     expiresAt,
-    note: `Referral code ${code.trim()}`,
+    note: `Referral code ${trimmed}`,
   });
   await redis.set(referralUsedKey(userId), new Date().toISOString());
   await recordPlanEvent({
     type: 'referral_redeemed',
     userId,
-    detail: `Code ${code.trim()} — ${grant.tier} until ${expiresAt}`,
+    email: email ?? undefined,
+    detail: `Code ${trimmed} — ${describeGrantWindow(grant.days)} of ${grant.tier} until ${expiresAt.slice(0, 10)}`,
   });
   return { ok: true, record };
 }

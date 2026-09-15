@@ -204,9 +204,52 @@ export interface ReferralGrant {
 
 const REFERRAL_CODES: Record<string, ReferralGrant> = {
   emmanueltrades: { tier: 'gold', days: 30 },
+  /** Personal code for a friend of the owner — three months of Gold. */
+  sinatrades: { tier: 'gold', days: 90 },
 };
 
 /** Case-insensitive lookup; returns null for unknown codes. */
 export function referralGrantFor(code: string): ReferralGrant | null {
   return REFERRAL_CODES[code.trim().toLowerCase()] ?? null;
+}
+
+/** Human-readable length of a grant window: "30 days" → "1 month", "90 days" → "3 months". */
+export function describeGrantWindow(days: number): string {
+  if (days % 30 === 0) {
+    const months = days / 30;
+    return months === 1 ? '1 month' : `${months} months`;
+  }
+  return days === 1 ? '1 day' : `${days} days`;
+}
+
+/**
+ * Sources whose access is a time-boxed gift rather than something paid for
+ * or explicitly granted. A referral code can extend one of these windows.
+ */
+const STACKABLE_SOURCES: ReadonlySet<EntitlementSource> = new Set(['trial', 'referral']);
+
+/**
+ * Decide how a referral grant applies on top of the user's current record.
+ *
+ *   - No record, or an expired one, or a lower tier → the grant starts now.
+ *   - An active trial/referral window at the SAME tier → the grant stacks on
+ *     the end of that window, so a friend who clicked "start trial" first
+ *     still gets the full length of the code on top.
+ *   - A paid, admin, or higher-tier record → nothing to add; return null so
+ *     the caller can tell the user their plan already covers it.
+ */
+export function referralExpiryFor(
+  existing: EntitlementRecord | null,
+  grant: ReferralGrant,
+  now: Date = new Date(),
+): string | null {
+  const grantMs = grant.days * 24 * 60 * 60 * 1000;
+  if (!isRecordActive(existing, now) || !tierAtLeast(existing!.tier, grant.tier)) {
+    return new Date(now.getTime() + grantMs).toISOString();
+  }
+  const record = existing!;
+  if (record.tier !== grant.tier || !STACKABLE_SOURCES.has(record.source) || !record.expiresAt) {
+    return null;
+  }
+  return new Date(Date.parse(record.expiresAt) + grantMs).toISOString();
 }
