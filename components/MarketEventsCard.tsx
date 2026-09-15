@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { CalendarDays, RefreshCw, TrendingUp, Landmark, Scale, Newspaper } from 'lucide-react';
+import { Fragment, useState, useEffect } from 'react';
+import { CalendarDays, RefreshCw, TrendingUp, Landmark, Scale, Newspaper, Globe } from 'lucide-react';
 import type { MarketEvent } from '@/app/api/market-events/route';
 
 const TYPE_CONFIG = {
@@ -11,6 +11,13 @@ const TYPE_CONFIG = {
     border: 'border-[#8b5cf6]/30',
     text: 'text-[#8b5cf6]',
     icon: Landmark,
+  },
+  centralbank: {
+    label: 'Central Bank',
+    bg: 'bg-[#58a6ff]/10',
+    border: 'border-[#58a6ff]/30',
+    text: 'text-[#58a6ff]',
+    icon: Globe,
   },
   earnings: {
     label: 'Earnings',
@@ -36,6 +43,7 @@ interface MarketEventsCardProps {
 
 export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardProps) {
   const [events, setEvents] = useState<MarketEvent[]>([]);
+  const [nextDayLabel, setNextDayLabel] = useState('Tomorrow');
   const [loading, setLoading] = useState(true);
   const [hasUnreadBriefing, setHasUnreadBriefing] = useState(false);
 
@@ -66,6 +74,7 @@ export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardPro
       const data = await res.json();
       if (data.success) {
         setEvents(data.data);
+        if (typeof data.nextDayLabel === 'string') setNextDayLabel(data.nextDayLabel);
       }
     } catch (err) {
       console.error('Failed to fetch market events:', err);
@@ -95,7 +104,7 @@ export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardPro
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-[#F97316]" />
           <span className="text-sm font-semibold text-white">Today&apos;s Events</span>
-          <span className="text-[10px] text-[#8b949e]">FOMC · Earnings · Gov</span>
+          <span className="text-[10px] text-[#8b949e] hidden sm:inline">Today &amp; {nextDayLabel.toLowerCase()} · FOMC · Central banks · Earnings · Gov</span>
         </div>
         <div className="flex items-center gap-1">
           {onOpenBriefing && (
@@ -128,26 +137,35 @@ export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardPro
         ) : events.length === 0 ? (
           <div className="flex items-center gap-2 py-1">
             <CalendarDays className="w-3.5 h-3.5 text-[#8b949e] opacity-50" />
-            <p className="text-xs text-[#8b949e]">No market-moving events today</p>
+            <p className="text-xs text-[#8b949e]">No market-moving events today or {nextDayLabel.toLowerCase()}</p>
           </div>
         ) : (
           <div className="flex gap-2 min-w-0">
-            {events.map((event) => {
+            {events.map((event, i) => {
               const cfg = TYPE_CONFIG[event.type];
               const Icon = cfg.icon;
+              const isNextDay = event.daysUntil > 0;
+              // Slim divider where the strip crosses from today into the next session
+              const startsNextDay = isNextDay && i > 0 && events[i - 1].daysUntil === 0;
 
               return (
+                <Fragment key={event.id}>
+                  {startsNextDay && <div className="w-px flex-shrink-0 self-stretch bg-[#30363d]" aria-hidden />}
                 <div
-                  key={event.id}
-                  title={event.time ? `${event.label} · ${event.time}` : event.label}
-                  className={`w-36 flex-shrink-0 flex flex-col gap-1 px-3 py-2 rounded-lg border cursor-default ${cfg.bg} ${cfg.border}`}
+                  title={`${event.dayLabel} · ${event.label}${event.time ? ` · ${event.time}` : ''}`}
+                  className={`w-36 flex-shrink-0 flex flex-col gap-1 px-3 py-2 rounded-lg border cursor-default ${cfg.bg} ${cfg.border} ${isNextDay ? 'border-dashed' : ''}`}
                 >
-                  {/* Type badge */}
+                  {/* Type badge + day pill */}
                   <div className="flex items-center gap-1.5">
                     <Icon className={`w-3 h-3 ${cfg.text}`} />
-                    <span className={`text-[9px] font-semibold uppercase tracking-wide ${cfg.text}`}>
+                    <span className={`text-[9px] font-semibold uppercase tracking-wide truncate ${cfg.text}`}>
                       {cfg.label}
                     </span>
+                    {isNextDay && (
+                      <span className="ml-auto text-[8px] font-semibold uppercase tracking-wide text-[#8b949e] bg-[#30363d]/70 px-1 py-px rounded">
+                        {event.dayLabel}
+                      </span>
+                    )}
                   </div>
 
                   {/* Event name */}
@@ -160,6 +178,7 @@ export default function MarketEventsCard({ onOpenBriefing }: MarketEventsCardPro
                     {event.sublabel ?? event.time ?? ''}
                   </span>
                 </div>
+                </Fragment>
               );
             })}
           </div>
