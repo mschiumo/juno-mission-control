@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import BrokerageSyncBar from './BrokerageSyncBar';
 import { getTodayInEST } from '@/lib/date-utils';
+import { isTradingDay } from '@/lib/trading/trading-days';
 import { tradingJournalTrades } from '@/lib/account-classification';
 import type { AccountSettingsMap } from '@/lib/db/account-settings';
 import { tradeTimeLabel } from '@/lib/trading/trade-time';
@@ -362,9 +363,9 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
     setShowJournalModal(true);
   };
 
-  const isToday = (dateStr: string) => {
-    return dateStr === getTodayInEST();
-  };
+  // Today's calendar date in ET (the market's clock, not the viewer's).
+  const todayET = getTodayInEST();
+  const isToday = (dateStr: string) => dateStr === todayET;
 
   // Trades list helpers
   const handleSort = (field: SortField) => {
@@ -688,9 +689,16 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
             const isLoss = hasTrades && (dayData.trades?.pnl || 0) < 0;
             const today = isToday(dayData.date);
             // Broker data for this day wasn't complete at the last sync —
-            // fills may still be missing, so P&L/counts can't be trusted yet.
+            // fills may still be missing (or none have arrived at all), so
+            // P&L/counts can't be trusted yet. Every trading day between the
+            // last fully-synced day and today is provisional, whether or not
+            // any fills have landed; a non-trading day only counts if partial
+            // fills did arrive for it. Future days are never pending.
             const isPendingSync =
-              !!hasTrades && !!lastCompleteTradeDay && dayData.date > lastCompleteTradeDay;
+              !!lastCompleteTradeDay &&
+              dayData.date > lastCompleteTradeDay &&
+              dayData.date <= todayET &&
+              (!!hasTrades || isTradingDay(dayData.date));
 
             return (
               <div
@@ -720,7 +728,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                 {/* Icons - Perfectly Centered */}
                 <div className="flex-1 flex flex-col items-center justify-center gap-1 sm:gap-2 min-h-0">
                   {/* Trade Icon */}
-                  {hasTrades && isPendingSync && (
+                  {isPendingSync && (
                     /* Broker hasn't finished syncing this day — show an inert
                        orange icon (matches the today-outline color) instead of
                        the clickable P&L-colored one. Hover or tap explains why
@@ -774,8 +782,9 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                             Trades still syncing
                           </span>
                           <span className="mt-1 block text-[11px] font-normal leading-relaxed text-[#8b949e]">
-                            This day&apos;s trades haven&apos;t fully synced from your brokerage
-                            yet, so totals may be incomplete. It unlocks once the full day is in.
+                            {hasTrades
+                              ? "This day's trades haven't fully synced from your brokerage yet, so totals may be incomplete. It unlocks once the full day is in."
+                              : "Your brokerage hasn't delivered this day's activity yet. Any trades you made will appear once the full day is in."}
                           </span>
                           <span
                             className={`
