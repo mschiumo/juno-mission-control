@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ShieldCheck, Quote, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { NO_TRADE_DAY_EVENT } from '@/lib/trading/pending-sync';
 
 const QUOTES: { text: string; author: string }[] = [
   { text: 'The market is a device for transferring money from the impatient to the patient.', author: 'Warren Buffett' },
@@ -133,6 +134,22 @@ export default function TradingRulesModal() {
 
   function handleAcknowledge() {
     if (!acknowledged) return;
+    persistDismissal();
+  }
+
+  // "Not trading today": besides dismissing the modal, record the day on the
+  // server so the Journal calendar shows it as a plain no-trade day rather
+  // than "trades still syncing" while the brokerage feed stays empty.
+  function markNotTradingToday() {
+    const { ymd } = getEtParts(new Date());
+    window.dispatchEvent(new CustomEvent(NO_TRADE_DAY_EVENT, { detail: ymd }));
+    fetch('/api/user/prefs', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ noTradeDay: ymd }),
+    }).catch(() => {
+      // Best effort — the dismissal itself must never be blocked by this.
+    });
     persistDismissal();
   }
 
@@ -350,7 +367,7 @@ export default function TradingRulesModal() {
               </button>
 
               <button
-                onClick={persistDismissal}
+                onClick={markNotTradingToday}
                 className="flex items-center gap-1.5 mx-auto text-xs text-[#8b949e] hover:text-[#c9d1d9] transition-colors"
               >
                 <X className="w-3 h-3" />

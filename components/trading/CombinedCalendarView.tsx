@@ -28,8 +28,12 @@ import {
   Upload
 } from 'lucide-react';
 import BrokerageSyncBar from './BrokerageSyncBar';
-import { getTodayInEST } from '@/lib/date-utils';
-import { isTradingDay } from '@/lib/trading/trading-days';
+import {
+  classifyPendingSync,
+  getEtClock,
+  NO_TRADE_DAY_EVENT,
+  type EtClock,
+} from '@/lib/trading/pending-sync';
 import { tradingJournalTrades } from '@/lib/account-classification';
 import type { AccountSettingsMap } from '@/lib/db/account-settings';
 import { tradeTimeLabel } from '@/lib/trading/trade-time';
@@ -192,6 +196,31 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
   // Days after it may show partial fills — rendered as a non-clickable
   // "still syncing" icon. Null → no broker linked, everything renders normally.
   const [lastCompleteTradeDay, setLastCompleteTradeDay] = useState<string | null>(null);
+  // Days the user declared "not trading" via the Trading Rules modal. They
+  // stay grey instead of being flagged as still syncing (unless fills arrive).
+  const [noTradeDays, setNoTradeDays] = useState<ReadonlySet<string>>(() => new Set());
+  // ET wall clock, refreshed every minute so today flips from "session in
+  // progress" to "syncing" at the close, and empty days age out of the
+  // syncing state, without a reload.
+  const [etClock, setEtClock] = useState<EtClock>(() => getEtClock());
+  useEffect(() => {
+    const tick = () => setEtClock(getEtClock());
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // The Trading Rules modal lives elsewhere on the Trading tab; pick up its
+  // "Not trading today" click without a refetch.
+  useEffect(() => {
+    const onNoTradeDay = (e: Event) => {
+      const day = (e as CustomEvent<string>).detail;
+      if (typeof day !== 'string') return;
+      setNoTradeDays(prev => (prev.has(day) ? prev : new Set([...prev, day])));
+    };
+    window.addEventListener(NO_TRADE_DAY_EVENT, onNoTradeDay);
+    return () => window.removeEventListener(NO_TRADE_DAY_EVENT, onNoTradeDay);
+  }, []);
   // Which pending-sync day's tooltip is open. Driven by hover on desktop and
   // tap on touch devices (native title tooltips never show on touch).
   const [syncTooltipDate, setSyncTooltipDate] = useState<string | null>(null);
@@ -228,6 +257,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
       if (statsData.success) {
         setDailyStats(statsData.dailyStats || []);
         setLastCompleteTradeDay(statsData.lastCompleteTradeDay ?? null);
+        setNoTradeDays(new Set<string>(Array.isArray(statsData.noTradeDays) ? statsData.noTradeDays : []));
       }
       if (journalData.success) setJournalEntries(journalData.entries || []);
       if (tradesData.success && tradesData.data) {
@@ -364,7 +394,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
   };
 
   // Today's calendar date in ET (the market's clock, not the viewer's).
-  const todayET = getTodayInEST();
+  const todayET = etClock.ymd;
   const isToday = (dateStr: string) => dateStr === todayET;
 
   // Trades list helpers
@@ -688,17 +718,21 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
             const isProfitable = hasTrades && (dayData.trades?.pnl || 0) > 0;
             const isLoss = hasTrades && (dayData.trades?.pnl || 0) < 0;
             const today = isToday(dayData.date);
-            // Broker data for this day wasn't complete at the last sync —
-            // fills may still be missing (or none have arrived at all), so
-            // P&L/counts can't be trusted yet. Every trading day between the
-            // last fully-synced day and today is provisional, whether or not
-            // any fills have landed; a non-trading day only counts if partial
-            // fills did arrive for it. Future days are never pending.
-            const isPendingSync =
-              !!lastCompleteTradeDay &&
-              dayData.date > lastCompleteTradeDay &&
-              dayData.date <= todayET &&
-              (!!hasTrades || isTradingDay(dayData.date));
+            // Broker data for this day wasn't complete at the last sync, so
+            // P&L/counts can't be trusted yet. 'in-progress' = today's session
+            // is still open (own colour, nothing is late); 'syncing' = the day
+            // is over and fills haven't fully arrived. See
+            // lib/trading/pending-sync.ts for the full rule set (no-trade days,
+            // the 36h grace period, non-trading days).
+            const pendingSync = classifyPendingSync({
+              date: dayData.date,
+              hasTrades: !!hasTrades,
+              lastCompleteTradeDay,
+              noTradeDays,
+              now: etClock,
+            });
+            const isPendingSync = pendingSync !== 'none';
+            const isSessionOpen = pendingSync === 'in-progress';
 
             return (
               <div
@@ -730,9 +764,10 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                   {/* Trade Icon */}
                   {isPendingSync && (
                     /* Broker hasn't finished syncing this day — show an inert
-                       orange icon (matches the today-outline color) instead of
-                       the clickable P&L-colored one. Hover or tap explains why
-                       via a styled tooltip; it never opens the trade modal. */
+                       icon instead of the clickable P&L-colored one: violet
+                       while today's session is still open, orange once the day
+                       is over and fills are late. Hover or tap explains why via
+                       a styled tooltip; it never opens the trade modal. */
                     <button
                       type="button"
                       onClick={(e) => {
@@ -741,24 +776,27 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                       }}
                       onMouseEnter={() => setSyncTooltipDate(dayData.date)}
                       onMouseLeave={() => setSyncTooltipDate(d => (d === dayData.date ? null : d))}
-                      aria-label="Trades for this day are still syncing from your brokerage"
-                      className="
+                      aria-label={isSessionOpen
+                        ? "Today's market session is still open; trades sync after the close"
+                        : 'Trades for this day are still syncing from your brokerage'}
+                      className={`
                         relative flex items-center justify-center shrink-0
                         w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl cursor-help
-                        bg-gradient-to-br from-[#F97316]/30 to-[#F97316]/15 text-[#F97316]
-                        ring-1 ring-[#F97316]/50 shadow-[0_2px_8px_-2px_rgba(249,115,22,0.3)]
-                      "
+                        ${isSessionOpen
+                          ? 'bg-gradient-to-br from-[#a371f7]/30 to-[#a371f7]/15 text-[#a371f7] ring-1 ring-[#a371f7]/50 shadow-[0_2px_8px_-2px_rgba(163,113,247,0.3)]'
+                          : 'bg-gradient-to-br from-[#F97316]/30 to-[#F97316]/15 text-[#F97316] ring-1 ring-[#F97316]/50 shadow-[0_2px_8px_-2px_rgba(249,115,22,0.3)]'}
+                      `}
                     >
                       <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
                       {dayData.trades && dayData.trades.trades > 1 && (
-                        <span className="
+                        <span className={`
                           absolute -top-1 -right-1
                           w-4 h-4 sm:w-4.5 sm:h-4.5
                           flex items-center justify-center
                           text-[8px] font-bold
                           rounded-full border-2 border-[#161b22]
-                          bg-[#F97316] text-[#0d1117]
-                        ">
+                          ${isSessionOpen ? 'bg-[#a371f7]' : 'bg-[#F97316]'} text-[#0d1117]
+                        `}>
                           {dayData.trades.trades}
                         </span>
                       )}
@@ -767,7 +805,7 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                           role="tooltip"
                           className={`
                             absolute bottom-full mb-2 z-50 w-52 sm:w-56
-                            rounded-lg border border-[#F97316]/40 bg-[#1c2128]
+                            rounded-lg border ${isSessionOpen ? 'border-[#a371f7]/40' : 'border-[#F97316]/40'} bg-[#1c2128]
                             p-2.5 text-left shadow-xl shadow-black/40
                             pointer-events-none normal-case
                             ${index % 7 <= 1
@@ -777,19 +815,30 @@ export default function CombinedCalendarView({ onImportSuccess }: { onImportSucc
                                 : 'left-1/2 -translate-x-1/2'}
                           `}
                         >
-                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#F97316]">
-                            <RefreshCw className="w-3 h-3" strokeWidth={2.5} />
-                            Trades still syncing
-                          </span>
+                          {isSessionOpen ? (
+                            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#a371f7]">
+                              <Clock className="w-3 h-3" strokeWidth={2.5} />
+                              Session in progress
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#F97316]">
+                              <RefreshCw className="w-3 h-3" strokeWidth={2.5} />
+                              Trades still syncing
+                            </span>
+                          )}
                           <span className="mt-1 block text-[11px] font-normal leading-relaxed text-[#8b949e]">
-                            {hasTrades
-                              ? "This day's trades haven't fully synced from your brokerage yet, so totals may be incomplete. It unlocks once the full day is in."
-                              : "Your brokerage hasn't delivered this day's activity yet. Any trades you made will appear once the full day is in."}
+                            {isSessionOpen
+                              ? (hasTrades
+                                  ? "Today's session hasn't closed yet, so these fills are a partial picture. Totals unlock once the full day syncs from your brokerage."
+                                  : "Today's session hasn't closed yet. Any trades you make will sync from your brokerage after the close.")
+                              : (hasTrades
+                                  ? "This day's trades haven't fully synced from your brokerage yet, so totals may be incomplete. It unlocks once the full day is in."
+                                  : "Your brokerage hasn't delivered this day's activity yet. Any trades you made will appear once the full day is in.")}
                           </span>
                           <span
                             className={`
                               absolute top-full h-2 w-2 -translate-y-1 rotate-45
-                              border-b border-r border-[#F97316]/40 bg-[#1c2128]
+                              border-b border-r ${isSessionOpen ? 'border-[#a371f7]/40' : 'border-[#F97316]/40'} bg-[#1c2128]
                               ${index % 7 <= 1
                                 ? 'left-3 sm:left-4'
                                 : index % 7 >= 5
