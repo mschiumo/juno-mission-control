@@ -14,6 +14,7 @@ import {
 } from '@/types/trading-goals';
 import { countTradingDays } from '@/lib/trading/trading-days';
 import { getTodayInEST } from '@/lib/date-utils';
+import DatePicker from './DatePicker';
 
 const CATEGORY_ORDER: GoalCategory[] = ['profit', 'guardrail', 'consistency', 'journaling'];
 const GUARDRAIL_OPTIONS: GoalMetric[] = ['max_daily_loss', 'max_trade_loss', 'max_trades_per_day'];
@@ -322,23 +323,10 @@ export default function CreateGoalModal({ isOpen, onClose, onSaved, editingGoal 
           {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Start">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none num"
-                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
-              />
+              <DatePicker value={startDate} onChange={setStartDate} aria-label="Start date" />
             </Field>
             <Field label="End">
-              <input
-                type="date"
-                value={endDate}
-                min={startDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none num"
-                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
-              />
+              <DatePicker value={endDate} min={startDate} onChange={setEndDate} aria-label="End date" />
             </Field>
           </div>
           <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
