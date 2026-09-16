@@ -128,7 +128,7 @@ export default function DatePicker({ value, onChange, min, 'aria-label': ariaLab
   useEffect(() => {
     if (!open) return;
     const btn = popoverRef.current?.querySelector<HTMLButtonElement>(`[data-iso="${focusIso}"]`);
-    btn?.focus();
+    btn?.focus({ preventScroll: true });
   }, [open, focusIso, view]);
 
   const isDisabled = useCallback((iso: string) => Boolean(min && iso < min), [min]);
@@ -304,7 +304,7 @@ export default function DatePicker({ value, onChange, min, 'aria-label': ariaLab
               style={{ borderTop: '1px solid var(--border-subtle)' }}
             >
               <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                Dimmed days are weekends &amp; market holidays
+                Weekends &amp; market holidays dimmed
               </span>
               <button
                 type="button"
