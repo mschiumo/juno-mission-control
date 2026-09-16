@@ -5,6 +5,7 @@ import { requireFeature } from '@/lib/auth-session';
 import { getAccountSettings } from '@/lib/db/account-settings';
 import { tradingJournalTrades } from '@/lib/account-classification';
 import { getBrokerConnection } from '@/lib/db/broker-connections';
+import { getUserPrefs } from '@/lib/db/user-prefs';
 
 export async function GET() {
   const { userId, error } = await requireFeature('journal');
@@ -22,12 +23,16 @@ export async function GET() {
     // still syncing. Null when no brokerage is linked (CSV-only users).
     const lastCompleteTradeDay =
       (await getBrokerConnection(userId))?.lastCompleteTradeDay ?? null;
+    // Days the user declared "not trading" (Trading Rules modal). The calendar
+    // leaves them grey instead of flagging them as still syncing.
+    const noTradeDays = (await getUserPrefs(userId)).noTradeDays ?? [];
 
     if (trades.length === 0) {
       return NextResponse.json({
         success: true,
         dailyStats: [],
-        lastCompleteTradeDay
+        lastCompleteTradeDay,
+        noTradeDays
       });
     }
     
@@ -86,7 +91,8 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       dailyStats,
-      lastCompleteTradeDay
+      lastCompleteTradeDay,
+      noTradeDays
     });
     
   } catch (error) {

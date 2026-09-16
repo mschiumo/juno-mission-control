@@ -1,41 +1,22 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { requireUserId } from '@/lib/auth-session';
-import { getRedisClient } from '@/lib/redis';
 import { getEntitlements } from '@/lib/db/entitlements';
-
-interface EmailAlertPrefs {
-  marketBriefing: boolean;
-  gapScanner: boolean;
-  dailyRecap: boolean;
-}
-
-interface UserPrefs {
-  tradingTourCompleted?: boolean;
-  /** Tier the user held when they finished the tour — upgrading re-offers it. */
-  tourCompletedTier?: string;
-  startingBalance?: number;
-  emailAlerts?: EmailAlertPrefs;
-  tradingRules?: string[];
-}
+import {
+  getUserPrefs as getPrefs,
+  saveUserPrefs as savePrefs,
+  isYmd,
+  withNoTradeDay,
+  type UserPrefs,
+} from '@/lib/db/user-prefs';
 
 const MAX_RULES = 30;
 const MAX_RULE_LENGTH = 240;
 
-async function getPrefs(userId: string): Promise<UserPrefs> {
-  const redis = await getRedisClient();
-  const raw = await redis.get(`user:prefs:${userId}`);
-  if (!raw) return {};
-  try {
-    return JSON.parse(raw as string) as UserPrefs;
-  } catch {
-    return {};
-  }
-}
-
-async function savePrefs(userId: string, prefs: UserPrefs): Promise<void> {
-  const redis = await getRedisClient();
-  await redis.set(`user:prefs:${userId}`, JSON.stringify(prefs));
+/** PATCH body: any stored pref, plus append-only helpers. */
+interface PrefsPatch extends Partial<UserPrefs> {
+  /** Declare a day (YYYY-MM-DD, ET) as "not trading" — see UserPrefs.noTradeDays. */
+  noTradeDay?: string;
 }
 
 export async function GET() {
@@ -52,7 +33,7 @@ export async function PATCH(request: Request) {
   if (authResult.error) return authResult.error;
   const { userId } = authResult;
 
-  let body: Partial<UserPrefs>;
+  let body: PrefsPatch;
   try {
     body = await request.json();
   } catch {
@@ -105,6 +86,16 @@ export async function PATCH(request: Request) {
       .map((r) => r.slice(0, MAX_RULE_LENGTH))
       .slice(0, MAX_RULES);
     updated.tradingRules = cleaned;
+  }
+
+  if (body.noTradeDay !== undefined) {
+    if (!isYmd(body.noTradeDay)) {
+      return NextResponse.json(
+        { success: false, error: 'noTradeDay must be a YYYY-MM-DD date' },
+        { status: 400 },
+      );
+    }
+    updated.noTradeDays = withNoTradeDay(existing.noTradeDays, body.noTradeDay);
   }
 
   await savePrefs(userId, updated);
