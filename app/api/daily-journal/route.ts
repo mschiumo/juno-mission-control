@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redis';
 import { requireFeature } from '@/lib/auth-session';
 import { hasJournalContent, hasJournalContentRaw } from '@/lib/journal-content';
+import { getTodayInEST } from '@/lib/date-utils';
+import { clearTradingJournalHabitsForEntry, syncTradingJournalHabitsForEntry } from '@/lib/habit-sync';
 
 function dailyJournalKey(userId: string, date: string) {
   return `daily-journal:${userId}:${date}`;
@@ -70,10 +72,21 @@ export async function POST(request: NextRequest) {
       updatedAt: entry.updatedAt
     });
 
+    // Writing the day's Trading Journal is what the "Trade" and "Trade
+    // Journal" habits track — credit that date's habits, backdated entries
+    // included. Best-effort: never fails the journal save.
+    let habitSync: 'completed' | 'uncompleted' | 'unchanged' = 'unchanged';
+    try {
+      habitSync = await syncTradingJournalHabitsForEntry(userId, date, entry.prompts, getTodayInEST());
+    } catch (err) {
+      console.error('Trading journal habit sync failed:', err);
+    }
+
     return NextResponse.json({
       success: true,
       message: existing.createdAt ? 'Journal entry updated' : 'Journal entry created',
-      entry
+      entry,
+      habitSync
     });
 
   } catch (error) {
@@ -180,6 +193,13 @@ export async function DELETE(request: NextRequest) {
 
     const redis = await getRedisClient();
     await redis.del(dailyJournalKey(userId, date));
+
+    // No entry → the Trade / Trade Journal habits are no longer earned for that date.
+    try {
+      await clearTradingJournalHabitsForEntry(userId, date);
+    } catch (err) {
+      console.error('Trading journal habit revert failed:', err);
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,8 +1,9 @@
 import { getRedisClient } from '@/lib/redis';
-import { hasContent, type JournalPrompt } from '@/lib/journal-prompts';
+import { hasJournalContent, hasJournalContentRaw } from '@/lib/journal-content';
+import type { JournalPrompt } from '@/lib/journal-prompts';
 
 // Shared helpers for marking habits complete from other surfaces (Strava
-// sync, Workout Split, the Dashboard Daily Journal). Habit ids aren't stable
+// sync, Workout Split, the Dashboard Daily Journal, the Trading Journal). Habit ids aren't stable
 // slugs (the list was seeded once and users add their own), so matching is by
 // id OR name.
 
@@ -29,6 +30,10 @@ function personalJournalKey(userId: string, date: string) {
   return `personal-journal:${userId}:${date}`;
 }
 
+function tradingJournalKey(userId: string, date: string) {
+  return `daily-journal:${userId}:${date}`;
+}
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function isRunHabit(h: HabitData): boolean {
@@ -43,7 +48,34 @@ export function isCardioHabit(h: HabitData): boolean {
   return h.id === 'cardio' || /cardio/i.test(h.name);
 }
 
+/** The "Trade Journal" habit — earned by writing the day's Trading Journal entry. */
+export function isTradeJournalHabit(h: Pick<HabitData, 'id' | 'name'>): boolean {
+  return h.id === 'trade-journal' || /trad(e|ing)\s*journal/i.test(h.name);
+}
+
+/**
+ * The "Trade" habit — a habit named exactly Trade / Trading (emoji and
+ * punctuation ignored). Deliberately narrow so it can't swallow "Trade
+ * Journal" or something like "Review trade ideas".
+ */
+export function isTradeHabit(h: Pick<HabitData, 'id' | 'name'>): boolean {
+  if (h.id === 'trade') return true;
+  const words = h.name.toLowerCase().replace(/[^a-z]+/g, ' ').trim();
+  return words === 'trade' || words === 'trading';
+}
+
+/** Habits the Trading Journal completes: Trade + Trade Journal. */
+export function isTradingJournalHabit(h: Pick<HabitData, 'id' | 'name'>): boolean {
+  return isTradeHabit(h) || isTradeJournalHabit(h);
+}
+
+/**
+ * The "Journal" habit, earned by the Dashboard Daily Journal. "Trade Journal"
+ * also contains the word, but it belongs to the Trading Journal, so it is
+ * excluded here.
+ */
 export function isJournalHabit(h: Pick<HabitData, 'id' | 'name'>): boolean {
+  if (isTradeJournalHabit(h)) return false;
   return h.id === 'journal' || /journal/i.test(h.name);
 }
 
@@ -164,70 +196,108 @@ export async function uncompleteMatchingHabits(
   return uncompleteHabits(userId, date, habits.filter(match).map((h) => h.id));
 }
 
-// ── Daily Journal ↔ "Journal" habit ─────────────────────────────────────────
+// ── Journals ↔ habits ───────────────────────────────────────────────────────
 //
-// The Dashboard's Daily Journal is the source of truth for the Journal habit:
-// an entry with content on a date means the habit is done for that date,
+// Two journals each own a set of habits, and each journal is the source of
+// truth for its habits:
+//   • Dashboard Daily Journal (personal-journal:) → "Journal"
+//   • Trading Journal (daily-journal:)            → "Trade" + "Trade Journal"
+// An entry with content on a date means those habits are done for that date,
 // whether the entry was written that day or backdated later. Two paths keep
-// them in step — the journal API syncs on every save/delete, and the habit
+// them in step — each journal API syncs on every save/delete, and the habit
 // API reconciles its lookback window on read so an entry can never be missed.
 
-/** True when the stored journal hash for `date` has at least one answered prompt. */
-function journalHasContent(rawPrompts: string | null | undefined): boolean {
-  if (!rawPrompts) return false;
-  try {
-    return hasContent(JSON.parse(rawPrompts) as JournalPrompt[]);
-  } catch {
-    return false;
-  }
+interface JournalSource {
+  key: (userId: string, date: string) => string;
+  match: (h: Pick<HabitData, 'id' | 'name'>) => boolean;
 }
 
+const PERSONAL_JOURNAL: JournalSource = { key: personalJournalKey, match: isJournalHabit };
+const TRADING_JOURNAL: JournalSource = { key: tradingJournalKey, match: isTradingJournalHabit };
+const JOURNAL_SOURCES: JournalSource[] = [PERSONAL_JOURNAL, TRADING_JOURNAL];
+
 /**
- * Credit the Journal habit for `date` after a journal entry with content was
- * saved. `date` must be a `YYYY-MM-DD` on or before `today` (ET) — future
- * entries and malformed dates are ignored rather than creating habit days.
+ * Credit a journal's habits for `date` after an entry was saved (or revert
+ * them when the saved entry has no content). `date` must be a `YYYY-MM-DD`
+ * on or before `today` (ET) — future entries and malformed dates are ignored
+ * rather than creating habit days.
  */
-export async function syncJournalHabitForEntry(
+async function syncSourceForEntry(
+  source: JournalSource,
+  userId: string,
+  date: string,
+  prompts: unknown,
+  today: string
+): Promise<'completed' | 'uncompleted' | 'unchanged'> {
+  if (!ISO_DATE.test(date) || date > today) return 'unchanged';
+  if (hasJournalContent(prompts)) {
+    const flipped = await completeMatchingHabits(userId, date, source.match, { createDay: true });
+    return flipped.length > 0 ? 'completed' : 'unchanged';
+  }
+  const flipped = await uncompleteMatchingHabits(userId, date, source.match);
+  return flipped.length > 0 ? 'uncompleted' : 'unchanged';
+}
+
+/** Credit the Journal habit for `date` after a Daily Journal entry was saved. */
+export function syncJournalHabitForEntry(
   userId: string,
   date: string,
   prompts: JournalPrompt[] | undefined,
   today: string
 ): Promise<'completed' | 'uncompleted' | 'unchanged'> {
-  if (!ISO_DATE.test(date) || date > today) return 'unchanged';
-  if (hasContent(prompts)) {
-    const flipped = await completeMatchingHabits(userId, date, isJournalHabit, { createDay: true });
-    return flipped.length > 0 ? 'completed' : 'unchanged';
-  }
-  const flipped = await uncompleteMatchingHabits(userId, date, isJournalHabit);
-  return flipped.length > 0 ? 'uncompleted' : 'unchanged';
+  return syncSourceForEntry(PERSONAL_JOURNAL, userId, date, prompts, today);
 }
 
-/** Revert the Journal habit for `date` when its journal entry is deleted. */
+/** Revert the Journal habit for `date` when its Daily Journal entry is deleted. */
 export async function clearJournalHabitForEntry(userId: string, date: string): Promise<string[]> {
   if (!ISO_DATE.test(date)) return [];
   return uncompleteMatchingHabits(userId, date, isJournalHabit);
 }
 
+/** Credit the Trade + Trade Journal habits for `date` after a Trading Journal entry was saved. */
+export function syncTradingJournalHabitsForEntry(
+  userId: string,
+  date: string,
+  prompts: unknown,
+  today: string
+): Promise<'completed' | 'uncompleted' | 'unchanged'> {
+  return syncSourceForEntry(TRADING_JOURNAL, userId, date, prompts, today);
+}
+
+/** Revert the Trade + Trade Journal habits for `date` when its Trading Journal entry is deleted. */
+export async function clearTradingJournalHabitsForEntry(userId: string, date: string): Promise<string[]> {
+  if (!ISO_DATE.test(date)) return [];
+  return uncompleteMatchingHabits(userId, date, isTradingJournalHabit);
+}
+
 /**
  * Make sure every date in `dates` that has a journal entry with content also
- * has its Journal habit marked complete (seeding the day if it was never
- * opened). Returns the dates that were flipped. One round trip to find the
- * entries, then a write only for dates that are actually out of step.
+ * has that journal's habits marked complete (seeding the day if it was never
+ * opened). Covers both journals. Returns the dates that were flipped. One
+ * round trip to find the entries, then a write only for dates that are
+ * actually out of step.
  */
-export async function reconcileJournalHabit(userId: string, dates: string[]): Promise<string[]> {
+export async function reconcileJournalHabits(userId: string, dates: string[]): Promise<string[]> {
   const valid = dates.filter((d) => ISO_DATE.test(d));
   if (valid.length === 0) return [];
 
   const redis = await getRedisClient();
   const multi = redis.multi();
-  for (const date of valid) multi.hGet(personalJournalKey(userId, date), 'prompts');
+  for (const date of valid) {
+    for (const source of JOURNAL_SOURCES) multi.hGet(source.key(userId, date), 'prompts');
+  }
   const raws = (await multi.exec()) as Array<string | null>;
 
   const flipped: string[] = [];
   for (let i = 0; i < valid.length; i++) {
-    if (!journalHasContent(raws[i])) continue;
-    const done = await completeMatchingHabits(userId, valid[i], isJournalHabit, { createDay: true });
-    if (done.length > 0) flipped.push(valid[i]);
+    let changed = false;
+    for (let j = 0; j < JOURNAL_SOURCES.length; j++) {
+      const raw = raws[i * JOURNAL_SOURCES.length + j];
+      if (!hasJournalContentRaw(raw ?? undefined)) continue;
+      const done = await completeMatchingHabits(userId, valid[i], JOURNAL_SOURCES[j].match, { createDay: true });
+      if (done.length > 0) changed = true;
+    }
+    if (changed) flipped.push(valid[i]);
   }
   return flipped;
 }
