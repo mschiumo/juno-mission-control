@@ -1844,6 +1844,9 @@ function JournalModal({
       
       if (result.success) {
         setSaveStatus('success');
+        // Saving credits the Trade / Trade Journal habits server-side — nudge
+        // any mounted habit surface to refetch.
+        window.dispatchEvent(new CustomEvent('ct:habits-updated'));
         setTimeout(() => {
           onSave();
           onClose();
@@ -1866,6 +1869,7 @@ function JournalModal({
       const result = await response.json();
       
       if (result.success) {
+        window.dispatchEvent(new CustomEvent('ct:habits-updated'));
         onSave();
         onClose();
       }

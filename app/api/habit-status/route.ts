@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
 import { requireUserId } from '@/lib/auth-session';
-import { reconcileJournalHabit } from '@/lib/habit-sync';
+import { reconcileJournalHabits } from '@/lib/habit-sync';
 import {
   type HabitFrequency,
   type PeriodProgress,
@@ -337,13 +337,14 @@ export async function GET() {
 
     let habits = await loadToday(redis, userId, today, { persist: true });
 
-    // The Daily Journal is the source of truth for the Journal habit: any day
-    // in the lookback window with a journal entry gets credited here, so a
-    // backdated entry (or one saved before this sync existed) is never missed.
+    // The journals are the source of truth for their habits (Daily Journal →
+    // Journal; Trading Journal → Trade + Trade Journal): any day in the
+    // lookback window with an entry gets credited here, so a backdated entry
+    // (or one saved before this sync existed) is never missed.
     // Best-effort — a reconcile failure must not take the Habits card down.
     try {
       const daysBack = Math.max(7, lookbackDays(habits.map(h => h.frequency), today));
-      const flipped = await reconcileJournalHabit(userId, datesBetween(shiftDate(today, -daysBack), today));
+      const flipped = await reconcileJournalHabits(userId, datesBetween(shiftDate(today, -daysBack), today));
       if (flipped.includes(today)) habits = await loadToday(redis, userId, today);
     } catch (err) {
       console.error('Journal habit reconcile failed:', err);
