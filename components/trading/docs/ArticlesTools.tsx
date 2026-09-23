@@ -25,6 +25,22 @@ export function TradeManagementArticle() {
         </Figure>
       </DocSection>
 
+      <DocSection title="The morning briefing">
+        <div className="flex items-center gap-2">
+          <TierBadge tier="gold" />
+        </div>
+        <P>
+          The <UI>Briefing</UI> button at the right end of the ticker bar opens the <Em>Market Briefing</Em>: an
+          AI-generated morning read on futures, catalysts, and the day’s setup, written fresh every weekday morning. It
+          opens with the day&apos;s motivational quote, then the read itself. A pulsing dot on the button means
+          there’s a briefing you haven’t read.
+        </P>
+        <Tip>
+          Want it in your inbox instead? Turn on the Market Briefing email in your profile (avatar → Email
+          Notifications).
+        </Tip>
+      </DocSection>
+
       <DocSection title="Daily Favorites">
         <P>
           The top-left panel is your shortlist for the day. It seeds itself each pre-market morning and clears after the
@@ -183,7 +199,7 @@ export function MarketArticle() {
       </div>
       <P>
         The Market tab is your pre-market and intraday context: what’s moving, what’s on the calendar, and an
-        AI-written morning briefing. Market News is its sibling tab for headline flow and is available on every plan,
+        AI-written morning briefing (opened from Trade Management). Market News is its sibling tab for headline flow and is available on every plan,
         including free Silver.
       </P>
       <div className="flex gap-2 flex-wrap">
@@ -191,20 +207,12 @@ export function MarketArticle() {
         <FeatureLink subtab="market-news">Open Market News</FeatureLink>
       </div>
 
-      <DocSection title="Market events and the morning briefing">
+      <DocSection title="Market events">
         <P>
           The events strip flags what can move the tape today — <UI>FOMC</UI>, <UI>Earnings</UI>, and <UI>Gov</UI>{' '}
-          chips. Next to it, the bell opens the <Em>Market Briefing</Em>: an AI-generated morning read on futures,
-          catalysts, and the day’s setup, written fresh every weekday morning. A dot on the bell means there’s a
-          briefing you haven’t read.
+          chips. The AI morning briefing now lives in{' '}
+          <DocLink doc="trade-management">Trade Management</DocLink>, next to the ticker bar.
         </P>
-        <P>
-          The briefing opens with the day&apos;s motivational quote, then the read itself.
-        </P>
-        <Tip>
-          Want it in your inbox instead? Turn on the Market Briefing email in your profile (avatar → Email
-          Notifications).
-        </Tip>
       </DocSection>
 
       <DocSection title="The Gap Scanner">
@@ -254,7 +262,7 @@ export function MarketArticle() {
           rows={[
             [
               'Morning Market Briefing',
-              <>Weekday mornings at <Em>8 AM ET</Em>, before the open — the same AI briefing the bell opens in-app, delivered to your inbox.</>,
+              <>Weekday mornings at <Em>8 AM ET</Em>, before the open — the same AI briefing the Briefing button opens in Trade Management, delivered to your inbox.</>,
             ],
             [
               'Daily Market Recap',

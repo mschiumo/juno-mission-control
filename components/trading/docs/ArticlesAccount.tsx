@@ -42,7 +42,7 @@ export function PlansArticle() {
               <>Gold<br /><span className="text-xs font-normal num" style={{ color: 'var(--text-tertiary)' }}>$29/mo</span></>,
               <>
                 Everything in Silver, plus <DocLink doc="brokerage-sync">live brokerage sync</DocLink>, the full{' '}
-                <DocLink doc="market">Market tab</DocLink> (gap scanner, live data, morning briefing),{' '}
+                <DocLink doc="market">Market tab</DocLink> (gap scanner, live data), the morning briefing,{' '}
                 <Em>AI Journal Insights</Em>, the daily briefing and recap emails, and{' '}
                 <DocLink doc="goals">Trading Goals</DocLink>.
               </>,

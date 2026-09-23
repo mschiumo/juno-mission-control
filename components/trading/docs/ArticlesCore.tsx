@@ -31,7 +31,7 @@ export function GettingStartedArticle() {
             ],
             [
               <FeatureLink key="m" subtab="market">Market</FeatureLink>,
-              <>Market events, the AI morning briefing, a live gap scanner, and an index/sector snapshot. See <DocLink doc="market">Market Tools</DocLink>.</>,
+              <>Market events, a live gap scanner, and an index/sector snapshot. See <DocLink doc="market">Market Tools</DocLink>.</>,
             ],
             [
               <FeatureLink key="n" subtab="market-news">Market News</FeatureLink>,
@@ -39,7 +39,7 @@ export function GettingStartedArticle() {
             ],
             [
               <FeatureLink key="t" subtab="trade-management">Trade Management</FeatureLink>,
-              <>Daily favorites watchlist, position-size calculator, and the potential → active → closed trade workflow. See <DocLink doc="trade-management">Trade Management</DocLink>.</>,
+              <>Daily favorites watchlist, position-size calculator, the AI morning briefing (Gold+), and the potential → active → closed trade workflow. See <DocLink doc="trade-management">Trade Management</DocLink>.</>,
             ],
             [
               <FeatureLink key="g" subtab="goals">Goals</FeatureLink>,

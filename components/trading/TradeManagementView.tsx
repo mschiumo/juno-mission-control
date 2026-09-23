@@ -6,14 +6,24 @@ import PositionCalculator from './PositionCalculator';
 import WatchlistView from './WatchlistView';
 import QuickWatchlist from './QuickWatchlist';
 import MarketTickerBar from './MarketTickerBar';
+import MarketBriefingButton from './MarketBriefingButton';
+import { useEntitlements } from '@/lib/use-entitlements';
 
 export default function TradeManagementView() {
   const [selectedTicker, setSelectedTicker] = useState<string>('');
   const calculatorRef = useRef<HTMLDivElement>(null);
+  // The briefing is part of the Gold+ market suite (its API is gated on marketFull).
+  const { entitlements } = useEntitlements();
+  const showBriefing = entitlements.features.marketFull;
 
   return (
     <div className="space-y-4">
-      <MarketTickerBar />
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <MarketTickerBar />
+        </div>
+        {showBriefing && <MarketBriefingButton />}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:h-[1100px]">
         {/* Daily Favorites + Calculator - Left */}

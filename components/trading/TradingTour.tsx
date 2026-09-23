@@ -250,9 +250,10 @@ const STEPS: TourStep[] = [
     preview: <CalcPreview />,
   },
   {
-    subtab: 'market',
+    subtab: 'trade-management',
     targetDataTour: 'market-briefing',
     tooltipSide: 'bottom',
+    requiresFeature: 'marketFull',
     icon: <Newspaper className="w-9 h-9 text-[#F97316]" />,
     title: 'Daily Market Briefing',
     description:
