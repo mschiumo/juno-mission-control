@@ -25,7 +25,6 @@ import MarketEventsCard from '@/components/MarketEventsCard';
 import GapScannerCard from '@/components/GapScannerCard';
 import MarketCard from '@/components/MarketCard';
 import NewsScreenerCard from '@/components/NewsScreenerCard';
-import MarketBriefingModal from '@/components/MarketBriefingModal';
 import TradingRulesModal from '@/components/TradingRulesModal';
 import TradeEntryModal from '@/components/trading/TradeEntryModal';
 import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
@@ -82,7 +81,6 @@ export default function TradingView() {
   const [activeSubTab, setActiveSubTabState] = useState<TradingSubTab>(getSubTabFromUrl);
   const [importKey, setImportKey] = useState(0);
   const [showTradeModal, setShowTradeModal] = useState(false);
-  const [showBriefingModal, setShowBriefingModal] = useState(false);
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
   // Pending agent proposals awaiting review — drives the glowing badge on the
   // Agents tab so a nightly run's output doesn't sit unnoticed. Owner-only
@@ -343,7 +341,7 @@ export default function TradingView() {
 
       {activeSubTab === 'market' && (
         <div className="space-y-6">
-          <MarketEventsCard onOpenBriefing={() => setShowBriefingModal(true)} />
+          <MarketEventsCard />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 lg:h-[640px]">
             <div data-tour="gap-scanner" className="lg:col-span-2 h-[70vh] max-h-[640px] lg:h-full lg:max-h-none overflow-hidden">
               <GapScannerCard />
@@ -373,9 +371,6 @@ export default function TradingView() {
 
       {/* Trade Entry Modal */}
       <TradeEntryModal isOpen={showTradeModal} onClose={() => setShowTradeModal(false)} />
-
-      {/* Market Briefing Modal */}
-      <MarketBriefingModal isOpen={showBriefingModal} onClose={() => setShowBriefingModal(false)} />
 
       {/* Pre-market trading rules acknowledgement (fires at 9:15 AM ET) */}
       <TradingRulesModal />
