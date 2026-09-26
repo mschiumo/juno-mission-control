@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   isRunHabit, isExerciseHabit, isCardioHabit, isTrainingHabit, isJournalHabit,
-  isTradeHabit, isTradeJournalHabit, isTradingJournalHabit,
+  isTradeHabit, isTradeJournalHabit, isTradingJournalHabit, isWriteHabit,
   syncJournalHabitForEntry, clearJournalHabitForEntry, reconcileJournalHabits,
   syncTradingJournalHabitsForEntry, clearTradingJournalHabitsForEntry,
 } from '@/lib/habit-sync';
@@ -84,6 +84,17 @@ describe('trading journal habit matchers', () => {
     expect(isTradingJournalHabit({ id: 'trade-journal', name: 'Trade Journal' })).toBe(true);
     expect(isTradingJournalHabit({ id: 'journal', name: 'Journal' })).toBe(false);
     expect(isTradingJournalHabit({ id: 'market-brief', name: 'Read Market Brief, Stock Screeners' })).toBe(false);
+  });
+});
+
+describe('write habit matcher', () => {
+  it('matches only the Write habit, not other poetry habits', () => {
+    expect(isWriteHabit({ id: 'write', name: 'Anything' })).toBe(true);
+    expect(isWriteHabit({ id: 'habit_1782903411463', name: 'Write ' })).toBe(true);
+    expect(isWriteHabit({ id: 'habit_9', name: '✍️ Writing' })).toBe(true);
+    expect(isWriteHabit({ id: 'habit_1774143368558', name: 'Daily Poem ' })).toBe(false);
+    expect(isWriteHabit({ id: 'habit_1788291997082', name: '@poetrybymjs post ' })).toBe(false);
+    expect(isWriteHabit({ id: 'habit_9', name: 'Write in journal' })).toBe(false);
   });
 });
 

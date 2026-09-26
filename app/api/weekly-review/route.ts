@@ -8,7 +8,7 @@ import { getAccountSettings } from '@/lib/db/account-settings';
 import { tradingJournalTrades } from '@/lib/account-classification';
 import { computeWeeklyPnl, type WeeklyPnl } from '@/lib/trading/weekly-pnl';
 import { pctPaid, projectDebtFreeDate, paceStatus, DEBT_TARGET, type BalanceEntry } from '@/lib/debt-math';
-import { isTrainingHabit } from '@/lib/habit-sync';
+import { isTrainingHabit, isWriteHabit } from '@/lib/habit-sync';
 import { frequencyGoal } from '@/lib/habit-frequency';
 
 // Weekly Scoreboard — the "four numbers" from MJ's plan (card balance,
@@ -184,11 +184,6 @@ async function journalDays(userId: string, weekStart: string, today: string): Pr
     }
   }
   return count;
-}
-
-// "Write" habit matcher — habit ids aren't stable slugs, so match id or name.
-function isWriteHabit(h: { id: string; name: string }): boolean {
-  return h.id === 'write' || /\bwrit|poem|poetry/i.test(h.name);
 }
 
 /**
