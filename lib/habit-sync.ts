@@ -79,6 +79,18 @@ export function isJournalHabit(h: Pick<HabitData, 'id' | 'name'>): boolean {
   return h.id === 'journal' || /journal/i.test(h.name);
 }
 
+/**
+ * The "Write" habit counted as Writing Days on the Weekly Scoreboard — a habit
+ * named exactly Write / Writing (emoji and punctuation ignored). Deliberately
+ * narrow: other poetry habits ("Daily Poem", "@poetrybymjs post") are tracked
+ * separately and must not inflate the count.
+ */
+export function isWriteHabit(h: Pick<HabitData, 'id' | 'name'>): boolean {
+  if (h.id === 'write') return true;
+  const words = h.name.toLowerCase().replace(/[^a-z]+/g, ' ').trim();
+  return words === 'write' || words === 'writing';
+}
+
 // Anything that counts as a training session for the Weekly Scoreboard:
 // Lift / Cardio / Exercise / Run-style habits, by id or name.
 export function isTrainingHabit(h: Pick<HabitData, 'id' | 'name'>): boolean {
