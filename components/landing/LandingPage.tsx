@@ -353,8 +353,17 @@ export default function LandingPage() {
             </p>
 
             <div className="flex flex-wrap items-center gap-4 mb-10">
-              {/* Scrolls to the plans so visitors see what each tier includes before signing up. */}
-              <a href="#pricing" className="flex items-center gap-2 px-6 py-3 bg-[#F97316] hover:bg-[#ea6c0a] text-white font-semibold rounded-xl transition-colors shadow-lg shadow-[#F97316]/20">
+              {/* Scrolls to the plans so visitors see what each tier includes before signing up.
+                  On phones the cards stack Silver-first, so land on the Gold card instead. */}
+              <a
+                href="#pricing"
+                onClick={e => {
+                  const gold = document.getElementById('pricing-gold');
+                  if (!gold || !window.matchMedia('(max-width: 767px)').matches) return;
+                  e.preventDefault();
+                  gold.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-[#F97316] hover:bg-[#ea6c0a] text-white font-semibold rounded-xl transition-colors shadow-lg shadow-[#F97316]/20">
                 Start for Free
                 <ArrowRight className="w-4 h-4" />
               </a>
@@ -1247,7 +1256,8 @@ export default function LandingPage() {
             ]).map(plan => (
               <div
                 key={plan.tier}
-                className={`relative p-7 rounded-2xl flex flex-col transition-transform duration-300 hover:-translate-y-1.5 ${
+                id={`pricing-${plan.tier}`}
+                className={`relative scroll-mt-24 p-7 rounded-2xl flex flex-col transition-transform duration-300 hover:-translate-y-1.5 ${
                   plan.popular
                     ? 'border-2 border-[#F97316] bg-gradient-to-b from-[#F97316]/12 via-[#161b22] to-[#161b22] shadow-[0_0_70px_rgba(249,115,22,0.18)] lg:scale-[1.04]'
                     : 'border border-[#30363d] bg-gradient-to-b from-[#1c2128] to-[#161b22] hover:border-[#8b949e]/40'
