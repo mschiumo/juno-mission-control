@@ -353,10 +353,11 @@ export default function LandingPage() {
             </p>
 
             <div className="flex flex-wrap items-center gap-4 mb-10">
-              <Link href="/signup" className="flex items-center gap-2 px-6 py-3 bg-[#F97316] hover:bg-[#ea6c0a] text-white font-semibold rounded-xl transition-colors shadow-lg shadow-[#F97316]/20">
+              {/* Scrolls to the plans so visitors see what each tier includes before signing up. */}
+              <a href="#pricing" className="flex items-center gap-2 px-6 py-3 bg-[#F97316] hover:bg-[#ea6c0a] text-white font-semibold rounded-xl transition-colors shadow-lg shadow-[#F97316]/20">
                 Start for Free
                 <ArrowRight className="w-4 h-4" />
-              </Link>
+              </a>
               <Link href="/login" className="px-6 py-3 border border-[#30363d] text-[#e6edf3] hover:border-[#F97316]/60 hover:text-[#F97316] font-medium rounded-xl transition-colors">
                 Sign In
               </Link>
@@ -1299,7 +1300,9 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <Link
-                  href="/signup"
+                  // Carry the pick through signup so /plans opens on it. Platinum
+                  // while coming soon steers to Gold, matching the button copy.
+                  href={`/signup?plan=${plan.tier === 'platinum' && PLATINUM_COMING_SOON ? 'gold' : plan.tier}`}
                   className={`w-full py-3 rounded-xl text-sm font-semibold text-center transition-colors ${
                     plan.popular
                       ? 'bg-[#F97316] hover:bg-[#fb8c3c] text-white'
