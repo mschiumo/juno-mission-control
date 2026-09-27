@@ -68,8 +68,15 @@ export default function PlansPage() {
   // entitlement is written by the webhook, which can land a beat later — so
   // confirm by polling rather than assuming, and never leave the page silent.
   const [checkoutState, setCheckoutState] = useState<'idle' | 'confirming' | 'success' | 'slow' | 'cancelled'>('idle');
+  // Tier picked on the landing page, carried through signup (?plan=gold).
+  const [picked, setPicked] = useState<Tier | null>(null);
 
   const tier = status.entitlements.tier;
+
+  useEffect(() => {
+    const plan = new URLSearchParams(window.location.search).get('plan');
+    if (plan === 'gold' || plan === 'platinum') setPicked(plan);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -323,7 +330,9 @@ export default function PlansPage() {
             <div className="flex items-center gap-3">
               <Sparkles className="w-5 h-5 text-[#F97316] shrink-0" />
               <div>
-                <p className="text-sm font-semibold">Try Gold free for 7 days</p>
+                <p className="text-sm font-semibold">
+                  {picked ? `You picked ${TIER_LABELS[picked]} — try Gold free for 7 days` : 'Try Gold free for 7 days'}
+                </p>
                 <p className="text-xs text-[#8b949e]">
                   Full Gold access — brokerage sync, AI insights, briefings. No card required.
                 </p>
@@ -379,6 +388,8 @@ export default function PlansPage() {
               <div
                 key={t}
                 className={`relative rounded-2xl p-6 flex flex-col ${
+                  picked === t ? 'ring-2 ring-[#F97316]/60 ring-offset-2 ring-offset-[#0d1117] ' : ''
+                }${
                   popular
                     ? 'border-2 border-[#F97316] bg-[#161b22] shadow-[0_0_40px_rgba(249,115,22,0.15)]'
                     : 'border border-[#30363d] bg-[#161b22]'

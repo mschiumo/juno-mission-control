@@ -80,8 +80,12 @@ export default function SignupPage() {
       window.location.href = '/login';
     } else {
       // New accounts hold no plan yet — land on the plan picker (free Gold
-      // trial front and center) instead of an empty app shell.
-      window.location.href = '/plans';
+      // trial front and center) instead of an empty app shell. A tier picked
+      // on the landing page rides along so the picker opens on it; Silver is
+      // what every new account already holds, so that pick goes straight in.
+      const plan = new URLSearchParams(window.location.search).get('plan');
+      window.location.href =
+        plan === 'silver' ? '/' : plan === 'gold' || plan === 'platinum' ? `/plans?plan=${plan}` : '/plans';
     }
   };
 
