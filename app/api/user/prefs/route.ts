@@ -9,9 +9,7 @@ import {
   withNoTradeDay,
   type UserPrefs,
 } from '@/lib/db/user-prefs';
-
-const MAX_RULES = 30;
-const MAX_RULE_LENGTH = 240;
+import { MAX_RULES, MAX_RULE_LENGTH } from '@/lib/trading/trading-rules';
 
 /** PATCH body: any stored pref, plus append-only helpers. */
 interface PrefsPatch extends Partial<UserPrefs> {

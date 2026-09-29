@@ -20,6 +20,7 @@ import {
   X,
   HelpCircle,
   GraduationCap,
+  ShieldCheck,
 } from 'lucide-react';
 import MarketEventsCard from '@/components/MarketEventsCard';
 import GapScannerCard from '@/components/GapScannerCard';
@@ -31,6 +32,7 @@ import CombinedCalendarView from '@/components/trading/CombinedCalendarView';
 import BrokerageConnectedBanner from '@/components/trading/BrokerageConnectedBanner';
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
+import RulesView from '@/components/trading/RulesView';
 import PerformanceView from '@/components/trading/PerformanceView';
 import GoalsView from '@/components/trading/GoalsView';
 import TradingTour from '@/components/trading/TradingTour';
@@ -38,7 +40,7 @@ import AgentsView from '@/components/confluence/ConfluenceView';
 import AgentsWalkthrough from '@/components/trading/AgentsWalkthrough';
 import DocsView from '@/components/trading/docs/DocsView';
 
-type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management' | 'agents' | 'docs';
+type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management' | 'rules' | 'agents' | 'docs';
 
 /**
  * Which plan feature unlocks each sub-tab. Tabs outside the user's tier are
@@ -50,6 +52,8 @@ const SUBTAB_FEATURE: Record<TradingSubTab, keyof Features> = {
   market: 'marketFull',
   'market-news': 'marketNews',
   'trade-management': 'tradeManagement',
+  // Everyone gets the 9:15 rules modal, so everyone can edit the rules.
+  rules: 'journal',
   goals: 'goals',
   performance: 'performance',
   projection: 'profitProjection',
@@ -183,6 +187,7 @@ export default function TradingView() {
     { id: 'market' as const, label: 'Market', icon: TrendingUp },
     { id: 'market-news' as const, label: 'Market News', icon: Newspaper },
     { id: 'trade-management' as const, label: 'Trade Management', icon: Settings },
+    { id: 'rules' as const, label: 'Rules', icon: ShieldCheck },
     { id: 'goals' as const, label: 'Goals', icon: Target },
     { id: 'performance' as const, label: 'Performance', icon: BarChart3 },
     { id: 'projection' as const, label: 'Profit Projection', icon: Calculator },
@@ -338,6 +343,8 @@ export default function TradingView() {
       {activeSubTab === 'overview' && <CombinedCalendarView onImportSuccess={() => setImportKey((k) => k + 1)} />}
 
       {activeSubTab === 'trade-management' && <TradeManagementView />}
+
+      {activeSubTab === 'rules' && <RulesView />}
 
       {activeSubTab === 'market' && (
         <div className="space-y-6">

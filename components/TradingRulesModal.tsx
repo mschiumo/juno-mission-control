@@ -3,6 +3,13 @@
 import { useEffect, useState } from 'react';
 import { ShieldCheck, Quote, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { NO_TRADE_DAY_EVENT } from '@/lib/trading/pending-sync';
+import {
+  MAX_RULE_LENGTH,
+  MAX_RULES,
+  TRADING_RULES_UPDATED_EVENT,
+  fetchTradingRules,
+  saveTradingRules,
+} from '@/lib/trading/trading-rules';
 
 const QUOTES: { text: string; author: string }[] = [
   { text: 'The market is a device for transferring money from the impatient to the patient.', author: 'Warren Buffett' },
@@ -25,17 +32,6 @@ function quoteForDay(ymd: string): { text: string; author: string } {
   return QUOTES[Math.abs(hash) % QUOTES.length];
 }
 
-const DEFAULT_RULES = [
-  "Don't double trade",
-  "Don't force entries",
-  "Don't exit early or trail too tightly on runners",
-  "Remain neutral, even after wins or losses",
-  "After 3R total loss, stop trading for the day",
-  "If up 3R on the day, preserve AT LEAST 1R of profit",
-];
-
-const MAX_RULE_LENGTH = 240;
-const MAX_RULES = 30;
 
 // US market holidays for 2026. Kept inline (not imported from lib/cron-helpers)
 // because that module pulls in server-only deps. Keep in sync.
@@ -89,16 +85,7 @@ export default function TradingRulesModal() {
     let cancelled = false;
 
     async function loadAndSchedule() {
-      let loaded: string[] = DEFAULT_RULES;
-      try {
-        const res = await fetch('/api/user/prefs');
-        const data = await res.json();
-        if (data?.success && Array.isArray(data.prefs?.tradingRules)) {
-          loaded = data.prefs.tradingRules;
-        }
-      } catch {
-        // Fall back to defaults
-      }
+      const loaded = await fetchTradingRules();
       if (cancelled) return;
       setRules(loaded);
 
@@ -123,6 +110,16 @@ export default function TradingRulesModal() {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
+  }, []);
+
+  // Pick up edits made on the Rules sub-tab without a reload.
+  useEffect(() => {
+    const onUpdated = (e: Event) => {
+      const next = (e as CustomEvent<string[]>).detail;
+      if (Array.isArray(next)) setRules(next);
+    };
+    window.addEventListener(TRADING_RULES_UPDATED_EVENT, onUpdated);
+    return () => window.removeEventListener(TRADING_RULES_UPDATED_EVENT, onUpdated);
   }, []);
 
   function persistDismissal() {
@@ -178,22 +175,10 @@ export default function TradingRulesModal() {
   }
 
   async function saveRules() {
-    const cleaned = draftRules
-      .map((r) => r.trim())
-      .filter((r) => r.length > 0)
-      .slice(0, MAX_RULES);
-
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await fetch('/api/user/prefs', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tradingRules: cleaned }),
-      });
-      const data = await res.json();
-      if (!data?.success) throw new Error(data?.error || 'Save failed');
-      setRules(cleaned);
+      setRules(await saveTradingRules(draftRules));
       setIsEditing(false);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Save failed');
