@@ -33,6 +33,7 @@ import BrokerageConnectedBanner from '@/components/trading/BrokerageConnectedBan
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
 import RulesView from '@/components/trading/RulesView';
+import { TRADING_RULES_UPDATED_EVENT } from '@/lib/trading/trading-rules';
 import PerformanceView from '@/components/trading/PerformanceView';
 import GoalsView from '@/components/trading/GoalsView';
 import TradingTour from '@/components/trading/TradingTour';
@@ -171,6 +172,15 @@ export default function TradingView() {
     const fromUrl = getSubTabFromUrl();
     setActiveSubTabState((cur) => (cur === fromUrl ? cur : fromUrl));
   }, [getSubTabFromUrl]);
+
+  // The pre-market modal loads rules once on mount; remount it after the
+  // Rules tab saves so the 9:15 check shows the latest list.
+  const [rulesModalKey, setRulesModalKey] = useState(0);
+  useEffect(() => {
+    const bump = () => setRulesModalKey((k) => k + 1);
+    window.addEventListener(TRADING_RULES_UPDATED_EVENT, bump);
+    return () => window.removeEventListener(TRADING_RULES_UPDATED_EVENT, bump);
+  }, []);
 
   function handleTourComplete() {
     setShowTour(false);
@@ -380,7 +390,7 @@ export default function TradingView() {
       <TradeEntryModal isOpen={showTradeModal} onClose={() => setShowTradeModal(false)} />
 
       {/* Pre-market trading rules acknowledgement (fires at 9:15 AM ET) */}
-      <TradingRulesModal />
+      <TradingRulesModal key={rulesModalKey} />
 
       {/* First-time onboarding tour */}
       {showTour && !entitlementsLoading && (
