@@ -89,20 +89,20 @@ export default function RulesView() {
   const canSave = dirty && !saving && draft.every((r) => r.length <= MAX_RULE_LENGTH);
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl mx-auto">
       <div
         className="rounded-xl overflow-hidden"
         style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
       >
         <div
-          className="flex items-center gap-2.5 px-5 py-3.5"
+          className="flex items-center gap-3 px-5 py-3.5 sm:px-6 sm:py-4"
           style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.01)' }}
         >
-          <div className="flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: 'var(--accent-dim)' }}>
-            <ShieldCheck className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+          <div className="flex items-center justify-center w-7 h-7 sm:w-9 sm:h-9 rounded-lg flex-shrink-0" style={{ background: 'var(--accent-dim)' }}>
+            <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={{ color: 'var(--accent)' }} />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <h2 className="text-sm sm:text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
               Trading Rules
             </h2>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -111,7 +111,7 @@ export default function RulesView() {
           </div>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 sm:p-6 space-y-4">
           {saved === null ? (
             <div className="space-y-2">
               {[0, 1, 2].map((i) => (
