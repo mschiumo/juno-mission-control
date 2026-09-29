@@ -292,7 +292,7 @@ export function MarketArticle() {
         <P>
           To add, remove, reorder, or rewrite your rules at any time, open the <Em>Rules</Em> tab (next to Trade
           Management). Changes apply to the next morning check — you can still make quick edits from the pencil icon in
-          the pop-up itself.
+          the pop-up itself. Prefer not to see it? Switch the daily pop-up off on the Rules tab — your rules stay saved.
         </P>
       </DocSection>
     </div>

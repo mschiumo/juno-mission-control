@@ -33,7 +33,7 @@ import BrokerageConnectedBanner from '@/components/trading/BrokerageConnectedBan
 import ProfitProjectionView from '@/components/trading/ProfitProjectionView';
 import TradeManagementView from '@/components/trading/TradeManagementView';
 import RulesView from '@/components/trading/RulesView';
-import { TRADING_RULES_UPDATED_EVENT } from '@/lib/trading/trading-rules';
+import { TRADING_RULES_MODAL_EVENT, TRADING_RULES_UPDATED_EVENT } from '@/lib/trading/trading-rules';
 import PerformanceView from '@/components/trading/PerformanceView';
 import GoalsView from '@/components/trading/GoalsView';
 import TradingTour from '@/components/trading/TradingTour';
@@ -180,6 +180,27 @@ export default function TradingView() {
     const bump = () => setRulesModalKey((k) => k + 1);
     window.addEventListener(TRADING_RULES_UPDATED_EVENT, bump);
     return () => window.removeEventListener(TRADING_RULES_UPDATED_EVENT, bump);
+  }, []);
+
+  // Users can switch the 9:15 pop-up off from the Rules tab. Wait for prefs
+  // before mounting it so a disabled pop-up never flashes.
+  const [rulesModalEnabled, setRulesModalEnabled] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/user/prefs')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setRulesModalEnabled(data?.prefs?.tradingRulesModalDisabled !== true);
+      })
+      .catch(() => {
+        if (!cancelled) setRulesModalEnabled(true);
+      });
+    const onToggle = (e: Event) => setRulesModalEnabled((e as CustomEvent<boolean>).detail !== false);
+    window.addEventListener(TRADING_RULES_MODAL_EVENT, onToggle);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(TRADING_RULES_MODAL_EVENT, onToggle);
+    };
   }, []);
 
   function handleTourComplete() {
@@ -390,7 +411,7 @@ export default function TradingView() {
       <TradeEntryModal isOpen={showTradeModal} onClose={() => setShowTradeModal(false)} />
 
       {/* Pre-market trading rules acknowledgement (fires at 9:15 AM ET) */}
-      <TradingRulesModal key={rulesModalKey} />
+      {rulesModalEnabled && <TradingRulesModal key={rulesModalKey} />}
 
       {/* First-time onboarding tour */}
       {showTour && !entitlementsLoading && (
