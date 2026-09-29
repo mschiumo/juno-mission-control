@@ -186,109 +186,113 @@ async function fetchYahooFinance(symbols: string[]): Promise<MarketItem[]> {
   }
 }
 
+const CRYPTO_NAMES: Record<string, string> = {
+  BTC: 'Bitcoin',
+  ETH: 'Ethereum',
+  SOL: 'Solana',
+  HYPE: 'Hyperliquid',
+  AERO: 'Aerodrome Finance',
+  VIRTUALS: 'Virtuals Protocol',
+};
+
+function toCryptoItem(symbol: string, price: number, changePercent: number): MarketItem {
+  return {
+    symbol,
+    name: CRYPTO_NAMES[symbol] ?? symbol,
+    price,
+    change: Number((price * (changePercent / 100)).toFixed(2)),
+    changePercent: Number(changePercent.toFixed(2)),
+    status: changePercent >= 0 ? 'up' : 'down',
+  };
+}
+
 /**
- * Fetches cryptocurrency prices from CoinGecko API
- * Includes HYPE (Hyperliquid token), AERO (Aerodrome Finance), and VIRTUALS (Virtuals Protocol)
+ * Live majors (BTC/ETH/SOL) from Coinbase Exchange's public stats endpoint —
+ * keyless and not IP-throttled like CoinGecko's free tier, which 403s from
+ * shared cloud IPs. 24h change is last vs. the rolling 24h open.
  */
-async function fetchCryptoPrices(): Promise<MarketItem[]> {
+async function fetchCoinbaseMajors(): Promise<MarketItem[]> {
+  const symbols = ['BTC', 'ETH', 'SOL'];
+  const results = await Promise.all(symbols.map(async (symbol) => {
+    try {
+      const res = await fetch(`https://api.exchange.coinbase.com/products/${symbol}-USD/stats`, {
+        headers: { 'Accept': 'application/json', 'User-Agent': 'confluencetrading-app' },
+        next: { revalidate: 30 },
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const last = Number(data?.last);
+      const open = Number(data?.open);
+      if (!Number.isFinite(last) || last <= 0) return null;
+      const changePercent = Number.isFinite(open) && open > 0 ? ((last - open) / open) * 100 : 0;
+      return toCryptoItem(symbol, last, changePercent);
+    } catch {
+      return null;
+    }
+  }));
+  return results.filter((r): r is MarketItem => r !== null);
+}
+
+/**
+ * Remaining tokens (and a backup for the majors) from CoinGecko.
+ */
+async function fetchCoinGecko(): Promise<MarketItem[]> {
+  const ids: Record<string, string> = {
+    bitcoin: 'BTC',
+    ethereum: 'ETH',
+    solana: 'SOL',
+    hyperliquid: 'HYPE',
+    'aerodrome-finance': 'AERO',
+    'virtuals-protocol': 'VIRTUALS',
+  };
   try {
-    // Fetch major cryptos from CoinGecko
     const response = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,hyperliquid,aerodrome-finance,virtuals-protocol&vs_currencies=usd&include_24hr_change=true',
+      `https://api.coingecko.com/api/v3/simple/price?ids=${Object.keys(ids).join(',')}&vs_currencies=usd&include_24hr_change=true`,
       {
-        headers: { 'Accept': 'application/json' },
+        headers: { 'Accept': 'application/json', 'User-Agent': 'confluencetrading-app' },
         next: { revalidate: 60 }
       }
     );
-
     if (!response.ok) {
       console.warn(`CoinGecko error: ${response.status}`);
       return [];
     }
-
     const data = await response.json();
-    const cryptos: MarketItem[] = [];
-
-    if (data.bitcoin?.usd) {
-      const change = data.bitcoin.usd_24h_change || 0;
-      cryptos.push({
-        symbol: 'BTC',
-        name: 'Bitcoin',
-        price: data.bitcoin.usd,
-        change: Number((data.bitcoin.usd * (change / 100)).toFixed(2)),
-        changePercent: Number(change.toFixed(2)),
-        status: change >= 0 ? 'up' : 'down'
-      });
+    const out: MarketItem[] = [];
+    for (const [id, symbol] of Object.entries(ids)) {
+      const price = Number(data?.[id]?.usd);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      out.push(toCryptoItem(symbol, price, Number(data[id].usd_24h_change) || 0));
     }
-
-    if (data.ethereum?.usd) {
-      const change = data.ethereum.usd_24h_change || 0;
-      cryptos.push({
-        symbol: 'ETH',
-        name: 'Ethereum',
-        price: data.ethereum.usd,
-        change: Number((data.ethereum.usd * (change / 100)).toFixed(2)),
-        changePercent: Number(change.toFixed(2)),
-        status: change >= 0 ? 'up' : 'down'
-      });
-    }
-
-    if (data.solana?.usd) {
-      const change = data.solana.usd_24h_change || 0;
-      cryptos.push({
-        symbol: 'SOL',
-        name: 'Solana',
-        price: data.solana.usd,
-        change: Number((data.solana.usd * (change / 100)).toFixed(2)),
-        changePercent: Number(change.toFixed(2)),
-        status: change >= 0 ? 'up' : 'down'
-      });
-    }
-
-    // Add HYPE (Hyperliquid)
-    if (data.hyperliquid?.usd) {
-      const change = data.hyperliquid.usd_24h_change || 0;
-      cryptos.push({
-        symbol: 'HYPE',
-        name: 'Hyperliquid',
-        price: data.hyperliquid.usd,
-        change: Number((data.hyperliquid.usd * (change / 100)).toFixed(2)),
-        changePercent: Number(change.toFixed(2)),
-        status: change >= 0 ? 'up' : 'down'
-      });
-    }
-
-    // Add AERO (Aerodrome Finance)
-    if (data['aerodrome-finance']?.usd) {
-      const change = data['aerodrome-finance'].usd_24h_change || 0;
-      cryptos.push({
-        symbol: 'AERO',
-        name: 'Aerodrome Finance',
-        price: data['aerodrome-finance'].usd,
-        change: Number((data['aerodrome-finance'].usd * (change / 100)).toFixed(2)),
-        changePercent: Number(change.toFixed(2)),
-        status: change >= 0 ? 'up' : 'down'
-      });
-    }
-
-    // Add VIRTUALS (Virtuals Protocol)
-    if (data['virtuals-protocol']?.usd) {
-      const change = data['virtuals-protocol'].usd_24h_change || 0;
-      cryptos.push({
-        symbol: 'VIRTUALS',
-        name: 'Virtuals Protocol',
-        price: data['virtuals-protocol'].usd,
-        change: Number((data['virtuals-protocol'].usd * (change / 100)).toFixed(2)),
-        changePercent: Number(change.toFixed(2)),
-        status: change >= 0 ? 'up' : 'down'
-      });
-    }
-
-    return cryptos;
+    return out;
   } catch (error) {
     console.error('CoinGecko error:', error);
     return [];
   }
+}
+
+/**
+ * Fetches live cryptocurrency prices. Coinbase is authoritative for the majors;
+ * CoinGecko fills in the rest; Yahoo (e.g. BTC-USD) backstops any major both
+ * miss. Never returns placeholder prices — a missing coin is simply omitted.
+ */
+async function fetchCryptoPrices(): Promise<MarketItem[]> {
+  const [coinbase, gecko] = await Promise.all([fetchCoinbaseMajors(), fetchCoinGecko()]);
+  const bySymbol = new Map<string, MarketItem>();
+  for (const item of gecko) bySymbol.set(item.symbol, item);
+  for (const item of coinbase) bySymbol.set(item.symbol, item);
+
+  const missingMajors = ['BTC', 'ETH', 'SOL'].filter((s) => !bySymbol.has(s));
+  if (missingMajors.length > 0) {
+    const yahoo = await Promise.all(missingMajors.map((s) => fetchYahooSingle(`${s}-USD`)));
+    yahoo.forEach((item, i) => {
+      if (item) bySymbol.set(missingMajors[i], toCryptoItem(missingMajors[i], item.price, item.changePercent));
+    });
+  }
+
+  return Object.keys(CRYPTO_NAMES)
+    .map((s) => bySymbol.get(s))
+    .filter((r): r is MarketItem => r !== undefined);
 }
 
 /**
@@ -533,7 +537,8 @@ export async function GET() {
       indices: hasRealIndices ? indices : fallback.indices,
       stocks: hasRealStocks ? stocks : fallback.stocks,
       commodities: hasRealCommodities ? commodities : fallback.commodities,
-      crypto: hasRealCrypto ? crypto : fallback.crypto,
+      // Crypto trades 24/7 — a stale placeholder price is worse than none.
+      crypto,
       forex: hasRealForex ? forex : fallback.forex,
       futures: hasRealFutures ? futures : fallback.futures,
       fearAndGreed: fearAndGreed ?? null,
@@ -567,7 +572,7 @@ export async function GET() {
         indices: fallback.indices,
         stocks: fallback.stocks,
         commodities: fallback.commodities,
-        crypto: fallback.crypto,
+        crypto: [],
         forex: fallback.forex,
         futures: fallback.futures,
         fearAndGreed: { score: 50, rating: 'Neutral' },
