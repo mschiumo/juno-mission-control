@@ -86,6 +86,10 @@ export async function PATCH(request: Request) {
     updated.tradingRules = cleaned;
   }
 
+  if (typeof body.tradingRulesModalDisabled === 'boolean') {
+    updated.tradingRulesModalDisabled = body.tradingRulesModalDisabled;
+  }
+
   if (body.noTradeDay !== undefined) {
     if (!isYmd(body.noTradeDay)) {
       return NextResponse.json(

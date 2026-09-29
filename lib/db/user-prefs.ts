@@ -20,6 +20,8 @@ export interface UserPrefs {
   startingBalanceDate?: string;
   emailAlerts?: EmailAlertPrefs;
   tradingRules?: string[];
+  /** User turned off the 9:15 AM ET rules pop-up from the Trading → Rules tab. */
+  tradingRulesModalDisabled?: boolean;
   /**
    * Trading days (YYYY-MM-DD, ET) the user declared they were not trading —
    * the "Not trading today" dismissal on the Trading Rules modal. The Journal
