@@ -22,9 +22,10 @@ import {
   CalendarDays,
   ArrowUpRight,
   ArrowDownRight,
+  ShieldCheck,
 } from 'lucide-react';
 
-type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management' | 'docs';
+type TradingSubTab = 'overview' | 'market' | 'market-news' | 'performance' | 'goals' | 'projection' | 'trade-management' | 'rules' | 'docs';
 type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
 
 /** Mini visual mockup shown alongside the step description */
@@ -185,6 +186,7 @@ const SUBTAB_FEATURE: Record<TradingSubTab, keyof Features> = {
   goals: 'goals',
   projection: 'profitProjection',
   'trade-management': 'tradeManagement',
+  rules: 'journal',
   docs: 'docs',
 };
 
@@ -204,7 +206,7 @@ const STEPS: TourStep[] = [
     icon: <LayoutDashboard className="w-9 h-9 text-[#F97316]" />,
     title: 'Your Sections',
     description:
-      'Journal holds your P&L calendar and daily entries. Trade Management has the risk calculator and watchlist. Performance tracks your stats, Profit Projection models your strategy, and Docs explains everything in depth. Market, Market News, and Goals appear here too when your plan includes them.',
+      'Journal holds your P&L calendar and daily entries. Trade Management has the risk calculator and watchlist, and Rules holds the personal trading rules you review before every open. Performance tracks your stats, Profit Projection models your strategy, and Docs explains everything in depth. Market, Market News, and Goals appear here too when your plan includes them.',
     tip: "Click any tab to jump straight there — we'll visit each one in turn.",
   },
   {
@@ -260,6 +262,14 @@ const STEPS: TourStep[] = [
       'Every weekday before the bell, an AI-generated briefing lands here with overnight futures, index levels, big movers, and the news that matters — one snapshot, 30 seconds to read. Turn on the email in your profile and it arrives in your inbox instead.',
     tip: 'Read it before your first trade; the macro backdrop shapes which setups are worth taking.',
     preview: <BriefingPreview />,
+  },
+  {
+    subtab: 'rules',
+    icon: <ShieldCheck className="w-9 h-9 text-[#F97316]" />,
+    title: 'Your Trading Rules',
+    description:
+      'Write down the rules you trade by — max daily loss, no revenge trades, how you manage runners. Every trading day at 9:15 AM ET they pop up for you to acknowledge before the open. Edit them here any time.',
+    tip: 'Short, specific rules you can actually check yourself against beat long lists of good intentions.',
   },
   {
     subtab: 'market',

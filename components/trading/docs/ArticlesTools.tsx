@@ -289,6 +289,11 @@ export function MarketArticle() {
           On trading mornings at 9:15 AM ET, a short <Em>Trading Rules</Em> acknowledgement pops up before the open — a
           deliberate speed bump to re-read your own rules before the bell. Acknowledge it and it’s gone for the day.
         </P>
+        <P>
+          To add, remove, reorder, or rewrite your rules at any time, open the <Em>Rules</Em> tab (next to Trade
+          Management). Changes apply to the next morning check — you can still make quick edits from the pencil icon in
+          the pop-up itself.
+        </P>
       </DocSection>
     </div>
   );
