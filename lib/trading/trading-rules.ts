@@ -26,11 +26,11 @@ export const TRADING_RULES_MODAL_EVENT = 'trading-rules-modal-toggled';
 
 /** Example rules offered as one-click suggestions and placeholders on the Rules tab. */
 export const SUGGESTED_TRADING_RULES = [
-  ...DEFAULT_TRADING_RULES,
   'Max 3 trades per day',
-  'Only take setups from my watchlist',
   'Set a stop before entering every trade',
-  'No new positions after 3:30 PM ET',
+  'After 3R total loss, stop trading for the day',
+  "Don't force entries",
+  'Only take setups from my watchlist',
 ];
 
 export interface TradingRulesState {

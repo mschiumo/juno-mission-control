@@ -347,7 +347,7 @@ export default function RulesView() {
                     onChange={(e) => edit((prev) => prev.map((r, idx) => (idx === i ? e.target.value : r)))}
                     maxLength={MAX_RULE_LENGTH}
                     aria-label={`Rule ${i + 1}`}
-                    placeholder={`e.g. ${SUGGESTED_TRADING_RULES[(i + 6) % SUGGESTED_TRADING_RULES.length]}`}
+                    placeholder={`e.g. ${SUGGESTED_TRADING_RULES[i % SUGGESTED_TRADING_RULES.length]}`}
                     className="w-full flex-shrink-0 bg-transparent px-3 pt-1 pb-3 text-sm leading-relaxed text-white placeholder-[#6e7681] resize-none overflow-hidden focus:outline-none"
                   />
                 </div>
@@ -371,7 +371,7 @@ export default function RulesView() {
                   Need ideas?
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {unusedSuggestions.slice(0, 5).map((rule) => (
+                  {unusedSuggestions.slice(0, 3).map((rule) => (
                     <button key={rule} type="button" onClick={() => addSuggestion(rule)} className={suggestionChip}>
                       + {rule}
                     </button>
