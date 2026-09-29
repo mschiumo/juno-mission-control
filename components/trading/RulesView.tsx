@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type TextareaHTMLAttributes } from 'react';
 import { ShieldCheck, Pencil, Plus, Trash2, ArrowUp, ArrowDown, RotateCcw, Clock } from 'lucide-react';
 import {
   DEFAULT_TRADING_RULES,
@@ -10,6 +10,18 @@ import {
   fetchTradingRules,
   saveTradingRules,
 } from '@/lib/trading/trading-rules';
+
+/** Textarea that grows to fit its content, so long rules aren't clipped on narrow screens. */
+function AutoGrowTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [props.value]);
+  return <textarea ref={ref} rows={1} {...props} />;
+}
 
 /**
  * Trading → Rules sub-tab: view and edit the personal rules shown in the
@@ -107,8 +119,8 @@ export default function RulesView() {
               <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {isEditing ? 'Edit Trading Rules' : 'Trading Rules'}
               </h2>
-              <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
-                <Clock className="w-3 h-3 flex-shrink-0" />
+              <p className="text-xs mt-0.5 flex items-start gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                <Clock className="w-3 h-3 flex-shrink-0 mt-px" />
                 Shown for acknowledgement every trading day at 9:15 AM ET, before the open.
               </p>
             </div>
@@ -151,13 +163,12 @@ export default function RulesView() {
                   >
                     {i + 1}
                   </span>
-                  <textarea
+                  <AutoGrowTextarea
                     value={rule}
                     onChange={(e) => update(i, e.target.value)}
                     maxLength={MAX_RULE_LENGTH}
-                    rows={1}
                     aria-label={`Rule ${i + 1}`}
-                    className="flex-1 bg-transparent text-sm leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-[var(--accent)] rounded px-2 py-1 min-w-0"
+                    className="flex-1 bg-transparent text-sm leading-relaxed resize-none overflow-hidden focus:outline-none focus:ring-1 focus:ring-[var(--accent)] rounded px-2 py-1 min-w-0"
                     style={{ color: 'var(--text-primary)' }}
                     placeholder="Enter a rule..."
                   />
