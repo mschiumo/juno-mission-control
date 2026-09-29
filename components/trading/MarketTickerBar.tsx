@@ -70,14 +70,11 @@ export default function MarketTickerBar() {
         ...(json.data?.crypto ?? []),
       ] as { symbol: string; price: number; changePercent: number }[];
 
-      const result: TickerData[] = TICKERS.map(({ symbol, label }) => {
+      // Skip symbols with no live quote rather than rendering a bogus $0.
+      const result: TickerData[] = TICKERS.flatMap(({ symbol, label }) => {
         const match = allItems.find((i) => i.symbol === symbol);
-        return {
-          symbol,
-          label,
-          price: match?.price ?? 0,
-          changePercent: match?.changePercent ?? 0,
-        };
+        if (!match || !(match.price > 0)) return [];
+        return [{ symbol, label, price: match.price, changePercent: match.changePercent ?? 0 }];
       });
 
       // Detect changed values and trigger flash animation
