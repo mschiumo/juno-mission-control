@@ -137,3 +137,9 @@ describe('calorieTotals', () => {
     expect(t.month).toBe(1000);
   });
 });
+
+describe('fmtPace rounding', () => {
+  it('never renders :60', () => {
+    expect(fmtPace(479.6)).toBe('8:00/mi');
+  });
+});

@@ -53,14 +53,6 @@ function shiftDays(dateStr: string, n: number): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function shiftMonthsDate(dateStr: string, n: number): string {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const target = new Date(y, m - 1 + n, 1, 12);
-  const dim = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
-  target.setDate(Math.min(d, dim));
-  return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
-}
-
 function dayCount(from: string, to: string): number {
   const a = new Date(from + 'T12:00:00').getTime();
   const b = new Date(to + 'T12:00:00').getTime();
@@ -69,11 +61,13 @@ function dayCount(from: string, to: string): number {
 
 /** [from, to] for the range plus the equal-length window right before it. */
 function rangeWindow(range: RangeId, today: string): { from: string; to: string; prevFrom: string; prevTo: string } {
+  // Calendar-month aligned (current month to date + the N-1 before it) so the
+  // monthly chart never starts on a partial month.
   let from: string;
   if (range === 'ytd') from = `${today.slice(0, 4)}-01-01`;
   else {
     const months = range === '3m' ? 3 : range === '6m' ? 6 : range === '12m' ? 12 : 24;
-    from = shiftDays(shiftMonthsDate(today, -months), 1);
+    from = `${addMonths(today.slice(0, 7), -(months - 1))}-01`;
   }
   if (range === 'ytd') {
     const lastYear = String(Number(today.slice(0, 4)) - 1);
@@ -94,6 +88,13 @@ function fmtMetric(v: number, metric: ProgressMetric, compact = false): string {
   }
 }
 
+/** Y-axis ticks: whole numbers unless the scale is tiny. */
+function axisTick(v: number): string {
+  if (v === 0) return '0';
+  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k`;
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
 function monthLabel(month: string, withYear = false): string {
   return new Date(`${month}-01T12:00:00`).toLocaleDateString('en-US', withYear ? { month: 'short', year: '2-digit' } : { month: 'short' });
 }
@@ -111,12 +112,17 @@ function Delta({ cur, prev, label }: { cur: number; prev: number | null; label: 
   if (prev === null) return null;
   const pct = pctChange(cur, prev);
   if (pct === null) return <span className="text-[10px] text-[#8b949e]">no prior data</span>;
-  const up = pct >= 0;
   return (
     <span className="text-[10px] text-[#8b949e] tabular-nums" title={`vs ${label}`}>
-      <span className={up ? 'text-[#3fb950]' : 'text-[#f85149]'}>{up ? '▲' : '▼'} {Math.abs(pct).toFixed(0)}%</span> vs prior
+      <DeltaPct pct={pct} /> vs prior
     </span>
   );
+}
+
+function DeltaPct({ pct }: { pct: number }) {
+  if (Math.abs(pct) < 0.5) return <span className="text-[#8b949e]">— 0%</span>;
+  const up = pct > 0;
+  return <span className={up ? 'text-[#3fb950]' : 'text-[#f85149]'}>{up ? '▲' : '▼'} {Math.abs(pct).toFixed(0)}%</span>;
 }
 
 function StatTile({
@@ -242,7 +248,7 @@ function StackedChart({
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={8} />
         <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44}
-          tickFormatter={(v: number) => fmtMetric(v, metric, true)} />
+          tickFormatter={axisTick} />
         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} content={<StackTooltip metric={metric} categories={categories} />} />
         {categories.map((c, i) => (
           <Bar
@@ -485,7 +491,7 @@ export default function StravaProgressModal({ onClose }: { onClose: () => void }
                       <ComposedChart data={view.weekRows} margin={{ top: 4, right: 4, left: -12, bottom: 0 }} barCategoryGap="12%">
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={24} />
-                        <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} tickFormatter={(v: number) => fmtMetric(v, metric, true)} />
+                        <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} tickFormatter={axisTick} />
                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} content={<WeekTooltip metric={metric} />} />
                         <Bar dataKey="value" fill="#FC4C02" fillOpacity={0.7} radius={[3, 3, 0, 0]} isAnimationActive={false} />
                         <Line dataKey="avg" stroke="#ffffff" strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
@@ -517,7 +523,7 @@ export default function StravaProgressModal({ onClose }: { onClose: () => void }
 
                   {/* Monthly table */}
                   <Section title="Month by month">
-                    <MonthTable months={view.months} />
+                    <MonthTable months={view.months} currentMonth={today.slice(0, 7)} />
                   </Section>
                 </>
               )}
@@ -549,7 +555,7 @@ function WeekdayChart({ totals, metric }: { totals: Totals[]; metric: ProgressMe
         <BarChart data={rows} margin={{ top: 4, right: 4, left: -12, bottom: 0 }} barCategoryGap="22%">
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
           <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} />
-          <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} tickFormatter={(v: number) => fmtMetric(v, metric, true)} />
+          <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} tickFormatter={axisTick} />
           <Tooltip
             cursor={{ fill: 'rgba(255,255,255,0.04)' }}
             content={({ active, payload }) => {
@@ -623,7 +629,7 @@ function SportTable({ rows, metric }: { rows: ReturnType<typeof sportBreakdown>;
   );
 }
 
-function MonthTable({ months }: { months: Bucket[] }) {
+function MonthTable({ months, currentMonth }: { months: Bucket[]; currentMonth: string }) {
   const rows = [...months].reverse();
   return (
     <div className="overflow-x-auto -mx-1">
@@ -643,17 +649,22 @@ function MonthTable({ months }: { months: Bucket[] }) {
         <tbody className="divide-y divide-[#21262d]">
           {rows.map((m, i) => {
             const prior = rows[i + 1];
-            const delta = prior ? pctChange(m.totals.meters, prior.totals.meters) : null;
+            const isCurrent = m.key === currentMonth;
+            // A month in progress vs a full month is apples to oranges — skip it.
+            const delta = prior && !isCurrent ? pctChange(m.totals.meters, prior.totals.meters) : null;
             const run = m.byCategory.run;
             const runMiles = run.meters / 1609.344;
             return (
               <tr key={m.key} className="text-[#c9d1d9]">
-                <td className="px-1 py-1.5 text-white font-medium whitespace-nowrap">{monthLabel(m.key, true)}</td>
+                <td className="px-1 py-1.5 text-white font-medium whitespace-nowrap">
+                  {monthLabel(m.key, true)}
+                  {isCurrent && <span className="ml-1.5 text-[9px] font-semibold text-[#FC4C02]">MTD</span>}
+                </td>
                 <td className="px-1 py-1.5 text-right tabular-nums">{m.totals.count}</td>
                 <td className="px-1 py-1.5 text-right tabular-nums">{fmtMiles(m.totals.meters)}</td>
                 <td className="px-1 py-1.5 text-right tabular-nums">
                   {delta === null ? <span className="text-[#484f58]">—</span> : (
-                    <span className={delta >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}>{delta >= 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(0)}%</span>
+                    <DeltaPct pct={delta} />
                   )}
                 </td>
                 <td className="px-1 py-1.5 text-right tabular-nums">{fmtDuration(m.totals.seconds)}</td>
