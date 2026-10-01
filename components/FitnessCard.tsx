@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Dumbbell, RefreshCw, Link2, Unlink, Loader2, Check,
-  CheckCircle2, AlertTriangle, Zap, Trophy, Pencil, Plus, Trash2, Flame,
+  CheckCircle2, AlertTriangle, Zap, Trophy, Pencil, Plus, Trash2, Flame, ChartColumn,
 } from 'lucide-react';
+import StravaProgressModal from '@/components/StravaProgressModal';
 import { getTodayInEST } from '@/lib/date-utils';
 import {
   type ActivitySummary, RUN_SPORTS, WALK_SPORTS,
   fmtMiles, fmtDuration, fmtPace, paceSecPerMile, speedMph, metersToMiles,
-  distanceTotals, calorieTotals, runRecords, weekDailyDistance, monthDailyDistance, activityDate,
+  distanceTotals, calorieTotals, runRecords, weekDailyDistance, monthDailyDistance, activityDate, sportIcon,
 } from '@/lib/strava-metrics';
 
 type StravaActivity = ActivitySummary;
@@ -29,18 +30,7 @@ interface WorkoutSchedule {
   todayGroup: string | null;
 }
 
-const SPORT_ICONS: Record<string, string> = {
-  Run: '🏃', TrailRun: '🏃', VirtualRun: '🏃',
-  Ride: '🚴', MountainBikeRide: '🚵', VirtualRide: '🚴', GravelRide: '🚴',
-  WeightTraining: '🏋️', Workout: '💪', Crossfit: '💪', HighIntensityIntervalTraining: '💪',
-  Swim: '🏊', Walk: '🚶', Hike: '🥾', Yoga: '🧘', Golf: '⛳', Tennis: '🎾',
-};
-
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-function sportIcon(sport: string): string {
-  return SPORT_ICONS[sport] || '⚡';
-}
 
 function fmtDay(dateLocal: string): string {
   return new Date(dateLocal.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', {
@@ -292,6 +282,7 @@ export default function FitnessCard() {
   const [workout, setWorkout] = useState<WorkoutSchedule | null>(null);
   const [workoutBusy, setWorkoutBusy] = useState(false);
   const [editingSplit, setEditingSplit] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
 
   // Distance panel period + activity-type toggles
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('week');
@@ -603,7 +594,13 @@ export default function FitnessCard() {
 
           {/* Distance — Strava-inspired */}
           <div
-            className="rounded-lg p-3 border flex flex-col"
+            className={`rounded-lg p-3 border flex flex-col ${connected ? 'cursor-pointer hover:brightness-110 transition-[filter]' : ''}`}
+            onClick={(e) => {
+              // The whole panel opens Progress; its own toggles keep working.
+              if (!connected || (e.target as HTMLElement).closest('button, a')) return;
+              setProgressOpen(true);
+            }}
+            title={connected ? 'Open full progress' : undefined}
             style={{
               borderColor: 'rgba(252,76,2,0.35)',
               background: 'linear-gradient(145deg, rgba(252,76,2,0.14) 0%, rgba(252,76,2,0.05) 35%, #0d1117 70%)',
@@ -773,6 +770,13 @@ export default function FitnessCard() {
                     {!metrics.records.bestPace && !metrics.records.longest && (
                       <span className="text-[#8b949e]">No runs in the window yet.</span>
                     )}
+                    <button
+                      onClick={() => setProgressOpen(true)}
+                      className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-[#FC4C02] hover:text-white transition-colors"
+                    >
+                      <ChartColumn className="w-3 h-3" />
+                      Progress
+                    </button>
                   </div>
                 </>
               );
@@ -818,6 +822,8 @@ export default function FitnessCard() {
           </div>
         </div>
       </div>
+
+      {progressOpen && <StravaProgressModal onClose={() => setProgressOpen(false)} />}
 
       {editingSplit && workout && (
         <EditSplitModal
