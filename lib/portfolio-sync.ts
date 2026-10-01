@@ -27,6 +27,7 @@ import {
 } from '@/lib/snaptrade-transform';
 import { deriveDailyBalances, type AccountLedger } from '@/lib/snaptrade-balances';
 import { getESTDateFromTimestamp } from '@/lib/date-utils';
+import { dedupeFoldedCryptoTotals, type AccountValueInput } from '@/lib/portfolio-account-values';
 import type { BrokerAccount } from '@/lib/db/broker-connections';
 import {
   savePortfolioSnapshot,
@@ -108,6 +109,7 @@ export async function syncPortfolio(
   const positions: PortfolioPosition[] = [];
   const allActivities: PortfolioActivity[] = [];
   const ledgers: AccountLedger[] = [];
+  const valueInputs: AccountValueInput[] = [];
 
   for (const raw of rawAccounts ?? []) {
     const totalValue = raw.balance?.total?.amount ?? null;
@@ -125,6 +127,7 @@ export async function syncPortfolio(
     }
 
     let accountOpenPnl = 0;
+    let accountMarketValue = 0;
     try {
       const rawPositions = await listAccountPositions({ ...auth, accountId: raw.id });
       for (const p of rawPositions) {
@@ -135,6 +138,7 @@ export async function syncPortfolio(
         const price = p.price ?? null;
         const avgCost = p.average_purchase_price ?? null;
         accountOpenPnl += p.open_pnl ?? 0;
+        if (price != null) accountMarketValue += units * price;
         positions.push({
           symbol,
           description: p.symbol?.symbol?.description || undefined,
@@ -185,7 +189,22 @@ export async function syncPortfolio(
       totalValue,
       cash,
     });
+    valueInputs.push({
+      id: raw.id,
+      brokerage: raw.institution_name,
+      name: raw.name || raw.institution_name,
+      authorizationId: raw.brokerage_authorization,
+      totalValue,
+      holdingsValue: accountMarketValue + (cash ?? 0),
+    });
   }
+
+  // Robinhood folds its crypto account's value into the linked brokerage
+  // account's total — strip it back out so summing accounts doesn't count the
+  // crypto twice (both the headline total and each ledger's anchor).
+  const dedupedTotals = dedupeFoldedCryptoTotals(valueInputs);
+  for (const ledger of ledgers) ledger.totalValue = dedupedTotals.get(ledger.accountId) ?? null;
+  for (const summary of accountSummaries) summary.totalValue = dedupedTotals.get(summary.id) ?? null;
 
   const { balances } = deriveDailyBalances(ledgers);
 
