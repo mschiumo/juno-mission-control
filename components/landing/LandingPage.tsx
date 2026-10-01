@@ -340,16 +340,15 @@ export default function LandingPage() {
             </div>
 
             <h1 className="text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
-              Trade with{' '}
-              <span className="text-[#F97316]">Precision.</span>
+              Process <span className="text-[#8b949e] font-light italic">over</span>
               <br />
-              Journal with{' '}
-              <span className="text-[#F97316]">Purpose.</span>
+              <span className="text-[#F97316]">Profits.</span>
             </h1>
 
             <p className="text-lg text-[#8b949e] leading-relaxed mb-8 max-w-lg">
-              A comprehensive trading command center for disciplined traders. Track every trade,
-              analyze your patterns, and sharpen your edge with real-time market intelligence.
+              You can&apos;t control the outcome of a trade — only how you take it. ConfluenceTrading
+              is the command center for disciplined traders: rules, risk, journal, and market intel
+              in one place.
             </p>
 
             <div className="flex flex-wrap items-center gap-4 mb-10">
@@ -498,23 +497,6 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* ═══ MANIFESTO — the CT slogan, set apart between hero and features ═══ */}
-      <section className="px-6 border-y border-[#30363d] bg-[#161b22]/30 relative overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[220px] bg-[#F97316]/6 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative max-w-4xl mx-auto py-20 text-center">
-          <p className="text-sm text-[#F97316] font-semibold uppercase tracking-widest mb-5">Our Philosophy</p>
-          <h2 className="text-5xl md:text-7xl font-bold text-white tracking-tight leading-none mb-6">
-            Process <span className="text-[#8b949e] font-light italic">over</span>{' '}
-            <span className="text-[#F97316]">Profits.</span>
-          </h2>
-          <p className="text-lg text-[#8b949e] leading-relaxed max-w-2xl mx-auto">
-            You can&apos;t control the outcome of a single trade. You can control how you take it.
-            Follow your rules, size your risk, journal honestly — and let the results take care of
-            themselves.
-          </p>
         </div>
       </section>
 
