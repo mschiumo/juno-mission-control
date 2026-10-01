@@ -178,9 +178,9 @@ export function formatTimeForDisplay(dateStr: string, options?: Intl.DateTimeFor
 // Keys derive from the EST *calendar day* (getTodayInEST), never from a raw
 // timestamp, so daylight-saving transitions cannot shift which period a date
 // falls in. Weeks are ISO-8601 (Monday start; week 1 holds the year's first
-// Thursday). NOTE: do NOT use the getPeriodKey copies in the journal API routes
-// (app/api/journal-insights, personal-journal-report) — those use UTC
-// `new Date()` and non-ISO week math.
+// Thursday). NOTE: do NOT use the getPeriodKey copies in lib/journal-insights
+// (ET-based but non-ISO week math, kept for archive-key continuity) or
+// app/api/personal-journal-report (UTC `new Date()`).
 // ────────────────────────────────────────────────────────────────────────────
 
 export type PeriodRecurrence = 'daily' | 'weekly' | 'monthly';

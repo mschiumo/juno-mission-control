@@ -10,6 +10,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { getRedisClient } from '@/lib/redis';
 import { getAllTrades } from '@/lib/db/trades-v2';
+import { getESTDateFromTimestamp, getTodayInEST } from '@/lib/date-utils';
 import type { Trade } from '@/types/trading';
 
 export interface JournalPrompt {
@@ -52,39 +53,55 @@ export interface GeneratedInsights {
   trades: Trade[];
 }
 
-export function getDateRange(period: string): { start: Date; end: Date } {
-  const now = new Date();
-  const end = new Date(now);
-  const start = new Date(now);
+function ymd(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
 
+/**
+ * Inclusive ET calendar-day bounds ('YYYY-MM-DD') of the current period:
+ * Monday (week) or the 1st (month) through today.
+ *
+ * Periods follow the ET trading calendar, not the server clock — Vercel runs
+ * in UTC, so `new Date()` math rolled "this month" over to the next month at
+ * 8 PM ET on the last day (and the week over on Sunday evening), leaving the
+ * report with an empty period.
+ */
+export function getPeriodDays(period: string): { startDate: string; endDate: string } {
+  const endDate = getTodayInEST();
+  const [y, m, d] = endDate.split('-').map(Number);
+  const start = new Date(Date.UTC(y, m - 1, d));
   if (period === 'week') {
-    // Go back to most recent Monday
-    const day = start.getDay();
-    const diff = day === 0 ? 6 : day - 1;
-    start.setDate(start.getDate() - diff);
+    const day = start.getUTCDay();
+    start.setUTCDate(start.getUTCDate() - (day === 0 ? 6 : day - 1));
   } else {
-    // month — first day of current month
-    start.setDate(1);
+    start.setUTCDate(1);
   }
-  start.setHours(0, 0, 0, 0);
-  end.setHours(23, 59, 59, 999);
+  return { startDate: ymd(start), endDate };
+}
 
-  return { start, end };
+/**
+ * Period bounds as Dates, for display only (noon UTC on each ET calendar day,
+ * so the day reads the same in any viewer timezone). Filter with getPeriodDays.
+ */
+export function getDateRange(period: string): { start: Date; end: Date } {
+  const { startDate, endDate } = getPeriodDays(period);
+  return {
+    start: new Date(`${startDate}T12:00:00.000Z`),
+    end: new Date(`${endDate}T12:00:00.000Z`),
+  };
 }
 
 export function getPeriodKey(period: string): string {
-  const now = new Date();
+  const { startDate } = getPeriodDays(period);
+  const [y, m] = startDate.split('-').map(Number);
   if (period === 'week') {
-    const day = now.getDay();
-    const diff = day === 0 ? 6 : day - 1;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - diff);
-    const jan1 = new Date(monday.getFullYear(), 0, 1);
+    const monday = new Date(`${startDate}T00:00:00.000Z`);
+    const jan1 = new Date(Date.UTC(y, 0, 1));
     const days = Math.floor((monday.getTime() - jan1.getTime()) / 86400000);
-    const week = Math.ceil((days + jan1.getDay() + 1) / 7);
-    return `${monday.getFullYear()}-W${String(week).padStart(2, '0')}`;
+    const week = Math.ceil((days + jan1.getUTCDay() + 1) / 7);
+    return `${y}-W${String(week).padStart(2, '0')}`;
   }
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return `${y}-${String(m).padStart(2, '0')}`;
 }
 
 export function getPeriodLabel(period: string, periodKey: string): string {
@@ -207,6 +224,7 @@ export async function generateJournalInsightsReport(
     throw new Error('ANTHROPIC_API_KEY is not configured');
   }
 
+  const { startDate, endDate } = getPeriodDays(period);
   const { start, end } = getDateRange(period);
   const redis = await getRedisClient();
 
@@ -218,8 +236,7 @@ export async function generateJournalInsightsReport(
     const data = await redis.hGetAll(key);
     if (!data?.id) continue;
 
-    const entryDate = new Date(data.date + 'T12:00:00');
-    if (entryDate >= start && entryDate <= end) {
+    if (data.date >= startDate && data.date <= endDate) {
       entries.push({
         id: data.id,
         date: data.date,
@@ -235,8 +252,10 @@ export async function generateJournalInsightsReport(
   // Fetch trades for the period straight from the DB (no HTTP round-trip)
   const allTrades = await getAllTrades(userId);
   const periodTrades = allTrades.filter((t) => {
-    const d = new Date(t.exitDate || t.entryDate);
-    return d >= start && d <= end;
+    const raw = t.exitDate || t.entryDate;
+    if (!raw) return false;
+    const day = getESTDateFromTimestamp(raw);
+    return day >= startDate && day <= endDate;
   });
 
   if (entries.length === 0 && periodTrades.length === 0) {
