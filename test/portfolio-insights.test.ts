@@ -4,6 +4,7 @@ import {
   summarizeIncome,
   summarizeCashFlows,
   positionWeights,
+  projectUpcomingDividends,
 } from '@/lib/portfolio-insights';
 import type { PortfolioActivity, PortfolioPosition } from '@/lib/db/portfolio-connection';
 
@@ -135,5 +136,66 @@ describe('positionWeights', () => {
 
   it('returns empty when nothing has a market value', () => {
     expect(positionWeights([position('AAA', null)])).toEqual([]);
+  });
+});
+
+describe('projectUpcomingDividends', () => {
+  const pos = (symbol: string, units: number): PortfolioPosition => ({
+    symbol, units, price: 50, avgCost: 50, costBasis: null, marketValue: units * 50, openPnl: null, accountId: 'acct-1',
+  });
+  const div = (symbol: string, date: string, amount: number) =>
+    activity({ type: 'DIVIDEND', symbol, date, amount, units: 0 });
+
+  it('projects a monthly payer one month past its last payment', () => {
+    const out = projectUpcomingDividends(
+      [div('JEPI', '2026-07-02', 50), div('JEPI', '2026-08-04', 50), div('JEPI', '2026-09-02', 50)],
+      [pos('JEPI', 100)],
+      '2026-09-20'
+    );
+    expect(out).toEqual([
+      expect.objectContaining({ symbol: 'JEPI', date: '2026-10-02', amount: 50, cadence: 'monthly', perShare: 0.5 }),
+    ]);
+  });
+
+  it('re-prices the last payout per share for shares sold since', () => {
+    const out = projectUpcomingDividends(
+      [
+        div('JEPI', '2026-08-04', 100),
+        div('JEPI', '2026-09-02', 100),
+        activity({ type: 'SELL', symbol: 'JEPI', date: '2026-09-09', units: -60, amount: 3000 }),
+      ],
+      [pos('JEPI', 40)],
+      '2026-09-20'
+    );
+    // 100 shares at the ex-date → $1/share × 40 held now.
+    expect(out[0]).toMatchObject({ amount: 40, perShare: 1 });
+  });
+
+  it('detects quarterly cadence, rolls weekends to Monday, and sorts soonest first', () => {
+    const out = projectUpcomingDividends(
+      [
+        div('XLE', '2026-03-24', 6), div('XLE', '2026-06-23', 6), div('XLE', '2026-09-22', 6),
+        div('SPYI', '2026-08-20', 60), div('SPYI', '2026-09-17', 60),
+      ],
+      [pos('XLE', 10), pos('SPYI', 100)],
+      '2026-10-01'
+    );
+    expect(out.map(u => [u.symbol, u.date, u.cadence])).toEqual([
+      ['SPYI', '2026-10-19', 'monthly'], // Oct 17 is a Saturday
+      ['XLE', '2026-12-22', 'quarterly'],
+    ]);
+  });
+
+  it('skips unheld symbols, single payments, and payers gone quiet', () => {
+    const out = projectUpcomingDividends(
+      [
+        div('LQDW', '2026-08-05', 50), div('LQDW', '2026-09-03', 50),
+        div('SO', '2026-08-18', 1),
+        div('AAPL', '2020-08-10', 1), div('AAPL', '2020-11-09', 1),
+      ],
+      [pos('SO', 5), pos('AAPL', 5)],
+      '2026-10-01'
+    );
+    expect(out).toEqual([]);
   });
 });

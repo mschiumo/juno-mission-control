@@ -3,7 +3,8 @@
  *
  * Everything the Portfolio tab needs in one call: connection status, the
  * stored snapshot (accounts, positions, derived value series), and analysis
- * derived from the activity ledger (recurring flows, income, cash flows).
+ * derived from the activity ledger (recurring flows, income, projected
+ * upcoming dividends, cash flows).
  */
 
 import { NextResponse } from 'next/server';
@@ -19,6 +20,7 @@ import {
   summarizeIncome,
   summarizeCashFlows,
   positionWeights,
+  projectUpcomingDividends,
 } from '@/lib/portfolio-insights';
 import { getTodayInEST } from '@/lib/date-utils';
 
@@ -52,6 +54,9 @@ export async function GET(): Promise<NextResponse> {
       weights: snapshot ? positionWeights(snapshot.positions) : [],
       recurring: detectRecurringFlows(activities),
       income: summarizeIncome(activities, today),
+      upcomingDividends: snapshot
+        ? projectUpcomingDividends(activities, snapshot.positions, today)
+        : [],
       cashFlows: summarizeCashFlows(activities, today),
       activitiesCount: activities.length,
     },

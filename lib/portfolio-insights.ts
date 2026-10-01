@@ -165,3 +165,122 @@ export function positionWeights(
     }))
     .sort((a, b) => b.weight - a.weight);
 }
+
+/** A projected upcoming dividend for a currently-held position. */
+export interface UpcomingDividend {
+  symbol: string;
+  /** Projected pay date (YYYY-MM-DD), rolled forward to on/after today. */
+  date: string;
+  /** Estimated cash amount: last per-share payout × shares held now. */
+  amount: number;
+  cadence: 'monthly' | 'quarterly' | 'semiannual' | 'annual';
+  /** Per-share payout inferred from the most recent payment. */
+  perShare: number;
+  /** Date of the most recent observed payment. */
+  lastPaidDate: string;
+}
+
+const CADENCE_MONTHS: Record<UpcomingDividend['cadence'], number> = {
+  monthly: 1,
+  quarterly: 3,
+  semiannual: 6,
+  annual: 12,
+};
+
+/** Ex-dividend typically lands a few days before the pay date. */
+const EX_DATE_LEAD_DAYS = 3;
+
+/** Add calendar months to a YYYY-MM-DD, clamping to month end; weekends roll to Monday. */
+function addMonths(date: string, months: number): string {
+  const [y, m, d] = date.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(y, m - 1 + months + 1, 0)).getUTCDate();
+  const out = new Date(Date.UTC(y, m - 1 + months, Math.min(d, lastDay)));
+  const dow = out.getUTCDay();
+  if (dow === 6) out.setUTCDate(out.getUTCDate() + 2);
+  else if (dow === 0) out.setUTCDate(out.getUTCDate() + 1);
+  return out.toISOString().slice(0, 10);
+}
+
+function shiftDays(date: string, days: number): string {
+  return new Date(Date.parse(date) + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * Project the next dividend for each currently-held position from its payment
+ * history. Cadence comes from the median gap between past payments (needs at
+ * least two); the amount re-prices the last payment per share — shares held
+ * around its ex-date are reconstructed by backing trades out of today's
+ * position — so buys/sells since then are reflected. Payers that have gone
+ * quiet for more than two cycles are dropped. Sorted soonest first.
+ */
+export function projectUpcomingDividends(
+  activities: PortfolioActivity[],
+  positions: PortfolioPosition[],
+  today: string
+): UpcomingDividend[] {
+  const held = new Map<string, number>();
+  for (const p of positions) {
+    if (p.units > 0) held.set(p.symbol, (held.get(p.symbol) ?? 0) + p.units);
+  }
+
+  // symbol → date → summed payout (multiple accounts can pay the same day).
+  const paid = new Map<string, Map<string, number>>();
+  for (const a of activities) {
+    if (a.type !== 'DIVIDEND' || !a.symbol || !held.has(a.symbol)) continue;
+    const amount = Math.abs(a.amount ?? 0);
+    if (amount <= 0) continue;
+    const byDate = paid.get(a.symbol) ?? new Map<string, number>();
+    byDate.set(a.date, (byDate.get(a.date) ?? 0) + amount);
+    paid.set(a.symbol, byDate);
+  }
+
+  const out: UpcomingDividend[] = [];
+  for (const [symbol, byDate] of paid) {
+    const dates = [...byDate.keys()].sort();
+    if (dates.length < 2) continue;
+
+    const recent = dates.slice(-7);
+    const gaps: number[] = [];
+    for (let i = 1; i < recent.length; i++) gaps.push(daysBetween(recent[i - 1], recent[i]));
+    gaps.sort((a, b) => a - b);
+    const median = gaps[Math.floor(gaps.length / 2)];
+
+    let cadence: UpcomingDividend['cadence'] | null = null;
+    if (median >= 20 && median <= 45) cadence = 'monthly';
+    else if (median >= 70 && median <= 110) cadence = 'quarterly';
+    else if (median >= 160 && median <= 200) cadence = 'semiannual';
+    else if (median >= 330 && median <= 400) cadence = 'annual';
+    if (!cadence) continue;
+
+    const lastPaidDate = dates[dates.length - 1];
+    const step = CADENCE_MONTHS[cadence];
+    if (daysBetween(lastPaidDate, today) > step * 2 * 31) continue;
+
+    // Shares on the approximate ex-date = today's units minus trades after it.
+    const currentUnits = held.get(symbol)!;
+    const exCutoff = shiftDays(lastPaidDate, -EX_DATE_LEAD_DAYS);
+    let unitsAtEx = currentUnits;
+    for (const a of activities) {
+      if (a.symbol === symbol && a.units && a.date > exCutoff) unitsAtEx -= a.units;
+    }
+    const lastAmount = byDate.get(lastPaidDate)!;
+    // A ledger gap (e.g. transferred-in shares) can make the reconstruction
+    // nonsensical — fall back to the last payout unscaled.
+    const perShare = unitsAtEx > 0.0001 ? lastAmount / unitsAtEx : lastAmount / currentUnits;
+    const amount = perShare * currentUnits;
+
+    let next = addMonths(lastPaidDate, step);
+    for (let n = 2; next < today; n++) next = addMonths(lastPaidDate, step * n);
+
+    out.push({
+      symbol,
+      date: next,
+      amount: Number(amount.toFixed(2)),
+      cadence,
+      perShare: Number(perShare.toFixed(4)),
+      lastPaidDate,
+    });
+  }
+
+  return out.sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount);
+}
