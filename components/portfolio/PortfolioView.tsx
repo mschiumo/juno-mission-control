@@ -285,7 +285,7 @@ function shortDate(d: string): string {
 }
 
 /**
- * Projected upcoming dividends: the soonest payment headlines the card, with
+ * Projected dividends still due this month: the soonest payment headlines the card, with
  * the next few listed underneath. Estimates come from projectUpcomingDividends.
  */
 function NextDividendsCard({ upcoming }: { upcoming: UpcomingDividend[] }) {
@@ -293,19 +293,19 @@ function NextDividendsCard({ upcoming }: { upcoming: UpcomingDividend[] }) {
   // Every payer on the soonest date rolls into the headline figure.
   const sameDay = first ? upcoming.filter(u => u.date === first.date) : [];
   const headline = sameDay.reduce((s, u) => s + u.amount, 0);
-  const later = rest.filter(u => u.date !== first?.date).slice(0, 3);
+  const later = rest.filter(u => u.date !== first?.date).slice(0, 4);
   return (
     <div className="rounded-xl p-5" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
       <div className="flex items-center gap-2 mb-2.5">
         <CalendarClock className="w-4 h-4" style={{ color: 'var(--info)' }} />
         <span className="text-[11px] uppercase tracking-wider font-semibold inline-flex items-center" style={{ color: 'var(--text-tertiary)' }}>
           Next Dividend
-          <InfoTooltip text="Estimated from your payment history: cadence from past pay dates, amount = last per-share payout × shares held now. Actual dates and amounts may differ." />
+          <InfoTooltip text="This month's remaining payouts, estimated from your payment history: cadence from past pay dates, amount = last per-share payout × shares held now. Actual dates and amounts may differ." />
         </span>
       </div>
       {first ? (
         <>
-          <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>~{usd(headline)}</p>
+          <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{usd(headline)}</p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
             {sameDay.map(u => u.symbol).join(', ')} · {shortDate(first.date)}
           </p>
@@ -316,7 +316,7 @@ function NextDividendsCard({ upcoming }: { upcoming: UpcomingDividend[] }) {
                   <span style={{ color: 'var(--text-secondary)' }}>
                     <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{u.symbol}</span> · {shortDate(u.date)}
                   </span>
-                  <span style={{ color: 'var(--text-secondary)' }}>~{usd(u.amount)}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{usd(u.amount)}</span>
                 </li>
               ))}
             </ul>
@@ -325,7 +325,7 @@ function NextDividendsCard({ upcoming }: { upcoming: UpcomingDividend[] }) {
       ) : (
         <>
           <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>—</p>
-          <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>Not enough payment history yet</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>No more payouts expected this month</p>
         </>
       )}
     </div>

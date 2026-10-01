@@ -54,8 +54,11 @@ export async function GET(): Promise<NextResponse> {
       weights: snapshot ? positionWeights(snapshot.positions) : [],
       recurring: detectRecurringFlows(activities),
       income: summarizeIncome(activities, today),
+      // Current ET month only — the card shows what's still due this month.
       upcomingDividends: snapshot
-        ? projectUpcomingDividends(activities, snapshot.positions, today)
+        ? projectUpcomingDividends(activities, snapshot.positions, today).filter(
+            u => u.date.slice(0, 7) === today.slice(0, 7)
+          )
         : [],
       cashFlows: summarizeCashFlows(activities, today),
       activitiesCount: activities.length,
