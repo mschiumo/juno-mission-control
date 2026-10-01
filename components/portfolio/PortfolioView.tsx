@@ -305,7 +305,7 @@ function NextDividendsCard({ upcoming }: { upcoming: UpcomingDividend[] }) {
       </div>
       {first ? (
         <>
-          <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>~{usd(headline)}</p>
+          <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{usd(headline)}</p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
             {sameDay.map(u => u.symbol).join(', ')} · {shortDate(first.date)}
           </p>
@@ -316,7 +316,7 @@ function NextDividendsCard({ upcoming }: { upcoming: UpcomingDividend[] }) {
                   <span style={{ color: 'var(--text-secondary)' }}>
                     <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{u.symbol}</span> · {shortDate(u.date)}
                   </span>
-                  <span style={{ color: 'var(--text-secondary)' }}>~{usd(u.amount)}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{usd(u.amount)}</span>
                 </li>
               ))}
             </ul>
