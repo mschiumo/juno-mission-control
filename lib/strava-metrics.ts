@@ -12,11 +12,29 @@ export interface ActivitySummary {
   achievement_count?: number; // segment + best-effort achievements
   pr_count?: number; // personal records set on this activity
   calories?: number; // detail-endpoint value, cached server-side; absent until fetched
+  average_heartrate?: number; // bpm — only when recorded with a HR monitor
 }
 
 export const RUN_SPORTS = new Set(['Run', 'TrailRun', 'VirtualRun']);
 export const WALK_SPORTS = new Set(['Walk', 'Hike']);
 const METERS_PER_MILE = 1609.344;
+
+const SPORT_ICONS: Record<string, string> = {
+  Run: '🏃', TrailRun: '🏃', VirtualRun: '🏃',
+  Ride: '🚴', MountainBikeRide: '🚵', VirtualRide: '🚴', GravelRide: '🚴',
+  WeightTraining: '🏋️', Workout: '💪', Crossfit: '💪', HighIntensityIntervalTraining: '💪',
+  Swim: '🏊', Walk: '🚶', Hike: '🥾', Yoga: '🧘', Golf: '⛳', Tennis: '🎾',
+};
+
+export function sportIcon(sport: string): string {
+  return SPORT_ICONS[sport] || '⚡';
+}
+
+/** "WeightTraining" → "Weight Training". */
+export function sportLabel(sport: string): string {
+  if (sport === 'HighIntensityIntervalTraining') return 'HIIT';
+  return sport.replace(/([a-z])([A-Z])/g, '$1 $2');
+}
 
 export function metersToMiles(meters: number): number {
   return meters / METERS_PER_MILE;
@@ -36,8 +54,9 @@ export function fmtDuration(seconds: number): string {
 
 /** Seconds-per-mile → "M:SS/mi". */
 export function fmtPace(secPerMile: number): string {
-  const m = Math.floor(secPerMile / 60);
-  const s = Math.round(secPerMile % 60);
+  const total = Math.round(secPerMile); // round first so 479.6s → 8:00, not 7:60
+  const m = Math.floor(total / 60);
+  const s = total % 60;
   return `${m}:${String(s).padStart(2, '0')}/mi`;
 }
 

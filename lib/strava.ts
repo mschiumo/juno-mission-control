@@ -30,6 +30,7 @@ export interface StravaActivity {
   achievement_count: number; // segment + best-effort achievements on this activity
   pr_count: number; // personal records set on this activity
   calories?: number; // from the detail endpoint (attachCalories) — absent until fetched
+  average_heartrate?: number; // bpm — only when recorded with a HR monitor
 }
 
 function tokenKey(userId: string) {
@@ -174,7 +175,11 @@ export async function fetchRecentActivities(userId: string, afterUnixSec: number
   if (!res.ok) throw new Error(`Strava activities fetch failed (${res.status}): ${await res.text()}`);
 
   const raw = (await res.json()) as StravaActivity[];
-  return raw.map((a) => ({
+  return raw.map(toActivity);
+}
+
+function toActivity(a: StravaActivity): StravaActivity {
+  return {
     id: a.id,
     name: a.name,
     sport_type: a.sport_type,
@@ -184,7 +189,75 @@ export async function fetchRecentActivities(userId: string, afterUnixSec: number
     start_date_local: a.start_date_local,
     achievement_count: a.achievement_count ?? 0,
     pr_count: a.pr_count ?? 0,
-  }));
+    ...(a.average_heartrate ? { average_heartrate: a.average_heartrate } : {}),
+  };
+}
+
+const HISTORY_KEY_PREFIX = 'strava:history';
+const HISTORY_TTL_SEC = 30 * 60;
+const HISTORY_PAGE_SIZE = 200;
+const HISTORY_MAX_PAGES = 10; // 2,000 activities — far beyond a 2-year window
+
+export interface ActivityHistory {
+  activities: StravaActivity[];
+  fetchedAt: string; // ISO
+}
+
+/**
+ * Long-window activity history for the Progress modal: pages through
+ * /athlete/activities from `afterUnixSec` forward. The list (without
+ * calories — those come from the per-activity cache) is cached in Redis for
+ * 30 minutes so reopening the modal doesn't re-page Strava; `force` bypasses
+ * the cache. Returns null when Strava isn't connected.
+ */
+export async function fetchActivityHistory(
+  userId: string,
+  afterUnixSec: number,
+  { force = false }: { force?: boolean } = {}
+): Promise<ActivityHistory | null> {
+  const redis = await getRedisClient();
+  const cacheKey = `${HISTORY_KEY_PREFIX}:${userId}:${afterUnixSec}`;
+
+  if (!force) {
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) return JSON.parse(cached) as ActivityHistory;
+    } catch {
+      /* cache miss is fine */
+    }
+  }
+
+  const accessToken = await getValidAccessToken(userId);
+  if (!accessToken) return null;
+
+  const activities: StravaActivity[] = [];
+  for (let page = 1; page <= HISTORY_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      after: String(afterUnixSec),
+      per_page: String(HISTORY_PAGE_SIZE),
+      page: String(page),
+    });
+    const res = await fetch(`https://www.strava.com/api/v3/athlete/activities?${params}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (res.status === 401) {
+      await deleteTokens(userId);
+      return null;
+    }
+    if (!res.ok) throw new Error(`Strava activities fetch failed (${res.status}): ${await res.text()}`);
+    const raw = (await res.json()) as StravaActivity[];
+    activities.push(...raw.map(toActivity));
+    if (raw.length < HISTORY_PAGE_SIZE) break;
+  }
+
+  activities.sort((a, b) => b.start_date_local.localeCompare(a.start_date_local));
+  const history: ActivityHistory = { activities, fetchedAt: new Date().toISOString() };
+  try {
+    await redis.set(cacheKey, JSON.stringify(history), { EX: HISTORY_TTL_SEC });
+  } catch {
+    /* cache write failure is non-fatal */
+  }
+  return history;
 }
 
 const CALORIES_KEY_PREFIX = 'strava:calories';
