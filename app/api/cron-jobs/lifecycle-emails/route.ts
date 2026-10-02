@@ -102,7 +102,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         ) {
           const sent = await sendEmail({
             to: user.email,
-            subject: 'Your free Gold week ends tomorrow',
+            subject: 'Your free Gold trial ends tomorrow',
             react: TrialEndingEmail({ name: user.name, expiresAt: record.expiresAt }),
             replyTo: 'confluencetradingsupport@gmail.com',
           });

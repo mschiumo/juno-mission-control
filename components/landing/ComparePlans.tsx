@@ -142,7 +142,7 @@ export default function ComparePlans() {
         className="text-center text-sm text-[#7C858F] mx-auto"
         style={{ maxWidth: 660, marginTop: 52, lineHeight: 1.65 }}
       >
-        Silver is free forever. Every new account can also try Gold free for 7 days — no credit
+        Silver is free forever. Every new account can also try Gold free for 14 days — no credit
         card required. Have a referral code? Redeem it on the Plans page for a free window of Gold.
       </p>
     </div>

@@ -84,7 +84,7 @@ export function WelcomeEmail({ name }: { name?: string }) {
           </Text>
         </div>
         <div style={stepBox}>
-          <Text style={stepTitle}>3 · Try Gold free for a week</Text>
+          <Text style={stepTitle}>3 · Try Gold free for 14 days</Text>
           <Text style={stepText}>
             Connect your brokerage so the journal fills itself, get the AI morning briefing, and
             let the AI coach read your journal. No card required — it just ends if you don&apos;t
@@ -104,7 +104,7 @@ export function WelcomeEmail({ name }: { name?: string }) {
               fontWeight: 700,
             }}
           >
-            Start your free Gold week
+            Start your free Gold trial
           </Button>
         </Section>
 

@@ -48,7 +48,7 @@ export function CheckinEmail({ name }: { name?: string }) {
           kind of feedback.
         </Text>
         <Text style={body}>
-          And if you haven&apos;t tried the free Gold week yet: connecting your brokerage means
+          And if you haven&apos;t tried the free 14-day Gold trial yet: connecting your brokerage means
           the journal fills itself, and the AI coaching reports tend to be the moment the tool
           clicks for people.
         </Text>

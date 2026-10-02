@@ -55,7 +55,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       {
         success: false,
         code: 'BILLING_NOT_LIVE',
-        error: 'Payments are almost ready. Start the free week of Gold, or check back soon.',
+        error: 'Payments are almost ready. Start the free 14-day Gold trial, or check back soon.',
         selection: { tier, cycle, price },
       },
       { status: 503 },

@@ -288,7 +288,7 @@ export function FaqArticle() {
     ],
     [
       'A section this guide describes isn’t in my tab bar. Why?',
-      <>It belongs to a higher plan. Sections outside your plan aren’t rendered at all — there are no locked or teased panels. Free Silver covers the Journal, imports, Trade Management, Performance, Profit Projection, Market News and these docs; Gold adds brokerage sync, the full Market tab, AI insights and Goals; Platinum adds Portfolio and Agents. Your current tier is on your profile under <Em>Plan</Em>, and every account gets one free week of Gold — see <DocLink doc="plans">Plans &amp; Your Account</DocLink>.</>,
+      <>It belongs to a higher plan. Sections outside your plan aren’t rendered at all — there are no locked or teased panels. Free Silver covers the Journal, imports, Trade Management, Performance, Profit Projection, Market News and these docs; Gold adds brokerage sync, the full Market tab, AI insights and Goals; Platinum adds Portfolio and Agents. Your current tier is on your profile under <Em>Plan</Em>, and every account gets a free 14-day Gold trial — see <DocLink doc="plans">Plans &amp; Your Account</DocLink>.</>,
     ],
     [
       'What happens to my data if I cancel or my trial ends?',

@@ -5,7 +5,7 @@
  *
  * Signed-in users choose a tier and billing cycle here. New accounts land
  * here from the app shell until they hold a plan. Fully working today:
- * the 7-day Gold trial and referral-code redemption. Paid checkout posts to
+ * the 14-day Gold trial and referral-code redemption. Paid checkout posts to
  * /api/billing/checkout, which is the seam Stripe plugs into — until it goes
  * live the server answers BILLING_NOT_LIVE and the UI steers to the trial.
  */
@@ -331,7 +331,7 @@ export default function PlansPage() {
               <Sparkles className="w-5 h-5 text-[#F97316] shrink-0" />
               <div>
                 <p className="text-sm font-semibold">
-                  {picked ? `You picked ${TIER_LABELS[picked]} — try Gold free for 7 days` : 'Try Gold free for 7 days'}
+                  {picked ? `You picked ${TIER_LABELS[picked]} — try Gold free for 14 days` : 'Try Gold free for 14 days'}
                 </p>
                 <p className="text-xs text-[#8b949e]">
                   Full Gold access — brokerage sync, AI insights, briefings. No card required.
@@ -344,7 +344,7 @@ export default function PlansPage() {
               className="shrink-0 px-5 py-2.5 rounded-lg bg-[#F97316] hover:bg-[#fb8c3c] text-white text-sm font-semibold transition-colors disabled:opacity-60 inline-flex items-center gap-2"
             >
               {busy === 'trial' && <Loader2 className="w-4 h-4 animate-spin" />}
-              Start free week
+              Start free trial
             </button>
           </div>
         )}

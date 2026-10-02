@@ -135,7 +135,7 @@ export async function hasUsedTrial(userId: string): Promise<boolean> {
 }
 
 /**
- * Start the one free week of Gold. Refuses if the trial was already used or
+ * Start the one free two-week Gold trial. Refuses if the trial was already used or
  * the user already holds an active record of Gold or better.
  */
 export async function startTrial(

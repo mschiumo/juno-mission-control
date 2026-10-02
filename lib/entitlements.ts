@@ -188,9 +188,9 @@ export const TIER_LABELS: Record<Tier, string> = {
 // Trial and referral windows.
 // ---------------------------------------------------------------------------
 
-/** Everyone gets one free week of Gold. */
+/** Everyone gets one free two-week trial of Gold. */
 export const TRIAL_TIER: Tier = 'gold';
-export const TRIAL_DAYS = 7;
+export const TRIAL_DAYS = 14;
 
 /**
  * Referral codes redeemable at checkout. Kept as data so adding a code is a

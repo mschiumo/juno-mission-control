@@ -1179,7 +1179,7 @@ export default function LandingPage() {
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Costs less than one bad trade.</h2>
             <p className="text-[#8b949e] max-w-xl mx-auto text-lg">
               One avoided mistake pays for the year. Start free — journal forever on Silver, and
-              try everything in Gold for 7 days. No card required.
+              try everything in Gold for 14 days. No card required.
             </p>
           </div>
 
@@ -1321,7 +1321,7 @@ export default function LandingPage() {
                   {plan.tier === 'silver'
                     ? 'Create free account'
                     : plan.tier === 'gold'
-                      ? 'Start 7-day free trial'
+                      ? 'Start 14-day free trial'
                       : PLATINUM_COMING_SOON
                         ? 'Coming soon — start with Gold'
                         : 'Start with the free trial'}

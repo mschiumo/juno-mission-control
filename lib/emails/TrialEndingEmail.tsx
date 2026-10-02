@@ -71,7 +71,7 @@ export function TrialEndingEmail({
   });
   return (
     <PersonalEmailLayout
-      previewText={`Your free Gold week ends ${when} — here's exactly what happens.`}
+      previewText={`Your free Gold trial ends ${when} — here's exactly what happens.`}
       footerReason="You're receiving this because your free Gold trial is ending."
     >
       <Section style={{ padding: '0 24px' }}>
