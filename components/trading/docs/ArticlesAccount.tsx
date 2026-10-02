@@ -67,10 +67,10 @@ export function PlansArticle() {
         </Note>
       </DocSection>
 
-      <DocSection title="Trying Gold free for a week">
+      <DocSection title="Trying Gold free for 14 days">
         <P>
-          Every account gets one <Em>7-day Gold trial</Em> — full Gold access, no card required. Open{' '}
-          <UI>Choose your plan</UI> and click <UI>Start free week</UI>. Your profile then shows{' '}
+          Every account gets one <Em>14-day Gold trial</Em> — full Gold access, no card required. Open{' '}
+          <UI>Choose your plan</UI> and click <UI>Start free trial</UI>. Your profile then shows{' '}
           <Em>Gold · Free trial</Em> with the date access ends.
         </P>
         <Steps>

@@ -1,7 +1,7 @@
 /**
  * POST /api/user/plan/trial
  *
- * Start the one free week of Gold. Idempotence and eligibility live in
+ * Start the one free two-week Gold trial. Idempotence and eligibility live in
  * startTrial(); this route is just auth + transport.
  */
 

@@ -102,7 +102,7 @@ export async function GET(request: NextRequest): Promise<NextResponse | Response
     const SUBJECTS: Record<string, string> = {
       welcome: '[TEST] Welcome to ConfluenceTrading — your journal is ready',
       checkin: '[TEST] How is ConfluenceTrading working for you?',
-      trial: '[TEST] Your free Gold week ends tomorrow',
+      trial: '[TEST] Your free Gold trial ends tomorrow',
       digest: '[TEST] ConfluenceTrading metrics digest',
       'ai-failure': '[TEST] Anthropic credits are exhausted',
     };

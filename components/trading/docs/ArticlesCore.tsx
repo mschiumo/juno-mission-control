@@ -84,7 +84,7 @@ export function GettingStartedArticle() {
           <PageLink href="/plans">See plans &amp; pricing</PageLink>
         </div>
         <P>
-          Everyone gets one free week of Gold to try the paid side. Full details:{' '}
+          Everyone gets a free 14-day Gold trial to try the paid side. Full details:{' '}
           <DocLink doc="plans">Plans &amp; Your Account</DocLink>.
         </P>
       </DocSection>
