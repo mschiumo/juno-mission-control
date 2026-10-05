@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronLeft, ChevronRight, Loader2, CalendarDays, Target, Check, Minus, BookOpen, Moon } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
@@ -69,8 +69,12 @@ function EntryPage({ entry, date }: { entry: Entry | undefined; date: string }) 
     <article key={date} className="animate-[fadeIn_200ms_ease-out]">
       {/* Masthead */}
       <header className="flex items-start gap-4 pb-5 mb-5 border-b border-[#30363d]">
-        <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-[#F97316]/25 to-[#f59e0b]/10 ring-1 ring-[#F97316]/30 flex items-center justify-center text-3xl leading-none">
-          {entry ? mood || '📓' : '·'}
+        <div className={`flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-3xl leading-none ${
+          entry
+            ? 'bg-gradient-to-br from-[#F97316]/25 to-[#f59e0b]/10 ring-1 ring-[#F97316]/30'
+            : 'border border-dashed border-[#30363d]'
+        }`}>
+          {entry ? mood || '📓' : null}
         </div>
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-[0.18em] text-[#F97316] font-semibold">
@@ -148,6 +152,15 @@ export default function JournalCalendarModal({ onClose }: { onClose: () => void 
   const [error, setError] = useState<string | null>(null);
   const [month, setMonth] = useState(today.slice(0, 7));
   const [selected, setSelected] = useState<string>(today);
+  const readerRef = useRef<HTMLDivElement>(null);
+
+  // On phones the reader sits below the calendar — bring it into view on a pick.
+  const pick = useCallback((date: string) => {
+    setSelected(date);
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      requestAnimationFrame(() => readerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -290,7 +303,7 @@ export default function JournalCalendarModal({ onClose }: { onClose: () => void 
                   return (
                     <button
                       key={date}
-                      onClick={() => setSelected(date)}
+                      onClick={() => pick(date)}
                       disabled={isFuture}
                       title={fmt(date, { weekday: 'long', month: 'short', day: 'numeric' }) + (entry ? '' : ' — no entry')}
                       className={`relative aspect-square rounded-xl flex flex-col items-center justify-center transition-all duration-150 disabled:cursor-default ${
@@ -331,7 +344,7 @@ export default function JournalCalendarModal({ onClose }: { onClose: () => void 
             </aside>
 
             {/* Reader */}
-            <div className="flex flex-col min-h-0">
+            <div ref={readerRef} className="flex flex-col min-h-0">
               <div className="flex-1 md:overflow-y-auto px-5 sm:px-8 py-6">
                 <div className="max-w-2xl mx-auto">
                   <EntryPage entry={entries[selected]} date={selected} />
