@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, ClipboardList, AlertTriangle, CheckCircle2, Minus, Moon, MoreVertical, Pause, Play, SkipForward } from 'lucide-react';
+import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, BarChart3, Minus, Moon, MoreVertical, Pause, Play, SkipForward } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -29,6 +29,8 @@ import {
   frequencyLabel,
   frequencyPeriod,
 } from '@/lib/habit-frequency';
+import { isWeekdayOnlyHabit } from '@/lib/habit-progress';
+import HabitProgressModal from '@/components/HabitProgressModal';
 
 interface Habit {
   id: string;
@@ -157,18 +159,6 @@ function withToggle(habits: Habit[], habitId: string, completed: boolean): Habit
       fulfilled: completions >= goalOf(h),
     };
   });
-}
-
-// Trading habits are hidden on Sat/Sun (market closed). Habit ids aren't stable
-// slugs across users, so match the seeded ids AND names, plus anything the user
-// has explicitly marked as weekdays-frequency or trading-category.
-const TRADING_HABIT_IDS = ['market-brief', 'trade', 'trade-journal'];
-
-function isWeekdayOnlyHabit(habit: Habit): boolean {
-  if (habit.frequency === 'weekdays' || habit.category === 'trading') return true;
-  if (TRADING_HABIT_IDS.includes(habit.id)) return true;
-  const name = habit.name.trim().toLowerCase();
-  return name === 'trade' || name === 'trade journal' || name.startsWith('read market brief');
 }
 
 function isMarketClosedToday(): boolean {
@@ -492,9 +482,7 @@ export default function HabitCard() {
   const [newHabitTarget, setNewHabitTarget] = useState('Daily');
   const [newHabitFrequency, setNewHabitFrequency] = useState<HabitFrequency>('daily');
 
-  // Report modal state
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [reportReady, setReportReady] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
 
   // Sensors for drag and drop
   const sensors = useSensors(
@@ -904,41 +892,6 @@ export default function HabitCard() {
   const dayLabels = getDayLabels();
   const hasPendingChanges = pendingChanges.size > 0;
 
-  const computeReport = () => {
-    const now = new Date();
-    const reportHabits = habits.filter(h => !h.paused);
-    const analysis = reportHabits.map(h => {
-      const goal = goalOf(h);
-      const completions = completionsOf(h);
-      const rate = Math.min(100, Math.round((completions / goal) * 100));
-      return {
-        ...h,
-        weeklyCompletions: completions,
-        weeklyGoal: goal,
-        weeklyRate: rate,
-        unit: periodOf(h) === 'month' ? 'month' : 'week',
-        tier: (rate >= 71 ? 'strong' : rate >= 43 ? 'moderate' : 'struggling') as 'strong' | 'moderate' | 'struggling',
-      };
-    });
-    const strong     = analysis.filter(h => h.tier === 'strong');
-    const moderate   = analysis.filter(h => h.tier === 'moderate');
-    const struggling = analysis.filter(h => h.tier === 'struggling');
-    const recommendations: string[] = [];
-    struggling.slice(0, 3).forEach(h => {
-      if (h.weeklyRate === 0) recommendations.push(`"${h.name}" hasn't been logged once this ${h.unit} — consider adjusting its time slot.`);
-      else recommendations.push(`"${h.name}" is short of its goal (${h.weeklyCompletions}/${h.weeklyGoal} this ${h.unit}) — try anchoring it to an existing routine.`);
-    });
-    if (strong.length === reportHabits.length && reportHabits.length > 0)
-      recommendations.push('You\'re hitting every habit\'s goal. Consider raising the bar or adding a new challenge.');
-    if (stats.weeklyCompletion < 40 && reportHabits.length > 3)
-      recommendations.push('With many habits tracked, focus on your top 2–3 until consistency builds.');
-    if (!reportHabits.some(isDone) && now.getHours() >= 10)
-      recommendations.push('No habits logged yet today — you still have time to build momentum.');
-    if (recommendations.length === 0)
-      recommendations.push('Solid week overall. Keep the momentum going and stay consistent.');
-    return { analysis, strong, moderate, struggling, recommendations, generatedAt: now };
-  };
-
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col max-h-[900px] xl:h-[900px]">
       {/* Header */}
@@ -954,14 +907,15 @@ export default function HabitCard() {
         <div className="flex items-center gap-1">
           <div className="relative group">
             <button
-              onClick={() => { setReportReady(false); setShowReportModal(true); }}
+              onClick={() => setShowProgress(true)}
               disabled={habits.length === 0}
+              aria-label="Habit progress"
               className="p-1.5 bg-[#F97316]/15 hover:bg-[#F97316]/30 rounded-lg transition-colors disabled:opacity-30"
             >
-              <ClipboardList className="w-3.5 h-3.5 text-[#F97316]" />
+              <BarChart3 className="w-3.5 h-3.5 text-[#F97316]" />
             </button>
             <div className="absolute top-full right-0 mt-1.5 px-2 py-1 bg-[#30363d] text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-              Generate Report
+              Progress
             </div>
           </div>
           <div className="relative group">
@@ -1190,106 +1144,7 @@ export default function HabitCard() {
         </div>
       )}
 
-      {/* Habits Report Modal */}
-      {showReportModal && (() => {
-        const report = reportReady ? computeReport() : null;
-        return (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#30363d] flex-shrink-0">
-                <div className="flex items-center gap-2">
-                  <ClipboardList className="w-4 h-4 text-[#F97316]" />
-                  <h3 className="text-sm font-semibold text-white">Habits Report</h3>
-                </div>
-                <button onClick={() => setShowReportModal(false)} className="p-1 hover:bg-[#30363d] rounded-lg transition-colors">
-                  <X className="w-4 h-4 text-[#8b949e]" />
-                </button>
-              </div>
-
-              {!reportReady ? (
-                <div className="px-5 py-6 flex flex-col items-center text-center gap-4">
-                  <div className="w-14 h-14 rounded-full bg-[#F97316]/10 flex items-center justify-center">
-                    <ClipboardList className="w-7 h-7 text-[#F97316]" />
-                  </div>
-                  <div>
-                    <p className="text-white font-medium mb-1">Generate a Habits Report?</p>
-                    <p className="text-xs text-[#8b949e] leading-relaxed">Analyzes your last 7 days to surface what&apos;s working, what needs attention, and what to focus on next.</p>
-                  </div>
-                  <div className="flex gap-3 w-full pt-2">
-                    <button onClick={() => setShowReportModal(false)} className="flex-1 px-4 py-2 bg-[#30363d] text-white rounded-lg hover:bg-[#484f58] transition-colors text-sm">Cancel</button>
-                    <button onClick={() => setReportReady(true)} className="flex-1 px-4 py-2 bg-[#F97316] text-white rounded-lg hover:bg-[#ff8c5a] transition-colors text-sm font-medium">Generate Report</button>
-                  </div>
-                </div>
-              ) : report && (
-                <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-                  <p className="text-[10px] text-[#8b949e]">Generated {report.generatedAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })} EST</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { label: 'This Week', value: `${stats.weeklyCompletion}%` },
-                      { label: 'Today', value: `${stats.completedToday}/${stats.totalHabits}` },
-                      { label: 'Best Streak', value: `${stats.longestStreak}d` },
-                    ].map(s => (
-                      <div key={s.label} className="bg-[#0d1117] border border-[#30363d] rounded-lg p-2.5 text-center">
-                        <div className="text-base font-bold text-[#F97316]">{s.value}</div>
-                        <div className="text-[10px] text-[#8b949e] mt-0.5">{s.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-2"><TrendingUp className="w-3.5 h-3.5 text-[#F97316]" /><span className="text-xs font-semibold text-[#F97316]">Recommendations</span></div>
-                    <div className="space-y-2">
-                      {report.recommendations.map((rec, i) => (
-                        <div key={i} className="flex gap-2 text-xs text-[#8b949e] leading-relaxed">
-                          <span className="text-[#F97316] flex-shrink-0 font-bold">→</span><span>{rec}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {report.strong.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-2"><CheckCircle2 className="w-3.5 h-3.5 text-[#22c55e]" /><span className="text-xs font-semibold text-[#22c55e]">On Track</span><span className="text-[10px] text-[#8b949e]">({report.strong.length})</span></div>
-                      <div className="space-y-1.5">
-                        {report.strong.map(h => (
-                          <div key={h.id} className="flex items-center justify-between bg-[#22c55e]/5 border border-[#22c55e]/20 rounded-lg px-3 py-2">
-                            <div className="flex items-center gap-2 min-w-0"><span className="text-base flex-shrink-0">{h.icon}</span><span className="text-xs text-white truncate">{h.name}</span></div>
-                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} this {h.unit}</span><span className="text-[10px] font-medium text-[#22c55e]">{h.weeklyRate}%</span></div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {report.moderate.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-2"><Minus className="w-3.5 h-3.5 text-[#d29922]" /><span className="text-xs font-semibold text-[#d29922]">Moderate</span><span className="text-[10px] text-[#8b949e]">({report.moderate.length})</span></div>
-                      <div className="space-y-1.5">
-                        {report.moderate.map(h => (
-                          <div key={h.id} className="flex items-center justify-between bg-[#d29922]/5 border border-[#d29922]/20 rounded-lg px-3 py-2">
-                            <div className="flex items-center gap-2 min-w-0"><span className="text-base flex-shrink-0">{h.icon}</span><span className="text-xs text-white truncate">{h.name}</span></div>
-                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} this {h.unit}</span><span className="text-[10px] font-medium text-[#d29922]">{h.weeklyRate}%</span></div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {report.struggling.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-2"><AlertTriangle className="w-3.5 h-3.5 text-[#ef4444]" /><span className="text-xs font-semibold text-[#ef4444]">Needs Attention</span><span className="text-[10px] text-[#8b949e]">({report.struggling.length})</span></div>
-                      <div className="space-y-1.5">
-                        {report.struggling.map(h => (
-                          <div key={h.id} className="flex items-center justify-between bg-[#ef4444]/5 border border-[#ef4444]/20 rounded-lg px-3 py-2">
-                            <div className="flex items-center gap-2 min-w-0"><span className="text-base flex-shrink-0">{h.icon}</span><span className="text-xs text-white truncate">{h.name}</span></div>
-                            <div className="flex items-center gap-3 flex-shrink-0 ml-2"><span className="text-[10px] text-[#8b949e]">{h.weeklyCompletions}/{h.weeklyGoal} this {h.unit}</span><span className="text-[10px] font-medium text-[#ef4444]">{h.weeklyRate}%</span></div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })()}
+      {showProgress && <HabitProgressModal habits={habits} onClose={() => setShowProgress(false)} />}
     </div>
   );
 }
