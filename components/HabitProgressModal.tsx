@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, RefreshCw, Loader2, Target, CalendarCheck, Flame, SkipForward, TrendingUp, Trophy, BarChart3 } from 'lucide-react';
 import {
-  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
 import { getTodayInEST } from '@/lib/date-utils';
 import { frequencyLabel, shiftDate, weekStartFor } from '@/lib/habit-frequency';
@@ -109,39 +109,48 @@ function Heatmap({ days, from, to }: { days: HeatDay[]; from: string; to: string
   const weeks: string[] = [];
   for (let w = weekStartFor(from); w <= to; w = shiftDate(w, 7)) weeks.push(w);
 
+  const rowLabels = ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'];
+  const monthLabel = (w: string, i: number) => {
+    const first = dateSpan(w, shiftDate(w, 6)).find((d) => d.endsWith('-01') && d >= from && d <= to);
+    if (first) return fmtDate(first, { month: 'short' });
+    return i === 0 ? fmtDate(from, { month: 'short' }) : '';
+  };
+
+  // Columns stretch to fill the row; cells are square until they hit 28px
+  // tall, then widen — so short ranges still fill the card without towering.
+  // Long ranges keep a 10px floor and scroll sideways on phones instead.
   return (
     <div className="overflow-x-auto -mx-1 px-1 pb-1">
-      <div className="inline-flex gap-[3px]">
-        <div className="flex flex-col gap-[3px] pr-1 pt-[14px]">
-          {['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].map((l, i) => (
-            <span key={i} className="h-3 text-[9px] leading-3 text-[#8b949e]">{l}</span>
-          ))}
-        </div>
-        {weeks.map((w) => {
-          const dates = dateSpan(w, shiftDate(w, 6));
-          const monthStart = dates.find((d) => d.endsWith('-01') && d >= from && d <= to);
-          const isFirst = w === weeks[0];
-          return (
-            <div key={w} className="flex flex-col gap-[3px]">
-              <span className="h-[11px] text-[9px] leading-[11px] text-[#8b949e] whitespace-nowrap">
-                {monthStart ? fmtDate(monthStart, { month: 'short' }) : isFirst ? fmtDate(from < w ? w : from, { month: 'short' }) : ''}
-              </span>
-              {dates.map((date) => {
-                const inRange = date >= from && date <= to;
-                const d = inRange ? byDate.get(date) : undefined;
-                const { bg, opacity } = heatFill(d);
-                return (
-                  <div
-                    key={date}
-                    className={`w-3 h-3 rounded-[3px] ${!d || !d.covered ? 'border border-[#21262d]/60' : ''}`}
-                    style={{ backgroundColor: bg, opacity: inRange ? opacity : 0 }}
-                    title={d ? heatTitle(d) : undefined}
-                  />
-                );
-              })}
-            </div>
-          );
-        })}
+      <div
+        className="grid gap-[3px] items-end"
+        style={{
+          gridTemplateColumns: `auto repeat(${weeks.length}, minmax(10px, 1fr))`,
+          minWidth: 32 + weeks.length * 13,
+        }}
+      >
+        <span />
+        {weeks.map((w, i) => (
+          <span key={w} className="text-[9px] leading-[11px] text-[#8b949e] whitespace-nowrap overflow-visible">{monthLabel(w, i)}</span>
+        ))}
+        {rowLabels.map((label, row) => (
+          <Fragment key={row}>
+            <span className="text-[9px] text-[#8b949e] pr-1.5 self-center">{label}</span>
+            {weeks.map((w) => {
+              const date = shiftDate(w, row);
+              const inRange = date >= from && date <= to;
+              const d = inRange ? byDate.get(date) : undefined;
+              const { bg, opacity } = heatFill(d);
+              return (
+                <div
+                  key={date}
+                  className={`w-full aspect-square max-h-7 rounded-[3px] ${inRange && (!d || !d.covered) ? 'border border-[#21262d]/60' : ''}`}
+                  style={{ backgroundColor: bg, opacity: inRange ? opacity : 0 }}
+                  title={d ? heatTitle(d) : undefined}
+                />
+              );
+            })}
+          </Fragment>
+        ))}
       </div>
       <div className="flex items-center gap-3 flex-wrap mt-2 text-[10px] text-[#8b949e]">
         <span className="flex items-center gap-1">
@@ -160,7 +169,7 @@ function Heatmap({ days, from, to }: { days: HeatDay[]; from: string; to: string
 
 // ── Weekly trend ──────────────────────────────────────────────────────────
 
-interface TrendRow { label: string; title: string; pct: number | null; avg: number | null }
+interface TrendRow { label: string; title: string; pct: number | null }
 
 function TrendTooltip({ active, payload }: { active?: boolean; payload?: { payload: TrendRow }[] }) {
   if (!active || !payload?.length) return null;
@@ -169,21 +178,18 @@ function TrendTooltip({ active, payload }: { active?: boolean; payload?: { paylo
     <div className="bg-[#161b22] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-[11px] shadow-xl">
       <p className="text-[#8b949e]">{r.title}</p>
       <p className="text-white font-semibold tabular-nums">{r.pct === null ? 'Nothing due' : `${r.pct}% complete`}</p>
-      {r.avg !== null && <p className="text-[#8b949e] tabular-nums">4-wk avg {Math.round(r.avg)}%</p>}
     </div>
   );
 }
 
 function trendRows(s: RangeSummary): TrendRow[] {
-  return s.weekly.map((w, i) => {
-    const window = s.weekly.slice(Math.max(0, i - 3), i + 1).map((x) => x.pct).filter((p): p is number => p !== null);
-    return {
-      label: fmtDate(w.week < s.from ? s.from : w.week),
-      title: `Week of ${fmtDate(w.week)}`,
-      pct: w.pct,
-      avg: i >= 3 && window.length > 0 ? window.reduce((a, b) => a + b, 0) / window.length : null,
-    };
-  });
+  // Label every bar by its Monday, even the partial first week — labelling
+  // that one by the range start read as two near-identical dates (Jul 5, Jul 6).
+  return s.weekly.map((w) => ({
+    label: fmtDate(w.week),
+    title: w.week < s.from ? `Week of ${fmtDate(w.week)} (from ${fmtDate(s.from)})` : `Week of ${fmtDate(w.week)}`,
+    pct: w.pct,
+  }));
 }
 
 // ── Per-habit table ───────────────────────────────────────────────────────
@@ -486,24 +492,15 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
               </div>
 
               {/* Weekly trend */}
-              <Section
-                title="Weekly completion"
-                right={
-                  <div className="flex items-center gap-3 text-[10px] text-[#c9d1d9]">
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: ACCENT, opacity: 0.7 }} />Week</span>
-                    <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-white" />4-wk avg</span>
-                  </div>
-                }
-              >
+              <Section title="Weekly completion">
                 <ResponsiveContainer width="100%" height={180}>
-                  <ComposedChart data={view.trend} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="14%">
+                  <BarChart data={view.trend} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="14%">
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={24} />
                     <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={40} domain={[0, 100]} ticks={[0, 50, 100]} tickFormatter={(v) => `${v}%`} />
                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} content={<TrendTooltip />} />
                     <Bar dataKey="pct" fill={ACCENT} fillOpacity={0.7} radius={[3, 3, 0, 0]} isAnimationActive={false} />
-                    <Line dataKey="avg" stroke="#ffffff" strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
-                  </ComposedChart>
+                  </BarChart>
                 </ResponsiveContainer>
               </Section>
 
