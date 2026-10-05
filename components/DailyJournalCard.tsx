@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, ChevronLeft, ChevronRight, Flame, Check, Settings, NotebookPen } from 'lucide-react';
+import { Sparkles, ChevronLeft, ChevronRight, Flame, Check, Settings, NotebookPen, CalendarDays } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
 import {
   hasContent, DEFAULT_TEXT_PROMPTS,
@@ -9,6 +9,7 @@ import {
 } from '@/lib/journal-prompts';
 import JournalReportModal from '@/components/JournalReportModal';
 import JournalEntryModal from '@/components/JournalEntryModal';
+import JournalCalendarModal from '@/components/JournalCalendarModal';
 import ManagePromptsModal from '@/components/ManagePromptsModal';
 
 interface Entry {
@@ -72,6 +73,7 @@ export default function DailyJournalCard() {
   const [modalDate, setModalDate] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [showManage, setShowManage] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   const loadAll = useCallback(async () => {
     try {
@@ -133,6 +135,18 @@ export default function DailyJournalCard() {
           )}
         </div>
         <div className="flex items-center gap-1">
+          <div className="relative group">
+            <button
+              onClick={() => setShowCalendar(true)}
+              aria-label="Journal calendar"
+              className="p-1.5 hover:bg-[#30363d] rounded-lg transition-colors"
+            >
+              <CalendarDays className="w-3.5 h-3.5 text-[#8b949e] group-hover:text-[#F97316]" />
+            </button>
+            <div className="absolute top-full right-0 mt-1.5 px-2 py-1 bg-[#30363d] text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              Read past entries
+            </div>
+          </div>
           <div className="relative group">
             <button
               onClick={() => setShowManage(true)}
@@ -250,6 +264,7 @@ export default function DailyJournalCard() {
           onSaved={loadAll}
         />
       )}
+      {showCalendar && <JournalCalendarModal onClose={() => setShowCalendar(false)} />}
       {showReport && <JournalReportModal onClose={() => setShowReport(false)} />}
       {showManage && (
         <ManagePromptsModal
