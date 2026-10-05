@@ -547,14 +547,17 @@ export function insights(cur: RangeSummary, prev: RangeSummary | null): Insights
 
   // Weakest habits.
   const weakest = [...scored].filter((s) => s.pct! < 60).sort((a, b) => a.pct! - b.pct!).slice(0, 2);
-  for (const s of weakest) {
+  // Only the lowest gets called "weakest"; the runner-up gets its own wording.
+  weakest.forEach((s, i) => {
     improve.push({
       habitId: s.habit.id,
-      text: s.daily
-        ? `${name(s)} is your weakest habit at ${s.pct}% — try anchoring it to something you already do every day.`
-        : `${name(s)} hit its goal in ${s.periodsHit} of ${s.periodsTotal} ${s.streakUnit}s (${s.pct}%) — consider lowering the target or scheduling the sessions.`,
+      text: !s.daily
+        ? `${name(s)} hit its goal in ${s.periodsHit} of ${s.periodsTotal} ${s.streakUnit}s (${s.pct}%) — consider lowering the target or scheduling the sessions.`
+        : i === 0
+          ? `${name(s)} is your weakest habit at ${s.pct}% — try anchoring it to something you already do every day.`
+          : `${name(s)} is also lagging at ${s.pct}% — give it a fixed time or place so it doesn't depend on willpower.`,
     });
-  }
+  });
 
   // Slipping vs the previous period.
   const slipping = scored

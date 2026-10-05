@@ -136,6 +136,21 @@ describe('summarize + insights', () => {
   });
 });
 
+describe('insights wording', () => {
+  it('calls only the lowest habit "weakest"', () => {
+    const write: HabitDef = { id: 'write', name: 'Write', icon: '📝', frequency: 'daily' };
+    const days = history('2026-09-01', '2026-09-28', (d) => {
+      const n = Number(d.slice(8));
+      return [h('read', { completed: n % 5 === 0 }), h('write', { completed: n % 3 === 0 })];
+    });
+    const t = buildTimeline(days, [daily, write], '2026-09-01', '2026-09-28');
+    const ins = insights(summarize(t, '2026-09-01', '2026-09-28', '2026-09-29'), null);
+    expect(ins.improve.filter((i) => i.text.includes('weakest habit'))).toHaveLength(1);
+    expect(ins.improve[0].habitId).toBe('read');
+    expect(ins.improve[1].text).toContain('also lagging');
+  });
+});
+
 describe('rangeWindow', () => {
   it('ends yesterday with an equal-length comparison window', () => {
     expect(rangeWindow('1m', '2026-10-04')).toEqual({ from: '2026-09-04', to: '2026-10-03', prevFrom: '2026-08-05', prevTo: '2026-09-03' });
