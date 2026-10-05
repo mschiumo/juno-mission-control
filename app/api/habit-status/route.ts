@@ -79,10 +79,21 @@ interface HabitData {
   history: boolean[]; // Last 7 days (oldest to newest)
   order: number;
   paused?: boolean;
+  // Explicitly skipped for the day. Purely a label on a miss: it never counts
+  // toward streaks, period goals, or stats — it only changes how the row and
+  // its history dot render. Completing the habit clears it.
+  skippedToday?: boolean;
 }
 
 /** What the client receives: stored habit + its current period standing. */
-type DecoratedHabit = HabitData & PeriodProgress;
+type DecoratedHabit = HabitData & PeriodProgress & {
+  skippedHistory: boolean[]; // Parallel to `history`: days explicitly skipped
+};
+
+interface DayEntry {
+  completed: boolean;
+  skipped: boolean;
+}
 
 type HabitDefinition = Pick<HabitData, 'id' | 'name' | 'icon' | 'target' | 'category' | 'frequency' | 'order' | 'paused'>;
 
@@ -172,15 +183,15 @@ function calculateStreak(completedToday: boolean, history: boolean[]): number {
 /**
  * Read every prior day the current periods touch (at least the last 7, more when
  * a monthly habit is in play) in one round trip, and return
- * `date -> habitId -> completed`.
+ * `date -> habitId -> { completed, skipped }`.
  */
 async function loadPriorDays(
   redis: ReturnType<typeof createClient> | null,
   userId: string,
   today: string,
   daysBack: number
-): Promise<Map<string, Map<string, boolean>>> {
-  const byDate = new Map<string, Map<string, boolean>>();
+): Promise<Map<string, Map<string, DayEntry>>> {
+  const byDate = new Map<string, Map<string, DayEntry>>();
   if (!redis || daysBack <= 0) return byDate;
 
   const dates = datesBetween(shiftDate(today, -daysBack), shiftDate(today, -1));
@@ -190,8 +201,11 @@ async function loadPriorDays(
     const raw = values[i];
     if (!raw) return;
     try {
-      const day = JSON.parse(raw) as { id: string; completedToday?: boolean }[];
-      byDate.set(date, new Map(day.map(h => [h.id, !!h.completedToday])));
+      const day = JSON.parse(raw) as { id: string; completedToday?: boolean; skippedToday?: boolean }[];
+      byDate.set(date, new Map(day.map(h => [
+        h.id,
+        { completed: !!h.completedToday, skipped: !h.completedToday && !!h.skippedToday },
+      ])));
     } catch {
       /* malformed day — treated as no data */
     }
@@ -218,18 +232,21 @@ async function decorateHabits(
 
   return habits.map(habit => {
     const frequency = normalizeFrequency(habit.frequency);
-    const history = historyDates.map(date => byDate.get(date)?.get(habit.id) ?? false);
+    const history = historyDates.map(date => byDate.get(date)?.get(habit.id)?.completed ?? false);
+    const skippedHistory = historyDates.map(date => byDate.get(date)?.get(habit.id)?.skipped ?? false);
 
     const completedDates: string[] = [];
     for (const [date, day] of byDate) {
-      if (day.get(habit.id)) completedDates.push(date);
+      if (day.get(habit.id)?.completed) completedDates.push(date);
     }
     if (habit.completedToday) completedDates.push(today);
 
     return {
       ...habit,
       frequency,
+      skippedToday: !habit.completedToday && !!habit.skippedToday,
       history,
+      skippedHistory,
       streak: calculateStreak(habit.completedToday, history),
       ...periodProgress(frequency, today, completedDates),
     };
@@ -243,6 +260,7 @@ function bareHabits(today: string): DecoratedHabit[] {
     completedToday: false,
     streak: 0,
     history: [false, false, false, false, false, false, false],
+    skippedHistory: [false, false, false, false, false, false, false],
     order: index,
     ...periodProgress(h.frequency, today, []),
   }));
@@ -273,6 +291,7 @@ function initializeHabits(previousData: HabitData[] | null, today: string, habit
       ...h,
       frequency: normalizeFrequency(h.frequency),
       completedToday: false, // Reset for new day
+      skippedToday: false,
       streak,
       history: newHistory
     };
@@ -411,6 +430,8 @@ export async function POST(request: Request) {
     }
 
     habits[habitIndex].completedToday = completed;
+    // Completing wins over a same-day skip.
+    if (completed) habits[habitIndex].skippedToday = false;
 
     // Recalculate streak based on new state
     habits[habitIndex].streak = calculateStreak(completed, habits[habitIndex].history);
@@ -528,7 +549,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { habitIds, habitId, paused } = body;
+    const { habitIds, habitId, paused, skipped } = body;
 
     const redis = await getRedisClient();
     if (!redis) {
@@ -551,6 +572,29 @@ export async function PATCH(request: Request) {
 
       await redis.set(getStorageKey(userId, today), JSON.stringify(habits));
       await saveHabitsList(redis, userId, habits);
+
+      return respondWith(redis, userId, today, habits);
+    }
+
+    if (habitId && typeof skipped === 'boolean') {
+      // ── SKIP / UNSKIP today ──────────────────────────────────────────────
+      // A skip is still a miss — it just labels it. Skipping a completed habit
+      // un-completes it so the day reads as missed everywhere.
+      const idx = habits.findIndex(h => h.id === habitId);
+      if (idx === -1) return NextResponse.json({ success: false, error: 'Habit not found' }, { status: 404 });
+      if (habits[idx].paused) {
+        return NextResponse.json({ success: false, error: 'Habit is paused' }, { status: 400 });
+      }
+
+      const completedToday = skipped ? false : habits[idx].completedToday;
+      habits[idx] = {
+        ...habits[idx],
+        skippedToday: skipped,
+        completedToday,
+        streak: calculateStreak(completedToday, habits[idx].history),
+      };
+
+      await redis.set(getStorageKey(userId, today), JSON.stringify(habits));
 
       return respondWith(redis, userId, today, habits);
     }

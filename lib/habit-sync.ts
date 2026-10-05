@@ -160,6 +160,7 @@ export async function completeMatchingHabits(
     // manual toggle in /api/habit-status).
     if (h.completedToday || h.paused || !match(h)) continue;
     h.completedToday = true;
+    h.skippedToday = false; // completing wins over a same-day skip
     h.streak = streakWith(true, h.history);
     flipped.push({ id: h.id, name: h.name, icon: h.icon });
   }
