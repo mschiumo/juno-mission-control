@@ -340,6 +340,7 @@ export function scoreHabit(t: Timeline, habit: HabitDef, from: string, to: strin
   const weeks = weeksIn(from, to);
   if (isDailyCadence(habit)) {
     const s = dailyScore(t, habit, from, to);
+    const current = currentDailyStreak(t, habit, today);
     const weekly = weeks.map((w) => {
       const ws = dailyScore(t, habit, w < from ? from : w, shiftDate(w, 6) > to ? to : shiftDate(w, 6));
       return pctOf(ws.done, ws.due);
@@ -348,7 +349,9 @@ export function scoreHabit(t: Timeline, habit: HabitDef, from: string, to: strin
       habit, daily: true, due: s.due, done: s.done, pct: pctOf(s.done, s.due),
       skips: s.skips, noDataSkips: s.noData, forgot: s.forgot,
       periodsHit: 0, periodsTotal: 0,
-      longestStreak: s.longest, currentStreak: currentDailyStreak(t, habit, today), streakUnit: 'day', weekly,
+      // The live streak can run into today (past the range end), so "best"
+      // never reads lower than "current".
+      longestStreak: Math.max(s.longest, current), currentStreak: current, streakUnit: 'day', weekly,
     };
   }
 
@@ -387,7 +390,7 @@ export function scoreHabit(t: Timeline, habit: HabitDef, from: string, to: strin
     habit, daily: false, due, done, pct: pctOf(done, due),
     skips: periods.reduce((a, p) => a + p.skips, 0), noDataSkips: 0, forgot: 0,
     periodsHit: periods.filter((p) => p.hit).length, periodsTotal: periods.length,
-    longestStreak: longest, currentStreak: current,
+    longestStreak: Math.max(longest, current), currentStreak: current,
     streakUnit: frequencyPeriod(habit.frequency) === 'month' ? 'month' : 'week', weekly,
   };
 }

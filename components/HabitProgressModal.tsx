@@ -496,7 +496,7 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
                 }
               >
                 <ResponsiveContainer width="100%" height={180}>
-                  <ComposedChart data={view.trend} margin={{ top: 4, right: 4, left: -16, bottom: 0 }} barCategoryGap="14%">
+                  <ComposedChart data={view.trend} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="14%">
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={24} />
                     <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={40} domain={[0, 100]} ticks={[0, 50, 100]} tickFormatter={(v) => `${v}%`} />
