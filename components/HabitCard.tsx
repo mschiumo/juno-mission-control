@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, ClipboardList, AlertTriangle, CheckCircle2, Minus, Moon, MoreVertical, Pause, Play } from 'lucide-react';
+import { Activity, Check, Flame, RefreshCw, Plus, TrendingUp, X, Trash2, GripVertical, Cloud, CloudOff, Loader2, Pencil, ClipboardList, AlertTriangle, CheckCircle2, Minus, Moon, MoreVertical, Pause, Play, SkipForward } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -42,6 +42,9 @@ interface Habit {
   history: boolean[]; // Last 7 days (oldest to newest)
   order: number;
   paused?: boolean;
+  /** Explicitly skipped today — still a miss, just rendered as a deliberate one. */
+  skippedToday?: boolean;
+  skippedHistory?: boolean[]; // Parallel to `history`; absent on old caches
   // Period standing, computed server-side (see lib/habit-frequency.ts).
   periodType: HabitPeriod;
   periodStart: string;
@@ -127,6 +130,19 @@ function periodSummary(h: Habit): string {
   return `${Math.min(completionsOf(h), goalOf(h))}/${goalOf(h)} this ${unit}`;
 }
 
+/** Skipped (and not since completed) for today. */
+function isSkipped(h: Habit): boolean {
+  return !!h.skippedToday && !h.completedToday;
+}
+
+/** Optimistic skip/unskip: skipping un-completes, so it reads as a miss. */
+function withSkip(habits: Habit[], habitId: string, skipped: boolean): Habit[] {
+  const base = skipped && habits.find(h => h.id === habitId)?.completedToday
+    ? withToggle(habits, habitId, false)
+    : habits;
+  return base.map(h => (h.id === habitId ? { ...h, skippedToday: skipped } : h));
+}
+
 /** Optimistic period math for a toggle, so the UI doesn't wait on the server. */
 function withToggle(habits: Habit[], habitId: string, completed: boolean): Habit[] {
   return habits.map(h => {
@@ -135,6 +151,8 @@ function withToggle(habits: Habit[], habitId: string, completed: boolean): Habit
     return {
       ...h,
       completedToday: completed,
+      // Completing wins over a same-day skip (mirrors the server).
+      skippedToday: completed ? false : h.skippedToday,
       periodCompletions: completions,
       fulfilled: completions >= goalOf(h),
     };
@@ -173,11 +191,12 @@ interface SortableHabitItemProps {
   onDelete: (habitId: string) => void;
   onEdit: (habit: Habit) => void;
   onTogglePause: (habitId: string) => void;
+  onToggleSkip: (habitId: string) => void;
   dayLabels: string[];
   disabled?: boolean;
 }
 
-function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, dayLabels, disabled }: SortableHabitItemProps) {
+function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, onToggleSkip, dayLabels, disabled }: SortableHabitItemProps) {
   const {
     attributes,
     listeners,
@@ -234,6 +253,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
 
   const done = isDone(habit);
   const locked = isLocked(habit);
+  const skipped = !habit.paused && isSkipped(habit);
   const unit = periodOf(habit) === 'month' ? 'month' : 'week';
   const resetsOn = unit === 'week' ? 'Monday' : 'the 1st';
   const showStreak = habit.frequency === 'daily' || habit.frequency === 'weekdays';
@@ -247,12 +267,16 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
           ? 'bg-[#0d1117] border-[#30363d] border-dashed'
           : done
             ? 'bg-[#22c55e]/10 border-[#22c55e]/30'
-            : 'bg-[#0d1117] border-[#30363d] hover:border-[#F97316]/50'
+            : skipped
+              ? 'bg-[#da3633]/10 border-[#da3633]/25'
+              : 'bg-[#0d1117] border-[#30363d] hover:border-[#F97316]/50'
       } ${isDragging ? 'shadow-lg ring-2 ring-[#F97316]/50' : ''} ${disabled ? 'opacity-60 pointer-events-none' : ''} ${habit.paused && !disabled ? 'group/paused' : ''}`}
     >
       {/* The fade lives on this inner row (not the card) so the tooltip below
           stays at full opacity; grayscale mutes the emoji/streak colors too. */}
-      <div className={`flex items-center gap-2 sm:gap-3 ${habit.paused && !disabled ? 'opacity-40 grayscale transition-[opacity,filter]' : ''}`}>
+      <div className={`flex items-center gap-2 sm:gap-3 ${
+        habit.paused && !disabled ? 'opacity-40 grayscale transition-[opacity,filter]' : skipped ? 'opacity-60' : ''
+      }`}>
         <button
           {...attributes}
           {...listeners}
@@ -270,21 +294,26 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
               ? 'Paused — resume to check off'
               : locked
                 ? `Done for this ${unit} — resets ${resetsOn}`
-                : undefined
+                : skipped
+                  ? 'Skipped today — tap to complete it after all'
+                  : undefined
           }
           className={`flex-shrink-0 w-7 h-7 sm:w-6 sm:h-6 rounded-full border-2 transition-all flex items-center justify-center ${
             done
               ? 'bg-[#22c55e] border-[#22c55e]'
-              : 'border-[#737373] hover:border-[#F97316]'
+              : skipped
+                ? 'border-[#da3633]/70 hover:border-[#F97316]'
+                : 'border-[#737373] hover:border-[#F97316]'
           } ${locked ? 'cursor-default' : 'disabled:opacity-50'}`}
         >
           {done && <Check className="w-4 h-4 text-white" />}
+          {skipped && <Minus className="w-3.5 h-3.5 text-[#da3633]" />}
         </button>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start sm:items-center gap-2">
             <span className="text-lg leading-6 flex-shrink-0">{habit.icon}</span>
-            <span className={`font-medium line-clamp-2 break-words sm:line-clamp-none sm:truncate ${done ? 'text-[#737373] line-through' : 'text-white'}`}>
+            <span className={`font-medium line-clamp-2 break-words sm:line-clamp-none sm:truncate ${done ? 'text-[#737373] line-through' : skipped ? 'text-[#8b949e]' : 'text-white'}`}>
               {habit.name}
             </span>
             {habit.paused && (
@@ -298,6 +327,15 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
                 <Pause className="w-2.5 h-2.5" />
                 paused
               </button>
+            )}
+            {skipped && (
+              <span
+                className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[#da3633]/15 text-[#f85149] font-medium flex-shrink-0"
+                title="Skipped today — counts as a miss"
+              >
+                <SkipForward className="w-2.5 h-2.5" />
+                skipped
+              </span>
             )}
           </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -321,7 +359,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
                 </span>
               </div>
             )}
-            {showStreak && !habit.completedToday && habit.streak >= 2 && (
+            {showStreak && !habit.completedToday && !skipped && habit.streak >= 2 && (
               <span
                 className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#d29922]/15 text-[#d29922] font-medium flex-shrink-0"
                 title={`Complete today to keep your ${habit.streak}-day streak alive`}
@@ -335,13 +373,16 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
 
         <div className="flex items-center gap-1 flex-shrink-0">
           <div className="hidden sm:flex items-center gap-1 mr-1">
-            {habit.history.map((completed, idx) => (
-              <div
-                key={idx}
-                className={`w-2 h-2 rounded-full ${completed ? 'bg-[#22c55e]' : 'bg-[#262626]'}`}
-                title={dayLabels[idx]}
-              />
-            ))}
+            {habit.history.map((completed, idx) => {
+              const skippedDay = !completed && !!habit.skippedHistory?.[idx];
+              return (
+                <div
+                  key={idx}
+                  className={`w-2 h-2 rounded-full ${completed ? 'bg-[#22c55e]' : skippedDay ? 'bg-[#da3633]/70' : 'bg-[#262626]'}`}
+                  title={skippedDay ? `${dayLabels[idx]} · skipped` : dayLabels[idx]}
+                />
+              );
+            })}
           </div>
           <button
             onClick={() => setActionsOpen(o => !o)}
@@ -349,7 +390,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
             className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
               actionsOpen ? 'bg-[#30363d] text-white' : 'hover:bg-[#30363d] text-[#737373]'
             }`}
-            title={actionsOpen ? 'Close' : 'Pause, edit, or delete'}
+            title={actionsOpen ? 'Close' : 'Skip, pause, edit, or delete'}
           >
             {actionsOpen ? <X className="w-4 h-4" /> : <MoreVertical className="w-4 h-4" />}
           </button>
@@ -384,6 +425,18 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, d
       {/* Revealed as a full-width strip so the title never gets squeezed. */}
       {actionsOpen && (
         <div className="mt-2 pt-2 border-t border-[#30363d] flex items-center gap-2">
+          {/* Nothing to skip once paused or already done for the period. */}
+          {!habit.paused && !locked && (
+            <button
+              onClick={() => { onToggleSkip(habit.id); setActionsOpen(false); }}
+              disabled={disabled}
+              title={skipped ? undefined : 'Mark as skipped for today — still counts as a miss'}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-colors disabled:opacity-50"
+            >
+              <SkipForward className="w-3.5 h-3.5" />
+              {skipped ? 'Unskip' : 'Skip'}
+            </button>
+          )}
           <button
             onClick={() => { onTogglePause(habit.id); setActionsOpen(false); setPausedTipOpen(false); }}
             disabled={disabled}
@@ -711,6 +764,48 @@ export default function HabitCard() {
     }
   };
 
+  const toggleSkipHabit = async (habitId: string) => {
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit || habit.paused || isLocked(habit) || pendingChanges.has(habitId)) return;
+    const newSkipped = !isSkipped(habit);
+
+    setPendingChanges(prev => new Map(prev.set(habitId, { habitId, previousState: habit.completedToday })));
+    setSyncStatus('syncing');
+
+    const updatedHabits = withSkip(habits, habitId, newSkipped);
+    setHabits(updatedHabits);
+    setStats(computeStats(updatedHabits));
+
+    try {
+      const response = await fetch('/api/habit-status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ habitId, skipped: newSkipped })
+      });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Server returned error');
+      setHabits(data.data.habits);
+      setStats(data.data.stats);
+      setLastUpdated(new Date());
+      setSyncStatus('synced');
+      // Skipping a completed habit un-completes it.
+      window.dispatchEvent(new Event('ct:discipline-updated'));
+    } catch (error) {
+      console.error('Failed to toggle habit skip:', error);
+      setHabits(habits);
+      setStats(computeStats(habits));
+      setSyncStatus('error');
+    } finally {
+      setPendingChanges(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(habitId);
+        return newMap;
+      });
+    }
+  };
+
   const togglePauseHabit = async (habitId: string) => {
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
@@ -963,6 +1058,7 @@ export default function HabitCard() {
                     onDelete={deleteHabit}
                     onEdit={openEditModal}
                     onTogglePause={togglePauseHabit}
+                    onToggleSkip={toggleSkipHabit}
                     dayLabels={dayLabels}
                     disabled={hasPendingChanges}
                   />
@@ -995,6 +1091,7 @@ export default function HabitCard() {
               <div className="flex items-center gap-3 text-[10px] text-[#8b949e]">
                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#22c55e]" /><span>Done</span></div>
                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#30363d]" /><span>Missed</span></div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#da3633]/70" /><span>Skipped</span></div>
               </div>
             </div>
           </div>
