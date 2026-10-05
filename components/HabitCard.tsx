@@ -1091,6 +1091,7 @@ export default function HabitCard() {
               <div className="flex items-center gap-3 text-[10px] text-[#8b949e]">
                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#22c55e]" /><span>Done</span></div>
                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#30363d]" /><span>Missed</span></div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#da3633]/70" /><span>Skipped</span></div>
               </div>
             </div>
           </div>
