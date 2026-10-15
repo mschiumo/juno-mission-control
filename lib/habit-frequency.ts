@@ -75,6 +75,15 @@ export function frequencyGoal(frequency: HabitFrequency | string | undefined): n
   }
 }
 
+/**
+ * A skip on a once-a-week habit skips the whole week: it carries forward from
+ * the skipped day through Sunday (until the habit is completed). Every other
+ * cadence skips a single day.
+ */
+export function skipCoversWeek(frequency: HabitFrequency | string | undefined): boolean {
+  return normalizeFrequency(frequency) === 'weekly';
+}
+
 /** Short chip text, e.g. "5x/wk" · "Weekly" · "Monthly". */
 export function frequencyLabel(frequency: HabitFrequency | string | undefined): string {
   const f = normalizeFrequency(frequency);
