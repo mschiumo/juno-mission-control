@@ -28,6 +28,7 @@ import {
   frequencyGoal,
   frequencyLabel,
   frequencyPeriod,
+  skipCoversWeek,
 } from '@/lib/habit-frequency';
 import { isWeekdayOnlyHabit } from '@/lib/habit-progress';
 import HabitProgressModal from '@/components/HabitProgressModal';
@@ -247,6 +248,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, o
   const unit = periodOf(habit) === 'month' ? 'month' : 'week';
   const resetsOn = unit === 'week' ? 'Monday' : 'the 1st';
   const showStreak = habit.frequency === 'daily' || habit.frequency === 'weekdays';
+  const skipSpan = skipCoversWeek(habit.frequency) ? 'this week' : 'today';
 
   return (
     <div
@@ -285,7 +287,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, o
               : locked
                 ? `Done for this ${unit} — resets ${resetsOn}`
                 : skipped
-                  ? 'Skipped today — tap to complete it after all'
+                  ? `Skipped ${skipSpan} — tap to complete it after all`
                   : undefined
           }
           className={`flex-shrink-0 w-7 h-7 sm:w-6 sm:h-6 rounded-full border-2 transition-all flex items-center justify-center ${
@@ -321,7 +323,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, o
             {skipped && (
               <span
                 className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[#da3633]/15 text-[#f85149] font-medium flex-shrink-0"
-                title="Skipped today — counts as a miss"
+                title={`Skipped ${skipSpan} — counts as a miss`}
               >
                 <SkipForward className="w-2.5 h-2.5" />
                 skipped
@@ -420,7 +422,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, o
             <button
               onClick={() => { onToggleSkip(habit.id); setActionsOpen(false); }}
               disabled={disabled}
-              title={skipped ? undefined : 'Mark as skipped for today — still counts as a miss'}
+              title={skipped ? undefined : `Mark as skipped for ${skipSpan === 'today' ? 'today' : 'the rest of the week'} — still counts as a miss`}
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-colors disabled:opacity-50"
             >
               <SkipForward className="w-3.5 h-3.5" />

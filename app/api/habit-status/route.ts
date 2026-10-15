@@ -11,6 +11,8 @@ import {
   normalizeFrequency,
   periodProgress,
   shiftDate,
+  skipCoversWeek,
+  weekStartFor,
 } from '@/lib/habit-frequency';
 
 const STORAGE_KEY_PREFIX = 'habits_data';
@@ -233,7 +235,23 @@ async function decorateHabits(
   return habits.map(habit => {
     const frequency = normalizeFrequency(habit.frequency);
     const history = historyDates.map(date => byDate.get(date)?.get(habit.id)?.completed ?? false);
-    const skippedHistory = historyDates.map(date => byDate.get(date)?.get(habit.id)?.skipped ?? false);
+    let skippedHistory = historyDates.map(date => byDate.get(date)?.get(habit.id)?.skipped ?? false);
+    let skippedToday = !habit.completedToday && !!habit.skippedToday;
+
+    // Weekly habits: a skip carries forward through the rest of its Mon–Sun
+    // week, stopping at a completion. Derived at read time, so nothing extra
+    // is stored and a later week starts clean.
+    if (skipCoversWeek(frequency)) {
+      const weekStart = weekStartFor(today);
+      let carrying = false;
+      skippedHistory = historyDates.map((date, i) => {
+        if (date < weekStart) return skippedHistory[i];
+        if (history[i]) carrying = false;
+        else if (skippedHistory[i]) carrying = true;
+        return carrying && !history[i];
+      });
+      if (!habit.completedToday && carrying) skippedToday = true;
+    }
 
     const completedDates: string[] = [];
     for (const [date, day] of byDate) {
@@ -244,7 +262,7 @@ async function decorateHabits(
     return {
       ...habit,
       frequency,
-      skippedToday: !habit.completedToday && !!habit.skippedToday,
+      skippedToday,
       history,
       skippedHistory,
       streak: calculateStreak(habit.completedToday, history),
@@ -317,6 +335,32 @@ async function loadToday(
   const habits = initializeHabits(yesterdayData ? JSON.parse(yesterdayData) : null, today, habitDefs);
   if (persist) await redis.set(getStorageKey(userId, today), JSON.stringify(habits));
   return habits;
+}
+
+/** Clear `skippedToday` for one habit on every earlier day of today's week. */
+async function clearEarlierSkipsThisWeek(
+  redis: ReturnType<typeof createClient>,
+  userId: string,
+  today: string,
+  habitId: string
+) {
+  const weekStart = weekStartFor(today);
+  if (weekStart >= today) return;
+  const dates = datesBetween(weekStart, shiftDate(today, -1));
+  const keys = dates.map(d => getStorageKey(userId, d));
+  const values = await redis.mGet(keys);
+
+  await Promise.all(values.map(async (raw, i) => {
+    if (!raw) return;
+    try {
+      const day = JSON.parse(raw) as HabitData[];
+      if (!day.some(h => h.id === habitId && h.skippedToday)) return;
+      const updated = day.map(h => (h.id === habitId ? { ...h, skippedToday: false } : h));
+      await redis.set(keys[i], JSON.stringify(updated));
+    } catch {
+      /* malformed day — leave it alone */
+    }
+  }));
 }
 
 /** Decorate + sort + wrap in the standard success payload. */
@@ -595,6 +639,12 @@ export async function PATCH(request: Request) {
       };
 
       await redis.set(getStorageKey(userId, today), JSON.stringify(habits));
+
+      // A weekly habit's skip is inherited from an earlier day this week, so
+      // unskipping has to clear it at the source too.
+      if (!skipped && skipCoversWeek(habits[idx].frequency)) {
+        await clearEarlierSkipsThisWeek(redis, userId, today, habitId);
+      }
 
       return respondWith(redis, userId, today, habits);
     }
