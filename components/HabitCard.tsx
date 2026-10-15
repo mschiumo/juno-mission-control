@@ -28,7 +28,7 @@ import {
   frequencyGoal,
   frequencyLabel,
   frequencyPeriod,
-  skipCoversWeek,
+  skipCoversPeriod,
 } from '@/lib/habit-frequency';
 import { isWeekdayOnlyHabit } from '@/lib/habit-progress';
 import HabitProgressModal from '@/components/HabitProgressModal';
@@ -248,7 +248,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, o
   const unit = periodOf(habit) === 'month' ? 'month' : 'week';
   const resetsOn = unit === 'week' ? 'Monday' : 'the 1st';
   const showStreak = habit.frequency === 'daily' || habit.frequency === 'weekdays';
-  const skipSpan = skipCoversWeek(habit.frequency) ? 'this week' : 'today';
+  const skipSpan = skipCoversPeriod(habit.frequency) ? `this ${unit}` : 'today';
 
   return (
     <div
@@ -422,7 +422,7 @@ function SortableHabitItem({ habit, onToggle, onDelete, onEdit, onTogglePause, o
             <button
               onClick={() => { onToggleSkip(habit.id); setActionsOpen(false); }}
               disabled={disabled}
-              title={skipped ? undefined : `Mark as skipped for ${skipSpan === 'today' ? 'today' : 'the rest of the week'} — still counts as a miss`}
+              title={skipped ? undefined : `Mark as skipped for ${skipSpan === 'today' ? 'today' : `the rest of the ${unit}`} — still counts as a miss`}
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-colors disabled:opacity-50"
             >
               <SkipForward className="w-3.5 h-3.5" />
