@@ -22,12 +22,13 @@
  *    2-decimal precision the UI actually displays before comparing.
  */
 
-/** Cents-space epsilon that absorbs IEEE-754 dust when directionally rounding. */
+/** Scaled-unit epsilon that absorbs IEEE-754 dust when directionally rounding. */
 const CENT_EPSILON = 1e-6;
 
 /**
  * Reward-to-risk target price that always satisfies `ratio` after rounding to
- * the nearest cent.
+ * `decimals` places (default 2 = nearest cent; the Position Calculator passes 6
+ * so sub-penny prices like $0.042100 aren't rounded off).
  *
  * Direction follows entry vs stop: a long (entry > stop) rounds the target UP,
  * a short (entry < stop) rounds it DOWN — in both cases enlarging, never
@@ -39,7 +40,8 @@ const CENT_EPSILON = 1e-6;
 export function optimizeTargetPrice(
   entry: number,
   stop: number,
-  ratio: number
+  ratio: number,
+  decimals = 2
 ): number | null {
   if (!(entry > 0) || !(stop > 0) || !(ratio > 0) || entry === stop) return null;
 
@@ -47,11 +49,12 @@ export function optimizeTargetPrice(
   const isLong = entry > stop;
   const rawTarget = isLong ? entry + stopSize * ratio : entry - stopSize * ratio;
 
-  const cents = rawTarget * 100;
-  const roundedCents = isLong
-    ? Math.ceil(cents - CENT_EPSILON) // long: round target up   → reward never shrinks
-    : Math.floor(cents + CENT_EPSILON); // short: round target down → reward never shrinks
-  return roundedCents / 100;
+  const scale = 10 ** decimals;
+  const units = rawTarget * scale;
+  const roundedUnits = isLong
+    ? Math.ceil(units - CENT_EPSILON) // long: round target up   → reward never shrinks
+    : Math.floor(units + CENT_EPSILON); // short: round target down → reward never shrinks
+  return Number((roundedUnits / scale).toFixed(decimals));
 }
 
 /**

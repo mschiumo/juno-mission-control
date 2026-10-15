@@ -6,6 +6,11 @@ import type { WatchlistItem } from '@/types/watchlist';
 import type { ActiveTradeWithPnL } from '@/types/active-trade';
 import { optimizeTargetPrice } from '@/lib/trading/optimize-target';
 
+// Prices (entry/stop/target/stop size) carry up to 6 decimals so sub-penny
+// quotes like $0.042100 aren't rounded off to the cent.
+const PRICE_DECIMALS = 6;
+const roundPrice = (value: number) => Number(value.toFixed(PRICE_DECIMALS));
+
 interface CalculatorInputs {
   ticker: string;
   riskAmount: string;
@@ -13,6 +18,13 @@ interface CalculatorInputs {
   stopPrice: string;
   targetPrice: string;
   riskRatio: string;
+}
+
+/** Target input text: fixed 2 decimals for normal prices, up to 6 (trailing zeros trimmed) for sub-penny. */
+function formatPriceInput(value: number): string {
+  const fixed = value.toFixed(PRICE_DECIMALS).replace(/0+$/, '');
+  const decimals = Math.max(2, fixed.split('.')[1]?.length ?? 0);
+  return value.toFixed(decimals);
 }
 
 const DEFAULT_VALUES: CalculatorInputs = {
@@ -68,9 +80,10 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
     const target = optimizeTargetPrice(
       parseFloat(inputs.entryPrice),
       parseFloat(inputs.stopPrice),
-      parseFloat(inputs.riskRatio)
+      parseFloat(inputs.riskRatio),
+      PRICE_DECIMALS
     );
-    setInputs(prev => ({ ...prev, targetPrice: target === null ? '' : target.toFixed(2) }));
+    setInputs(prev => ({ ...prev, targetPrice: target === null ? '' : formatPriceInput(target) }));
   }, [optimizeMode, inputs.entryPrice, inputs.stopPrice, inputs.riskRatio]);
 
   const handleInputChange = (field: keyof CalculatorInputs, value: string) => {
@@ -82,6 +95,8 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
       setInputs(prev => ({ ...prev, [field]: value.toUpperCase() }));
       onTickerChange?.(value.toUpperCase());
     } else if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      // Price fields accept at most PRICE_DECIMALS places after the dot
+      if (field !== 'riskAmount' && field !== 'riskRatio' && (value.split('.')[1]?.length ?? 0) > PRICE_DECIMALS) return;
       setInputs(prev => ({ ...prev, [field]: value }));
       if (field === 'riskAmount' && value) {
         try { localStorage.setItem('ct:risk-amount', value); } catch { /* ignore */ }
@@ -217,7 +232,9 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
     const ratio = parseFloat(inputs.riskRatio) || 2;
 
     // Stop Size = Entry - Stop (for long positions)
-    const stopSize = entry > 0 && stop > 0 ? Math.abs(entry - stop) : 0;
+    // Rounded to PRICE_DECIMALS to strip float dust (0.0421 - 0.0411 = 0.0010000000000000009),
+    // which would otherwise knock a share off the floored Share Size.
+    const stopSize = entry > 0 && stop > 0 ? roundPrice(Math.abs(entry - stop)) : 0;
 
     // Share Size = Risk / Stop Size
     const shareSize = stopSize > 0 ? Math.floor(risk / stopSize) : 0;
@@ -280,6 +297,16 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
       currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
+    }).format(value);
+  };
+
+  // Price display: at least 2 decimals, up to 6 for sub-penny values ($0.0421).
+  const formatPrice = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: PRICE_DECIMALS,
     }).format(value);
   };
 
@@ -469,10 +496,10 @@ export default function PositionCalculator({ initialTicker, onTickerChange }: Po
       {/* Metrics strip */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
         {[
-          { label: 'Stop Size', value: calculations.stopSize > 0 ? formatCurrency(calculations.stopSize) : '—', color: 'text-white', tooltip: showTooltips && calculations.stopSize > 0 ? `${formatCurrency(calculations.entry)} − ${formatCurrency(calculations.stop)}` : null },
-          { label: 'Shares', value: calculations.shareSize > 0 ? formatNumber(calculations.shareSize) : '—', color: 'text-white', tooltip: showTooltips && calculations.shareSize > 0 ? `$${calculations.risk} ÷ ${formatCurrency(calculations.stopSize)}` : null },
+          { label: 'Stop Size', value: calculations.stopSize > 0 ? formatPrice(calculations.stopSize) : '—', color: 'text-white', tooltip: showTooltips && calculations.stopSize > 0 ? `${formatPrice(calculations.entry)} − ${formatPrice(calculations.stop)}` : null },
+          { label: 'Shares', value: calculations.shareSize > 0 ? formatNumber(calculations.shareSize) : '—', color: 'text-white', tooltip: showTooltips && calculations.shareSize > 0 ? `$${calculations.risk} ÷ ${formatPrice(calculations.stopSize)}` : null },
           { label: 'R:R', value: calculations.actualRR > 0 ? `${calculations.actualRR.toFixed(2)}:1` : '—', color: calculations.actualRR >= calculations.ratio ? 'text-[#3fb950]' : calculations.actualRR >= calculations.ratio * 0.75 ? 'text-yellow-400' : calculations.actualRR > 0 ? 'text-[#f85149]' : 'text-white', tooltip: null },
-          { label: '% Change', value: calculations.targetPercent !== null ? `${calculations.targetPercent >= 0 ? '+' : ''}${calculations.targetPercent.toFixed(1)}%` : '—', color: calculations.targetPercent === null ? 'text-white' : calculations.targetPercent >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]', tooltip: showTooltips && calculations.targetPercent !== null ? `${formatCurrency(calculations.entry)} → ${formatCurrency(calculations.target)}` : null },
+          { label: '% Change', value: calculations.targetPercent !== null ? `${calculations.targetPercent >= 0 ? '+' : ''}${calculations.targetPercent.toFixed(1)}%` : '—', color: calculations.targetPercent === null ? 'text-white' : calculations.targetPercent >= 0 ? 'text-[#3fb950]' : 'text-[#f85149]', tooltip: showTooltips && calculations.targetPercent !== null ? `${formatPrice(calculations.entry)} → ${formatPrice(calculations.target)}` : null },
           { label: 'Profit', value: calculations.potentialReward > 0 ? formatCurrency(calculations.potentialReward) : '—', color: 'text-[#3fb950]', tooltip: null },
           { label: 'Position', value: calculations.positionValue > 0 ? formatCurrency(calculations.positionValue) : '—', color: 'text-white', tooltip: null },
         ].map(({ label, value, color, tooltip }) => (
