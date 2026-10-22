@@ -10,7 +10,11 @@
  *      setup that justified it. Protective stops are NEVER auto-cancelled
  *      (they guard a live position). A cancel that reveals a partial fill
  *      still chains a stop for the held shares (see execution.cancelOrder).
- *   3. Take-profit completion (system_state.autoTakeProfit, synthetic OCO):
+ *   3. External-exit sync: shares the owner sold outside the app (e.g. in the
+ *      Robinhood app) are mirrored into the ledger from the broker's real
+ *      positions, so no stop/take-profit is ever placed against shares that
+ *      are already gone (lib/confluence/external-exits.ts).
+ *   4. Take-profit completion (system_state.autoTakeProfit, synthetic OCO):
  *      when a held position trades at/through the target the human approved
  *      at entry, cancel the protective stop and place a GTC LIMIT exit at the
  *      target (fills at target or better) via execution.placeTakeProfit; if
@@ -36,6 +40,7 @@ import { callRobinhoodTool, isRobinhoodAvailable } from '@/lib/confluence/robinh
 import { getSystemState } from '@/lib/db/confluence/system-state';
 import { cancelOrder, placeTakeProfit, refreshOrderStatus, restoreProtectiveStop } from '@/lib/confluence/execution';
 import { reconcileOrders } from '@/lib/confluence/reconcile';
+import { syncExternalExits } from '@/lib/confluence/external-exits';
 import { sendEmail } from '@/lib/email';
 import {
   ConfluenceExecutionEmail,
@@ -120,6 +125,24 @@ export async function GET() {
           detail: `Unfilled after ${state.entryOrderMaxAgeDays} days — resting limit cancelled.`,
         });
       }
+    }
+
+    // ── Manual exits: after the refresh (so broker-side stop/TP fills are
+    // already counted), mirror anything sold outside the app before any exit
+    // decision runs against the ledger's idea of what is held.
+    try {
+      const ext = await syncExternalExits(userId);
+      for (const r of ext.recorded) events.push(`sold outside app: ${r}`);
+      for (const c of ext.cancelled) events.push(`pulled exit for closed position: ${c}`);
+      if (ext.recorded.length > 0) {
+        emailEvents.push({
+          tone: 'action',
+          headline: `Manual sells detected (${ext.recorded.length})`,
+          detail: `Robinhood no longer holds: ${ext.recorded.join(', ')}. Recorded as manual exits — no stops or take-profits will fire for them.`,
+        });
+      }
+    } catch (err) {
+      events.push(`external-exit sync failed: ${err instanceof Error ? err.message : 'unknown'}`);
     }
 
     // ── Take-profit completion: held positions trading at/through the

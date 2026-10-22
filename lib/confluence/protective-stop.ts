@@ -124,9 +124,14 @@ export function shouldPlaceProtectiveStop(
   }
   // Size to the shares the entry's exits haven't already closed — a stop for
   // the full fill would oversell after a partial take-profit or stop fill
-  // (e.g. re-arming on an OCO retreat after some shares sold at the target).
+  // (e.g. re-arming on an OCO retreat after some shares sold at the target),
+  // and shares the owner sold outside the app (external_exit) are gone too.
   const closed = existingChildren
-    .filter((c) => c.protectsOrderId === entryOrder.id && (c.kind === 'protective_stop' || c.kind === 'take_profit'))
+    .filter(
+      (c) =>
+        c.protectsOrderId === entryOrder.id &&
+        (c.kind === 'protective_stop' || c.kind === 'take_profit' || c.kind === 'external_exit'),
+    )
     .reduce((sum, c) => sum + Math.max(0, c.filledQuantity), 0);
   const remaining = entryOrder.filledQuantity - closed;
   if (!(remaining > 0)) {

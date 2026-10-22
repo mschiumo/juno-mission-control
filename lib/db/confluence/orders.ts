@@ -58,15 +58,17 @@ export async function getProtectiveStopsForEntry(entryOrderId: string, userId: s
 }
 
 /**
- * ALL exit children of an entry order (protective stops AND take-profits),
- * any status. The take-profit and protective-stop guards both need the full
+ * ALL exit children of an entry order (protective stops, take-profits, and
+ * external exits — manual sells mirrored from the broker), any status. The take-profit and protective-stop guards both need the full
  * set: stop fills shrink the shares a take-profit may close, and a working
  * take-profit blocks a stop re-place (the shares are reserved at the broker).
  */
 export async function getExitChildrenForEntry(entryOrderId: string, userId: string): Promise<ExecutionOrder[]> {
   const all = await getAllOrders(userId);
   return all.filter(
-    (o) => (o.kind === 'protective_stop' || o.kind === 'take_profit') && o.protectsOrderId === entryOrderId,
+    (o) =>
+      (o.kind === 'protective_stop' || o.kind === 'take_profit' || o.kind === 'external_exit') &&
+      o.protectsOrderId === entryOrderId,
   );
 }
 
