@@ -23,7 +23,17 @@ interface Props {
 
 function sideTag(order: ExecutionOrder) {
   const isStop = order.kind === 'protective_stop';
-  const label = order.side === 'sell' ? (isStop ? 'SELL STOP' : 'SELL') : isStop ? 'BUY STOP' : 'BUY';
+  const manual = order.kind === 'external_exit';
+  const label =
+    order.side === 'sell'
+      ? isStop
+        ? 'SELL STOP'
+        : manual
+          ? 'SELL · MANUAL'
+          : 'SELL'
+      : isStop
+        ? 'BUY STOP'
+        : 'BUY';
   const neg = order.side === 'sell';
   return (
     <span

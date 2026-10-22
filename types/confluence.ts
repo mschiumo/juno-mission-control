@@ -32,7 +32,8 @@ export type ProposalStatus = 'pending' | 'approved' | 'rejected' | 'expired' | '
  * for the protective-stop child placed after an entry fills — an exit that can
  * only reduce exposure, at the stop price the human approved.
  */
-export type OrderType = 'limit' | 'stop_market';
+/** 'market' only appears on external_exit records (manual sells mirrored from the broker). */
+export type OrderType = 'limit' | 'stop_market' | 'market';
 
 /** time_in_force: good-for-day / good-till-cancelled. */
 export type TimeInForce = 'gfd' | 'gtc';
@@ -210,8 +211,11 @@ export interface ExecutionOrder {
    * entry fills; a 'take_profit' is the limit exit staged automatically when
    * the position trades at/through the approved target. Both are deterministic
    * completion of the plan the human approved — exits only, never new exposure.
+   * An 'external_exit' is a ledger-only record (never sent to the broker) that
+   * mirrors shares the owner sold OUTSIDE the app, e.g. in the Robinhood app —
+   * see lib/confluence/external-exits.ts.
    */
-  kind?: 'entry' | 'protective_stop' | 'take_profit';
+  kind?: 'entry' | 'protective_stop' | 'take_profit' | 'external_exit';
   /** The approved plan's stop, denormalized onto the ENTRY order at staging
    * (and the trigger price on the protective_stop child). */
   stopPrice?: number;
@@ -288,6 +292,8 @@ export type AuditEventType =
   | 'order.take_profit_placed'
   | 'order.take_profit_skipped'
   | 'order.reconciled'
+  /** Shares sold outside the app (e.g. in the Robinhood app) mirrored into the ledger. */
+  | 'order.external_exit'
   | 'position.target_reached'
   /** Owner cleared the cached Robinhood credentials (Redis), forcing a re-seed. */
   | 'robinhood.auth_reset'

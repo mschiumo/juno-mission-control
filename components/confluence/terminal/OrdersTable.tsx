@@ -76,6 +76,23 @@ function OrderRow({
             STOP
           </span>
         )}
+        {order.kind === 'external_exit' && (
+          <span
+            style={{
+              padding: '2px 5px',
+              borderRadius: 4,
+              background: 'rgba(255,255,255,0.06)',
+              color: 'var(--ct-muted)',
+              fontFamily: 'var(--ct-mono)',
+              fontSize: 8.5,
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+            }}
+            title="Sold outside the app (e.g. in the Robinhood app) — mirrored from the broker's positions"
+          >
+            MANUAL
+          </span>
+        )}
       </span>
       <span
         style={{
