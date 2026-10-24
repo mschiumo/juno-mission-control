@@ -42,9 +42,9 @@ function fmtDate(date: string, opts: Intl.DateTimeFormatOptions = { month: 'shor
 function DeltaPts({ cur, prev }: { cur: number | null; prev: number | null | undefined }) {
   if (cur === null || prev === null || prev === undefined) return <span className="text-[10px] text-[#484f58]">—</span>;
   const d = cur - prev;
-  if (d === 0) return <span className="text-[10px] text-[#8b949e] tabular-nums">± 0 pts</span>;
+  if (d === 0) return <span className="text-[10px] text-[#8b949e] tabular-nums whitespace-nowrap">± 0 pts</span>;
   return (
-    <span className={`text-[10px] tabular-nums ${d > 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+    <span className={`text-[10px] tabular-nums whitespace-nowrap ${d > 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
       {d > 0 ? '▲' : '▼'} {Math.abs(d)} pts
     </span>
   );
@@ -53,10 +53,10 @@ function DeltaPts({ cur, prev }: { cur: number | null; prev: number | null | und
 /** Count delta (perfect days, skips) vs the comparison week. */
 function DeltaCount({ cur, prev, lowerIsBetter = false }: { cur: number; prev: number; lowerIsBetter?: boolean }) {
   const d = cur - prev;
-  if (d === 0) return <span className="text-[10px] text-[#8b949e] tabular-nums">± 0</span>;
+  if (d === 0) return <span className="text-[10px] text-[#8b949e] tabular-nums whitespace-nowrap">± 0</span>;
   const good = lowerIsBetter ? d < 0 : d > 0;
   return (
-    <span className={`text-[10px] tabular-nums ${good ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+    <span className={`text-[10px] tabular-nums whitespace-nowrap ${good ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
       {d > 0 ? '▲' : '▼'} {Math.abs(d)}
     </span>
   );
@@ -229,7 +229,9 @@ function streakText(s: HabitScore, n: number): string {
   return `${n}${unit}`;
 }
 
-function HabitTable({ scores, prev, weekly }: { scores: HabitScore[]; prev: Map<string, number | null> | null; weekly: boolean }) {
+function HabitTable({ scores, prev, weekly, prevHeader }: {
+  scores: HabitScore[]; prev: Map<string, number | null> | null; weekly: boolean; prevHeader: string;
+}) {
   const rows = [...scores].sort((a, b) => (a.pct ?? 101) - (b.pct ?? 101));
   return (
     <div className="overflow-x-auto -mx-1">
@@ -238,7 +240,7 @@ function HabitTable({ scores, prev, weekly }: { scores: HabitScore[]; prev: Map<
           <tr className="text-[10px] uppercase tracking-wider text-[#8b949e] text-left">
             <th className="font-medium py-1.5 px-1">Habit</th>
             <th className="font-medium py-1.5 px-1 w-[38%]">Completion</th>
-            <th className="font-medium py-1.5 px-1 hidden sm:table-cell">{weekly ? 'vs last wk' : 'vs prior'}</th>
+            <th className="font-medium py-1.5 px-1 hidden sm:table-cell">{prevHeader}</th>
             <th className="font-medium py-1.5 px-1 text-right" title="Current / best in range">Streak</th>
             <th className="font-medium py-1.5 px-1 text-right hidden sm:table-cell">Skips</th>
             {!weekly && <th className="font-medium py-1.5 px-1 hidden md:table-cell">Weekly</th>}
@@ -270,7 +272,7 @@ function HabitTable({ scores, prev, weekly }: { scores: HabitScore[]; prev: Map<
                     ? `${s.done}/${s.due} days`
                     : weekly
                       // One (possibly unfinished) period: show progress toward the goal.
-                      ? `${s.done}/${s.due} this ${s.streakUnit}`
+                      ? `${s.done}/${s.due} for the ${s.streakUnit}`
                       : `${s.periodsHit}/${s.periodsTotal} ${s.streakUnit}s on goal`}
                 </p>
               </td>
@@ -296,19 +298,30 @@ function HabitTable({ scores, prev, weekly }: { scores: HabitScore[]; prev: Map<
 
 const PREV_BAR = '#8b949e';
 
+interface WeekCompare {
+  prev: RangeSummary['weekdays'];
+  /** Lower-case names for the two weeks, e.g. "this week" / "last week". */
+  curName: string;
+  prevName: string;
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 /**
- * Mon..Sun completion bars. With `prev` (the 1W view) each day gets a second,
- * grey bar for last week beside this week's, so the comparison is day by day.
+ * Mon..Sun completion bars. With `compare` (the 1W view) each day gets a
+ * second, grey bar for the comparison week beside this week's, so the
+ * comparison is day by day.
  */
-function WeekdayBars({ days, prev }: { days: RangeSummary['weekdays']; prev?: RangeSummary['weekdays'] | null }) {
+function WeekdayBars({ days, compare }: { days: RangeSummary['weekdays']; compare?: WeekCompare | null }) {
   const pctText = (p: number | null) => (p === null ? '—' : `${p}%`);
+  const prev = compare?.prev;
   return (
     <div>
       <div className="grid grid-cols-7 gap-1.5 items-end h-28">
         {days.map((d, i) => {
           const p = prev?.[i];
-          const title = prev
-            ? `${d.label}: ${d.pct === null ? 'not yet' : `${d.pct}%`} this week · ${pctText(p?.pct ?? null)} last week`
+          const title = compare
+            ? `${d.label}: ${d.pct === null ? 'not yet' : `${d.pct}%`} ${compare.curName} · ${pctText(p?.pct ?? null)} ${compare.prevName}`
             : d.pct === null ? `${d.label}: nothing due` : `${d.label}: ${d.pct}%`;
           return (
             <div key={d.label} className="flex flex-col items-center gap-1 h-full justify-end" title={title}>
@@ -328,10 +341,10 @@ function WeekdayBars({ days, prev }: { days: RangeSummary['weekdays']; prev?: Ra
           );
         })}
       </div>
-      {prev && (
+      {compare && (
         <div className="flex items-center gap-3 mt-2 text-[10px] text-[#8b949e]">
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[2px]" style={{ backgroundColor: PREV_BAR, opacity: 0.5 }} />Last week</span>
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[2px]" style={{ backgroundColor: DONE, opacity: 0.8 }} />This week</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[2px]" style={{ backgroundColor: PREV_BAR, opacity: 0.5 }} />{cap(compare.prevName)}</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[2px]" style={{ backgroundColor: DONE, opacity: 0.8 }} />{cap(compare.curName)}</span>
         </div>
       )}
     </div>
@@ -400,24 +413,30 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
     const prevLen = dateSpan(win.prevFrom, win.prevTo).length;
     const prev = prevRaw.coveredDays >= prevLen / 2 && prevRaw.due > 0 ? prevRaw : null;
     const best = [...cur.scores].filter((s) => s.daily).sort((a, b) => b.longestStreak - a.longestStreak)[0];
+    // On a Monday nothing of this week has finished, so 1W falls back to last
+    // week — and the comparison week is then "the week before", not "last week".
+    const weeklyFallback = weekly && win.from !== weekStartFor(today);
+    const curName = weeklyFallback ? 'last week' : 'this week';
+    const prevName = weeklyFallback ? 'the week before' : 'the same days last week';
     return {
       from, to: win.to, clipped: from !== win.from,
-      weekly,
-      // On a Monday nothing of this week has finished, so 1W falls back to last week.
-      weeklyFallback: weekly && win.from !== weekStartFor(today),
+      weekly, weeklyFallback,
       cur, prev,
       prevPct: prev ? new Map(prev.scores.map((s) => [s.habit.id, s.pct])) : null,
       // Day-by-day bars compare against the FULL previous week, not just the
       // same days, so the days still ahead have a reference too.
-      prevWeekDays: weekly && prev ? summarize(timeline, win.prevFrom, shiftDate(win.prevFrom, 6), today).weekdays : null,
+      compare: weekly && prev
+        ? { prev: summarize(timeline, win.prevFrom, shiftDate(win.prevFrom, 6), today).weekdays, curName, prevName: weeklyFallback ? 'week before' : 'last week' }
+        : null,
+      // Short forms for the tile sub-label and the table header.
+      prevLabel: !weekly ? 'vs prior' : weeklyFallback ? 'vs week before' : 'vs last wk',
+      prevHeader: !weekly ? 'vs prior' : weeklyFallback ? 'vs week before' : 'vs last wk',
       heat: heatmap(timeline, from, win.to),
       trend: trendRows(cur),
-      insights: insights(cur, prev, weekly ? { prevLabel: 'the same days last week', minDue: 1, weekdayPattern: false } : {}),
+      insights: insights(cur, prev, weekly ? { prevLabel: prevName, minDue: 1, weekdayPattern: false, openPeriods: true } : {}),
       best,
     };
   }, [timeline, range, today]);
-
-  const prevLabel = view?.weekly ? 'vs same days last wk' : 'vs prior';
 
   const content = (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-2 sm:p-4" onClick={onClose}>
@@ -508,7 +527,7 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
                   label="Completion"
                   value={view.cur.pct === null ? '—' : `${view.cur.pct}%`}
                   delta={<DeltaPts cur={view.cur.pct} prev={view.prev?.pct} />}
-                  sub={view.prev ? prevLabel : 'no prior data'}
+                  sub={view.prev ? view.prevLabel : 'no prior data'}
                 />
                 <StatTile
                   icon={<CalendarCheck className="w-3 h-3" />}
@@ -568,9 +587,13 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
               {view.weekly && (
                 <Section
                   title="Day by day"
-                  right={<span className="text-[10px] text-[#8b949e]">{view.prevWeekDays ? 'This week vs last week · daily habits' : 'Daily habits'}</span>}
+                  right={
+                    <span className="text-[10px] text-[#8b949e]">
+                      {view.compare ? `${cap(view.compare.curName)} vs ${view.compare.prevName} · daily habits` : 'Daily habits'}
+                    </span>
+                  }
                 >
-                  <WeekdayBars days={view.cur.weekdays} prev={view.prevWeekDays} />
+                  <WeekdayBars days={view.cur.weekdays} compare={view.compare} />
                 </Section>
               )}
 
@@ -598,7 +621,7 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
 
               {/* Per habit */}
               <Section title="By habit" right={<span className="text-[10px] text-[#8b949e]">Weakest first · streak = current / best</span>}>
-                <HabitTable scores={view.cur.scores} prev={view.prevPct} weekly={view.weekly} />
+                <HabitTable scores={view.cur.scores} prev={view.prevPct} weekly={view.weekly} prevHeader={view.prevHeader} />
               </Section>
 
               {/* Weekday pattern */}

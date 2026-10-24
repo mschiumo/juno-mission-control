@@ -204,3 +204,13 @@ describe('1W range', () => {
     expect(insights(twoDays, prev, { minDue: 1 }).wins.some((i) => i.text.includes('100%'))).toBe(true);
   });
 });
+
+describe('1W insights for goal habits', () => {
+  it('nudges toward the goal instead of judging an unfinished week', () => {
+    const days = history(MON, '2026-09-09', (d) => [h('gym', { completed: d === MON })]);
+    const t = buildTimeline(days, [threeX], MON, '2026-09-09');
+    const cur = summarize(t, MON, '2026-09-09', '2026-09-10', { openPeriods: true });
+    const ins = insights(cur, null, { minDue: 1, openPeriods: true });
+    expect(ins.improve[0].text).toContain('1/3 for the week so far — 2 more');
+  });
+});

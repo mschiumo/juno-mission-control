@@ -572,6 +572,8 @@ export interface InsightOptions {
   minDue?: number;
   /** Call out the weakest / strongest weekday (default on; off for one week). */
   weekdayPattern?: boolean;
+  /** Goal habits were scored on a period still running (see ScoreOptions). */
+  openPeriods?: boolean;
 }
 
 /**
@@ -579,7 +581,7 @@ export interface InsightOptions {
  * isn't covered by history), used for "slipping" / "most improved".
  */
 export function insights(cur: RangeSummary, prev: RangeSummary | null, opts: InsightOptions = {}): Insights {
-  const { prevLabel = 'the previous period', minDue = 3, weekdayPattern = true } = opts;
+  const { prevLabel = 'the previous period', minDue = 3, weekdayPattern = true, openPeriods = false } = opts;
   const improve: Insight[] = [];
   const wins: Insight[] = [];
   const scored = cur.scores.filter((s) => s.pct !== null && s.due >= minDue);
@@ -593,7 +595,10 @@ export function insights(cur: RangeSummary, prev: RangeSummary | null, opts: Ins
     improve.push({
       habitId: s.habit.id,
       text: !s.daily
-        ? `${name(s)} hit its goal in ${s.periodsHit} of ${s.periodsTotal} ${s.streakUnit}s (${s.pct}%) — consider lowering the target or scheduling the sessions.`
+        ? openPeriods
+          // The period hasn't ended — a nudge, not a verdict.
+          ? `${name(s)} is at ${s.done}/${s.due} for the ${s.streakUnit} so far — ${s.due - s.done} more to hit the goal.`
+          : `${name(s)} hit its goal in ${s.periodsHit} of ${s.periodsTotal} ${s.streakUnit}s (${s.pct}%) — consider lowering the target or scheduling the sessions.`
         : i === 0
           ? `${name(s)} is your weakest habit at ${s.pct}% — try anchoring it to something you already do every day.`
           : `${name(s)} is also lagging at ${s.pct}% — give it a fixed time or place so it doesn't depend on willpower.`,
