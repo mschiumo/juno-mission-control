@@ -159,3 +159,58 @@ describe('rangeWindow', () => {
     expect(rangeWindow('ytd', '2026-10-04')).toEqual({ from: '2026-01-01', to: '2026-10-03', prevFrom: '2025-01-01', prevTo: '2025-10-03' });
   });
 });
+
+describe('1W range', () => {
+  it('runs Monday → yesterday against the same days last week', () => {
+    // 2026-10-22 is a Thursday.
+    expect(rangeWindow('1w', '2026-10-22')).toEqual({ from: '2026-10-19', to: '2026-10-21', prevFrom: '2026-10-12', prevTo: '2026-10-14' });
+  });
+  it('falls back to last full week on a Monday', () => {
+    expect(rangeWindow('1w', '2026-10-19')).toEqual({ from: '2026-10-12', to: '2026-10-18', prevFrom: '2026-10-05', prevTo: '2026-10-11' });
+  });
+
+  it('scores a goal habit on the week in progress when openPeriods is set', () => {
+    // Mon + Tue done, through Wednesday.
+    const days = history(MON, '2026-09-09', (d) => [h('gym', { completed: d !== '2026-09-09' })]);
+    const t = buildTimeline(days, [threeX], MON, '2026-09-09');
+    const closed = scoreHabit(t, threeX, MON, '2026-09-09', '2026-09-10');
+    expect(closed.due).toBe(0); // no week has ended yet
+    const open = scoreHabit(t, threeX, MON, '2026-09-09', '2026-09-10', { openPeriods: true });
+    expect(open).toMatchObject({ due: 3, done: 2, pct: 67, periodsTotal: 1, periodsHit: 0 });
+    // And the habit shows up in the summary instead of being filtered out.
+    const sum = summarize(t, MON, '2026-09-09', '2026-09-10', { openPeriods: true });
+    expect(sum.scores.map((s) => s.habit.id)).toContain('gym');
+  });
+
+  it('reports a monthly habit month-to-date', () => {
+    const monthly: HabitDef = { id: 'vol', name: 'Volunteer', icon: '🤝', frequency: 'monthly' };
+    const days = history('2026-09-01', '2026-09-09', (d) => [h('vol', { completed: d === '2026-09-02' })]);
+    const t = buildTimeline(days, [monthly], '2026-09-01', '2026-09-09');
+    const s = scoreHabit(t, monthly, MON, '2026-09-09', '2026-09-10', { openPeriods: true });
+    expect(s).toMatchObject({ due: 1, done: 1, pct: 100, streakUnit: 'month' });
+  });
+
+  it('uses the comparison label and a lower due threshold in insights', () => {
+    // This week (Mon–Wed): Read missed Wednesday (67%); last week same days: all done.
+    const days = history('2026-08-31', '2026-09-09', (d) => [h('read', { completed: d !== '2026-09-09' })]);
+    const t = buildTimeline(days, [daily], '2026-08-31', '2026-09-09');
+    const cur = summarize(t, MON, '2026-09-09', '2026-09-10');
+    const prev = summarize(t, '2026-08-31', '2026-09-02', '2026-09-10');
+    const ins = insights(cur, prev, { prevLabel: 'the same days last week', minDue: 1, weekdayPattern: false });
+    expect(ins.improve.some((i) => i.text.includes('vs the same days last week'))).toBe(true);
+    // With only two days in, the default threshold (3 due) stays quiet.
+    const twoDays = summarize(t, MON, '2026-09-08', '2026-09-09');
+    expect(insights(twoDays, prev).improve).toHaveLength(0);
+    expect(insights(twoDays, prev, { minDue: 1 }).wins.some((i) => i.text.includes('100%'))).toBe(true);
+  });
+});
+
+describe('1W insights for goal habits', () => {
+  it('nudges toward the goal instead of judging an unfinished week', () => {
+    const days = history(MON, '2026-09-09', (d) => [h('gym', { completed: d === MON })]);
+    const t = buildTimeline(days, [threeX], MON, '2026-09-09');
+    const cur = summarize(t, MON, '2026-09-09', '2026-09-10', { openPeriods: true });
+    const ins = insights(cur, null, { minDue: 1, openPeriods: true });
+    expect(ins.improve[0].text).toContain('1/3 for the week so far — 2 more');
+  });
+});

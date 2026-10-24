@@ -71,7 +71,7 @@ export interface Timeline {
   firstDate: string | null;
 }
 
-export type RangeId = '1m' | '3m' | '6m' | 'ytd';
+export type RangeId = '1w' | '1m' | '3m' | '6m' | 'ytd';
 
 export interface RangeWindow {
   from: string;
@@ -194,11 +194,19 @@ export function buildTimeline(days: HistoryDays, habits: HabitDef[], from: strin
 
 // ── Ranges ────────────────────────────────────────────────────────────────
 
-export const RANGE_DAYS: Record<Exclude<RangeId, 'ytd'>, number> = { '1m': 30, '3m': 91, '6m': 182 };
+export const RANGE_DAYS: Record<Exclude<RangeId, '1w' | 'ytd'>, number> = { '1m': 30, '3m': 91, '6m': 182 };
 
 /** [from, to] (ending yesterday) plus the comparison window before it. */
 export function rangeWindow(range: RangeId, today: string): RangeWindow {
   const to = shiftDate(today, -1);
+  if (range === '1w') {
+    // This week (Monday → yesterday), compared with the same days last week
+    // so a Wednesday isn't judged against a full seven days. On a Monday no
+    // day of the week has finished yet, so show last week vs the week before.
+    let from = weekStartFor(today);
+    if (from > to) from = shiftDate(from, -7);
+    return { from, to, prevFrom: shiftDate(from, -7), prevTo: shiftDate(to, -7) };
+  }
   if (range === 'ytd') {
     // Jan 1 → yesterday, compared with the same span last year. On Jan 1
     // itself the window is empty-ish, so fall back to the last 30 days.
@@ -233,6 +241,29 @@ function periodsEndingIn(habit: HabitDef, from: string, to: string): Period[] {
     for (; end <= to; end = monthEndFor(shiftDate(end, 1))) out.push({ start: monthStartFor(end), end });
   }
   return out;
+}
+
+/**
+ * Periods that OVERLAP [from, to], the last one cut off at `to` when it's still
+ * running. Used by the one-week view so a 3x/week habit reads "2/3 so far"
+ * mid-week instead of vanishing until Sunday has passed. A monthly habit comes
+ * out month-to-date.
+ */
+function periodsOverlapping(habit: HabitDef, from: string, to: string): Period[] {
+  const periodType = frequencyPeriod(habit.frequency);
+  const out: Period[] = [];
+  let start = periodType === 'week' ? weekStartFor(from) : monthStartFor(from);
+  while (start <= to) {
+    const end = periodType === 'week' ? shiftDate(start, 6) : monthEndFor(start);
+    out.push({ start, end: end > to ? to : end });
+    start = shiftDate(end, 1);
+  }
+  return out;
+}
+
+export interface ScoreOptions {
+  /** Score goal-per-period habits on periods still in progress (one-week view). */
+  openPeriods?: boolean;
 }
 
 interface PeriodScore extends Period {
@@ -336,7 +367,7 @@ function currentDailyStreak(t: Timeline, habit: HabitDef, today: string): number
   return streak;
 }
 
-export function scoreHabit(t: Timeline, habit: HabitDef, from: string, to: string, today: string): HabitScore {
+export function scoreHabit(t: Timeline, habit: HabitDef, from: string, to: string, today: string, opts: ScoreOptions = {}): HabitScore {
   const weeks = weeksIn(from, to);
   if (isDailyCadence(habit)) {
     const s = dailyScore(t, habit, from, to);
@@ -355,7 +386,7 @@ export function scoreHabit(t: Timeline, habit: HabitDef, from: string, to: strin
     };
   }
 
-  const periods = periodsEndingIn(habit, from, to)
+  const periods = (opts.openPeriods ? periodsOverlapping(habit, from, to) : periodsEndingIn(habit, from, to))
     .map((p) => scorePeriod(t, habit, p))
     .filter((p): p is PeriodScore => p !== null);
   const due = periods.reduce((a, p) => a + p.goal, 0);
@@ -464,8 +495,8 @@ export interface RangeSummary {
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function summarize(t: Timeline, from: string, to: string, today: string): RangeSummary {
-  const scores = t.habits.map((h) => scoreHabit(t, h, from, to, today)).filter((s) => s.due > 0 || s.currentStreak > 0);
+export function summarize(t: Timeline, from: string, to: string, today: string, opts: ScoreOptions = {}): RangeSummary {
+  const scores = t.habits.map((h) => scoreHabit(t, h, from, to, today, opts)).filter((s) => s.due > 0 || s.currentStreak > 0);
   const due = scores.reduce((a, s) => a + s.due, 0);
   const done = scores.reduce((a, s) => a + s.done, 0);
 
@@ -534,14 +565,26 @@ export interface Insights {
   wins: Insight[];
 }
 
+export interface InsightOptions {
+  /** How the comparison window is named in copy, e.g. "the previous period". */
+  prevLabel?: string;
+  /** Units a habit must have had due before it's judged (default 3). */
+  minDue?: number;
+  /** Call out the weakest / strongest weekday (default on; off for one week). */
+  weekdayPattern?: boolean;
+  /** Goal habits were scored on a period still running (see ScoreOptions). */
+  openPeriods?: boolean;
+}
+
 /**
  * Rule-based callouts — no AI. `prev` is the comparison range (null when it
  * isn't covered by history), used for "slipping" / "most improved".
  */
-export function insights(cur: RangeSummary, prev: RangeSummary | null): Insights {
+export function insights(cur: RangeSummary, prev: RangeSummary | null, opts: InsightOptions = {}): Insights {
+  const { prevLabel = 'the previous period', minDue = 3, weekdayPattern = true, openPeriods = false } = opts;
   const improve: Insight[] = [];
   const wins: Insight[] = [];
-  const scored = cur.scores.filter((s) => s.pct !== null && s.due >= 3);
+  const scored = cur.scores.filter((s) => s.pct !== null && s.due >= minDue);
   const prevPct = new Map(prev?.scores.map((s) => [s.habit.id, s.pct]) ?? []);
   const name = (s: HabitScore) => `${s.habit.icon} ${s.habit.name}`;
 
@@ -552,7 +595,10 @@ export function insights(cur: RangeSummary, prev: RangeSummary | null): Insights
     improve.push({
       habitId: s.habit.id,
       text: !s.daily
-        ? `${name(s)} hit its goal in ${s.periodsHit} of ${s.periodsTotal} ${s.streakUnit}s (${s.pct}%) — consider lowering the target or scheduling the sessions.`
+        ? openPeriods
+          // The period hasn't ended — a nudge, not a verdict.
+          ? `${name(s)} is at ${s.done}/${s.due} for the ${s.streakUnit} so far — ${s.due - s.done} more to hit the goal.`
+          : `${name(s)} hit its goal in ${s.periodsHit} of ${s.periodsTotal} ${s.streakUnit}s (${s.pct}%) — consider lowering the target or scheduling the sessions.`
         : i === 0
           ? `${name(s)} is your weakest habit at ${s.pct}% — try anchoring it to something you already do every day.`
           : `${name(s)} is also lagging at ${s.pct}% — give it a fixed time or place so it doesn't depend on willpower.`,
@@ -567,7 +613,7 @@ export function insights(cur: RangeSummary, prev: RangeSummary | null): Insights
     .filter((x) => !weakest.includes(x.s))
     .slice(0, 2);
   for (const { s, delta } of slipping) {
-    improve.push({ habitId: s.habit.id, text: `${name(s)} slipped ${Math.abs(delta)} pts vs the previous period (now ${s.pct}%).` });
+    improve.push({ habitId: s.habit.id, text: `${name(s)} slipped ${Math.abs(delta)} pts vs ${prevLabel} (now ${s.pct}%).` });
   }
 
   // Frequently skipped.
@@ -580,7 +626,7 @@ export function insights(cur: RangeSummary, prev: RangeSummary | null): Insights
   }
 
   // Weakest weekday (only when there's a real spread).
-  const days = cur.weekdays.filter((d) => d.pct !== null && d.due >= 5);
+  const days = weekdayPattern ? cur.weekdays.filter((d) => d.pct !== null && d.due >= 5) : [];
   if (days.length >= 5) {
     const worst = days.reduce((a, b) => (b.pct! < a.pct! ? b : a));
     const best = days.reduce((a, b) => (b.pct! > a.pct! ? b : a));
@@ -604,7 +650,7 @@ export function insights(cur: RangeSummary, prev: RangeSummary | null): Insights
     .map((s) => ({ s, delta: prevPct.get(s.habit.id) != null ? s.pct! - prevPct.get(s.habit.id)! : null }))
     .filter((x): x is { s: HabitScore; delta: number } => x.delta !== null && x.delta >= 10)
     .sort((a, b) => b.delta - a.delta)[0];
-  if (improved) wins.push({ habitId: improved.s.habit.id, text: `${name(improved.s)} is up ${improved.delta} pts vs the previous period.` });
+  if (improved) wins.push({ habitId: improved.s.habit.id, text: `${name(improved.s)} is up ${improved.delta} pts vs ${prevLabel}.` });
 
   const streaker = [...cur.scores].filter((s) => s.daily).sort((a, b) => b.longestStreak - a.longestStreak)[0];
   if (streaker && streaker.longestStreak >= 5) {
