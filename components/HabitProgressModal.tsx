@@ -16,8 +16,13 @@ import {
 // Long-range habit progress, opened from the Habits card. Everything is
 // computed client-side (lib/habit-progress.ts) from one /api/habits/history
 // payload. Ranges end yesterday — today is still in progress.
+//
+// The 1W range is a different shape from the rest: one week so far, compared
+// with the same days last week. The multi-week sections (trend chart, calendar,
+// sparklines) are swapped for a day-by-day this-week-vs-last-week comparison.
 
 const RANGES: { id: RangeId; label: string }[] = [
+  { id: '1w', label: '1W' },
   { id: '1m', label: '1M' },
   { id: '3m', label: '3M' },
   { id: '6m', label: '6M' },
@@ -41,6 +46,18 @@ function DeltaPts({ cur, prev }: { cur: number | null; prev: number | null | und
   return (
     <span className={`text-[10px] tabular-nums ${d > 0 ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
       {d > 0 ? '▲' : '▼'} {Math.abs(d)} pts
+    </span>
+  );
+}
+
+/** Count delta (perfect days, skips) vs the comparison week. */
+function DeltaCount({ cur, prev, lowerIsBetter = false }: { cur: number; prev: number; lowerIsBetter?: boolean }) {
+  const d = cur - prev;
+  if (d === 0) return <span className="text-[10px] text-[#8b949e] tabular-nums">± 0</span>;
+  const good = lowerIsBetter ? d < 0 : d > 0;
+  return (
+    <span className={`text-[10px] tabular-nums ${good ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+      {d > 0 ? '▲' : '▼'} {Math.abs(d)}
     </span>
   );
 }
@@ -212,7 +229,7 @@ function streakText(s: HabitScore, n: number): string {
   return `${n}${unit}`;
 }
 
-function HabitTable({ scores, prev }: { scores: HabitScore[]; prev: Map<string, number | null> | null }) {
+function HabitTable({ scores, prev, weekly }: { scores: HabitScore[]; prev: Map<string, number | null> | null; weekly: boolean }) {
   const rows = [...scores].sort((a, b) => (a.pct ?? 101) - (b.pct ?? 101));
   return (
     <div className="overflow-x-auto -mx-1">
@@ -221,10 +238,10 @@ function HabitTable({ scores, prev }: { scores: HabitScore[]; prev: Map<string, 
           <tr className="text-[10px] uppercase tracking-wider text-[#8b949e] text-left">
             <th className="font-medium py-1.5 px-1">Habit</th>
             <th className="font-medium py-1.5 px-1 w-[38%]">Completion</th>
-            <th className="font-medium py-1.5 px-1 hidden sm:table-cell">vs prior</th>
+            <th className="font-medium py-1.5 px-1 hidden sm:table-cell">{weekly ? 'vs last wk' : 'vs prior'}</th>
             <th className="font-medium py-1.5 px-1 text-right" title="Current / best in range">Streak</th>
             <th className="font-medium py-1.5 px-1 text-right hidden sm:table-cell">Skips</th>
-            <th className="font-medium py-1.5 px-1 hidden md:table-cell">Weekly</th>
+            {!weekly && <th className="font-medium py-1.5 px-1 hidden md:table-cell">Weekly</th>}
           </tr>
         </thead>
         <tbody>
@@ -249,7 +266,12 @@ function HabitTable({ scores, prev }: { scores: HabitScore[]; prev: Map<string, 
                   </span>
                 </div>
                 <p className="text-[10px] text-[#8b949e] mt-0.5 tabular-nums">
-                  {s.daily ? `${s.done}/${s.due} days` : `${s.periodsHit}/${s.periodsTotal} ${s.streakUnit}s on goal`}
+                  {s.daily
+                    ? `${s.done}/${s.due} days`
+                    : weekly
+                      // One (possibly unfinished) period: show progress toward the goal.
+                      ? `${s.done}/${s.due} this ${s.streakUnit}`
+                      : `${s.periodsHit}/${s.periodsTotal} ${s.streakUnit}s on goal`}
                 </p>
               </td>
               <td className="py-2 px-1 hidden sm:table-cell"><DeltaPts cur={s.pct} prev={prev ? prev.get(s.habit.id) : null} /></td>
@@ -261,7 +283,7 @@ function HabitTable({ scores, prev }: { scores: HabitScore[]; prev: Map<string, 
               <td className="py-2 px-1 text-right tabular-nums hidden sm:table-cell" title={s.noDataSkips ? `${s.noDataSkips} from days the app wasn't opened` : undefined}>
                 <span className={s.skips > 0 ? 'text-[#f85149]' : 'text-[#8b949e]'}>{s.skips}</span>
               </td>
-              <td className="py-2 px-1 hidden md:table-cell"><Sparkline values={s.weekly} /></td>
+              {!weekly && <td className="py-2 px-1 hidden md:table-cell"><Sparkline values={s.weekly} /></td>}
             </tr>
           ))}
         </tbody>
@@ -272,18 +294,46 @@ function HabitTable({ scores, prev }: { scores: HabitScore[]; prev: Map<string, 
 
 // ── Weekday bars ──────────────────────────────────────────────────────────
 
-function WeekdayBars({ days }: { days: RangeSummary['weekdays'] }) {
+const PREV_BAR = '#8b949e';
+
+/**
+ * Mon..Sun completion bars. With `prev` (the 1W view) each day gets a second,
+ * grey bar for last week beside this week's, so the comparison is day by day.
+ */
+function WeekdayBars({ days, prev }: { days: RangeSummary['weekdays']; prev?: RangeSummary['weekdays'] | null }) {
+  const pctText = (p: number | null) => (p === null ? '—' : `${p}%`);
   return (
-    <div className="grid grid-cols-7 gap-1.5 items-end h-28">
-      {days.map((d) => (
-        <div key={d.label} className="flex flex-col items-center gap-1 h-full justify-end" title={d.pct === null ? `${d.label}: nothing due` : `${d.label}: ${d.pct}%`}>
-          <span className="text-[10px] tabular-nums" style={{ color: pctColor(d.pct) }}>{d.pct === null ? '—' : `${d.pct}%`}</span>
-          <div className="w-full max-w-[28px] bg-[#21262d] rounded-sm flex-1 flex items-end overflow-hidden">
-            <div className="w-full rounded-sm" style={{ height: `${d.pct ?? 0}%`, backgroundColor: pctColor(d.pct), opacity: 0.8 }} />
-          </div>
-          <span className="text-[10px] text-[#8b949e]">{d.label}</span>
+    <div>
+      <div className="grid grid-cols-7 gap-1.5 items-end h-28">
+        {days.map((d, i) => {
+          const p = prev?.[i];
+          const title = prev
+            ? `${d.label}: ${d.pct === null ? 'not yet' : `${d.pct}%`} this week · ${pctText(p?.pct ?? null)} last week`
+            : d.pct === null ? `${d.label}: nothing due` : `${d.label}: ${d.pct}%`;
+          return (
+            <div key={d.label} className="flex flex-col items-center gap-1 h-full justify-end" title={title}>
+              <span className="text-[10px] tabular-nums" style={{ color: pctColor(d.pct) }}>{pctText(d.pct)}</span>
+              <div className="w-full flex-1 flex items-end justify-center gap-[3px] min-h-0">
+                {prev && (
+                  <div className="w-full max-w-[14px] h-full bg-[#21262d] rounded-sm flex items-end overflow-hidden">
+                    <div className="w-full rounded-sm" style={{ height: `${p?.pct ?? 0}%`, backgroundColor: PREV_BAR, opacity: 0.5 }} />
+                  </div>
+                )}
+                <div className={`w-full h-full bg-[#21262d] rounded-sm flex items-end overflow-hidden ${prev ? 'max-w-[14px]' : 'max-w-[28px]'}`}>
+                  <div className="w-full rounded-sm" style={{ height: `${d.pct ?? 0}%`, backgroundColor: pctColor(d.pct), opacity: 0.8 }} />
+                </div>
+              </div>
+              <span className="text-[10px] text-[#8b949e]">{d.label}</span>
+            </div>
+          );
+        })}
+      </div>
+      {prev && (
+        <div className="flex items-center gap-3 mt-2 text-[10px] text-[#8b949e]">
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[2px]" style={{ backgroundColor: PREV_BAR, opacity: 0.5 }} />Last week</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[2px]" style={{ backgroundColor: DONE, opacity: 0.8 }} />This week</span>
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -338,25 +388,36 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
   const view = useMemo(() => {
     if (!timeline || !timeline.firstDate) return null;
     const win = rangeWindow(range, today);
+    const weekly = range === '1w';
     // Clip to where history starts so the range doesn't read as empty months.
     const from = win.from < timeline.firstDate ? timeline.firstDate : win.from;
     if (from > win.to) return null;
-    const cur = summarize(timeline, from, win.to, today);
-    const prevRaw = summarize(timeline, win.prevFrom, win.prevTo, today);
+    // One week: score goal habits on the week in progress ("2/3 so far").
+    const opts = weekly ? { openPeriods: true } : {};
+    const cur = summarize(timeline, from, win.to, today, opts);
+    const prevRaw = summarize(timeline, win.prevFrom, win.prevTo, today, opts);
     // Only compare against a prior window that's mostly covered by history.
     const prevLen = dateSpan(win.prevFrom, win.prevTo).length;
     const prev = prevRaw.coveredDays >= prevLen / 2 && prevRaw.due > 0 ? prevRaw : null;
     const best = [...cur.scores].filter((s) => s.daily).sort((a, b) => b.longestStreak - a.longestStreak)[0];
     return {
       from, to: win.to, clipped: from !== win.from,
+      weekly,
+      // On a Monday nothing of this week has finished, so 1W falls back to last week.
+      weeklyFallback: weekly && win.from !== weekStartFor(today),
       cur, prev,
       prevPct: prev ? new Map(prev.scores.map((s) => [s.habit.id, s.pct])) : null,
+      // Day-by-day bars compare against the FULL previous week, not just the
+      // same days, so the days still ahead have a reference too.
+      prevWeekDays: weekly && prev ? summarize(timeline, win.prevFrom, shiftDate(win.prevFrom, 6), today).weekdays : null,
       heat: heatmap(timeline, from, win.to),
       trend: trendRows(cur),
-      insights: insights(cur, prev),
+      insights: insights(cur, prev, weekly ? { prevLabel: 'the same days last week', minDue: 1, weekdayPattern: false } : {}),
       best,
     };
   }, [timeline, range, today]);
+
+  const prevLabel = view?.weekly ? 'vs same days last wk' : 'vs prior';
 
   const content = (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-2 sm:p-4" onClick={onClose}>
@@ -414,7 +475,13 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
               </button>
             ))}
           </div>
-          <span className="text-[10px] text-[#8b949e]">Through yesterday — today is still in progress.</span>
+          <span className="text-[10px] text-[#8b949e]">
+            {view?.weeklyFallback
+              ? 'No finished days this week yet — showing last week, compared with the week before.'
+              : view?.weekly
+                ? 'This week through yesterday, compared with the same days last week.'
+                : 'Through yesterday — today is still in progress.'}
+          </span>
         </div>
 
         {/* Body */}
@@ -441,12 +508,13 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
                   label="Completion"
                   value={view.cur.pct === null ? '—' : `${view.cur.pct}%`}
                   delta={<DeltaPts cur={view.cur.pct} prev={view.prev?.pct} />}
-                  sub={view.prev ? 'vs prior' : 'no prior data'}
+                  sub={view.prev ? prevLabel : 'no prior data'}
                 />
                 <StatTile
                   icon={<CalendarCheck className="w-3 h-3" />}
                   label="Perfect days"
                   value={String(view.cur.perfectDays)}
+                  delta={view.weekly && view.prev ? <DeltaCount cur={view.cur.perfectDays} prev={view.prev.perfectDays} /> : undefined}
                   sub={`of ${view.cur.scoredDays} days`}
                 />
                 <StatTile
@@ -459,6 +527,7 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
                   icon={<SkipForward className="w-3 h-3" />}
                   label="Skips"
                   value={String(view.cur.skips)}
+                  delta={view.weekly && view.prev ? <DeltaCount cur={view.cur.skips} prev={view.prev.skips} lowerIsBetter /> : undefined}
                   sub={view.cur.noDataSkips > 0 ? `${view.cur.noDataSkips} from app not opened` : `${view.cur.forgot} unchecked misses`}
                 />
               </div>
@@ -466,14 +535,18 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
               {/* Callouts */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Section title="Places to improve">
-                  <ul className="space-y-2">
-                    {view.insights.improve.map((i, idx) => (
-                      <li key={idx} className="flex gap-2 text-xs text-[#c9d1d9] leading-snug">
-                        <TrendingUp className="w-3.5 h-3.5 text-[#d29922] flex-shrink-0 mt-0.5" />
-                        <span>{i.text}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {view.insights.improve.length === 0 ? (
+                    <p className="text-xs text-[#8b949e]">Callouts show up once a few days are in.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {view.insights.improve.map((i, idx) => (
+                        <li key={idx} className="flex gap-2 text-xs text-[#c9d1d9] leading-snug">
+                          <TrendingUp className="w-3.5 h-3.5 text-[#d29922] flex-shrink-0 mt-0.5" />
+                          <span>{i.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </Section>
                 <Section title="Wins">
                   {view.insights.wins.length === 0 ? (
@@ -491,7 +564,18 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
                 </Section>
               </div>
 
-              {/* Weekly trend */}
+              {/* One week: day-by-day vs last week, up front. */}
+              {view.weekly && (
+                <Section
+                  title="Day by day"
+                  right={<span className="text-[10px] text-[#8b949e]">{view.prevWeekDays ? 'This week vs last week · daily habits' : 'Daily habits'}</span>}
+                >
+                  <WeekdayBars days={view.cur.weekdays} prev={view.prevWeekDays} />
+                </Section>
+              )}
+
+              {/* Weekly trend — one bar for a one-week range, so skip it there. */}
+              {!view.weekly && (
               <Section title="Weekly completion">
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={view.trend} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="14%">
@@ -503,21 +587,26 @@ export default function HabitProgressModal({ habits, onClose }: { habits: HabitD
                   </BarChart>
                 </ResponsiveContainer>
               </Section>
+              )}
 
-              {/* Calendar */}
-              <Section title="Daily calendar">
-                <Heatmap days={view.heat} from={view.from} to={view.to} />
-              </Section>
+              {/* Calendar — a single column for one week, so skip it there. */}
+              {!view.weekly && (
+                <Section title="Daily calendar">
+                  <Heatmap days={view.heat} from={view.from} to={view.to} />
+                </Section>
+              )}
 
               {/* Per habit */}
               <Section title="By habit" right={<span className="text-[10px] text-[#8b949e]">Weakest first · streak = current / best</span>}>
-                <HabitTable scores={view.cur.scores} prev={view.prevPct} />
+                <HabitTable scores={view.cur.scores} prev={view.prevPct} weekly={view.weekly} />
               </Section>
 
               {/* Weekday pattern */}
-              <Section title="By day of week" right={<span className="text-[10px] text-[#8b949e]">Daily habits</span>}>
-                <WeekdayBars days={view.cur.weekdays} />
-              </Section>
+              {!view.weekly && (
+                <Section title="By day of week" right={<span className="text-[10px] text-[#8b949e]">Daily habits</span>}>
+                  <WeekdayBars days={view.cur.weekdays} />
+                </Section>
+              )}
             </>
           )}
         </div>
