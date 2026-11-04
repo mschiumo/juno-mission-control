@@ -26,13 +26,13 @@ interface Scoreboard {
 
 const WEEKLY_TARGETS = { training: 5, journal: 7 }; // 3x MT + 2 runs · daily journal
 
+// Always down to the cent ($100.10, never $100.1 or $1,234).
 function fmtUSD(n: number): string {
-  const abs = Math.abs(n);
   return n.toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD',
-    maximumFractionDigits: abs < 1000 ? 2 : 0,
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
 }
 
