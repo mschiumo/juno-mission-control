@@ -102,7 +102,7 @@ const FEATURES = [
   {
     icon: Newspaper,
     title: 'News Screener',
-    desc: 'Live market news tagged by sentiment and category — Fed, macro, M&A, earnings, AI, and crypto — with a high-priority digest.',
+    desc: 'Breaking market news from 30+ sources, refreshed every 15 minutes and tagged by category — Fed, geopolitics, politics, macro, energy, M&A, earnings, AI, and crypto.',
     tags: ['Sentiment', 'High-Impact', 'Live'],
     bg: 'bg-[#39c5cf]/10',
     color: 'text-[#39c5cf]',
@@ -1060,7 +1060,7 @@ export default function LandingPage() {
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {['Fed', 'Macro', 'M&A', 'Earnings', 'AI', 'Crypto'].map(c => (
+                    {['Fed', 'Geopolitics', 'Politics', 'Macro', 'Energy', 'M&A', 'Earnings', 'AI', 'Crypto'].map(c => (
                       <span key={c} className="px-1.5 py-0.5 text-[9px] rounded bg-[#0d1117] border border-[#30363d] text-[#8b949e]">{c}</span>
                     ))}
                   </div>

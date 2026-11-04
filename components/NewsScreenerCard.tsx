@@ -1,7 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Newspaper, ExternalLink, RefreshCw, Bell, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Newspaper, ExternalLink, RefreshCw, Bell, TrendingUp, TrendingDown, Minus, Radio } from 'lucide-react';
+import {
+  NEWS_CATEGORY_META,
+  NEWS_CATEGORY_ORDER,
+  NEWS_REFRESH_INTERVAL_MS,
+  formatTimeAgo,
+  type NewsCategoryId,
+} from '@/lib/news/categories';
 
 interface NewsItem {
   id: string;
@@ -27,6 +34,10 @@ interface NewsData {
   counts: Record<string, number>;
   totalScanned: number;
   categorized: number;
+  generatedAt?: string;
+  sourcesOk?: number;
+  sourcesFailed?: number;
+  failedSources?: string[];
 }
 
 interface NewsResponse {
@@ -38,17 +49,9 @@ interface NewsResponse {
   nextUpdate: string;
 }
 
-type NewsCategory = 'high' | 'fed' | 'macro' | 'mergers' | 'earnings' | 'ai' | 'crypto';
+type NewsTab = 'high' | NewsCategoryId;
 
-const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
-  high:     { label: 'High Priority', color: '#ef4444' },
-  fed:      { label: 'Fed',     color: '#8b5cf6' },
-  macro:    { label: 'Macro',   color: '#3b82f6' },
-  mergers:  { label: 'M&A',     color: '#f97316' },
-  earnings: { label: 'Earnings',color: '#14b8a6' },
-  ai:       { label: 'AI',      color: '#22c55e' },
-  crypto:   { label: 'Crypto',  color: '#f59e0b' },
-};
+const TABS: NewsTab[] = ['high', ...NEWS_CATEGORY_ORDER];
 
 const SENTIMENT_CONFIG = {
   bullish: { label: 'Bullish', color: '#22c55e', Icon: TrendingUp },
@@ -56,22 +59,25 @@ const SENTIMENT_CONFIG = {
   neutral: { label: 'Neutral', color: '#8b949e', Icon: Minus },
 } as const;
 
+/** Re-read the cache this often when the tab is open — matches the server cron. */
+const POLL_INTERVAL_MS = NEWS_REFRESH_INTERVAL_MS;
+/** Coming back to the tab after this long triggers an immediate re-read. */
+const STALE_ON_FOCUS_MS = 2 * 60 * 1000;
+
 export default function NewsScreenerCard() {
   const [data, setData] = useState<NewsData | null>(null);
   const [response, setResponse] = useState<NewsResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState<NewsCategory>('high');
+  const [activeTab, setActiveTab] = useState<NewsTab>('high');
+  // Wall clock for the "Xm ago" labels, ticked once a minute so they stay
+  // honest between polls without re-fetching.
+  const [now, setNow] = useState(() => Date.now());
+  const lastFetchRef = useRef(0);
 
-  useEffect(() => {
-    fetchNews();
-    const interval = setInterval(fetchNews, 15 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchNews = async () => {
-    setLoading(true);
+  const fetchNews = useCallback(async (opts: { silent?: boolean } = {}) => {
+    if (!opts.silent) setLoading(true);
     try {
-      const res = await fetch('/api/news-screener');
+      const res = await fetch('/api/news-screener', { cache: 'no-store' });
       const result: NewsResponse = await res.json();
       if (result.success) {
         setData(result.data);
@@ -80,27 +86,50 @@ export default function NewsScreenerCard() {
     } catch (error) {
       console.error('Failed to fetch news:', error);
     } finally {
+      lastFetchRef.current = Date.now();
+      setNow(Date.now());
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchNews();
+    const poll = setInterval(() => fetchNews({ silent: true }), POLL_INTERVAL_MS);
+    const tick = setInterval(() => setNow(Date.now()), 60 * 1000);
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastFetchRef.current > STALE_ON_FOCUS_MS) fetchNews({ silent: true });
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(poll);
+      clearInterval(tick);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [fetchNews]);
 
   const filteredNews = useCallback(() => {
     if (!data?.items) return [];
-    if (activeCategory === 'high') {
+    if (activeTab === 'high') {
       // Fall back to items (the old top-15 digest) for cached pre-redesign responses
       return data.highPriority ?? data.items;
     }
-    return data.items.filter(item => item.category === activeCategory);
-  }, [data, activeCategory]);
+    return data.items.filter((item) => item.category === activeTab);
+  }, [data, activeTab]);
 
-  const getCategoryCount = (category: string) => {
+  const getTabCount = (tab: NewsTab) => {
     if (!data?.counts) return 0;
-    if (category === 'high') return (data.highPriority ?? data.items).length;
-    return data.counts[category] || 0;
+    if (tab === 'high') return (data.highPriority ?? data.items).length;
+    return data.counts[tab] || 0;
   };
 
   const newsItems = filteredNews();
   const dataSource = response?.source || 'mock';
+  const generatedMs = data?.generatedAt ? Date.parse(data.generatedAt) : NaN;
+  const updatedLabel = Number.isNaN(generatedMs) ? null : formatTimeAgo(Math.floor(generatedMs / 1000), now);
+  const nextRefreshMin = Number.isNaN(generatedMs)
+    ? null
+    : Math.max(0, Math.ceil((generatedMs + NEWS_REFRESH_INTERVAL_MS - now) / 60000));
 
   return (
     <div className="space-y-5">
@@ -126,46 +155,57 @@ export default function NewsScreenerCard() {
               )}
             </div>
             <p className="text-xs text-[#8b949e] mt-0.5">
-              Market-moving headlines across Fed, macro, M&amp;A, earnings, AI &amp; crypto · auto-refreshes every 15 min
+              Breaking headlines that move markets — Fed, geopolitics &amp; war, politics, macro data, energy, M&amp;A, earnings, AI &amp; crypto
             </p>
           </div>
         </div>
-        <button
-          onClick={fetchNews}
-          disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 self-start sm:self-auto bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-[#8b949e] text-[#c9d1d9] text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#F97316]' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          {updatedLabel && !loading && (
+            <span className="hidden sm:flex items-center gap-1.5 text-[11px] text-[#8b949e]" title={data?.sourcesOk ? `${data.sourcesOk} sources` : undefined}>
+              <Radio className="w-3 h-3 text-[#3fb950]" />
+              Updated {updatedLabel}
+              {nextRefreshMin !== null && (
+                <span className="text-[#484f58]">· next in {nextRefreshMin}m</span>
+              )}
+            </span>
+          )}
+          <button
+            onClick={() => fetchNews()}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-[#8b949e] text-[#c9d1d9] text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#F97316]' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
-      {/* Toolbar: high-priority digest + category tabs */}
+      {/* Toolbar: breaking digest + category tabs */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
-          {(['high', 'fed', 'macro', 'mergers', 'earnings', 'ai', 'crypto'] as NewsCategory[]).map((cat) => (
+          {TABS.map((tab) => (
             <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
+              key={tab}
+              onClick={() => setActiveTab(tab)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                activeCategory === cat
+                activeTab === tab
                   ? 'bg-[#F97316] text-white'
                   : 'bg-[#161b22] text-[#8b949e] hover:text-white hover:bg-[#21262d] border border-[#30363d]'
               }`}
             >
-              {cat === 'high' ? (
+              {tab === 'high' ? (
                 <Bell className="w-3 h-3 flex-shrink-0" />
               ) : (
                 <span
                   className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: CATEGORY_CONFIG[cat].color }}
+                  style={{ backgroundColor: NEWS_CATEGORY_META[tab].color }}
                 ></span>
               )}
-              {CATEGORY_CONFIG[cat].label}
+              {tab === 'high' ? 'Breaking' : NEWS_CATEGORY_META[tab].label}
               <span className={`ml-0.5 px-1.5 rounded-full text-[10px] ${
-                activeCategory === cat ? 'bg-white/20' : 'bg-[#30363d]'
+                activeTab === tab ? 'bg-white/20' : 'bg-[#30363d]'
               }`}>
-                {getCategoryCount(cat)}
+                {getTabCount(tab)}
               </span>
             </button>
           ))}
@@ -174,11 +214,14 @@ export default function NewsScreenerCard() {
         {data && (
           <span className="text-xs text-[#8b949e] flex-shrink-0">
             <span className="text-white font-medium">{newsItems.length}</span> {newsItems.length === 1 ? 'item' : 'items'}
+            {typeof data.sourcesOk === 'number' && data.sourcesOk > 0 && (
+              <span className="text-[#484f58]"> · {data.sourcesOk} sources</span>
+            )}
           </span>
         )}
       </div>
 
-      {/* News grid — 5 across at xl, which is 3 rows at the API's 15-item cap */}
+      {/* News grid — 5 across at xl */}
       {loading ? (
         <div className="text-center py-24 text-[#8b949e]">
           <RefreshCw className="w-7 h-7 animate-spin mx-auto mb-3 text-[#F97316]" />
@@ -209,12 +252,6 @@ export default function NewsScreenerCard() {
                   >
                     {item.categoryName}
                   </span>
-                  {item.priority === 'high' && (
-                    <span className="flex items-center gap-0.5 text-[10px] font-semibold text-[#ef4444] flex-shrink-0">
-                      <Bell className="w-2.5 h-2.5" />
-                      HIGH
-                    </span>
-                  )}
                   {item.sentiment && (() => {
                     const s = SENTIMENT_CONFIG[item.sentiment];
                     return (
@@ -225,7 +262,9 @@ export default function NewsScreenerCard() {
                     );
                   })()}
                 </div>
-                <span className="text-[10px] text-[#8b949e] whitespace-nowrap flex-shrink-0">{item.timeAgo}</span>
+                <span className="text-[10px] text-[#8b949e] whitespace-nowrap flex-shrink-0">
+                  {formatTimeAgo(item.timestamp, now)}
+                </span>
               </div>
 
               {/* Headline */}
