@@ -322,7 +322,7 @@ function WeekdayBars({ days, compare }: { days: RangeSummary['weekdays']; compar
         {days.map((d, i) => {
           const p = prev?.[i];
           const prevPct = p?.pct ?? null;
-          const curText = d.pct === null ? (compare ? 'not yet' : 'nothing due') : `${d.pct}%`;
+          const curText = pctText(d.pct); // unrecorded days show a dash, same as the column label
           return (
             <div key={d.label} className="group relative flex flex-col items-center gap-1 h-full justify-end">
               {/* Hover tooltip — names both weeks so the two bars are unambiguous. */}
