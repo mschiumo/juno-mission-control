@@ -310,26 +310,55 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /**
  * Mon..Sun completion bars. With `compare` (the 1W view) each day gets a
  * second, grey bar for the comparison week beside this week's, so the
- * comparison is day by day.
+ * comparison is day by day. Both weeks' percentages are printed above the
+ * bars, and hovering a day shows a tooltip spelling out which is which.
  */
 function WeekdayBars({ days, compare }: { days: RangeSummary['weekdays']; compare?: WeekCompare | null }) {
   const pctText = (p: number | null) => (p === null ? '—' : `${p}%`);
   const prev = compare?.prev;
   return (
     <div>
-      <div className="grid grid-cols-7 gap-1.5 items-end h-28">
+      <div className={`grid grid-cols-7 gap-1.5 items-end ${prev ? 'h-32' : 'h-28'}`}>
         {days.map((d, i) => {
           const p = prev?.[i];
-          const title = compare
-            ? `${d.label}: ${d.pct === null ? 'not yet' : `${d.pct}%`} ${compare.curName} · ${pctText(p?.pct ?? null)} ${compare.prevName}`
-            : d.pct === null ? `${d.label}: nothing due` : `${d.label}: ${d.pct}%`;
+          const prevPct = p?.pct ?? null;
+          const curText = d.pct === null ? (compare ? 'not yet' : 'nothing due') : `${d.pct}%`;
           return (
-            <div key={d.label} className="flex flex-col items-center gap-1 h-full justify-end" title={title}>
-              <span className="text-[10px] tabular-nums" style={{ color: pctColor(d.pct) }}>{pctText(d.pct)}</span>
+            <div key={d.label} className="group relative flex flex-col items-center gap-1 h-full justify-end">
+              {/* Hover tooltip — names both weeks so the two bars are unambiguous. */}
+              <div
+                role="tooltip"
+                className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-10 hidden group-hover:block whitespace-nowrap rounded-md border border-[#30363d] bg-[#0d1117] px-2 py-1.5 text-[10px] shadow-lg"
+              >
+                <div className="font-semibold text-white mb-0.5">{d.label}</div>
+                {compare ? (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-[2px] flex-shrink-0" style={{ backgroundColor: pctColor(d.pct), opacity: 0.8 }} />
+                      <span className="text-[#8b949e]">{cap(compare.curName)}</span>
+                      <span className="tabular-nums ml-auto" style={{ color: pctColor(d.pct) }}>{curText}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-[2px] flex-shrink-0" style={{ backgroundColor: PREV_BAR, opacity: 0.5 }} />
+                      <span className="text-[#8b949e]">{cap(compare.prevName)}</span>
+                      <span className="tabular-nums ml-auto text-[#c9d1d9]">{pctText(prevPct)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="tabular-nums" style={{ color: pctColor(d.pct) }}>{curText}</div>
+                )}
+              </div>
+
+              <span className="text-[10px] tabular-nums leading-none" style={{ color: pctColor(d.pct) }}>{pctText(d.pct)}</span>
+              {prev && (
+                <span className="text-[9px] tabular-nums leading-none text-[#8b949e]" title={`${cap(compare!.prevName)}: ${pctText(prevPct)}`}>
+                  {pctText(prevPct)}
+                </span>
+              )}
               <div className="w-full flex-1 flex items-end justify-center gap-[3px] min-h-0">
                 {prev && (
                   <div className="w-full max-w-[14px] h-full bg-[#21262d] rounded-sm flex items-end overflow-hidden">
-                    <div className="w-full rounded-sm" style={{ height: `${p?.pct ?? 0}%`, backgroundColor: PREV_BAR, opacity: 0.5 }} />
+                    <div className="w-full rounded-sm" style={{ height: `${prevPct ?? 0}%`, backgroundColor: PREV_BAR, opacity: 0.5 }} />
                   </div>
                 )}
                 <div className={`w-full h-full bg-[#21262d] rounded-sm flex items-end overflow-hidden ${prev ? 'max-w-[14px]' : 'max-w-[28px]'}`}>
@@ -345,6 +374,7 @@ function WeekdayBars({ days, compare }: { days: RangeSummary['weekdays']; compar
         <div className="flex items-center gap-3 mt-2 text-[10px] text-[#8b949e]">
           <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[2px]" style={{ backgroundColor: PREV_BAR, opacity: 0.5 }} />{cap(compare.prevName)}</span>
           <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[2px]" style={{ backgroundColor: DONE, opacity: 0.8 }} />{cap(compare.curName)}</span>
+          <span className="ml-auto text-[#6e7681]">Top number {compare.curName} · grey {compare.prevName}</span>
         </div>
       )}
     </div>
