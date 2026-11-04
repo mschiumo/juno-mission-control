@@ -64,6 +64,12 @@
     },
     "app/api/portfolio/sync/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/cron-jobs/market-news-refresh/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/news-screener/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -162,6 +168,10 @@
     {
       "path": "/api/cron-jobs/portfolio-sync",
       "schedule": "30 10,22 * * *"
+    },
+    {
+      "path": "/api/cron-jobs/market-news-refresh",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
