@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Newspaper, ExternalLink, RefreshCw, Bell, TrendingUp, TrendingDown, Minus, Radio } from 'lucide-react';
+import { Newspaper, ExternalLink, RefreshCw, Bell, TrendingUp, TrendingDown, Minus, Radio, ChevronDown } from 'lucide-react';
 import {
   NEWS_CATEGORY_META,
   NEWS_CATEGORY_ORDER,
@@ -63,6 +63,8 @@ const SENTIMENT_CONFIG = {
 const POLL_INTERVAL_MS = NEWS_REFRESH_INTERVAL_MS;
 /** Coming back to the tab after this long triggers an immediate re-read. */
 const STALE_ON_FOCUS_MS = 2 * 60 * 1000;
+/** Stories shown per tab before "Show more" — keeps the grid from feeling crowded. */
+const PAGE_SIZE = 15;
 
 export default function NewsScreenerCard() {
   const [data, setData] = useState<NewsData | null>(null);
@@ -72,6 +74,9 @@ export default function NewsScreenerCard() {
   // Wall clock for the "Xm ago" labels, ticked once a minute so they stay
   // honest between polls without re-fetching.
   const [now, setNow] = useState(() => Date.now());
+  // How many stories the current tab reveals; grows by PAGE_SIZE per "Show more"
+  // and resets on tab change.
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const lastFetchRef = useRef(0);
 
   const fetchNews = useCallback(async (opts: { silent?: boolean } = {}) => {
@@ -124,6 +129,15 @@ export default function NewsScreenerCard() {
   };
 
   const newsItems = filteredNews();
+  const visibleItems = newsItems.slice(0, visibleCount);
+  const hiddenCount = Math.max(0, newsItems.length - visibleCount);
+
+  const selectTab = (tab: NewsTab) => {
+    setActiveTab(tab);
+    setVisibleCount(PAGE_SIZE);
+  };
+  const showMore = () => setVisibleCount((n) => n + PAGE_SIZE);
+
   const dataSource = response?.source || 'mock';
   const generatedMs = data?.generatedAt ? Date.parse(data.generatedAt) : NaN;
   const updatedLabel = Number.isNaN(generatedMs) ? null : formatTimeAgo(Math.floor(generatedMs / 1000), now);
@@ -186,7 +200,7 @@ export default function NewsScreenerCard() {
           {TABS.map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => selectTab(tab)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
                 activeTab === tab
                   ? 'bg-[#F97316] text-white'
@@ -213,7 +227,16 @@ export default function NewsScreenerCard() {
 
         {data && (
           <span className="text-xs text-[#8b949e] flex-shrink-0">
-            <span className="text-white font-medium">{newsItems.length}</span> {newsItems.length === 1 ? 'item' : 'items'}
+            {hiddenCount > 0 ? (
+              <>
+                Showing <span className="text-white font-medium">{visibleItems.length}</span> of{' '}
+                <span className="text-white font-medium">{newsItems.length}</span>
+              </>
+            ) : (
+              <>
+                <span className="text-white font-medium">{newsItems.length}</span> {newsItems.length === 1 ? 'item' : 'items'}
+              </>
+            )}
             {typeof data.sourcesOk === 'number' && data.sourcesOk > 0 && (
               <span className="text-[#484f58]"> · {data.sourcesOk} sources</span>
             )}
@@ -234,8 +257,9 @@ export default function NewsScreenerCard() {
           <p className="text-xs text-[#484f58] mt-1">Try another tab — the feed refreshes every 15 minutes.</p>
         </div>
       ) : (
+        <>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {newsItems.map((item) => (
+          {visibleItems.map((item) => (
             <a
               key={item.id}
               href={item.url}
@@ -295,6 +319,23 @@ export default function NewsScreenerCard() {
             </a>
           ))}
         </div>
+
+        {hiddenCount > 0 && (
+          <div className="flex justify-center pt-1">
+            <button
+              type="button"
+              onClick={showMore}
+              className="flex items-center gap-2 px-4 py-2 bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-[#8b949e] text-[#c9d1d9] text-xs font-medium rounded-lg transition-colors"
+            >
+              <ChevronDown className="w-3.5 h-3.5" />
+              Show more
+              <span className="px-1.5 rounded-full text-[10px] bg-[#30363d] text-[#8b949e]">
+                {hiddenCount} more
+              </span>
+            </button>
+          </div>
+        )}
+        </>
       )}
     </div>
   );
