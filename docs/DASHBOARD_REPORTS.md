@@ -67,7 +67,7 @@ Use markdown for formatting:
 
 | Job | Type | Schedule |
 |-----|------|----------|
-| Morning Market Briefing | market | 8:00 AM EST |
+| Morning Market Briefing | market | 8:00 AM ET |
 | Daily Motivational | motivational | 7:00 AM EST |
 | Mid-Day Trading Check | check-in | 12:30 PM EST |
 | Post-Market Trading Review | review | 5:00 PM EST |
