@@ -1,7 +1,10 @@
 /**
  * Morning Market Briefing Cron Job
  *
- * Runs Mon-Fri at 8:00 AM EST (13:00 UTC).
+ * Runs Mon-Fri at 8:00 AM ET. Vercel cron has no timezone support, so
+ * vercel.json fires this at both 12:00 and 13:00 UTC and the route itself
+ * keeps only the firing that lands in the 8 AM ET hour (DST-proof: 12 UTC
+ * during EDT, 13 UTC during EST). Add `?force=true` to bypass the gate.
  * 1. Fetches index/stock quotes from Polygon, crypto from CoinGecko
  * 2. Fetches general market news from Finnhub
  * 3. Fetches real economic calendar + earnings data for upcoming events
@@ -28,6 +31,17 @@ const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const BRIEFING_CACHE_KEY = 'market_briefing_latest';
+const BRIEFING_HOUR_ET = 8;
+
+/** Current wall-clock hour in America/New_York (0-23). */
+function etHour(): number {
+  const h = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    hour12: false,
+  }).format(new Date());
+  return Number(h) % 24;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -558,6 +572,18 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const preview = searchParams.get('preview') === 'true';
     const force = searchParams.get('force') === 'true';
+
+    // DST-proof 8 AM ET gate: the cron fires at 12 and 13 UTC; only the one
+    // that lands in the 8 AM ET hour runs. Bail quietly (no activity-log
+    // entry) so the off-hour firing leaves no noise.
+    if (!force && !preview && etHour() !== BRIEFING_HOUR_ET) {
+      return NextResponse.json({
+        success: true,
+        skipped: 'outside-8am-et-window',
+        etHour: etHour(),
+        durationMs: Date.now() - startTime,
+      });
+    }
 
     console.log('[MarketBriefing] Generating morning market briefing...');
 

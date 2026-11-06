@@ -118,7 +118,7 @@
 | Job | Schedule | Purpose |
 |-----|----------|---------|
 | Morning Wake-up Check | 7:30 AM EST daily | Daily check-in |
-| Morning Market Briefing | 8:00 AM EST weekdays | Market data |
+| Morning Market Briefing | 8:00 AM ET weekdays | Market data |
 | Mid-Day Trading Check-in | 12:30 PM EST weekdays | Trading discipline |
 | Market Close Report | 5:00 PM EST Sun-Thu | Market close data |
 | Post-Market Trading Review | 5:00 PM EST Sun-Thu | Trading review |

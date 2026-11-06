@@ -484,7 +484,7 @@ export default function MarketBriefingModal({ isOpen, onClose }: MarketBriefingM
               <Newspaper className="w-12 h-12 text-[#30363d] mx-auto mb-4" />
               <p className="text-[#8b949e] text-lg font-medium mb-2">No briefing available yet</p>
               <p className="text-[#484f58] text-sm">
-                The morning briefing is generated Mon-Fri at 8:00 AM EST.
+                The morning briefing is generated Mon-Fri at 8:00 AM ET.
               </p>
             </div>
           ) : (
