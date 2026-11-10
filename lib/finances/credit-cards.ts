@@ -24,6 +24,13 @@ export interface CreditAccount {
   balance: number; // current balance, dollars
   apr: number; // annual percentage rate, e.g. 18.49
   monthlyPayment: number; // user's PLANNED monthly payment (not Plaid's minimum)
+  /**
+   * Day of the month (1–31) the payment is due, entered by the user. Used for
+   * manual accounts, and as the fallback for a linked account whose bank has
+   * not reported a `nextDueDate`. Days past the end of a short month land on
+   * that month's last day.
+   */
+  dueDay?: number;
   createdAt: string;
   updatedAt: string;
 
@@ -131,6 +138,8 @@ export interface ManualEdit {
   balance: number;
   apr: number;
   monthlyPayment: number;
+  /** A day sets it, `null` clears it, and leaving it out keeps what's stored. */
+  dueDay?: number | null;
 }
 
 /**
@@ -168,6 +177,9 @@ export function applyManualEdit(
     monthlyPayment: edit.monthlyPayment,
     updatedAt: now,
   };
+
+  if (edit.dueDay === null) delete next.dueDay;
+  else if (typeof edit.dueDay === 'number') next.dueDay = edit.dueDay;
 
   const linked = isLinked(existing);
   const pinned = new Set<OverridableField>(existing.manualOverrides ?? []);
@@ -266,6 +278,102 @@ export function projectPayoff(balance: number, apr: number, payment: number): Pa
   }
   if (remaining > 0) return { status: 'payment-too-low' };
   return { status: 'ok', months, totalInterest };
+}
+
+/* ------------------------------ payment due dates ----------------------------- */
+
+/** Local calendar date as YYYY-MM-DD — the viewer's "today", not UTC's. */
+export function toLocalDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function isDateKey(s: unknown): s is string {
+  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+function daysInMonth(year: number, monthIndex: number): number {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+/** First occurrence of `dueDay` on or after `today`, clamped to short months. */
+function nextOccurrence(dueDay: number, today: string): string {
+  const [y, m, d] = today.split('-').map(Number);
+  const thisMonthDay = Math.min(dueDay, daysInMonth(y, m - 1));
+  if (thisMonthDay >= d) {
+    return `${y}-${String(m).padStart(2, '0')}-${String(thisMonthDay).padStart(2, '0')}`;
+  }
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  const nextMonthDay = Math.min(dueDay, daysInMonth(ny, nm - 1));
+  return `${ny}-${String(nm).padStart(2, '0')}-${String(nextMonthDay).padStart(2, '0')}`;
+}
+
+/**
+ * The account's next payment due date (YYYY-MM-DD), or null when nothing is
+ * known. Resolution order:
+ *  1. The bank-reported `nextDueDate`, while it is still today or later.
+ *  2. The user's `dueDay`, rolled forward to its next occurrence.
+ *  3. The day-of-month of a stale bank date — a sync may lag the statement
+ *     cycle by days, but the due day itself is stable month to month.
+ */
+export function nextPaymentDue(
+  account: Pick<CreditAccount, 'dueDay' | 'nextDueDate'>,
+  today: string,
+): string | null {
+  const bank = isDateKey(account.nextDueDate) ? account.nextDueDate : null;
+  if (bank && bank >= today) return bank;
+
+  const dueDay =
+    Number.isInteger(account.dueDay) && account.dueDay! >= 1 && account.dueDay! <= 31
+      ? account.dueDay!
+      : bank
+        ? Number(bank.slice(8, 10))
+        : null;
+  if (dueDay === null) return null;
+  return nextOccurrence(dueDay, today);
+}
+
+/** Whole days from `today` to `date` (both YYYY-MM-DD); negative if past. */
+export function daysUntil(date: string, today: string): number {
+  const [y1, m1, d1] = today.split('-').map(Number);
+  const [y2, m2, d2] = date.split('-').map(Number);
+  return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86_400_000);
+}
+
+/** What will actually leave the bank account: the planned payment, else the statement minimum. */
+export function expectedPayment(account: Pick<CreditAccount, 'monthlyPayment' | 'minPayment'>): number {
+  if (account.monthlyPayment > 0) return account.monthlyPayment;
+  return account.minPayment ?? 0;
+}
+
+export interface NextPaymentSummary {
+  date: string; // YYYY-MM-DD
+  amount: number; // sum of expectedPayment across accounts due that day
+  accounts: Array<Pick<CreditAccount, 'id' | 'name'>>;
+}
+
+/**
+ * The soonest upcoming due date across accounts still carrying a balance, with
+ * every account due that day folded together. Null when no account has a
+ * known due date.
+ */
+export function nextPaymentSummary(accounts: CreditAccount[], today: string): NextPaymentSummary | null {
+  const dated = accounts
+    .filter((a) => a.balance > 0)
+    .map((a) => ({ a, date: nextPaymentDue(a, today) }))
+    .filter((x): x is { a: CreditAccount; date: string } => x.date !== null);
+  if (dated.length === 0) return null;
+
+  const date = dated.map((x) => x.date).sort()[0];
+  const due = dated.filter((x) => x.date === date).map((x) => x.a);
+  return {
+    date,
+    amount: due.reduce((s, a) => s + expectedPayment(a), 0),
+    accounts: due.map((a) => ({ id: a.id, name: a.name })),
+  };
 }
 
 /** Balance-weighted average APR across accounts (0 if no debt). */

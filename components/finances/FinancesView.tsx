@@ -37,6 +37,11 @@ import {
   weightedAvgApr,
   isLinked,
   isPinned,
+  nextPaymentDue,
+  nextPaymentSummary,
+  expectedPayment,
+  daysUntil,
+  toLocalDateKey,
 } from '@/lib/finances/credit-cards';
 
 /* ---------------------------------- types --------------------------------- */
@@ -127,12 +132,23 @@ function relativeTime(iso?: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function dueDateLabel(date?: string): string | null {
+function dueDateLabel(date?: string | null): string | null {
   if (!date) return null;
   const parsed = new Date(`${date}T12:00:00`);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
+
+/** "Today", "Tomorrow", "in 6d" — how far off a due date is. */
+function dueInLabel(date: string, today: string): string {
+  const days = daysUntil(date, today);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  return `in ${days}d`;
+}
+
+/** Due within 3 days — about to leave the bank account. */
+const DUE_SOON_DAYS = 3;
 
 /* --------------------------------- helpers -------------------------------- */
 
@@ -141,13 +157,14 @@ interface Draft {
   balance: string;
   apr: string;
   monthlyPayment: string;
+  dueDay: string; // day of month, '' = not set
   /** Values shown when the form opened — lets the server tell a real override
    *  from a stale field the user never touched. */
   seenBalance?: number;
   seenApr?: number;
 }
 
-const EMPTY_DRAFT: Draft = { name: '', balance: '', apr: '', monthlyPayment: '' };
+const EMPTY_DRAFT: Draft = { name: '', balance: '', apr: '', monthlyPayment: '', dueDay: '' };
 
 function draftFrom(a: CreditAccount): Draft {
   return {
@@ -155,6 +172,7 @@ function draftFrom(a: CreditAccount): Draft {
     balance: String(a.balance),
     apr: String(a.apr),
     monthlyPayment: a.monthlyPayment ? String(a.monthlyPayment) : '',
+    dueDay: a.dueDay ? String(a.dueDay) : '',
     seenBalance: a.balance,
     seenApr: a.apr,
   };
@@ -162,7 +180,7 @@ function draftFrom(a: CreditAccount): Draft {
 
 /* --------------------------------- sorting -------------------------------- */
 
-type SortKey = 'name' | 'balance' | 'apr' | 'interest' | 'payment' | 'payoff';
+type SortKey = 'name' | 'balance' | 'apr' | 'interest' | 'payment' | 'due' | 'payoff';
 type SortDir = 'asc' | 'desc';
 interface SortState {
   key: SortKey;
@@ -176,6 +194,7 @@ const DEFAULT_DIR: Record<SortKey, SortDir> = {
   apr: 'desc',
   interest: 'desc',
   payment: 'desc',
+  due: 'asc',
   payoff: 'asc',
 };
 
@@ -186,7 +205,13 @@ function payoffRank(a: CreditAccount): number {
   return p.status === 'ok' ? p.months : Number.POSITIVE_INFINITY;
 }
 
-function sortValue(a: CreditAccount, key: SortKey): number {
+/** Days until the next due date, with "no date known" last. */
+function dueRank(a: CreditAccount, today: string): number {
+  const date = nextPaymentDue(a, today);
+  return date ? daysUntil(date, today) : Number.POSITIVE_INFINITY;
+}
+
+function sortValue(a: CreditAccount, key: SortKey, today: string): number {
   switch (key) {
     case 'balance':
       return a.balance;
@@ -196,6 +221,8 @@ function sortValue(a: CreditAccount, key: SortKey): number {
       return monthlyInterest(a.balance, a.apr);
     case 'payment':
       return a.monthlyPayment;
+    case 'due':
+      return dueRank(a, today);
     case 'payoff':
       return payoffRank(a);
     default:
@@ -203,10 +230,10 @@ function sortValue(a: CreditAccount, key: SortKey): number {
   }
 }
 
-function compareAccounts(a: CreditAccount, b: CreditAccount, key: SortKey): number {
+function compareAccounts(a: CreditAccount, b: CreditAccount, key: SortKey, today: string): number {
   if (key === 'name') return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-  const va = sortValue(a, key);
-  const vb = sortValue(b, key);
+  const va = sortValue(a, key, today);
+  const vb = sortValue(b, key, today);
   // Comparison, not subtraction — Infinity - Infinity is NaN.
   return va === vb ? 0 : va < vb ? -1 : 1;
 }
@@ -268,7 +295,7 @@ function SortHeader({
   const Icon = active ? (sort.dir === 'asc' ? ArrowUp : ArrowDown) : ChevronsUpDown;
   return (
     <th
-      className={`${align === 'left' ? 'text-left px-4' : 'text-right px-3'} font-medium py-2.5`}
+      className={`${align === 'left' ? 'text-left px-4' : 'text-right px-3'} font-medium py-2.5 whitespace-nowrap`}
       aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
     >
       <button
@@ -424,6 +451,7 @@ export default function FinancesView() {
       balance: parseFloat(draft.balance) || 0,
       apr: parseFloat(draft.apr) || 0,
       monthlyPayment: parseFloat(draft.monthlyPayment) || 0,
+      dueDay: draft.dueDay.trim() === '' ? null : parseInt(draft.dueDay, 10),
     };
     if (editingId) {
       mutate('PUT', {
@@ -579,6 +607,11 @@ export default function FinancesView() {
 
   const avalancheId = accounts.filter((a) => a.balance > 0).sort((a, b) => b.apr - a.apr)[0]?.id;
 
+  // Only rendered after the client-side fetch resolves, so the viewer's local
+  // date is safe to read here without a hydration mismatch.
+  const today = toLocalDateKey(new Date());
+  const nextPayment = nextPaymentSummary(accounts, today);
+
   /** What both the table and the mobile cards render. Stable — ties keep server order. */
   const sortedAccounts = useMemo(() => {
     if (!sort) return accounts;
@@ -586,11 +619,11 @@ export default function FinancesView() {
     return accounts
       .map((a, i) => ({ a, i }))
       .sort((x, y) => {
-        const c = compareAccounts(x.a, y.a, sort.key);
+        const c = compareAccounts(x.a, y.a, sort.key, today);
         return c !== 0 ? c * dir : x.i - y.i;
       })
       .map(({ a }) => a);
-  }, [accounts, sort]);
+  }, [accounts, sort, today]);
 
   /** Click a header: sort by it, or flip the direction if it's already active. */
   function toggleSort(key: SortKey) {
@@ -668,6 +701,18 @@ export default function FinancesView() {
       sub: liveCount ? `${liveCount} of ${accounts.length} live` : undefined,
     },
     {
+      label: 'Next Payment',
+      value: nextPayment ? (dueDateLabel(nextPayment.date) ?? '—') : '—',
+      sub: nextPayment
+        ? [
+            dueInLabel(nextPayment.date, today),
+            nextPayment.amount > 0 ? usd(nextPayment.amount) : 'amount not set',
+            nextPayment.accounts.map((a) => a.name).join(', '),
+          ].join(' · ')
+        : 'set a due day on an account',
+      warn: nextPayment !== null && daysUntil(nextPayment.date, today) <= DUE_SOON_DAYS,
+    },
+    {
       label: 'Total Debt Paid Down',
       value: totalPaidDown !== null ? usd(totalPaidDown) : '—',
       sub:
@@ -677,6 +722,39 @@ export default function FinancesView() {
       positive: totalPaidDown !== null && totalPaidDown > 0,
     },
   ];
+
+  /**
+   * Next due date for an account — bank-reported when fresh, else rolled
+   * forward from the user's due day. Amber when it's within a few days.
+   */
+  function DueCell({ account, prefix = '' }: { account: CreditAccount; prefix?: string }) {
+    const date = nextPaymentDue(account, today);
+    if (!date || account.balance <= 0) {
+      return (
+        <span className="text-[#484f58]" title="Edit the account to set a due day">
+          {account.balance <= 0 ? '—' : `${prefix}not set`}
+        </span>
+      );
+    }
+    const days = daysUntil(date, today);
+    const soon = days <= DUE_SOON_DAYS;
+    const fromBank = account.nextDueDate === date;
+    const amount = expectedPayment(account);
+    return (
+      <span
+        className={soon ? 'text-[#d29922]' : 'text-white'}
+        title={`${fromBank ? 'Reported by your bank' : `Day ${account.dueDay ?? Number(date.slice(8, 10))} each month`}${
+          amount > 0 ? ` · ${usd(amount)} expected` : ''
+        }`}
+      >
+        {prefix}
+        {dueDateLabel(date)}
+        <span className={`ml-1 text-[10px] ${soon ? 'text-[#d29922]' : 'text-[#8b949e]'}`}>
+          {dueInLabel(date, today)}
+        </span>
+      </span>
+    );
+  }
 
   /** Balance cell with a pin marker when the user has overridden the synced value. */
   function BalanceCell({ account }: { account: CreditAccount }) {
@@ -703,13 +781,19 @@ export default function FinancesView() {
   return (
     <div className="space-y-5 animate-fade-up">
       {/* Summary strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {stats.map((s) => (
           <div key={s.label} className="bg-[#161b22] border border-[#30363d] rounded-xl px-4 py-3">
             <p className="text-[11px] font-medium uppercase tracking-wide text-[#8b949e]">{s.label}</p>
             <p
               className={`mt-1 text-lg md:text-xl font-semibold ${
-                s.accent ? 'text-[#FF8C38]' : s.positive ? 'text-[#3fb950]' : 'text-white'
+                s.accent
+                  ? 'text-[#FF8C38]'
+                  : s.positive
+                    ? 'text-[#3fb950]'
+                    : s.warn
+                      ? 'text-[#d29922]'
+                      : 'text-white'
               }`}
             >
               {s.value}
@@ -844,7 +928,7 @@ export default function FinancesView() {
         {/* Add form */}
         {adding && (
           <div className="px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/30">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
               <input
                 className={inputClass + ' col-span-2 md:col-span-1'}
                 placeholder="Name"
@@ -883,6 +967,18 @@ export default function FinancesView() {
                 value={draft.monthlyPayment}
                 onChange={(e) => setDraft({ ...draft, monthlyPayment: e.target.value })}
               />
+              <input
+                className={inputClass}
+                placeholder="Due day (1–31)"
+                type="number"
+                min="1"
+                max="31"
+                step="1"
+                inputMode="numeric"
+                value={draft.dueDay}
+                onChange={(e) => setDraft({ ...draft, dueDay: e.target.value })}
+                title="Day of the month the payment is due"
+              />
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={submitDraft}
@@ -918,6 +1014,7 @@ export default function FinancesView() {
                 <SortHeader label="APR" sortKey="apr" sort={sort} onToggle={toggleSort} />
                 <SortHeader label="Interest/mo" sortKey="interest" sort={sort} onToggle={toggleSort} />
                 <SortHeader label="Payment/mo" sortKey="payment" sort={sort} onToggle={toggleSort} />
+                <SortHeader label="Payment Due" sortKey="due" sort={sort} onToggle={toggleSort} />
                 <SortHeader label="Payoff" sortKey="payoff" sort={sort} onToggle={toggleSort} />
                 <th className="px-3 py-2.5 w-20" />
               </tr>
@@ -974,6 +1071,20 @@ export default function FinancesView() {
                             value={draft.monthlyPayment}
                             onChange={(e) => setDraft({ ...draft, monthlyPayment: e.target.value })}
                             placeholder="0"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            className={inputClass + ' text-right'}
+                            type="number"
+                            min="1"
+                            max="31"
+                            step="1"
+                            inputMode="numeric"
+                            value={draft.dueDay}
+                            onChange={(e) => setDraft({ ...draft, dueDay: e.target.value })}
+                            placeholder="Day"
+                            title="Day of the month the payment is due (1–31)"
                           />
                         </td>
                         <td className="px-3 py-2 text-right text-[#8b949e]">—</td>
@@ -1056,9 +1167,11 @@ export default function FinancesView() {
                               title="Statement minimum reported by your bank"
                             >
                               min {usd0(a.minPayment)}
-                              {dueDateLabel(a.nextDueDate) ? ` · due ${dueDateLabel(a.nextDueDate)}` : ''}
                             </span>
                           )}
+                        </td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">
+                          <DueCell account={a} />
                         </td>
                         <td className="px-3 py-2.5 text-right text-xs">
                           {proj.status === 'ok' && a.balance > 0 ? (
@@ -1139,7 +1252,7 @@ export default function FinancesView() {
                 <td className="px-3 py-2.5 text-right text-xs text-[#8b949e] tabular-nums">
                   {totalPayments > 0 ? usd(totalPayments) : '—'}
                 </td>
-                <td colSpan={2} />
+                <td colSpan={3} />
               </tr>
             </tfoot>
           </table>
@@ -1160,7 +1273,7 @@ export default function FinancesView() {
                       onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                       placeholder="Name"
                     />
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <input
                         className={inputClass}
                         type="number"
@@ -1191,6 +1304,17 @@ export default function FinancesView() {
                         value={draft.monthlyPayment}
                         onChange={(e) => setDraft({ ...draft, monthlyPayment: e.target.value })}
                         placeholder="$/mo"
+                      />
+                      <input
+                        className={inputClass}
+                        type="number"
+                        min="1"
+                        max="31"
+                        step="1"
+                        inputMode="numeric"
+                        value={draft.dueDay}
+                        onChange={(e) => setDraft({ ...draft, dueDay: e.target.value })}
+                        placeholder="Due day (1–31)"
                       />
                     </div>
                     <div className="flex items-center gap-2">
@@ -1232,6 +1356,11 @@ export default function FinancesView() {
                         {a.apr.toFixed(2)}% APR · {usd(monthlyInterest(a.balance, a.apr))}/mo interest
                         {a.monthlyPayment > 0 && ` · paying ${usd0(a.monthlyPayment)}/mo`}
                       </p>
+                      {a.balance > 0 && (
+                        <p className="text-xs mt-0.5">
+                          <DueCell account={a} prefix="Due " />
+                        </p>
+                      )}
                       <p className="text-xs mt-0.5">
                         {proj.status === 'ok' && a.balance > 0 ? (
                           <span className="text-[#3fb950]">
