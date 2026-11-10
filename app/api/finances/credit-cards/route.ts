@@ -5,6 +5,7 @@ import {
   applyManualEdit,
   clearOverrides,
   SEED_ACCOUNTS,
+  type ManualEdit,
   type SeenValues,
 } from '@/lib/finances/credit-cards';
 import { readAccounts, readHistory, recordSnapshot, writeAccounts } from '@/lib/finances/store';
@@ -27,9 +28,7 @@ async function plaidState(userId: string) {
   };
 }
 
-function parseAccountFields(
-  body: Record<string, unknown>,
-): { name: string; balance: number; apr: number; monthlyPayment: number } | NextResponse {
+function parseAccountFields(body: Record<string, unknown>): ManualEdit | NextResponse {
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   const balance = Number(body.balance);
   const apr = Number(body.apr);
@@ -48,7 +47,23 @@ function parseAccountFields(
   ) {
     return NextResponse.json({ success: false, error: 'Invalid balance, APR, or payment' }, { status: 400 });
   }
-  return { name: name.slice(0, 80), balance, apr, monthlyPayment };
+
+  // Due day: absent = leave as is; null/'' = clear; otherwise a whole day 1–31.
+  let dueDay: number | null | undefined;
+  if (body.dueDay === null || body.dueDay === '') {
+    dueDay = null;
+  } else if (body.dueDay !== undefined) {
+    const n = Number(body.dueDay);
+    if (!Number.isInteger(n) || n < 1 || n > 31) {
+      return NextResponse.json(
+        { success: false, error: 'Due day must be a day of the month (1–31)' },
+        { status: 400 },
+      );
+    }
+    dueDay = n;
+  }
+
+  return { name: name.slice(0, 80), balance, apr, monthlyPayment, dueDay };
 }
 
 // GET — list accounts + history; seeds the owner's initial accounts on first run.
@@ -83,7 +98,7 @@ export async function GET() {
   }
 }
 
-// POST — add an account. Body: { name, balance, apr, monthlyPayment? }
+// POST — add an account. Body: { name, balance, apr, monthlyPayment?, dueDay? }
 export async function POST(request: NextRequest) {
   const { userId, error: authError } = await requireOwner();
   if (authError) return authError;
@@ -94,7 +109,15 @@ export async function POST(request: NextRequest) {
 
     const accounts = (await readAccounts(userId)) ?? [];
     const now = new Date().toISOString();
-    accounts.push({ ...parsed, id: randomUUID(), source: 'manual', createdAt: now, updatedAt: now });
+    const { dueDay, ...fields } = parsed;
+    accounts.push({
+      ...fields,
+      ...(typeof dueDay === 'number' ? { dueDay } : {}),
+      id: randomUUID(),
+      source: 'manual',
+      createdAt: now,
+      updatedAt: now,
+    });
     await writeAccounts(userId, accounts);
     const history = await recordSnapshot(userId, accounts);
     return NextResponse.json({ success: true, accounts, history, plaid: await plaidState(userId) });
@@ -108,7 +131,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PUT — update an account. Body: { id, name, balance, apr, monthlyPayment }
+ * PUT — update an account. Body: { id, name, balance, apr, monthlyPayment, dueDay? }
  *
  * On a Plaid-linked account, any balance/APR the user actually changes gets
  * pinned so the nightly sync won't quietly revert the correction. Editing only
