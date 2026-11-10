@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   applyManualEdit,
   daysUntil,
-  expectedPayment,
   nextPaymentDue,
   nextPaymentSummary,
   toLocalDateKey,
@@ -25,11 +24,11 @@ function account(overrides: Partial<CreditAccount> = {}): CreditAccount {
 }
 
 describe('nextPaymentDue', () => {
-  it('returns null when neither the bank nor the user has given a date', () => {
+  it('returns null when no due day is set', () => {
     expect(nextPaymentDue(account(), '2026-11-09')).toBeNull();
   });
 
-  it('uses the user due day later this month', () => {
+  it('uses the due day later this month', () => {
     expect(nextPaymentDue(account({ dueDay: 15 }), '2026-11-09')).toBe('2026-11-15');
   });
 
@@ -50,22 +49,6 @@ describe('nextPaymentDue', () => {
     expect(nextPaymentDue(account({ dueDay: 30 }), '2026-02-10')).toBe('2026-02-28');
   });
 
-  it('prefers a fresh bank-reported date over the user due day', () => {
-    expect(nextPaymentDue(account({ dueDay: 15, nextDueDate: '2026-11-12' }), '2026-11-09')).toBe(
-      '2026-11-12',
-    );
-  });
-
-  it('falls back to the user due day once the bank date is stale', () => {
-    expect(nextPaymentDue(account({ dueDay: 15, nextDueDate: '2026-11-02' }), '2026-11-09')).toBe(
-      '2026-11-15',
-    );
-  });
-
-  it('rolls a stale bank date forward by its day-of-month when no due day is set', () => {
-    expect(nextPaymentDue(account({ nextDueDate: '2026-10-21' }), '2026-11-09')).toBe('2026-11-21');
-  });
-
   it('ignores a malformed due day', () => {
     expect(nextPaymentDue(account({ dueDay: 0 }), '2026-11-09')).toBeNull();
     expect(nextPaymentDue(account({ dueDay: 32 }), '2026-11-09')).toBeNull();
@@ -83,14 +66,6 @@ describe('daysUntil / toLocalDateKey', () => {
 
   it('formats the local calendar date, zero-padded', () => {
     expect(toLocalDateKey(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
-  });
-});
-
-describe('expectedPayment', () => {
-  it('prefers the planned payment, then the bank minimum, then zero', () => {
-    expect(expectedPayment({ monthlyPayment: 250, minPayment: 45 })).toBe(250);
-    expect(expectedPayment({ monthlyPayment: 0, minPayment: 45 })).toBe(45);
-    expect(expectedPayment({ monthlyPayment: 0 })).toBe(0);
   });
 });
 
@@ -115,7 +90,7 @@ describe('nextPaymentSummary', () => {
     const summary = nextPaymentSummary(
       [
         account({ id: 'a', name: 'A', dueDay: 15, monthlyPayment: 100 }),
-        account({ id: 'b', name: 'B', dueDay: 15, monthlyPayment: 0, minPayment: 40 }),
+        account({ id: 'b', name: 'B', dueDay: 15, monthlyPayment: 40 }),
         account({ id: 'c', name: 'C', dueDay: 16, monthlyPayment: 999 }),
       ],
       '2026-11-09',
@@ -135,22 +110,25 @@ describe('nextPaymentSummary', () => {
   });
 });
 
-describe('applyManualEdit dueDay', () => {
+describe('applyManualEdit', () => {
   const base = { name: 'X', balance: 100, apr: 10, monthlyPayment: 50 };
 
+  it('replaces the editable fields and stamps updatedAt', () => {
+    const next = applyManualEdit(account(), base, NOW);
+    expect(next).toMatchObject({ ...base, id: 'acct-1', updatedAt: NOW });
+    expect(next.createdAt).toBe('2026-07-01T00:00:00.000Z');
+  });
+
   it('sets a due day', () => {
-    const next = applyManualEdit(account(), { ...base, dueDay: 15 }, undefined, NOW);
-    expect(next.dueDay).toBe(15);
+    expect(applyManualEdit(account(), { ...base, dueDay: 15 }, NOW).dueDay).toBe(15);
   });
 
   it('clears it on null', () => {
-    const next = applyManualEdit(account({ dueDay: 15 }), { ...base, dueDay: null }, undefined, NOW);
-    expect(next.dueDay).toBeUndefined();
+    const next = applyManualEdit(account({ dueDay: 15 }), { ...base, dueDay: null }, NOW);
     expect('dueDay' in next).toBe(false);
   });
 
   it('leaves it alone when omitted', () => {
-    const next = applyManualEdit(account({ dueDay: 15 }), base, undefined, NOW);
-    expect(next.dueDay).toBe(15);
+    expect(applyManualEdit(account({ dueDay: 15 }), base, NOW).dueDay).toBe(15);
   });
 });

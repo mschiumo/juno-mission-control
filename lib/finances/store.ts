@@ -1,7 +1,7 @@
 /**
  * Redis persistence for the Finances tab. Single home for the account list and
- * the daily balance history so the CRUD routes, the Plaid sync, and the nightly
- * cron can never drift on key names or snapshot semantics.
+ * the daily balance history so the CRUD routes can never drift on key names or
+ * snapshot semantics.
  */
 
 import { getRedisClient } from '@/lib/redis';
