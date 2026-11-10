@@ -3,134 +3,24 @@
 // Namespaced under lib/finances (plural) and Redis keys finances:{userId}:* so it
 // cannot collide with the older unmerged feat/finance-tracker branch (PR #431),
 // which owns lib/finance/* and finance:{userId}:* keys.
-
-/** Where an account's numbers come from. Absent = manual (pre-Plaid accounts). */
-export type AccountSource = 'manual' | 'plaid';
-
-/** Health of a Plaid-linked account's last sync attempt. */
-export type SyncStatus = 'ok' | 'reauth-required' | 'error';
-
-/**
- * Fields a user may pin by hand on a *linked* account. Sync refuses to
- * overwrite a pinned field, so a manual correction is never silently reverted
- * by the nightly cron. `name` and `monthlyPayment` are always user-owned and so
- * are deliberately not pinnable.
- */
-export type OverridableField = 'balance' | 'apr';
+//
+// Accounts are entered and maintained by hand. A bank-sync integration (Plaid)
+// once lived here; it was removed from production and is preserved on the
+// `archive/finances-plaid-sync` branch should it ever be revisited.
 
 export interface CreditAccount {
   id: string;
-  name: string; // user-owned label — sync never rewrites it after creation
+  name: string;
   balance: number; // current balance, dollars
   apr: number; // annual percentage rate, e.g. 18.49
-  monthlyPayment: number; // user's PLANNED monthly payment (not Plaid's minimum)
+  monthlyPayment: number; // user's PLANNED monthly payment
   /**
-   * Day of the month (1–31) the payment is due, entered by the user. Used for
-   * manual accounts, and as the fallback for a linked account whose bank has
-   * not reported a `nextDueDate`. Days past the end of a short month land on
-   * that month's last day.
+   * Day of the month (1–31) the payment is due. Days past the end of a short
+   * month land on that month's last day.
    */
   dueDay?: number;
   createdAt: string;
   updatedAt: string;
-
-  // --- Live sync (present only once linked through Plaid) ---
-  source?: AccountSource;
-  plaidItemId?: string; // the Plaid Item (one institution login) this came from
-  plaidAccountId?: string; // Plaid's account_id — the stable join key
-  institutionName?: string;
-  mask?: string; // last 4 digits, as reported by Plaid
-  lastSyncedAt?: string; // ISO timestamp of the last successful sync
-  syncStatus?: SyncStatus;
-  syncError?: string; // human-readable reason when syncStatus !== 'ok'
-
-  /** Fields the user pinned by hand; sync leaves these alone. */
-  manualOverrides?: OverridableField[];
-
-  /**
-   * Last values Plaid reported, retained even while a field is pinned, so the UI
-   * can show "Plaid says X, you set Y" and un-pinning can restore instantly.
-   */
-  syncedBalance?: number;
-  syncedApr?: number;
-
-  // --- Informational, always refreshed from Plaid (never user-edited) ---
-  creditLimit?: number;
-  minPayment?: number; // Plaid's statement minimum — distinct from monthlyPayment
-  nextDueDate?: string; // YYYY-MM-DD
-  lastStatementBalance?: number;
-}
-
-/** One credit account's worth of freshly-fetched Plaid data. */
-export interface PlaidAccountSnapshot {
-  plaidItemId: string;
-  plaidAccountId: string;
-  institutionName: string;
-  name: string; // Plaid's account name — used only when creating a new account
-  mask?: string;
-  balance: number; // amount owed, positive
-  apr?: number; // purchase APR, when the institution reports one
-  creditLimit?: number;
-  minPayment?: number;
-  nextDueDate?: string;
-  lastStatementBalance?: number;
-}
-
-export function isPinned(account: CreditAccount, field: OverridableField): boolean {
-  return !!account.manualOverrides?.includes(field);
-}
-
-export function isLinked(account: CreditAccount): boolean {
-  return account.source === 'plaid' && !!account.plaidAccountId;
-}
-
-/**
- * Fold a fresh Plaid snapshot into an existing account.
- *
- * Ownership rules — deliberately conservative, because silently reverting a
- * correction the user typed is worse than showing a slightly stale number:
- *  - `name`, `monthlyPayment`: user-owned, never touched here.
- *  - `balance`, `apr`: taken from Plaid unless pinned. `apr` additionally only
- *    updates when Plaid actually reports one (many store cards report none, and
- *    0% promotional cards like Affirm often omit it) — otherwise the existing
- *    value stands rather than being zeroed out.
- *  - informational fields: always replaced; they are pure Plaid data.
- */
-export function applySnapshot(
-  existing: CreditAccount,
-  snap: PlaidAccountSnapshot,
-  now: string,
-): CreditAccount {
-  const next: CreditAccount = {
-    ...existing,
-    source: 'plaid',
-    plaidItemId: snap.plaidItemId,
-    plaidAccountId: snap.plaidAccountId,
-    institutionName: snap.institutionName,
-    mask: snap.mask ?? existing.mask,
-    lastSyncedAt: now,
-    syncStatus: 'ok',
-    syncError: undefined,
-    syncedBalance: snap.balance,
-    creditLimit: snap.creditLimit,
-    minPayment: snap.minPayment,
-    nextDueDate: snap.nextDueDate,
-    lastStatementBalance: snap.lastStatementBalance,
-    updatedAt: now,
-  };
-
-  if (!isPinned(existing, 'balance')) {
-    next.balance = snap.balance;
-  }
-
-  if (typeof snap.apr === 'number' && Number.isFinite(snap.apr)) {
-    next.syncedApr = snap.apr;
-    if (!isPinned(existing, 'apr')) {
-      next.apr = snap.apr;
-    }
-  }
-
-  return next;
 }
 
 export interface ManualEdit {
@@ -142,38 +32,13 @@ export interface ManualEdit {
   dueDay?: number | null;
 }
 
-/**
- * What the client displayed when the user opened the edit form. Sent back on
- * save so intent can be judged against what the user actually saw.
- */
-export interface SeenValues {
-  balance?: number;
-  apr?: number;
-}
-
-/**
- * Apply a manual edit, pinning only the plaid-owned fields the user genuinely
- * changed.
- *
- * Intent is measured against `seen` — the values the edit form was populated
- * with — not against what is currently stored. Otherwise a sync landing between
- * page load and save makes the user's untouched, now-stale form value look like
- * a deliberate override, permanently pinning a balance they never edited. When
- * a field wasn't changed, the stored value is kept rather than being rewritten
- * with stale data.
- *
- * `seen` is optional: without it (an older client, or a direct API call) this
- * falls back to comparing against the stored values.
- */
-export function applyManualEdit(
-  existing: CreditAccount,
-  edit: ManualEdit,
-  seen: SeenValues | undefined,
-  now: string,
-): CreditAccount {
+/** Apply an edit from the form to a stored account. */
+export function applyManualEdit(existing: CreditAccount, edit: ManualEdit, now: string): CreditAccount {
   const next: CreditAccount = {
     ...existing,
     name: edit.name,
+    balance: edit.balance,
+    apr: edit.apr,
     monthlyPayment: edit.monthlyPayment,
     updatedAt: now,
   };
@@ -181,46 +46,7 @@ export function applyManualEdit(
   if (edit.dueDay === null) delete next.dueDay;
   else if (typeof edit.dueDay === 'number') next.dueDay = edit.dueDay;
 
-  const linked = isLinked(existing);
-  const pinned = new Set<OverridableField>(existing.manualOverrides ?? []);
-
-  for (const field of ['balance', 'apr'] as const) {
-    const baseline = seen?.[field] ?? existing[field];
-    const changed = !nearlyEqual(edit[field], baseline);
-
-    if (changed) {
-      next[field] = edit[field];
-      if (linked) pinned.add(field);
-    } else if (seen?.[field] !== undefined) {
-      // Untouched by the user — keep whatever is stored, which may be fresher
-      // than the value their form was holding.
-      next[field] = existing[field];
-    } else {
-      next[field] = edit[field];
-    }
-  }
-
-  if (pinned.size) next.manualOverrides = [...pinned];
   return next;
-}
-
-/** Dollar/percent comparison tolerant of float round-trips through JSON. */
-function nearlyEqual(a: number, b: number): boolean {
-  return Math.abs(a - b) < 0.005;
-}
-
-/**
- * Drop pins and restore the last Plaid-reported values, so "resume syncing"
- * takes effect immediately instead of waiting for the next refresh.
- */
-export function clearOverrides(account: CreditAccount, now: string): CreditAccount {
-  return {
-    ...account,
-    manualOverrides: [],
-    balance: account.syncedBalance ?? account.balance,
-    apr: account.syncedApr ?? account.apr,
-    updatedAt: now,
-  };
 }
 
 // One snapshot per EST day — recorded on every mutation so the history chart
@@ -290,50 +116,30 @@ export function toLocalDateKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function isDateKey(s: unknown): s is string {
-  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
-}
-
 function daysInMonth(year: number, monthIndex: number): number {
   return new Date(year, monthIndex + 1, 0).getDate();
 }
 
-/** First occurrence of `dueDay` on or after `today`, clamped to short months. */
-function nextOccurrence(dueDay: number, today: string): string {
-  const [y, m, d] = today.split('-').map(Number);
-  const thisMonthDay = Math.min(dueDay, daysInMonth(y, m - 1));
-  if (thisMonthDay >= d) {
-    return `${y}-${String(m).padStart(2, '0')}-${String(thisMonthDay).padStart(2, '0')}`;
-  }
-  const ny = m === 12 ? y + 1 : y;
-  const nm = m === 12 ? 1 : m + 1;
-  const nextMonthDay = Math.min(dueDay, daysInMonth(ny, nm - 1));
-  return `${ny}-${String(nm).padStart(2, '0')}-${String(nextMonthDay).padStart(2, '0')}`;
+function dateKey(y: number, m: number, d: number): string {
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 /**
- * The account's next payment due date (YYYY-MM-DD), or null when nothing is
- * known. Resolution order:
- *  1. The bank-reported `nextDueDate`, while it is still today or later.
- *  2. The user's `dueDay`, rolled forward to its next occurrence.
- *  3. The day-of-month of a stale bank date — a sync may lag the statement
- *     cycle by days, but the due day itself is stable month to month.
+ * The account's next payment due date (YYYY-MM-DD): the first occurrence of
+ * its due day on or after `today`, clamped to short months. Null when no
+ * valid due day is set.
  */
-export function nextPaymentDue(
-  account: Pick<CreditAccount, 'dueDay' | 'nextDueDate'>,
-  today: string,
-): string | null {
-  const bank = isDateKey(account.nextDueDate) ? account.nextDueDate : null;
-  if (bank && bank >= today) return bank;
+export function nextPaymentDue(account: Pick<CreditAccount, 'dueDay'>, today: string): string | null {
+  const dueDay = account.dueDay;
+  if (!Number.isInteger(dueDay) || dueDay! < 1 || dueDay! > 31) return null;
 
-  const dueDay =
-    Number.isInteger(account.dueDay) && account.dueDay! >= 1 && account.dueDay! <= 31
-      ? account.dueDay!
-      : bank
-        ? Number(bank.slice(8, 10))
-        : null;
-  if (dueDay === null) return null;
-  return nextOccurrence(dueDay, today);
+  const [y, m, d] = today.split('-').map(Number);
+  const thisMonthDay = Math.min(dueDay!, daysInMonth(y, m - 1));
+  if (thisMonthDay >= d) return dateKey(y, m, thisMonthDay);
+
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  return dateKey(ny, nm, Math.min(dueDay!, daysInMonth(ny, nm - 1)));
 }
 
 /** Whole days from `today` to `date` (both YYYY-MM-DD); negative if past. */
@@ -343,22 +149,16 @@ export function daysUntil(date: string, today: string): number {
   return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86_400_000);
 }
 
-/** What will actually leave the bank account: the planned payment, else the statement minimum. */
-export function expectedPayment(account: Pick<CreditAccount, 'monthlyPayment' | 'minPayment'>): number {
-  if (account.monthlyPayment > 0) return account.monthlyPayment;
-  return account.minPayment ?? 0;
-}
-
 export interface NextPaymentSummary {
   date: string; // YYYY-MM-DD
-  amount: number; // sum of expectedPayment across accounts due that day
+  amount: number; // sum of planned payments across accounts due that day
   accounts: Array<Pick<CreditAccount, 'id' | 'name'>>;
 }
 
 /**
  * The soonest upcoming due date across accounts still carrying a balance, with
  * every account due that day folded together. Null when no account has a
- * known due date.
+ * due day.
  */
 export function nextPaymentSummary(accounts: CreditAccount[], today: string): NextPaymentSummary | null {
   const dated = accounts
@@ -371,7 +171,7 @@ export function nextPaymentSummary(accounts: CreditAccount[], today: string): Ne
   const due = dated.filter((x) => x.date === date).map((x) => x.a);
   return {
     date,
-    amount: due.reduce((s, a) => s + expectedPayment(a), 0),
+    amount: due.reduce((s, a) => s + a.monthlyPayment, 0),
     accounts: due.map((a) => ({ id: a.id, name: a.name })),
   };
 }
