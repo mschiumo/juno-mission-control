@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { CalendarClock, Loader2, Pencil, Plus, RotateCcw, X } from 'lucide-react';
+import { CalendarClock, Loader2, Pencil, Plus, RotateCcw, Trophy, X } from 'lucide-react';
 import { getTodayInEST } from '@/lib/date-utils';
 
 interface DaysSinceCounter {
   title: string;
   startDate: string; // YYYY-MM-DD (EST)
+  longestStreak?: number; // best completed run, recorded server-side on reset
   createdAt: string;
   updatedAt: string;
 }
@@ -85,6 +86,10 @@ export default function DaysSinceCard() {
   }
 
   const days = counter ? daysSince(counter.startDate) : 0;
+  // The live run counts toward the record too — a first-ever streak is also the
+  // longest one so far, and an ongoing run that passes the old record takes over.
+  const longest = Math.max(counter?.longestStreak ?? 0, days);
+  const isRecordRun = days > 0 && days >= longest;
 
   return (
     <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden flex flex-col">
@@ -157,6 +162,7 @@ export default function DaysSinceCard() {
         </div>
       ) : (
         /* Counter display */
+        <>
         <div className="px-4 py-5 flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm font-medium text-white truncate">{counter.title}</p>
@@ -201,6 +207,24 @@ export default function DaysSinceCard() {
             )}
           </div>
         </div>
+        {/* Longest streak — full-width footer so it never fights the count for
+            horizontal room on narrow (mobile) widths. */}
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-[#30363d] bg-[#0d1117]/50 mt-auto">
+          <div className="flex items-center gap-1.5 min-w-0 text-[#8b949e]">
+            <Trophy className="w-3.5 h-3.5 flex-shrink-0 text-[#e3b341]" />
+            <span className="text-[11px] font-medium truncate">Longest streak</span>
+          </div>
+          <div className="flex items-baseline gap-1.5 flex-shrink-0">
+            {isRecordRun && (
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-[#e3b341] bg-[#e3b341]/10 border border-[#e3b341]/30 rounded px-1.5 py-px leading-4">
+                Current
+              </span>
+            )}
+            <span className="text-sm font-bold tabular-nums text-white leading-none">{longest}</span>
+            <span className="text-[11px] text-[#8b949e]">{longest === 1 ? 'day' : 'days'}</span>
+          </div>
+        </div>
+        </>
       )}
     </div>
   );
