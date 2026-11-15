@@ -10,8 +10,21 @@ import { getTodayInEST } from '@/lib/date-utils';
 export interface DaysSinceCounter {
   title: string;
   startDate: string; // YYYY-MM-DD (EST) — day the counter was started/last reset
+  // Longest run ever recorded for this counter, in days. Captured at reset time
+  // (the run that just ended) so it survives the startDate being moved to today.
+  // Absent on counters created before this field existed — treat as 0; the UI
+  // shows max(longestStreak, current run) so the live run is always counted.
+  longestStreak?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+// Whole days elapsed from startDate (YYYY-MM-DD) to today (EST). Mirrors the
+// client-side daysSince() in components/DaysSinceCard.tsx.
+function daysSince(startDate: string, today: string): number {
+  const a = new Date(startDate + 'T00:00:00');
+  const b = new Date(today + 'T00:00:00');
+  return Math.max(0, Math.round((b.getTime() - a.getTime()) / 86400000));
 }
 
 function daysSinceKey(userId: string) {
@@ -70,10 +83,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, counter });
     }
 
+    // On reset, the run that just ended becomes the historic record if it beat
+    // the previous one. Renames leave the record untouched.
+    const endingRun = reset ? daysSince(existing.startDate, today) : 0;
+    const longestStreak = Math.max(existing.longestStreak ?? 0, endingRun);
+
     const counter: DaysSinceCounter = {
       ...existing,
       title: title || existing.title,
       startDate: reset ? today : existing.startDate,
+      longestStreak,
       updatedAt: now,
     };
     await writeCounter(userId, counter);
