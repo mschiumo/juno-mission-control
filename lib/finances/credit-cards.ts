@@ -19,6 +19,8 @@ export interface CreditAccount {
    * month land on that month's last day.
    */
   dueDay?: number;
+  /** Free text: which bank account the payment is drawn from, e.g. "Chase" or "CapitalOne Checking". */
+  paymentMethod?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,6 +32,8 @@ export interface ManualEdit {
   monthlyPayment: number;
   /** A day sets it, `null` clears it, and leaving it out keeps what's stored. */
   dueDay?: number | null;
+  /** Same semantics as dueDay: a string sets it, `null` clears it, omitted keeps it. */
+  paymentMethod?: string | null;
 }
 
 /** Apply an edit from the form to a stored account. */
@@ -45,6 +49,9 @@ export function applyManualEdit(existing: CreditAccount, edit: ManualEdit, now: 
 
   if (edit.dueDay === null) delete next.dueDay;
   else if (typeof edit.dueDay === 'number') next.dueDay = edit.dueDay;
+
+  if (edit.paymentMethod === null) delete next.paymentMethod;
+  else if (typeof edit.paymentMethod === 'string') next.paymentMethod = edit.paymentMethod;
 
   return next;
 }

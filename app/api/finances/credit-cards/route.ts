@@ -42,7 +42,19 @@ function parseAccountFields(body: Record<string, unknown>): ManualEdit | NextRes
     dueDay = n;
   }
 
-  return { name: name.slice(0, 80), balance, apr, monthlyPayment, dueDay };
+  // Payment method (free text): absent = leave as is; null/'' = clear; otherwise trimmed text.
+  let paymentMethod: string | null | undefined;
+  if (body.paymentMethod === null || body.paymentMethod === '') {
+    paymentMethod = null;
+  } else if (body.paymentMethod !== undefined) {
+    if (typeof body.paymentMethod !== 'string') {
+      return NextResponse.json({ success: false, error: 'Payment method must be text' }, { status: 400 });
+    }
+    const trimmed = body.paymentMethod.trim().slice(0, 80);
+    paymentMethod = trimmed === '' ? null : trimmed;
+  }
+
+  return { name: name.slice(0, 80), balance, apr, monthlyPayment, dueDay, paymentMethod };
 }
 
 // GET — list accounts + history; seeds the owner's initial accounts on first run.
@@ -77,7 +89,7 @@ export async function GET() {
   }
 }
 
-// POST — add an account. Body: { name, balance, apr, monthlyPayment?, dueDay? }
+// POST — add an account. Body: { name, balance, apr, monthlyPayment?, dueDay?, paymentMethod? }
 export async function POST(request: NextRequest) {
   const { userId, error: authError } = await requireOwner();
   if (authError) return authError;
@@ -88,10 +100,11 @@ export async function POST(request: NextRequest) {
 
     const accounts = (await readAccounts(userId)) ?? [];
     const now = new Date().toISOString();
-    const { dueDay, ...fields } = parsed;
+    const { dueDay, paymentMethod, ...fields } = parsed;
     accounts.push({
       ...fields,
       ...(typeof dueDay === 'number' ? { dueDay } : {}),
+      ...(typeof paymentMethod === 'string' ? { paymentMethod } : {}),
       id: randomUUID(),
       createdAt: now,
       updatedAt: now,
@@ -108,7 +121,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT — update an account. Body: { id, name, balance, apr, monthlyPayment, dueDay? }
+// PUT — update an account. Body: { id, name, balance, apr, monthlyPayment, dueDay?, paymentMethod? }
 export async function PUT(request: NextRequest) {
   const { userId, error: authError } = await requireOwner();
   if (authError) return authError;
