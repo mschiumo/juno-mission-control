@@ -25,6 +25,8 @@ import {
 } from '@/lib/cron-helpers';
 import { getRedisClient } from '@/lib/redis';
 import { getDailyQuote } from '@/lib/daily-quote';
+import { getTodayInEST } from '@/lib/date-utils';
+import { addDays } from '@/lib/market-events';
 import { fetchCryptoBrief, type CryptoBriefData } from '@/lib/crypto-brief';
 
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
@@ -41,6 +43,45 @@ function etHour(): number {
     hour12: false,
   }).format(new Date());
   return Number(h) % 24;
+}
+
+// ---------------------------------------------------------------------------
+// Event date helpers — every calendar date is a US-Eastern trading date, and
+// the weekday is computed here so the AI never has to derive it (it got
+// "Monday November 17" wrong when handed a bare ISO date).
+// ---------------------------------------------------------------------------
+
+/** "Tue Nov 17", or "Today (Mon Nov 16)" for the current ET trading date. */
+function eventDateLabel(todayEt: string, dateStr: string): string {
+  // Date-only strings are formatted at UTC noon so the calendar day never
+  // shifts, whatever timezone the server (or a viewer) is in.
+  const label = new Date(`${dateStr}T12:00:00Z`).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).replace(',', '');
+  return dateStr === todayEt ? `Today (${label})` : label;
+}
+
+/**
+ * Finnhub's economic calendar stamps releases with a UTC `time`
+ * ("YYYY-MM-DD HH:MM:SS"); a midnight stamp means the time is unknown.
+ * Resolve the ET trading date and, when known, the ET clock time.
+ */
+function finnhubReleaseEt(e: { date?: string; time?: string }): { date: string; time?: string } {
+  const raw = typeof e.time === 'string' && e.time.length >= 16 ? e.time : (e.date ?? '');
+  const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/.exec(raw);
+  if (m && !(m[2] === '00' && m[3] === '00')) {
+    const utc = new Date(`${m[1]}T${m[2]}:${m[3]}:00Z`);
+    if (!Number.isNaN(utc.getTime())) {
+      return {
+        date: utc.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }),
+        time: `${utc.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })} ET`,
+      };
+    }
+  }
+  return { date: raw.slice(0, 10) };
 }
 
 // ---------------------------------------------------------------------------
@@ -288,10 +329,8 @@ async function fetchMarketNews(): Promise<FinnhubNewsItem[]> {
 async function fetchEconomicCalendar(): Promise<string[]> {
   if (!FINNHUB_API_KEY) return [];
   try {
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const endDate = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
-    const endStr = endDate.toISOString().split('T')[0];
+    const todayStr = getTodayInEST();
+    const endStr = addDays(todayStr, 3);
 
     const res = await fetch(
       `https://finnhub.io/api/v1/calendar/economic?from=${todayStr}&to=${endStr}&token=${FINNHUB_API_KEY}`,
@@ -305,10 +344,11 @@ async function fetchEconomicCalendar(): Promise<string[]> {
     return events
       .filter((e: any) => e.country === 'US' && e.event) // eslint-disable-line @typescript-eslint/no-explicit-any
       .map((e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+        const when = finnhubReleaseEt(e);
         const parts = [`${e.event} (${e.country})`];
         if (e.estimate !== null && e.estimate !== undefined) parts.push(`est. ${e.estimate}${e.unit || ''}`);
-        if (e.time) parts.push(e.time);
-        return `[${todayStr === e.date ? 'Today' : e.date}] ${parts.join(' — ')}`;
+        if (when.time) parts.push(when.time);
+        return `[${eventDateLabel(todayStr, when.date)}] ${parts.join(' — ')}`;
       })
       .slice(0, 15);
   } catch {
@@ -319,10 +359,8 @@ async function fetchEconomicCalendar(): Promise<string[]> {
 async function fetchUpcomingEarnings(): Promise<string[]> {
   if (!FINNHUB_API_KEY) return [];
   try {
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const endDate = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
-    const endStr = endDate.toISOString().split('T')[0];
+    const todayStr = getTodayInEST();
+    const endStr = addDays(todayStr, 3);
 
     const res = await fetch(
       `https://finnhub.io/api/v1/calendar/earnings?from=${todayStr}&to=${endStr}&token=${FINNHUB_API_KEY}`,
@@ -344,7 +382,7 @@ async function fetchUpcomingEarnings(): Promise<string[]> {
       .filter((e: any) => notable.has(e.symbol)) // eslint-disable-line @typescript-eslint/no-explicit-any
       .map((e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
         const timing = e.hour === 'bmo' ? 'before open' : e.hour === 'amc' ? 'after close' : '';
-        return `[${todayStr === e.date ? 'Today' : e.date}] ${e.symbol} earnings Q${e.quarter} ${e.year}${timing ? ` (${timing})` : ''}`;
+        return `[${eventDateLabel(todayStr, e.date)}] ${e.symbol} earnings Q${e.quarter} ${e.year}${timing ? ` (${timing})` : ''}`;
       })
       .slice(0, 10);
   } catch {
@@ -507,7 +545,7 @@ Return ONLY valid JSON with this exact structure:
 Rules:
 - bigMovers: 3-5 stocks/assets with the most notable moves. Include the percentage move and a short reason.
 - newsHighlights: Top 3-5 headlines that DIRECTLY affect financial markets, stock prices, or the economy (e.g. earnings, Fed policy, trade/tariffs, sector moves, M&A, economic data). Exclude general news, politics, sports, entertainment, or human-interest stories unless they have a clear market impact. Rewrite each headline concisely and include the "url" field copied exactly from the corresponding source article above.
-- upcomingEvents: ONLY include events from the Economic Calendar and Upcoming Earnings sections provided above. Do NOT invent or guess at events, speaker schedules, or data releases that are not explicitly listed. If no events are provided, return an empty array.
+- upcomingEvents: ONLY include events from the Economic Calendar and Upcoming Earnings sections provided above. Do NOT invent or guess at events, speaker schedules, or data releases that are not explicitly listed. If no events are provided, return an empty array. Every entry MUST begin with that event's date label exactly as it appears inside the square brackets, followed by " — " (e.g. "Tue Nov 17 — NVDA earnings Q3 2027 (after close)"). All dates and times are already in US Eastern time; never recompute, reword, or add a weekday or date yourself.
 - cryptoWatch.summary: ground it in the Crypto Big Movers / Trending / Memecoin data above; tie moves to news headlines when a connection exists. No hype.
 - cryptoWatch.regulatory: context — the CLARITY Act (Digital Asset Market Clarity Act, H.R. 3633) is the US crypto market-structure bill splitting SEC/CFTC jurisdiction; it passed the House in July 2025 and Senate action has been pending since. Related terms in headlines: "market structure bill", "GENIUS Act" (stablecoins, already law), SEC/CFTC digital-asset rulemaking. Report ONLY developments present in today's headlines. If none of today's headlines touch crypto regulation, use exactly: "No new developments today."
 - Be specific with numbers. No generic filler.

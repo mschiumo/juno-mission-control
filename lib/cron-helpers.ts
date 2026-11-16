@@ -8,6 +8,7 @@
 import React from 'react';
 import { createClient } from 'redis';
 import { US_MARKET_HOLIDAYS } from '@/lib/trading/trading-days';
+import { getTodayInEST } from '@/lib/date-utils';
 
 // Redis client - lazy initialization
 let redisClient: ReturnType<typeof createClient> | null = null;
@@ -323,7 +324,9 @@ export function formatTime(date: Date = new Date()): string {
  * Check if today is a weekday (Mon-Fri)
  */
 export function isWeekday(): boolean {
-  const day = new Date().getDay();
+  // Weekday of the current US-Eastern trading date, not the server's local
+  // clock (Vercel runs on UTC, which is already "tomorrow" late in the ET day).
+  const day = new Date(`${getTodayInEST()}T12:00:00Z`).getUTCDay();
   return day >= 1 && day <= 5;
 }
 
@@ -337,7 +340,7 @@ export { US_MARKET_HOLIDAYS };
  */
 export function isMarketOpenToday(): boolean {
   if (!isWeekday()) return false;
-  
-  const today = new Date().toISOString().split('T')[0];
+
+  const today = getTodayInEST();
   return !US_MARKET_HOLIDAYS.includes(today);
 }
