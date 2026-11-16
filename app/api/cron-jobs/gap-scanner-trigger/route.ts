@@ -17,6 +17,7 @@ import {
 import { runPolygonGapScan, getMarketSession } from '@/lib/gap-scanner-polygon';
 import { runYahooGapScan } from '@/lib/gap-scanner-yahoo';
 import { storeScanResults, ScanResult } from '@/lib/gap-scanner-core';
+import { getTodayInEST } from '@/lib/date-utils';
 
 function formatVolume(volume: number): string {
   if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`;
@@ -76,7 +77,7 @@ export async function POST() {
       scanned = polygonResult.scanned;
       source = 'polygon';
       await cacheGapScanResults(polygonResult);
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayInEST();
       await storeScanResults({ ...polygonResult, tradingDate: today } as unknown as ScanResult);
     } else {
       await logToActivityLog('Gap Scanner', 'Using Yahoo Finance fallback', 'cron');
@@ -88,7 +89,7 @@ export async function POST() {
       source = 'yahoo';
       console.log(`[GapScannerTrigger] Yahoo result: ${gainers.length} gainers, ${losers.length} losers`);
       await cacheGapScanResults(result);
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayInEST();
       await storeScanResults({ ...result, tradingDate: today } as unknown as ScanResult);
     }
 
