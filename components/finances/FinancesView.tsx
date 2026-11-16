@@ -30,6 +30,7 @@ import {
   monthlyInterest,
   projectPayoff,
   weightedAvgApr,
+  aprNote,
   nextPaymentDue,
   nextPaymentSummary,
   daysUntil,
@@ -415,6 +416,17 @@ export default function FinancesView() {
     },
   ];
 
+  /** Asterisk with a hover tooltip when the account's APR is scheduled to change. */
+  function AprNoteMark({ account }: { account: CreditAccount }) {
+    const note = aprNote(account);
+    if (!note) return null;
+    return (
+      <span className="ml-0.5 text-[#d29922] cursor-help" title={note} aria-label={note}>
+        *
+      </span>
+    );
+  }
+
   /** Next due date for an account, rolled forward from its due day. Amber when it's within a few days. */
   function DueCell({ account, prefix = '' }: { account: CreditAccount; prefix?: string }) {
     const date = nextPaymentDue(account, today);
@@ -747,7 +759,10 @@ export default function FinancesView() {
                         <td className="px-3 py-2.5 text-right">
                           <BalanceCell account={a} />
                         </td>
-                        <td className="px-3 py-2.5 text-right text-[#8b949e] tabular-nums">{a.apr.toFixed(2)}%</td>
+                        <td className="px-3 py-2.5 text-right text-[#8b949e] tabular-nums">
+                          {a.apr.toFixed(2)}%
+                          <AprNoteMark account={a} />
+                        </td>
                         <td className="px-3 py-2.5 text-right text-[#8b949e] tabular-nums">
                           {usd(monthlyInterest(a.balance, a.apr))}
                         </td>
@@ -937,7 +952,8 @@ export default function FinancesView() {
                         )}
                       </div>
                       <p className="text-xs text-[#8b949e] mt-1">
-                        {a.apr.toFixed(2)}% APR · {usd(monthlyInterest(a.balance, a.apr))}/mo interest
+                        {a.apr.toFixed(2)}%
+                        <AprNoteMark account={a} /> APR · {usd(monthlyInterest(a.balance, a.apr))}/mo interest
                         {a.monthlyPayment > 0 && ` · paying ${usd0(a.monthlyPayment)}/mo`}
                       </p>
                       {a.balance > 0 && (

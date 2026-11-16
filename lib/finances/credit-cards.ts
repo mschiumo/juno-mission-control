@@ -72,6 +72,15 @@ export const SEED_ACCOUNTS: Array<Pick<CreditAccount, 'name' | 'balance' | 'apr'
   { name: 'Apple', balance: 16243, apr: 19.5 },
 ];
 
+/**
+ * Footnote shown next to an account's APR when the rate is scheduled to change.
+ * Keyed by account name because accounts are hand-entered and have no stable id.
+ */
+export function aprNote(account: Pick<CreditAccount, 'name'>): string | null {
+  if (/citi/i.test(account.name)) return 'APR increases to 21.74% after 8/17/2028';
+  return null;
+}
+
 /** Interest accrued in one month at the account's APR (monthly compounding). */
 export function monthlyInterest(balance: number, apr: number): number {
   return balance * (apr / 100 / 12);
