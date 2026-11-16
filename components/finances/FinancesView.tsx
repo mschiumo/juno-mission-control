@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CreditCard,
   Loader2,
@@ -36,6 +37,83 @@ import {
   daysUntil,
   toLocalDateKey,
 } from '@/lib/finances/credit-cards';
+
+/* --------------------------------- tooltips -------------------------------- */
+
+/**
+ * Asterisk with a styled tooltip when the account's APR is scheduled to change.
+ * Hover on desktop, tap on touch screens. The bubble is portaled to <body> and
+ * position:fixed from the asterisk's rect, so neither the table's overflow-x-auto
+ * wrapper nor the card's overflow-hidden can clip it, and the page container's
+ * fade-up transform (which would otherwise become the containing block for a
+ * fixed element) can't offset it. The native `title` attribute is not used
+ * because it doesn't render reliably in every webview.
+ */
+function AprNoteMark({ account }: { account: CreditAccount }) {
+  const note = aprNote(account);
+  const ref = useRef<HTMLSpanElement>(null);
+  const [anchor, setAnchor] = useState<{ top: number; left: number; right: number; fromLeft: boolean } | null>(null);
+
+  const open = () => {
+    const r = ref.current?.getBoundingClientRect();
+    // Grow the bubble toward the side with more room so it can't run off-screen
+    // (the card view puts the asterisk near the left edge, the table near the right).
+    if (r) setAnchor({ top: r.top, left: r.left, right: r.right, fromLeft: r.left < window.innerWidth / 2 });
+  };
+  const close = () => setAnchor(null);
+
+  useEffect(() => {
+    if (!anchor) return;
+    const onAway = (e: Event) => {
+      if (ref.current && e.target instanceof Node && ref.current.contains(e.target)) return;
+      close();
+    };
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    document.addEventListener('pointerdown', onAway);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+      document.removeEventListener('pointerdown', onAway);
+    };
+  }, [anchor]);
+
+  if (!note) return null;
+  return (
+    <span
+      ref={ref}
+      className="relative ml-0.5 text-[#d29922] cursor-help select-none"
+      tabIndex={0}
+      aria-label={note}
+      onMouseEnter={open}
+      onMouseLeave={close}
+      onFocus={open}
+      onBlur={close}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (anchor) close();
+        else open();
+      }}
+    >
+      *
+      {anchor &&
+        createPortal(
+          <span
+            role="tooltip"
+            className="pointer-events-none fixed z-50 w-max max-w-[calc(100vw-16px)] rounded-lg border border-[#30363d] bg-[#1c2128] px-3 py-2 text-[11px] font-normal leading-snug normal-case tracking-normal text-left text-[#c9d1d9] shadow-xl shadow-black/60 whitespace-normal"
+            style={
+              anchor.fromLeft
+                ? { top: anchor.top - 6, left: anchor.left, transform: 'translateY(-100%)' }
+                : { top: anchor.top - 6, left: anchor.right, transform: 'translate(-100%, -100%)' }
+            }
+          >
+            {note}
+          </span>,
+          document.body,
+        )}
+    </span>
+  );
+}
 
 /* -------------------------------- formatting ------------------------------- */
 
@@ -415,17 +493,6 @@ export default function FinancesView() {
       positive: totalPaidDown !== null && totalPaidDown > 0,
     },
   ];
-
-  /** Asterisk with a hover tooltip when the account's APR is scheduled to change. */
-  function AprNoteMark({ account }: { account: CreditAccount }) {
-    const note = aprNote(account);
-    if (!note) return null;
-    return (
-      <span className="ml-0.5 text-[#d29922] cursor-help" title={note} aria-label={note}>
-        *
-      </span>
-    );
-  }
 
   /** Next due date for an account, rolled forward from its due day. Amber when it's within a few days. */
   function DueCell({ account, prefix = '' }: { account: CreditAccount; prefix?: string }) {
