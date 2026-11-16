@@ -128,6 +128,19 @@ describe('applyManualEdit', () => {
     expect('dueDay' in next).toBe(false);
   });
 
+  it('sets a payment method', () => {
+    expect(applyManualEdit(account(), { ...base, paymentMethod: 'Chase' }, NOW).paymentMethod).toBe('Chase');
+  });
+
+  it('clears the payment method on null', () => {
+    const next = applyManualEdit(account({ paymentMethod: 'Chase' }), { ...base, paymentMethod: null }, NOW);
+    expect('paymentMethod' in next).toBe(false);
+  });
+
+  it('keeps the payment method when omitted', () => {
+    expect(applyManualEdit(account({ paymentMethod: 'Chase' }), base, NOW).paymentMethod).toBe('Chase');
+  });
+
   it('leaves it alone when omitted', () => {
     expect(applyManualEdit(account({ dueDay: 15 }), base, NOW).dueDay).toBe(15);
   });

@@ -82,7 +82,7 @@ function AprNoteMark({ account }: { account: CreditAccount }) {
   return (
     <span
       ref={ref}
-      className="relative ml-0.5 text-[#d29922] cursor-help select-none"
+      className="relative ml-0.5 text-[#d29922] cursor-default select-none"
       tabIndex={0}
       aria-label={note}
       onMouseEnter={open}
@@ -168,9 +168,10 @@ interface Draft {
   apr: string;
   monthlyPayment: string;
   dueDay: string; // day of month, '' = not set
+  paymentMethod: string; // bank account the payment is drawn from, '' = not set
 }
 
-const EMPTY_DRAFT: Draft = { name: '', balance: '', apr: '', monthlyPayment: '', dueDay: '' };
+const EMPTY_DRAFT: Draft = { name: '', balance: '', apr: '', monthlyPayment: '', dueDay: '', paymentMethod: '' };
 
 function draftFrom(a: CreditAccount): Draft {
   return {
@@ -179,12 +180,13 @@ function draftFrom(a: CreditAccount): Draft {
     apr: String(a.apr),
     monthlyPayment: a.monthlyPayment ? String(a.monthlyPayment) : '',
     dueDay: a.dueDay ? String(a.dueDay) : '',
+    paymentMethod: a.paymentMethod ?? '',
   };
 }
 
 /* --------------------------------- sorting -------------------------------- */
 
-type SortKey = 'name' | 'balance' | 'apr' | 'interest' | 'payment' | 'due' | 'payoff';
+type SortKey = 'name' | 'balance' | 'apr' | 'interest' | 'payment' | 'method' | 'due' | 'payoff';
 type SortDir = 'asc' | 'desc';
 interface SortState {
   key: SortKey;
@@ -198,6 +200,7 @@ const DEFAULT_DIR: Record<SortKey, SortDir> = {
   apr: 'desc',
   interest: 'desc',
   payment: 'desc',
+  method: 'asc',
   due: 'asc',
   payoff: 'asc',
 };
@@ -236,6 +239,13 @@ function sortValue(a: CreditAccount, key: SortKey, today: string): number {
 
 function compareAccounts(a: CreditAccount, b: CreditAccount, key: SortKey, today: string): number {
   if (key === 'name') return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  if (key === 'method') {
+    // Alphabetical, with "not set" always last regardless of direction.
+    const ma = a.paymentMethod ?? '';
+    const mb = b.paymentMethod ?? '';
+    if (!ma || !mb) return ma === mb ? 0 : ma ? -1 : 1;
+    return ma.localeCompare(mb, undefined, { sensitivity: 'base' });
+  }
   const va = sortValue(a, key, today);
   const vb = sortValue(b, key, today);
   // Comparison, not subtraction — Infinity - Infinity is NaN.
@@ -371,6 +381,7 @@ export default function FinancesView() {
       apr: parseFloat(draft.apr) || 0,
       monthlyPayment: parseFloat(draft.monthlyPayment) || 0,
       dueDay: draft.dueDay.trim() === '' ? null : parseInt(draft.dueDay, 10),
+      paymentMethod: draft.paymentMethod.trim() === '' ? null : draft.paymentMethod.trim(),
     };
     if (editingId) {
       mutate('PUT', { id: editingId, ...body });
@@ -621,7 +632,7 @@ export default function FinancesView() {
         {/* Add form */}
         {adding && (
           <div className="px-4 py-3 border-b border-[#30363d] bg-[#0d1117]/30">
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-2">
               <input
                 className={inputClass + ' col-span-2 md:col-span-1'}
                 placeholder="Name"
@@ -672,6 +683,14 @@ export default function FinancesView() {
                 onChange={(e) => setDraft({ ...draft, dueDay: e.target.value })}
                 title="Day of the month the payment is due"
               />
+              <input
+                className={inputClass}
+                placeholder="Paid from (e.g. Chase)"
+                maxLength={80}
+                value={draft.paymentMethod}
+                onChange={(e) => setDraft({ ...draft, paymentMethod: e.target.value })}
+                title="Bank account the payment is charged to"
+              />
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={submitDraft}
@@ -707,6 +726,7 @@ export default function FinancesView() {
                 <SortHeader label="APR" sortKey="apr" sort={sort} onToggle={toggleSort} />
                 <SortHeader label="Interest/mo" sortKey="interest" sort={sort} onToggle={toggleSort} />
                 <SortHeader label="Payment/mo" sortKey="payment" sort={sort} onToggle={toggleSort} />
+                <SortHeader label="Payment Method" sortKey="method" sort={sort} onToggle={toggleSort} align="left" />
                 <SortHeader label="Payment Due" sortKey="due" sort={sort} onToggle={toggleSort} />
                 <SortHeader label="Payoff" sortKey="payoff" sort={sort} onToggle={toggleSort} />
                 <th className="px-3 py-2.5 w-20" />
@@ -764,6 +784,16 @@ export default function FinancesView() {
                             value={draft.monthlyPayment}
                             onChange={(e) => setDraft({ ...draft, monthlyPayment: e.target.value })}
                             placeholder="0"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            className={inputClass}
+                            maxLength={80}
+                            value={draft.paymentMethod}
+                            onChange={(e) => setDraft({ ...draft, paymentMethod: e.target.value })}
+                            placeholder="Paid from"
+                            title="Bank account the payment is charged to"
                           />
                         </td>
                         <td className="px-3 py-2">
@@ -836,6 +866,13 @@ export default function FinancesView() {
                         <td className="px-3 py-2.5 text-right tabular-nums">
                           {a.monthlyPayment > 0 ? (
                             <span className="text-white">{usd(a.monthlyPayment)}</span>
+                          ) : (
+                            <span className="text-[#484f58]">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-left">
+                          {a.paymentMethod ? (
+                            <span className="text-white">{a.paymentMethod}</span>
                           ) : (
                             <span className="text-[#484f58]">—</span>
                           )}
@@ -922,7 +959,7 @@ export default function FinancesView() {
                 <td className="px-3 py-2.5 text-right text-xs text-[#8b949e] tabular-nums">
                   {totalPayments > 0 ? usd(totalPayments) : '—'}
                 </td>
-                <td colSpan={3} />
+                <td colSpan={4} />
               </tr>
             </tfoot>
           </table>
@@ -986,6 +1023,13 @@ export default function FinancesView() {
                         onChange={(e) => setDraft({ ...draft, dueDay: e.target.value })}
                         placeholder="Due day (1–31)"
                       />
+                      <input
+                        className={inputClass + ' col-span-2'}
+                        maxLength={80}
+                        value={draft.paymentMethod}
+                        onChange={(e) => setDraft({ ...draft, paymentMethod: e.target.value })}
+                        placeholder="Paid from (e.g. Chase)"
+                      />
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -1026,6 +1070,11 @@ export default function FinancesView() {
                       {a.balance > 0 && (
                         <p className="text-xs mt-0.5">
                           <DueCell account={a} prefix="Due " />
+                        </p>
+                      )}
+                      {a.paymentMethod && (
+                        <p className="text-xs text-[#8b949e] mt-0.5">
+                          Paid from <span className="text-white">{a.paymentMethod}</span>
                         </p>
                       )}
                       <p className="text-xs mt-0.5">
