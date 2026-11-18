@@ -56,6 +56,58 @@ export function applyManualEdit(existing: CreditAccount, edit: ManualEdit, now: 
   return next;
 }
 
+/* ------------------------------ live edit preview ------------------------------ */
+
+/** What the add/edit form holds while the user types — raw input strings, '' = not set. */
+export interface AccountDraft {
+  name: string;
+  balance: string;
+  apr: string;
+  monthlyPayment: string;
+  dueDay: string;
+  paymentMethod: string;
+}
+
+/**
+ * Parse a form draft exactly the way the save path does, so a live preview
+ * always shows the numbers that Save would store. Blank or unparseable
+ * amounts read as 0; a blank or non-integer due day clears it.
+ */
+export function parseDraft(draft: AccountDraft): ManualEdit {
+  const dueDay = parseInt(draft.dueDay, 10);
+  return {
+    name: draft.name,
+    balance: parseFloat(draft.balance) || 0,
+    apr: parseFloat(draft.apr) || 0,
+    monthlyPayment: parseFloat(draft.monthlyPayment) || 0,
+    dueDay: draft.dueDay.trim() === '' || !Number.isInteger(dueDay) ? null : dueDay,
+    paymentMethod: draft.paymentMethod.trim() === '' ? null : draft.paymentMethod.trim(),
+  };
+}
+
+/**
+ * The account as it will look once the draft is saved. The UI recomputes
+ * interest, payoff and the summary totals from this on every keystroke, so a
+ * balance typed into the table is reflected everywhere before it is saved.
+ */
+export function previewEdit(existing: CreditAccount, draft: AccountDraft): CreditAccount {
+  return applyManualEdit(existing, parseDraft(draft), existing.updatedAt);
+}
+
+/**
+ * The stored accounts with the one being edited swapped for its live preview.
+ * Returns the input array untouched when nothing is being edited so memoised
+ * consumers don't re-render needlessly.
+ */
+export function withLiveEdit(
+  accounts: CreditAccount[],
+  editingId: string | null,
+  draft: AccountDraft,
+): CreditAccount[] {
+  if (!editingId) return accounts;
+  return accounts.map((a) => (a.id === editingId ? previewEdit(a, draft) : a));
+}
+
 // One snapshot per EST day — recorded on every mutation so the history chart
 // builds itself over time.
 export interface BalanceSnapshot {
