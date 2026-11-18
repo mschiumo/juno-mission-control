@@ -27,9 +27,13 @@ import {
 } from 'recharts';
 import {
   CreditAccount,
+  AccountDraft,
   BalanceSnapshot,
+  PayoffProjection,
   monthlyInterest,
+  parseDraft,
   projectPayoff,
+  withLiveEdit,
   weightedAvgApr,
   aprNote,
   nextPaymentDue,
@@ -162,14 +166,8 @@ const DUE_SOON_DAYS = 3;
 
 /* --------------------------------- helpers -------------------------------- */
 
-interface Draft {
-  name: string;
-  balance: string;
-  apr: string;
-  monthlyPayment: string;
-  dueDay: string; // day of month, '' = not set
-  paymentMethod: string; // bank account the payment is drawn from, '' = not set
-}
+/** Raw form strings; parsed by `parseDraft` on save and for the live preview. */
+type Draft = AccountDraft;
 
 const EMPTY_DRAFT: Draft = { name: '', balance: '', apr: '', monthlyPayment: '', dueDay: '', paymentMethod: '' };
 
@@ -375,14 +373,8 @@ export default function FinancesView() {
   }
 
   function submitDraft() {
-    const body = {
-      name: draft.name,
-      balance: parseFloat(draft.balance) || 0,
-      apr: parseFloat(draft.apr) || 0,
-      monthlyPayment: parseFloat(draft.monthlyPayment) || 0,
-      dueDay: draft.dueDay.trim() === '' ? null : parseInt(draft.dueDay, 10),
-      paymentMethod: draft.paymentMethod.trim() === '' ? null : draft.paymentMethod.trim(),
-    };
+    // Same parser the live preview uses, so what you watched update is what gets stored.
+    const body = parseDraft(draft);
     if (editingId) {
       mutate('PUT', { id: editingId, ...body });
     } else {
@@ -392,30 +384,48 @@ export default function FinancesView() {
 
   /* ------------------------------ derived data ----------------------------- */
 
-  const totalDebt = accounts.reduce((s, a) => s + a.balance, 0);
-  const totalMonthlyInterest = accounts.reduce((s, a) => s + monthlyInterest(a.balance, a.apr), 0);
-  const totalPayments = accounts.reduce((s, a) => s + a.monthlyPayment, 0);
-  const avgApr = weightedAvgApr(accounts);
+  /**
+   * The accounts as every number on the page should see them right now: the
+   * stored rows, with the row being edited replaced by what its inputs hold.
+   * Each keystroke in a Balance / APR / Payment field goes through setDraft,
+   * so this — and everything derived from it: the Interest/mo and Payoff
+   * cells, the summary cards, the totals row and the payoff outlook —
+   * recalculates live instead of waiting for Save.
+   */
+  const liveAccounts = useMemo(() => withLiveEdit(accounts, editingId, draft), [accounts, editingId, draft]);
+  /** True while a row's unsaved values are feeding the numbers above the table. */
+  const previewing = liveAccounts !== accounts;
 
-  const avalancheId = accounts.filter((a) => a.balance > 0).sort((a, b) => b.apr - a.apr)[0]?.id;
+  const totalDebt = liveAccounts.reduce((s, a) => s + a.balance, 0);
+  const totalMonthlyInterest = liveAccounts.reduce((s, a) => s + monthlyInterest(a.balance, a.apr), 0);
+  const totalPayments = liveAccounts.reduce((s, a) => s + a.monthlyPayment, 0);
+  const avgApr = weightedAvgApr(liveAccounts);
+
+  const avalancheId = liveAccounts.filter((a) => a.balance > 0).sort((a, b) => b.apr - a.apr)[0]?.id;
 
   // Only rendered after the client-side fetch resolves, so the viewer's local
   // date is safe to read here without a hydration mismatch.
   const today = toLocalDateKey(new Date());
-  const nextPayment = nextPaymentSummary(accounts, today);
+  const nextPayment = nextPaymentSummary(liveAccounts, today);
 
-  /** What both the table and the mobile cards render. Stable — ties keep server order. */
+  /**
+   * What both the table and the mobile cards render. Ordered by the STORED
+   * values so a row doesn't jump around the table while its balance is being
+   * typed, but each row carries its live values. Stable — ties keep server order.
+   */
   const sortedAccounts = useMemo(() => {
-    if (!sort) return accounts;
-    const dir = sort.dir === 'asc' ? 1 : -1;
-    return accounts
-      .map((a, i) => ({ a, i }))
-      .sort((x, y) => {
-        const c = compareAccounts(x.a, y.a, sort.key, today);
-        return c !== 0 ? c * dir : x.i - y.i;
-      })
-      .map(({ a }) => a);
-  }, [accounts, sort, today]);
+    const liveById = new Map(liveAccounts.map((a) => [a.id, a]));
+    const ordered = !sort
+      ? accounts
+      : accounts
+          .map((a, i) => ({ a, i }))
+          .sort((x, y) => {
+            const c = compareAccounts(x.a, y.a, sort.key, today);
+            return c !== 0 ? c * (sort.dir === 'asc' ? 1 : -1) : x.i - y.i;
+          })
+          .map(({ a }) => a);
+    return ordered.map((a) => liveById.get(a.id) ?? a);
+  }, [accounts, liveAccounts, sort, today]);
 
   /** Click a header: sort by it, or flip the direction if it's already active. */
   function toggleSort(key: SortKey) {
@@ -426,7 +436,7 @@ export default function FinancesView() {
     );
   }
 
-  const carried = accounts.filter((a) => a.balance > 0);
+  const carried = liveAccounts.filter((a) => a.balance > 0);
   const projections = carried.map((a) => ({ a, p: projectPayoff(a.balance, a.apr, a.monthlyPayment) }));
   const missingPayment = projections.filter(({ p }) => p.status === 'no-payment');
   const tooLow = projections.filter(({ p }) => p.status === 'payment-too-low');
@@ -537,13 +547,62 @@ export default function FinancesView() {
     return <span className="font-medium text-white tabular-nums">{usd(account.balance)}</span>;
   }
 
+  /** Table Payoff column — the same for a stored row and one being edited, so it updates as you type. */
+  function PayoffCell({ account, proj }: { account: CreditAccount; proj: PayoffProjection }) {
+    if (proj.status === 'ok' && account.balance > 0) {
+      return (
+        <span
+          className="text-[#3fb950]"
+          title={`Debt-free ${payoffDateLabel(proj.months)} · ${usd0(proj.totalInterest)} interest`}
+        >
+          {formatMonths(proj.months)} · {payoffDateLabel(proj.months)}
+        </span>
+      );
+    }
+    if (proj.status === 'payment-too-low') {
+      return (
+        <span
+          className="inline-flex items-center gap-1 text-[#f85149]"
+          title="Payment doesn't cover monthly interest — the balance will grow"
+        >
+          <AlertTriangle className="w-3 h-3" /> Too low
+        </span>
+      );
+    }
+    if (account.balance <= 0) return <span className="text-[#3fb950]">Paid off</span>;
+    return <span className="text-[#484f58]">Set payment</span>;
+  }
+
+  /** Mobile-card payoff sentence; same inputs as PayoffCell. */
+  function PayoffNote({ account, proj }: { account: CreditAccount; proj: PayoffProjection }) {
+    if (proj.status === 'ok' && account.balance > 0) {
+      return (
+        <span className="text-[#3fb950]">
+          Debt-free {payoffDateLabel(proj.months)} ({formatMonths(proj.months)})
+        </span>
+      );
+    }
+    if (proj.status === 'payment-too-low') return <span className="text-[#f85149]">Payment below monthly interest</span>;
+    if (account.balance <= 0) return <span className="text-[#3fb950]">Paid off</span>;
+    return <span className="text-[#484f58]">No payment set</span>;
+  }
+
   return (
     <div className="space-y-5 animate-fade-up">
       {/* Summary strip */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {stats.map((s) => (
           <div key={s.label} className="bg-[#161b22] border border-[#30363d] rounded-xl px-4 py-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-[#8b949e]">{s.label}</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-[#8b949e]">
+              {s.label}
+              {previewing && (
+                <span
+                  className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-[#d29922] align-middle animate-pulse"
+                  role="img"
+                  aria-label="Includes the row you're editing — save to keep it"
+                />
+              )}
+            </p>
             <p
               className={`mt-1 text-lg md:text-xl font-semibold ${
                 s.accent
@@ -773,7 +832,9 @@ export default function FinancesView() {
                             onChange={(e) => setDraft({ ...draft, apr: e.target.value })}
                           />
                         </td>
-                        <td className="px-3 py-2 text-right text-[#8b949e]">—</td>
+                        <td className="px-3 py-2 text-right text-[#8b949e] tabular-nums" aria-live="polite">
+                          {usd(monthlyInterest(a.balance, a.apr))}
+                        </td>
                         <td className="px-3 py-2">
                           <input
                             className={inputClass + ' text-right'}
@@ -810,7 +871,9 @@ export default function FinancesView() {
                             title="Day of the month the payment is due (1–31)"
                           />
                         </td>
-                        <td className="px-3 py-2 text-right text-[#8b949e]">—</td>
+                        <td className="px-3 py-2 text-right text-xs" aria-live="polite">
+                          <PayoffCell account={a} proj={proj} />
+                        </td>
                         <td className="px-3 py-2">
                           <div className="flex items-center justify-end gap-1">
                             <button
@@ -881,25 +944,7 @@ export default function FinancesView() {
                           <DueCell account={a} />
                         </td>
                         <td className="px-3 py-2.5 text-right text-xs">
-                          {proj.status === 'ok' && a.balance > 0 ? (
-                            <span
-                              className="text-[#3fb950]"
-                              title={`Debt-free ${payoffDateLabel(proj.months)} · ${usd0(proj.totalInterest)} interest`}
-                            >
-                              {formatMonths(proj.months)} · {payoffDateLabel(proj.months)}
-                            </span>
-                          ) : proj.status === 'payment-too-low' ? (
-                            <span
-                              className="inline-flex items-center gap-1 text-[#f85149]"
-                              title="Payment doesn't cover monthly interest — the balance will grow"
-                            >
-                              <AlertTriangle className="w-3 h-3" /> Too low
-                            </span>
-                          ) : a.balance <= 0 ? (
-                            <span className="text-[#3fb950]">Paid off</span>
-                          ) : (
-                            <span className="text-[#484f58]">Set payment</span>
-                          )}
+                          <PayoffCell account={a} proj={proj} />
                         </td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center justify-end gap-1">
@@ -1031,6 +1076,9 @@ export default function FinancesView() {
                         placeholder="Paid from (e.g. Chase)"
                       />
                     </div>
+                    <p className="text-xs text-[#8b949e] tabular-nums" aria-live="polite">
+                      {usd(monthlyInterest(a.balance, a.apr))}/mo interest · <PayoffNote account={a} proj={proj} />
+                    </p>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={submitDraft}
@@ -1078,17 +1126,7 @@ export default function FinancesView() {
                         </p>
                       )}
                       <p className="text-xs mt-0.5">
-                        {proj.status === 'ok' && a.balance > 0 ? (
-                          <span className="text-[#3fb950]">
-                            Debt-free {payoffDateLabel(proj.months)} ({formatMonths(proj.months)})
-                          </span>
-                        ) : proj.status === 'payment-too-low' ? (
-                          <span className="text-[#f85149]">Payment below monthly interest</span>
-                        ) : a.balance <= 0 ? (
-                          <span className="text-[#3fb950]">Paid off</span>
-                        ) : (
-                          <span className="text-[#484f58]">No payment set</span>
-                        )}
+                        <PayoffNote account={a} proj={proj} />
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
