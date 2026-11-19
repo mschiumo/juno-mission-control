@@ -927,7 +927,8 @@ export default function HabitCard() {
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0d1117] border border-[#30363d] rounded text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            {/* Below the button (like the Progress tip): the card is overflow-hidden, so an above-the-button tip is clipped at the card edge. */}
+            <div className="absolute top-full right-0 mt-1.5 px-2 py-1 bg-[#30363d] text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
               Add New Habit
             </div>
           </div>
