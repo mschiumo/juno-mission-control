@@ -16,18 +16,17 @@ import EveningCheckinReminder from "@/components/EveningCheckinReminder";
 import TradingView from "@/components/TradingView";
 import FinancesView from "@/components/finances/FinancesView";
 import PortfolioView from "@/components/portfolio/PortfolioView";
-import AccountMetricsView from "@/components/admin/AccountMetricsView";
-import UsageAnalyticsView from "@/components/admin/UsageAnalyticsView";
+import AnalyticsView from "@/components/admin/AnalyticsView";
 import LandingPage from "@/components/landing/LandingPage";
 import UserAvatar from "@/components/UserAvatar";
 import VerifyEmailBanner from "@/components/VerifyEmailBanner";
 import Link from 'next/link';
-import { LayoutDashboard, Target, TrendingUp, Wallet, Users, Menu, X, LogOut, PieChart } from 'lucide-react';
+import { LayoutDashboard, Target, TrendingUp, Wallet, BarChart3, Menu, X, LogOut, PieChart } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { isOwnerEmail } from '@/lib/owner';
 import { useEntitlements } from '@/lib/use-entitlements';
 
-type TabId = 'dashboard' | 'finances' | 'portfolio' | 'trading' | 'goals' | 'accounts';
+type TabId = 'dashboard' | 'finances' | 'portfolio' | 'trading' | 'goals' | 'analytics';
 
 // Inner component that uses searchParams
 function DashboardContent() {
@@ -48,7 +47,8 @@ function DashboardContent() {
     if (tab === 'finances' && isOwner) return 'finances';
     if (tab === 'portfolio' && canPortfolio) return 'portfolio';
     if (tab === 'goals' && isOwner) return 'goals';
-    if (tab === 'accounts' && isOwner) return 'accounts';
+    // 'accounts' is the tab's old name; keep bookmarks working.
+    if ((tab === 'analytics' || tab === 'accounts') && isOwner) return 'analytics';
     if (isOwner) return 'dashboard';
     return 'trading';
   }, [searchParams, isOwner, canPortfolio]);
@@ -92,7 +92,7 @@ function DashboardContent() {
         { id: 'portfolio' as const, label: 'Portfolio', icon: PieChart },
         { id: 'trading' as const, label: 'Trading', icon: TrendingUp },
         { id: 'goals' as const, label: 'Goals', icon: Target },
-        { id: 'accounts' as const, label: 'Accounts', icon: Users },
+        { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
       ]
     : canPortfolio && !entitlementsLoading
       ? [
@@ -271,11 +271,10 @@ function DashboardContent() {
               <GoalsCard />
             </Suspense>
           </div>
-        ) : activeTab === 'accounts' ? (
-          /* Owner-only account metrics + usage analytics */
-          <div className="max-w-[1600px] mx-auto space-y-10">
-            <AccountMetricsView />
-            <UsageAnalyticsView />
+        ) : activeTab === 'analytics' ? (
+          /* Owner-only analytics: ConfluenceTrading vs MJSWrites, one site at a time */
+          <div className="max-w-[1600px] mx-auto">
+            <AnalyticsView />
           </div>
         ) : null}
       </main>

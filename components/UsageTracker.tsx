@@ -2,7 +2,7 @@
 
 /**
  * Global usage tracker — records page visits and clicks for the owner's
- * analytics dashboard (Accounts tab). Mounted once in app/layout.tsx.
+ * analytics dashboard (Analytics tab). Mounted once in app/layout.tsx.
  *
  * "Pages" here are logical views: the app is a single-page dashboard whose
  * navigation lives in ?tab=/?subtab= (see app/page.tsx / TradingView.tsx),

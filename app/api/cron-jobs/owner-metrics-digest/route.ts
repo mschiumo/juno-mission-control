@@ -3,7 +3,7 @@
  *
  * Runs each morning (see vercel.json) and sends the owner a rundown of
  * account state and the last 24 hours of plan activity. Uses the same
- * computeAccountMetrics() as the in-app Accounts tab.
+ * computeAccountMetrics() as the in-app Analytics tab.
  */
 
 import { NextResponse } from 'next/server';
