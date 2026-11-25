@@ -1,13 +1,16 @@
 'use client';
 
 /**
- * Usage analytics — owner-only page-visit and click metrics, rendered below
- * the account metrics on the Accounts tab.
+ * Usage analytics — owner-only page-visit and click metrics for one tracked
+ * site, rendered on the Analytics tab. The `site` prop picks the property:
+ * ConfluenceTrading ('app') or mjswrites.com ('mjswrites'). Each has its own
+ * key space server-side, so the numbers here are only ever one site's.
  *
- * Reads GET /api/admin/analytics: daily views/visitors, top pages, top
- * clicks, and a recent-events feed, all captured by the global UsageTracker.
- * The same response carries recent plan-lifecycle events, which are merged
- * with the usage feed into the single Recent activity card at the bottom.
+ * Reads GET /api/admin/analytics?site=…: daily views/visitors, top pages,
+ * top clicks, and (where the tracker sends them — the blog does) referrers
+ * and countries, plus a recent-events feed. For the app the same response
+ * carries recent plan-lifecycle events, merged with the usage feed into the
+ * single Recent activity card at the bottom; the blog has no accounts.
  *
  * The owner's own browsing is excluded by default — otherwise the numbers
  * mostly measure the owner testing the app. "Include mine" turns it back on;
@@ -15,7 +18,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, Eye, MousePointerClick, RefreshCw, User, Users } from 'lucide-react';
+import { BarChart3, Eye, Globe, Link2, MousePointerClick, RefreshCw, User, Users } from 'lucide-react';
+import type { AnalyticsSite } from '@/lib/analytics-sites';
 import type { UsageSummary } from '@/lib/db/usage-analytics';
 import type { PlanEvent } from '@/lib/db/plan-events';
 import RecentActivityFeed from '@/components/admin/RecentActivityFeed';
@@ -129,7 +133,12 @@ function RankedList({
   );
 }
 
-export default function UsageAnalyticsView() {
+/** Flag emoji from an ISO alpha-2 code, so the countries list scans quickly. */
+function flagFor(country: string): string {
+  return String.fromCodePoint(...[...country.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
+}
+
+export default function UsageAnalyticsView({ site = 'app' }: { site?: AnalyticsSite }) {
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [planEvents, setPlanEvents] = useState<PlanEvent[]>([]);
   const [planLast24h, setPlanLast24h] = useState(0);
@@ -153,7 +162,7 @@ export default function UsageAnalyticsView() {
     setError(null);
     try {
       const res = await fetch(
-        `/api/admin/analytics?days=${windowDays}${withOwner ? '&includeOwner=1' : ''}`,
+        `/api/admin/analytics?site=${site}&days=${windowDays}${withOwner ? '&includeOwner=1' : ''}`,
       );
       const json = await res.json();
       if (json.success) {
@@ -168,7 +177,7 @@ export default function UsageAnalyticsView() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [site]);
 
   useEffect(() => {
     load(days, includeOwner);
@@ -228,7 +237,7 @@ export default function UsageAnalyticsView() {
             Usage
           </h2>
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            Page visits and clicks · UTC days ·{' '}
+            {site === 'mjswrites' ? 'mjswrites.com' : 'confluencetrading.app'} · page visits and clicks · UTC days ·{' '}
             {includeOwner ? 'your own activity included' : 'your own activity hidden'}
           </p>
         </div>
@@ -388,12 +397,36 @@ export default function UsageAnalyticsView() {
         />
       </div>
 
-      {/* Merged plan + usage activity feed */}
+      {/* Referrers + countries — only the blog tracker sends referrers, and
+          country comes from Vercel's geo header, so these may be empty. */}
+      {(s.topReferrers.length > 0 || s.topCountries.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <RankedList
+            title="Top referrers"
+            icon={Link2}
+            rows={s.topReferrers.map((r) => ({ key: r.referrer, label: r.referrer, count: r.views }))}
+            emptyText="No referrers recorded yet."
+          />
+          <RankedList
+            title="Top countries"
+            icon={Globe}
+            rows={s.topCountries.map((c) => ({
+              key: c.country,
+              label: `${flagFor(c.country)} ${c.country}`,
+              count: c.views,
+            }))}
+            emptyText="No countries recorded yet."
+          />
+        </div>
+      )}
+
+      {/* Merged plan + usage activity feed (usage only for the blog) */}
       <RecentActivityFeed
         planEvents={planEvents}
         planLast24h={planLast24h}
         usageEvents={s.recentEvents}
         ownerHidden={!includeOwner}
+        showPlans={site === 'app'}
       />
     </div>
   );

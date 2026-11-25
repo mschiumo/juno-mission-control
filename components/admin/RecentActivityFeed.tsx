@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Recent activity — the one feed on the Accounts tab. Plan-lifecycle events
+ * Recent activity — the one feed on the Analytics tab. Plan-lifecycle events
  * (signups, trials, cancellations, deletions) and usage events (page views,
  * clicks) are interleaved newest-first so the owner reads a single timeline
  * instead of two cards that each grew without bound.
@@ -9,6 +9,9 @@
  * Usage events outnumber plan events by an order of magnitude, so the chips
  * isolate the rare plan events without giving up the merged view. The list
  * scrolls inside a fixed height rather than extending the page.
+ *
+ * The MJSWrites view has no accounts and so no plan events; it passes
+ * `showPlans={false}` and the feed becomes a plain usage timeline.
  */
 
 import { useMemo, useState } from 'react';
@@ -113,6 +116,7 @@ export default function RecentActivityFeed({
   planLast24h,
   usageEvents,
   ownerHidden,
+  showPlans = true,
 }: {
   planEvents: PlanEvent[];
   /** Plan events in the last 24h, counted server-side so render stays pure. */
@@ -120,6 +124,8 @@ export default function RecentActivityFeed({
   usageEvents: UsageEventWithLabel[];
   /** True when the owner's own events were filtered out upstream (affects empty-state copy). */
   ownerHidden: boolean;
+  /** False for sites without accounts: hides the plan chips and plan counts. */
+  showPlans?: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>('all');
 
@@ -145,12 +151,18 @@ export default function RecentActivityFeed({
             Recent activity
           </h3>
           <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            {planEvents.length} plan · {usageEvents.length} usage · {planLast24h} plan event
-            {planLast24h === 1 ? '' : 's'} in the last 24h
+            {showPlans ? (
+              <>
+                {planEvents.length} plan · {usageEvents.length} usage · {planLast24h} plan event
+                {planLast24h === 1 ? '' : 's'} in the last 24h
+              </>
+            ) : (
+              <>{usageEvents.length} usage events</>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-1">
-          {FILTERS.map((f) => {
+          {showPlans && FILTERS.map((f) => {
             const active = filter === f.id;
             return (
               <button

@@ -1,7 +1,7 @@
 /**
  * Daily account-metrics digest for the owner. Rendered by the
  * owner-metrics-digest cron; the numbers come from computeAccountMetrics(),
- * the same source as the in-app Accounts tab.
+ * the same source as the in-app Analytics tab.
  */
 
 import { Section, Text, Row, Column, Hr } from '@react-email/components';

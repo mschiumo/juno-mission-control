@@ -1,5 +1,5 @@
 /**
- * GET /api/admin/metrics — owner-only account metrics for the Accounts tab.
+ * GET /api/admin/metrics — owner-only account metrics for the Analytics tab.
  * Same computation as the daily digest email, so the numbers always agree.
  */
 

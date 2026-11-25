@@ -1,5 +1,5 @@
 /**
- * Account metrics — one computation shared by the owner's Accounts tab
+ * Account metrics — one computation shared by the owner's Analytics tab
  * (GET /api/admin/metrics) and the daily digest email cron, so the numbers
  * in both always agree.
  *

@@ -1,12 +1,13 @@
 'use client';
 
 /**
- * Accounts — owner-only metrics dashboard (top-level tab).
+ * Accounts — owner-only account metrics, the top of the Analytics tab's
+ * ConfluenceTrading view.
  *
  * Reads GET /api/admin/metrics: totals, tier/source breakdowns, brokerage
  * connections and expiring access. The daily digest email renders the same
  * computation, so the two always agree. Plan-lifecycle events are shown in
- * the merged Recent activity feed further down the tab (RecentActivityFeed).
+ * the merged Recent activity feed further down the view (RecentActivityFeed).
  */
 
 import { useCallback, useEffect, useState } from 'react';
