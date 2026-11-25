@@ -20,8 +20,7 @@
 import { useCallback } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { TrendingUp, Feather } from 'lucide-react';
-import type { AnalyticsSite } from '@/lib/db/usage-analytics';
-import { parseAnalyticsSite } from '@/lib/db/usage-analytics';
+import { parseAnalyticsSite, type AnalyticsSite } from '@/lib/analytics-sites';
 import AccountMetricsView from '@/components/admin/AccountMetricsView';
 import UsageAnalyticsView from '@/components/admin/UsageAnalyticsView';
 

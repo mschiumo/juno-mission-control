@@ -44,14 +44,10 @@ import { OWNER_EMAIL } from '@/lib/owner';
 
 export type UsageEventType = 'pageview' | 'click';
 
-/** The properties tracked here. Each has its own key space and dashboard tab. */
-export type AnalyticsSite = 'app' | 'mjswrites';
-export const ANALYTICS_SITES: readonly AnalyticsSite[] = ['app', 'mjswrites'];
-
-/** Coerce a query/payload value to a site, defaulting to the app itself. */
-export function parseAnalyticsSite(value: unknown): AnalyticsSite {
-  return value === 'mjswrites' ? 'mjswrites' : 'app';
-}
+// Site type + parser live in a pure module so client components can import
+// them without dragging this file's Redis client into the browser bundle.
+import type { AnalyticsSite } from '@/lib/analytics-sites';
+export { ANALYTICS_SITES, parseAnalyticsSite, type AnalyticsSite } from '@/lib/analytics-sites';
 
 export interface UsageEventInput {
   type: UsageEventType;

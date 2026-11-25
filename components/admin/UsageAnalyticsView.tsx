@@ -19,7 +19,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { BarChart3, Eye, Globe, Link2, MousePointerClick, RefreshCw, User, Users } from 'lucide-react';
-import type { AnalyticsSite, UsageSummary } from '@/lib/db/usage-analytics';
+import type { AnalyticsSite } from '@/lib/analytics-sites';
+import type { UsageSummary } from '@/lib/db/usage-analytics';
 import type { PlanEvent } from '@/lib/db/plan-events';
 import RecentActivityFeed from '@/components/admin/RecentActivityFeed';
 
